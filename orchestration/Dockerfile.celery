@@ -91,8 +91,8 @@ USER app
 ENV PYTHONPATH=/app:/app/backend-django
 WORKDIR /app/backend-django
 
-FROM base AS celery-worker
-CMD ["celery", "-A", "broker_backend", "worker", "-l", "info", "-c", "2"]
-
 FROM base AS celery-beat
 CMD ["celery", "-A", "broker_backend", "beat", "-l", "info"]
+
+FROM base AS celery-worker
+CMD ["python", "-m", "orchestration.celery_health_service"]

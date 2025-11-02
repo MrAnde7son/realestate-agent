@@ -40,9 +40,7 @@ describe('AssetsTable', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
-    })
+    await screen.findByRole('columnheader', { name: /נכס/ })
 
     const rowCheckboxes = screen.getAllByRole('checkbox', { name: /בחר נכס/ })
     fireEvent.click(rowCheckboxes[0])
@@ -69,9 +67,7 @@ describe('AssetsTable', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
-    })
+    await screen.findByRole('columnheader', { name: /נכס/ })
 
     const loadingBody = await screen.findByTestId('assets-table-loading-body')
     expect(loadingBody).toHaveAttribute('aria-busy', 'true')
@@ -113,9 +109,7 @@ describe('AssetsTable', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
-    })
+    await screen.findByRole('columnheader', { name: /נכס/ })
 
     const watchButton = screen.getByRole('button', { name: 'הוסף לרשימת המעקב' })
     fireEvent.click(watchButton)

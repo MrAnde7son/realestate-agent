@@ -202,7 +202,7 @@ export function GlobalSearch() {
         <DialogTitle className="sr-only">חיפוש גלובלי</DialogTitle>
         <CommandInput 
           placeholder="חפש בכל האתר..." 
-          className="text-start border-0 focus:ring-0"
+          className="border-0 focus:ring-0"
           dir="rtl"
           value={searchQuery}
           onValueChange={(value) => {

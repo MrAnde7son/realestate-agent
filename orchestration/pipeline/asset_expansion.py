@@ -615,6 +615,21 @@ def _link_existing_data_to_asset(
     if filtered_gov_decisive is not None:
         filtered_gov_data["decisive"] = filtered_gov_decisive
 
+    # Extract and convert coordinates from GovMap data
+    # GovMap returns ITM coordinates (x, y), not WGS84 (lon, lat)
+    x_itm = (govmap_data or {}).get("x")
+    y_itm = (govmap_data or {}).get("y")
+    lon_wgs84 = None
+    lat_wgs84 = None
+    
+    if x_itm is not None and y_itm is not None:
+        try:
+            from govmap.api_client import itm_to_wgs84
+            lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+            logger.debug(f"Converted ITM({x_itm}, {y_itm}) to WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) for asset {asset.id}")
+        except Exception as e:
+            logger.warning(f"Failed to convert ITM coordinates for asset {asset.id}: {e}")
+    
     update_asset_with_collected_data(
         asset.id,
         block,
@@ -627,10 +642,10 @@ def _link_existing_data_to_asset(
         mavat_plans or [],
         handasa_archive or [],
         filtered_listings,
-        x_itm=(govmap_data or {}).get("x"),
-        y_itm=(govmap_data or {}).get("y"),
-        lon_wgs84=(govmap_data or {}).get("lon"),
-        lat_wgs84=(govmap_data or {}).get("lat"),
+        x_itm=x_itm,
+        y_itm=y_itm,
+        lon_wgs84=lon_wgs84,
+        lat_wgs84=lat_wgs84,
     )
 
     asset.__class__.objects.filter(id=asset.id).update(

@@ -1,22 +1,24 @@
 'use client'
 import * as React from 'react'
-import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, useReactTable, ColumnResizeMode, PaginationState, Updater } from '@tanstack/react-table'
+import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, getSortedRowModel, useReactTable, ColumnResizeMode, PaginationState, Updater, SortingState } from '@tanstack/react-table'
 import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff, Handshake } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff, Handshake, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from './TableToolbar'
 import TablePagination from '@/components/TablePagination'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import ImageGallery from './ImageGallery'
+import { Building } from 'lucide-react'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -122,7 +124,11 @@ function createColumns({
       />
     ),
     enableSorting: false,
-    enableHiding: false
+    enableHiding: false,
+    enableResizing: false,
+    size: 48,
+    minSize: 48,
+    maxSize: 48,
   },
   {
     header:'נכס',
@@ -474,6 +480,7 @@ function createColumns({
     { 
       header:'—', 
       id:'actions', 
+      enableSorting: false,
       enableResizing: false,
       size: 0,
       minSize: 0,
@@ -765,6 +772,9 @@ interface AssetsTableProps {
   pageCount?: number
   totalCount?: number
   pageSizeOptions?: number[]
+  manualSorting?: boolean
+  sortingState?: SortingState
+  onSortingChange?: (value: SortingState) => void
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
@@ -856,6 +866,9 @@ export default function AssetsTable({
   pageCount,
   totalCount,
   pageSizeOptions,
+  manualSorting = false,
+  sortingState,
+  onSortingChange,
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
@@ -891,14 +904,24 @@ export default function AssetsTable({
   const [mounted, setMounted] = React.useState(false)
   const [internalPagination, setInternalPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [exportingAll, setExportingAll] = React.useState(false)
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
 
   const manualPaginationActive = Boolean(manualPagination && paginationState && onPaginationChange)
+  const manualSortingActive = Boolean(manualSorting && sortingState !== undefined && onSortingChange)
   const resolvedPagination = manualPaginationActive ? paginationState! : internalPagination
+  const resolvedSorting = manualSortingActive ? sortingState! : internalSorting
 
   // Handle hydration mismatch
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Sync external sorting state when it changes
+  React.useEffect(() => {
+    if (manualSortingActive && sortingState) {
+      setInternalSorting(sortingState)
+    }
+  }, [manualSortingActive, sortingState])
 
   const handleOpenAlertModal = React.useCallback((assetId: number) => {
     setSelectedAssetId(assetId)
@@ -973,6 +996,22 @@ export default function AssetsTable({
     [manualPaginationActive, onPaginationChange, resolvedPagination]
   )
 
+  const handleSortingChange = React.useCallback(
+    (updater: Updater<SortingState>) => {
+      if (manualSortingActive) {
+        if (onSortingChange) {
+          const next = typeof updater === 'function' ? updater(resolvedSorting) : updater
+          onSortingChange(next)
+        }
+      } else {
+        setInternalSorting(prev =>
+          typeof updater === 'function' ? updater(prev) : updater
+        )
+      }
+    },
+    [manualSortingActive, onSortingChange, resolvedSorting]
+  )
+
   const computedPageCount = React.useMemo(() => {
     if (!manualPaginationActive) {
       return undefined
@@ -1019,16 +1058,26 @@ export default function AssetsTable({
       columnVisibility,
       columnSizing,
       pagination: resolvedPagination,
+      sorting: resolvedSorting,
     },
     enableRowSelection: true,
     enableColumnResizing: true,
+    enableSorting: true,
     columnResizeMode: 'onChange' as ColumnResizeMode,
     columnResizeDirection: 'rtl',
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: handleColumnVisibilityChange,
     onColumnSizingChange: handleColumnSizingChange,
     onPaginationChange: handlePaginationChange,
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
+    ...(manualSortingActive
+      ? {
+          manualSorting: true as const,
+        }
+      : {
+          getSortedRowModel: getSortedRowModel(),
+        }),
     ...(manualPaginationActive
       ? {
           manualPagination: true as const,
@@ -1653,25 +1702,63 @@ export default function AssetsTable({
           />
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (
-            <div className="max-w-full" role="region" aria-label="טבלת נכסים">
+            <div className="max-w-full" role="region" aria-label="טבלת נכסים" aria-live="polite">
               <div className="min-w-fit">
-                <Table style={{ minWidth: table.getCenterTotalSize() }}>
+                <Table 
+                  style={{ minWidth: table.getCenterTotalSize() }}
+                  role="grid"
+                  aria-label="נכסים"
+                  aria-rowcount={data.length}
+                  aria-colcount={table.getFlatHeaders().length}
+                >
                 <THead>
-                  <TR className="group">
-                    {table.getFlatHeaders().map(h=>(
+                  <TR className="group" role="row">
+                    {table.getFlatHeaders().map(h=>{
+                      const sorted = h.column.getIsSorted()
+                      const canSort = h.column.getCanSort()
+                      const sortDirection = sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
+                      return (
                       <TH 
-                        key={h.id} 
+                        key={h.id}
+                        role="columnheader"
+                        scope="col"
+                        aria-sort={canSort ? sortDirection : undefined}
+                        aria-label={canSort ? `${flexRender(h.column.columnDef.header, h.getContext())} - לחץ למיון` : undefined}
                         className={`relative whitespace-nowrap ${h.column.id==='address'?'sticky end-0 bg-card z-10':''} ${
                           h.column.getCanResize() ? 'hover:bg-muted/30' : ''
                         } ${h.column.id === 'actions' ? 'w-full' : ''}`}
                         style={{ 
                           width: h.column.id === 'actions' ? 'auto' : h.getSize(),
-                          minWidth: h.column.id === 'address' ? '200px' : '80px'
+                          minWidth: h.column.id === 'address' ? '200px' : h.column.id === 'select' ? '48px' : '80px'
                         }}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <div className="flex-1">
-                            {flexRender(h.column.columnDef.header, h.getContext())}
+                          <div className="flex-1 flex items-center gap-1">
+                            {canSort ? (
+                              <button
+                                type="button"
+                                onClick={h.column.getToggleSortingHandler()}
+                                className="flex items-center gap-1 text-xs font-medium hover:text-foreground transition-colors disabled:cursor-default"
+                                disabled={!canSort}
+                              >
+                                {flexRender(h.column.columnDef.header, h.getContext())}
+                                {canSort && (
+                                  <span className="text-muted-foreground">
+                                    {sorted === 'asc' ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : sorted === 'desc' ? (
+                                      <ArrowDown className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowUpDown className="h-3 w-3" />
+                                    )}
+                                  </span>
+                                )}
+                              </button>
+                            ) : (
+                              <div className="flex-1">
+                                {flexRender(h.column.columnDef.header, h.getContext())}
+                              </div>
+                            )}
                           </div>
                           {h.column.getCanResize() && (
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 ms-2">
@@ -1694,7 +1781,8 @@ export default function AssetsTable({
                           title="גרור לשינוי רוחב העמודה"
                         />
                       </TH>
-                    ))}
+                      )
+                    })}
                   </TR>
                 </THead>
                 <TBody
@@ -1702,66 +1790,101 @@ export default function AssetsTable({
                   aria-busy={loading ? 'true' : undefined}
                 >
                   {loading ? (
+                    // Improved loading skeletons
                     Array.from({ length: 5 }).map((_, index) => (
-                      <TR key={`loading-${index}`} className="animate-pulse">
-                        <TD colSpan={table.getFlatHeaders().length} className="py-6">
-                          <div className="flex items-center gap-4">
-                            <Skeleton className="h-4 w-4 rounded-full" />
-                            <div className="flex-1 space-y-2">
-                              <Skeleton className="h-4 w-32" />
-                              <Skeleton className="h-3 w-1/2" />
-                            </div>
-                          </div>
-                        </TD>
+                      <TR key={`loading-${index}`}>
+                        {table.getFlatHeaders().map((header, headerIndex) => (
+                          <TD key={`loading-${index}-${headerIndex}`} className="py-4">
+                            {headerIndex === 0 ? (
+                              // First column: checkbox + content
+                              <div className="flex items-center gap-3">
+                                <Skeleton className="h-4 w-4 rounded" />
+                                <div className="flex-1 space-y-2">
+                                  <Skeleton className="h-4 w-32" />
+                                  <Skeleton className="h-3 w-24" />
+                                </div>
+                              </div>
+                            ) : headerIndex === 1 ? (
+                              // Second column: image + address
+                              <div className="flex items-center gap-3">
+                                <Skeleton className="h-12 w-12 rounded-md" />
+                                <div className="flex-1 space-y-2">
+                                  <Skeleton className="h-4 w-40" />
+                                  <Skeleton className="h-3 w-28" />
+                                </div>
+                              </div>
+                            ) : (
+                              // Other columns: simple skeleton
+                              <Skeleton className="h-4 w-20" />
+                            )}
+                          </TD>
+                        ))}
                       </TR>
                     ))
                   ) : table.getRowModel().rows.length === 0 ? (
                     <TR>
-                      <TD colSpan={table.getFlatHeaders().length} className="text-center py-12">
-                        <div className="flex flex-col items-center justify-center space-y-4">
-                          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                            <Search className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                          <div className="text-center">
-                            <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
-                            <p className="text-muted-foreground">
-                              {searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
-                                ? 'נסה לשנות את הסינון או החיפוש'
-                                : 'אין נכסים זמינים כרגע'}
-                            </p>
-                            {!searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew && (
-                              <Button className="mt-4" onClick={onAddNew}>
+                      <TD colSpan={table.getFlatHeaders().length} className="py-12">
+                        <EmptyState
+                          icon={Search}
+                          title="לא נמצאו נכסים"
+                          description={
+                            searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
+                              ? 'נסה לשנות את הסינון או החיפוש'
+                              : 'אין נכסים זמינים כרגע'
+                          }
+                          action={
+                            !searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew ? (
+                              <Button onClick={onAddNew}>
                                 <Plus className="h-4 w-4 ms-2" />
                                 הוסף נכס ראשון
                               </Button>
-                            )}
-                          </div>
-                        </div>
+                            ) : undefined
+                          }
+                        />
                       </TD>
                     </TR>
                   ) : (
-                    table.getRowModel().rows.map(row=>(
+                    table.getRowModel().rows.map((row, rowIndex) => (
                       <TR
                         key={row.id}
-                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        role="row"
+                        aria-rowindex={rowIndex + 1}
+                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                         onClick={() => handleRowClick(row.original)}
                         tabIndex={0}
-                        role="button"
-                        aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
+                        aria-label={`נכס ${row.original.address || row.original.id} - לחץ Enter או רווח לפרטים`}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault()
                             handleRowClick(row.original)
                           }
+                          // Arrow key navigation
+                          if (e.key === 'ArrowDown' && rowIndex < table.getRowModel().rows.length - 1) {
+                            e.preventDefault()
+                            const nextRow = table.getRowModel().rows[rowIndex + 1]
+                            if (nextRow) {
+                              const nextElement = document.querySelector(`[aria-rowindex="${rowIndex + 2}"]`) as HTMLElement
+                              nextElement?.focus()
+                            }
+                          }
+                          if (e.key === 'ArrowUp' && rowIndex > 0) {
+                            e.preventDefault()
+                            const prevRow = table.getRowModel().rows[rowIndex - 1]
+                            if (prevRow) {
+                              const prevElement = document.querySelector(`[aria-rowindex="${rowIndex}"]`) as HTMLElement
+                              prevElement?.focus()
+                            }
+                          }
                         }}
                       >
-                        {row.getVisibleCells().map(cell=>(
+                        {row.getVisibleCells().map((cell, cellIndex) => (
                           <TD 
-                            key={cell.id} 
+                            key={cell.id}
+                            role="gridcell"
                             className={`whitespace-nowrap ${cell.column.id==='address'?'sticky end-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
                             style={{ 
                               width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
-                              minWidth: cell.column.id === 'address' ? '200px' : '80px'
+                              minWidth: cell.column.id === 'address' ? '200px' : cell.column.id === 'select' ? '48px' : '80px'
                             }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -1796,24 +1919,24 @@ export default function AssetsTable({
               </div>
             ))
           ) : data.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center gap-4 py-12">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <Search className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
-                <p className="text-sm text-muted-foreground">
-                  {searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
+            <div className="col-span-full">
+              <EmptyState
+                icon={Search}
+                title="לא נמצאו נכסים"
+                description={
+                  searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
                     ? 'נסה לשנות את הסינון או החיפוש'
-                    : 'אין נכסים זמינים כרגע'}
-                </p>
-                {!searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew && (
-                  <Button className="mt-4" onClick={onAddNew}>
-                    <Plus className="ms-2 h-4 w-4" />
-                    הוסף נכס ראשון
-                  </Button>
-                )}
-              </div>
+                    : 'אין נכסים זמינים כרגע'
+                }
+                action={
+                  !searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew ? (
+                    <Button onClick={onAddNew}>
+                      <Plus className="ms-2 h-4 w-4" />
+                      הוסף נכס ראשון
+                    </Button>
+                  ) : undefined
+                }
+              />
             </div>
           ) : (
             data.map(asset => (
@@ -1823,7 +1946,10 @@ export default function AssetsTable({
         </div>
       )}
 
-      <TablePagination table={table} pageSizeOptions={pageSizeOptions} />
+      {/* Hide pagination when no data */}
+      {data.length > 0 && (
+        <TablePagination table={table} pageSizeOptions={pageSizeOptions} />
+      )}
 
       {/* Alert Modal */}
       <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>

@@ -689,6 +689,7 @@ export default function MapView({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="חפש מיקום..."
             className="pe-10 bg-white/90 backdrop-blur-sm"
+            dir="rtl"
             onFocus={() => setShowSearchResults(true)}
           />
           {showSearchResults && searchResults.length > 0 && (

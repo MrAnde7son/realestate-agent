@@ -70,6 +70,10 @@ const addToRemoveQueue = (toastId: string) => {
     })
   }, TOAST_REMOVE_DELAY)
 
+  if (typeof timeout === "object" && typeof (timeout as NodeJS.Timeout).unref === "function") {
+    ;(timeout as NodeJS.Timeout).unref()
+  }
+
   toastTimeouts.set(toastId, timeout)
 }
 

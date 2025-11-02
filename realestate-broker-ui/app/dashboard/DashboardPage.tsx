@@ -47,11 +47,8 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { chartPalette as C } from "@/lib/chart-palette";
 import { KpiCard } from "@/components/KpiCard";
 import { TrendingUp, FileText, Bell, Building2 } from "lucide-react";
-import OnboardingProgress from "@/components/OnboardingProgress";
-import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { selectOnboardingState, getCompletionPct, isOnboardingComplete } from "@/onboarding/selectors";
 import { ALERT_TYPE_LABELS } from "@/lib/alert-constants";
 import { api } from "@/lib/api-client";
@@ -295,13 +292,6 @@ export default function HomePage() {
           }
           text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
         />
-
-        {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <OnboardingProgress state={onboardingState} />
-            <OnboardingChecklist state={onboardingState} />
-          </div>
-        )}
 
         {/* Login Prompt for Guests */}
         {!isAuthenticated && (

@@ -109,7 +109,13 @@ export default function AssetCard({ asset }: AssetCardProps) {
 
       <div className="mt-auto flex flex-wrap gap-2 pt-2">
         <Link href={`/assets/${asset.id}`}>
-          <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px]">
+          <Button
+            variant="outline"
+            size="icon"
+            className="min-h-[44px] min-w-[44px]"
+            aria-label="צפה בפרטים"
+            title="צפה בפרטים"
+          >
             <Eye className="h-4 w-4" />
             <span className="sr-only">צפה בפרטים</span>
           </Button>
@@ -119,6 +125,8 @@ export default function AssetCard({ asset }: AssetCardProps) {
           size="icon"
           className="min-h-[44px] min-w-[44px]"
           onClick={() => exportAssetCsv(asset)}
+          aria-label="ייצוא פרטי נכס"
+          title="ייצוא פרטי נכס"
         >
           <FileText className="h-4 w-4" />
           <span className="sr-only">ייצוא פרטי נכס</span>

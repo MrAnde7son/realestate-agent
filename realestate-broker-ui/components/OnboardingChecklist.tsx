@@ -45,6 +45,8 @@ export default function OnboardingChecklist({ state }: Props) {
           onClick={() => setOpen(prev => !prev)}
           aria-expanded={open}
           aria-controls="onboarding-checklist"
+          aria-label={open ? 'סגור רשימת משימות' : 'פתח רשימת משימות'}
+          title={open ? 'סגור רשימת משימות' : 'פתח רשימת משימות'}
         >
           {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>

@@ -17,6 +17,7 @@ describe('TablePagination', () => {
     const tableMock = {
       getState: () => ({ pagination: { pageIndex: 0, pageSize: 25 } }),
       getPageCount: () => 1,
+      getRowCount: () => 50,
       previousPage: vi.fn(),
       getCanPreviousPage: () => false,
       nextPage: vi.fn(),

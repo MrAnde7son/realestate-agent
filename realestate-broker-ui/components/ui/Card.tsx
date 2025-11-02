@@ -54,7 +54,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
     return (
       <h3
         ref={ref}
-        className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
+        className={cn('text-2xl font-semibold leading-none tracking-tight text-end', className)}
         {...props}
       />
     )
@@ -65,7 +65,7 @@ CardTitle.displayName = 'CardTitle'
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn('text-sm text-muted-foreground text-end', className)}
       {...props}
     />
   )

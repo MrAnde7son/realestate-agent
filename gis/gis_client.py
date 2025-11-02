@@ -98,7 +98,11 @@ class TelAvivGS:
     L_ROAD_WORKS = "IView2/MapServer/852"            # עבודות כבישים
     L_NIGHT_WORKS_PUBLIC = "IView2/MapServer/858"     # עבודות לילה במרחב הציבורי
 
-    HDRS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36"}
+    HDRS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "he,en-US;q=0.9,en;q=0.8"
+    }
 
     CKAN = "https://data.gov.il/api/3/action"
     _TRANS_2039_4326 = Transformer.from_crs(2039, 4326, always_xy=True)
@@ -118,11 +122,23 @@ class TelAvivGS:
                     return json.loads(text)
                 except Exception:
                     raise ArcGISError(f"JSON parse error: {e}; body[:200]={text[:200]}")
-        raise ArcGISError(f"Non-JSON response ({r.status_code}, {ct}); body[:200]={text[:200]}")
+        # Log more of the HTML response for debugging
+        error_preview = text[:500] if len(text) > 500 else text
+        raise ArcGISError(f"Non-JSON response ({r.status_code}, {ct}); body[:500]={error_preview}")
+
+    def _escape_sql_string(self, value: str) -> str:
+        """Escape a string for use in ArcGIS WHERE clause SQL.
+        
+        Escapes single quotes by doubling them, which is standard SQL escaping.
+        """
+        if not isinstance(value, str):
+            value = str(value)
+        # Escape single quotes by doubling them (standard SQL escaping)
+        return value.replace("'", "''")
 
     def _query(self, layer: str, params: Dict[str, Any], method: str = "GET", retries: int = 1) -> Dict[str, Any]:
         url = f"{self.BASE}/{layer}/query"
-        self._logger.info("ArcGIS request", extra={"method": method, "url": url})
+        self._logger.info("ArcGIS request", extra={"method": method, "url": url, "params": params})
         if method == "POST":
             r = request_with_retry(
                 requests.post,
@@ -156,10 +172,14 @@ class TelAvivGS:
         Returns (x,y) in EPSG:2039 for the given street & house number.
         """
         self._logger.info("Geocoding address", extra={"street": street, "house_number": house_number, "like": like})
+        
+        # Escape the street name to prevent SQL injection and special character issues
+        escaped_street = self._escape_sql_string(street)
+        
         if like:
-            where = f"t_rechov LIKE '%{street}%' AND ms_bayit = {house_number}"
+            where = f"t_rechov LIKE '%{escaped_street}%' AND ms_bayit = {house_number}"
         else:
-            where = f"t_rechov = '{street}' AND ms_bayit = {house_number}"
+            where = f"t_rechov = '{escaped_street}' AND ms_bayit = {house_number}"
         self._logger.debug("Address WHERE", extra={"where": where})
         params = {
             "f": "pjson",
@@ -168,7 +188,8 @@ class TelAvivGS:
             "returnGeometry": "false",
             "resultRecordCount": 1,
         }
-        data = self._query(self.L_ADDR, params)
+        # Use POST method for complex WHERE clauses with Hebrew characters to avoid URL encoding issues
+        data = self._query(self.L_ADDR, params, method="POST")
         feats = data.get("features", [])
         if not feats:
             self._logger.warning("Address not found", extra={"where": where})
@@ -835,7 +856,7 @@ if __name__ == "__main__":
 
 
     gs = TelAvivGS()
-    x, y = gs.get_address_coordinates("רוזוב", 18)
+    x, y = gs.get_address_coordinates("יהודה המכבי", 17)
     a = gs.get_plans_local(x, y)
     print(a)
     # print(gs.get_plans_citywide(x, y))

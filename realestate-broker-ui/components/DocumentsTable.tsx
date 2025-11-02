@@ -446,13 +446,25 @@ export default function DocumentsTable({
       availableFilters?.source ??
       (Array.from(new Set(data.map((row) => row.source).filter(Boolean))) as string[]);
     if (sources.length > 0) {
+      // Deduplicate sources case-insensitively to avoid duplicate keys
+      // Preserve first occurrence of each unique source
+      const seen = new Set<string>();
+      const uniqueSources: string[] = [];
+      sources.forEach(source => {
+        const normalized = source?.toLowerCase()?.trim();
+        if (normalized && !seen.has(normalized)) {
+          seen.add(normalized);
+          uniqueSources.push(source);
+        }
+      });
+      
       filtersList.push({
         key: 'source',
         label: 'מקור',
         value: filters?.source?.value ?? 'all',
         options: [
           { value: 'all', label: 'כל המקורות' },
-          ...sources.map((source) => ({ value: source, label: sourceLabel(source) })),
+          ...uniqueSources.map((source) => ({ value: source, label: sourceLabel(source) })),
         ],
       });
     }

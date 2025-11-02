@@ -37,41 +37,86 @@ const buttonVariants = cva(
   }
 );
 
-type ButtonBaseProps = React.ComponentPropsWithoutRef<'button'> &
-  VariantProps<typeof buttonVariants> & {
+type ButtonVariantProps = VariantProps<typeof buttonVariants>;
+
+type ButtonProps = Omit<React.ComponentPropsWithoutRef<'button'>, 'size'> &
+  Omit<ButtonVariantProps, 'size'> & {
+    size?: ButtonVariantProps['size'];
     asChild?: boolean;
   };
 
-type IconButtonAccessibilityProps =
-  | ({ 'aria-label': string } & { 'aria-labelledby'?: never; title?: string })
-  | ({ 'aria-label'?: never; 'aria-labelledby': string } & { title?: string })
-  | ({ 'aria-label'?: never; 'aria-labelledby'?: never; title: string });
-
-type IconButtonProps = Omit<ButtonBaseProps, 'size'> & {
-  size: 'icon';
-} & IconButtonAccessibilityProps;
-
-type NonIconButtonProps = ButtonBaseProps & {
-  size?: Exclude<NonNullable<VariantProps<typeof buttonVariants>['size']>, 'icon'>;
-};
-
-type ButtonProps = IconButtonProps | NonIconButtonProps;
-
 const Button = React.forwardRef<React.ElementRef<'button'>, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
+    const resolvedSize = size ?? 'default';
+
+    if (process.env.NODE_ENV !== 'production' && resolvedSize === 'icon') {
+      const ariaLabel = props['aria-label'];
+      const ariaLabelledby = props['aria-labelledby'];
+      const title = props.title;
+      const hasExplicitAccessibleName =
+        typeof ariaLabel === 'string' ||
+        typeof ariaLabelledby === 'string' ||
+        typeof title === 'string';
+      const hasTextualChildren = React.Children.toArray(children).some(
+        childHasAccessibleText
+      );
+
+      if (!hasExplicitAccessibleName && !hasTextualChildren) {
+        console.warn(
+          'Button with size="icon" should include an accessible name via aria-label, aria-labelledby, title, or textual children.'
+        );
+      }
+    }
 
     return (
       <Comp
         ref={ref}
         data-slot='button'
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(
+          buttonVariants({ variant, size: resolvedSize }),
+          className
+        )}
         {...props}
-      />
+      >
+        {children}
+      </Comp>
     );
   }
 );
 
 Button.displayName = 'Button';
+
+function childHasAccessibleText(node: React.ReactNode): boolean {
+  if (node == null || typeof node === 'boolean') {
+    return false;
+  }
+
+  if (typeof node === 'string') {
+    return node.trim().length > 0;
+  }
+
+  if (typeof node === 'number') {
+    return true;
+  }
+
+  if (Array.isArray(node)) {
+    return node.some(childHasAccessibleText);
+  }
+
+  if (React.isValidElement(node)) {
+    const ariaHidden = node.props['aria-hidden'];
+
+    if (ariaHidden === true || ariaHidden === 'true') {
+      return false;
+    }
+
+    return React.Children.toArray(node.props.children).some(
+      childHasAccessibleText
+    );
+  }
+
+  return false;
+}
 
 export { Button, buttonVariants };

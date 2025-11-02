@@ -780,7 +780,7 @@ interface AssetsTableProps {
     selectedCount: number
     totalCount: number
     onExportSelected: () => void
-    onExportAll: () => void
+    onExportAll: () => Promise<void>
     disableExportAll: boolean
     onRefresh: () => void
     onAddNew?: () => void
@@ -1155,7 +1155,7 @@ export default function AssetsTable({
         label: action.label,
         icon: action.icon,
         disabled: action.disabled,
-        onClick: () => action.action(selectedAssets, { clearSelection })
+        action: () => action.action(selectedAssets, { clearSelection })
       })),
     [bulkActions, selectedAssets, clearSelection]
   )

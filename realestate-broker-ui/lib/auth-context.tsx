@@ -42,7 +42,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const isAuthenticated = !!user
 
-  const refreshUser = async () => {
+  const refreshUser = async (skipLoadingUpdate = false) => {
     try {
       // Check if we have tokens
       const accessToken = authAPI.getAccessToken()
@@ -79,7 +79,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       // For other errors, keep the current state
     } finally {
-      setIsLoading(false)
+      if (!skipLoadingUpdate) {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -89,6 +91,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await authAPI.login(credentials)
       authAPI.setTokens(response.access_token, response.refresh_token)
       setUser(response.user)
+      // Refresh user profile to ensure we have complete data including onboarding_flags
+      // Skip loading update since we're managing it in this function
+      await refreshUser(true)
       router.push(redirectTo || '/')
     } catch (error: any) {
       // Provide more specific error messages
@@ -110,6 +115,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await authAPI.register(credentials)
       authAPI.setTokens(response.access_token, response.refresh_token)
       setUser(response.user)
+      // Refresh user profile to ensure we have complete data including onboarding_flags
+      // Skip loading update since we're managing it in this function
+      await refreshUser(true)
       router.push(redirectTo || '/')
     } catch (error) {
       throw error

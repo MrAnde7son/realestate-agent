@@ -4,24 +4,18 @@ import pickle
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from celery import chain, shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from govmap.api_client import itm_to_wgs84
-from orchestration.location import LocationQuery
-from orchestration.pipeline import (
-    auto_expand_related_assets,
-    create_asset_snapshot,
-    update_asset_with_collected_data,
-)
-from orchestration.pipeline.listings import _normalize_listings, _object_to_payload
-
 from .analytics import track
 from .email import send_email
+
+if TYPE_CHECKING:  # pragma: no cover - imports are optional at runtime
+    from orchestration.location import LocationQuery
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +62,7 @@ def _mark_asset_failed(asset_id: int, error_message: str) -> None:
     track("asset_sync_fail", asset_id=asset_id, error_code=truncated)
 
 
-def _serialize_location(location: LocationQuery) -> Dict[str, Any]:
+def _serialize_location(location: "LocationQuery") -> Dict[str, Any]:
     return {
         "city": location.city,
         "street": location.street,
@@ -102,6 +96,9 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     """Collect raw payloads for an asset without further processing."""
     from .models import Asset
     from orchestration.data_pipeline import DataPipeline
+    from orchestration.location import LocationQuery
+    from govmap.api_client import itm_to_wgs84
+    from orchestration.pipeline.listings import _object_to_payload
 
 
     try:
@@ -317,6 +314,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
 
 @shared_task
 def normalize_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    from orchestration.pipeline.listings import _normalize_listings
+
     if previous.get("halt"):
         return previous
 
@@ -344,6 +343,7 @@ def _append_result(results: List[Dict[str, Any]], source: str, data: Any) -> Non
 @shared_task
 def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
     from orchestration.data_pipeline import DataPipeline
+    from orchestration.pipeline import update_asset_with_collected_data
 
     if previous.get("halt"):
         return previous
@@ -463,6 +463,11 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
 @shared_task
 def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    from orchestration.pipeline import (
+        auto_expand_related_assets,
+        create_asset_snapshot,
+    )
+
     if previous.get("halt"):
         return previous
 

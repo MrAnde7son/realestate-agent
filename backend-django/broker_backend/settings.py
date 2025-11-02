@@ -1,10 +1,15 @@
+import logging
 import os
 import sys
 from datetime import timedelta
 from pathlib import Path
+from typing import Any, Mapping
 
 import dj_database_url
 from decouple import config
+
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -126,6 +131,47 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+
+def _safe_str(value: Any) -> str:
+    """Return a human-friendly string representation for logging."""
+
+    if value is None:
+        return "<unset>"
+    return str(value)
+
+
+def _describe_database(db_settings: Mapping[str, Any]) -> str:
+    """Create a concise, password-free description of the configured database."""
+
+    engine = db_settings.get('ENGINE', '') or ''
+    engine_lower = engine.lower()
+
+    if engine_lower.endswith('sqlite3'):
+        name = _safe_str(db_settings.get('NAME'))
+        return f"SQLite database at '{name}'"
+
+    if 'postgres' in engine_lower:
+        name = _safe_str(db_settings.get('NAME'))
+        user = _safe_str(db_settings.get('USER'))
+        host = _safe_str(db_settings.get('HOST'))
+        port = _safe_str(db_settings.get('PORT'))
+        return (
+            "PostgreSQL database "
+            f"'{name}' (user='{user}', host='{host}', port='{port}')"
+        )
+
+    return f"Database engine '{engine}'"
+
+
+def log_database_configuration(db_settings: Mapping[str, Any]) -> None:
+    """Log the active database connection in a safe and friendly format."""
+
+    description = _describe_database(db_settings)
+    logger.info("Using %s", description)
+
+
+log_database_configuration(DATABASES['default'])
 
 LANGUAGE_CODE = 'he'
 TIME_ZONE = 'Asia/Jerusalem'

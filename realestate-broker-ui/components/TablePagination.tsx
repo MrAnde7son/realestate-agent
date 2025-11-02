@@ -34,18 +34,24 @@ export default function TablePagination<TData>({
     return Array.from(new Set(sanitized)).sort((a, b) => a - b);
   }, [pageSizeOptions, pagination.pageSize]);
 
-  if (pageCount <= 1 && normalizedPageSizeOptions.length <= 1) {
+  const totalRows = table.getRowCount();
+  const startRow = totalRows === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
+  const endRow = Math.min((pagination.pageIndex + 1) * pagination.pageSize, totalRows);
+
+  // Hide pagination when there are no rows or only one page and default page size
+  if (totalRows === 0 || (pageCount <= 1 && normalizedPageSizeOptions.length <= 1 && pagination.pageSize === normalizedPageSizeOptions[0])) {
     return null;
   }
 
   return (
-    <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-3 py-3", className)}>
+    <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-4 border-t bg-muted/30", className)}>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
+          aria-label="עמוד קודם"
         >
           הקודם
         </Button>
@@ -54,24 +60,33 @@ export default function TablePagination<TData>({
           size="sm"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
+          aria-label="עמוד הבא"
         >
           הבא
         </Button>
       </div>
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>
-          עמוד {pagination.pageIndex + 1} מתוך {pageCount || 1}
-        </span>
+        {totalRows > 0 ? (
+          <span>
+            מציג {startRow}-{endRow} מתוך {totalRows} נכסים
+          </span>
+        ) : (
+          <span>
+            עמוד {pagination.pageIndex + 1} מתוך {pageCount || 1}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">שורות בעמוד</span>
+        <label htmlFor="page-size-select" className="text-sm text-muted-foreground sr-only">
+          שורות בעמוד
+        </label>
         <Select
           value={String(pagination.pageSize)}
           onValueChange={(value) => table.setPageSize(Number(value))}
         >
-          <SelectTrigger className="w-[90px]">
+          <SelectTrigger id="page-size-select" className="w-[90px]" aria-label="בחר מספר שורות לעמוד">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

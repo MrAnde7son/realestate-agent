@@ -63,6 +63,14 @@ const createFilters = (): FiltersConfig => ({
       { value: "others", label: "נכסים של אחרים" },
     ],
   },
+  commercial: {
+    value: "all",
+    onChange: vi.fn(),
+    options: [
+      { value: "residential", label: "מגורים" },
+      { value: "commercial", label: "מסחרי" },
+    ],
+  },
 });
 
 const baseColumns = [
@@ -111,6 +119,9 @@ const openDropdownMenu = (trigger: HTMLElement) => {
   fireEvent.keyUp(trigger, { key: "Enter" });
 };
 
+const getQuickFilterButton = (label: string) =>
+  screen.getByRole("button", { name: (name) => name?.includes(label) ?? false });
+
 describe("TableToolbar quick filters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -119,12 +130,13 @@ describe("TableToolbar quick filters", () => {
   it("renders the quick filter buttons", () => {
     renderToolbar();
 
-    expect(screen.getByRole("button", { name: "הנכסים שלי" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "סוג עיסקה" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "סוג מפרסם" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "מחיר" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "שטח" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "סוג נכס" })).toBeInTheDocument();
+    expect(getQuickFilterButton("הנכסים שלי")).toBeInTheDocument();
+    expect(getQuickFilterButton("סוג עיסקה")).toBeInTheDocument();
+    expect(getQuickFilterButton("סוג מפרסם")).toBeInTheDocument();
+    expect(getQuickFilterButton("ייעוד נכס")).toBeInTheDocument();
+    expect(getQuickFilterButton("מחיר")).toBeInTheDocument();
+    expect(getQuickFilterButton("שטח")).toBeInTheDocument();
+    expect(getQuickFilterButton("סוג נכס")).toBeInTheDocument();
   });
 
   it("keeps the my assets toggle as the first quick filter", () => {
@@ -133,7 +145,7 @@ describe("TableToolbar quick filters", () => {
     const container = screen.getByTestId("quick-filters-container");
     const buttons = within(container).getAllByRole("button");
 
-    expect(buttons[0]).toHaveAccessibleName("הנכסים שלי");
+    expect(buttons[0]).toHaveAccessibleName(/הנכסים שלי/);
   });
 
   it("places the full filters trigger directly after the quick filters", () => {
@@ -248,7 +260,7 @@ describe("TableToolbar quick filters", () => {
   it("selects the 'my assets' option from the ownership quick filter", () => {
     const { props } = renderToolbar();
 
-    const trigger = screen.getByRole("button", { name: "הנכסים שלי" });
+    const trigger = getQuickFilterButton("הנכסים שלי");
     openDropdownMenu(trigger);
 
     const option = screen.getByRole("menuitemradio", { name: "נכסים שלי" });
@@ -260,7 +272,7 @@ describe("TableToolbar quick filters", () => {
   it("allows filtering by watchlist from the ownership quick filter", () => {
     const { props } = renderToolbar();
 
-    const trigger = screen.getByRole("button", { name: "הנכסים שלי" });
+    const trigger = getQuickFilterButton("הנכסים שלי");
     openDropdownMenu(trigger);
 
     const option = screen.getByRole("menuitemradio", { name: "ברשימת המעקב שלי" });
@@ -272,7 +284,7 @@ describe("TableToolbar quick filters", () => {
   it("allows choosing rental or sale directly", () => {
     const { props } = renderToolbar();
 
-    const trigger = screen.getByRole("button", { name: "סוג עיסקה" });
+    const trigger = getQuickFilterButton("סוג עיסקה");
     openDropdownMenu(trigger);
     const rentalOption = screen.getByRole("menuitemradio", { name: "השכרה" });
     fireEvent.click(rentalOption);
@@ -283,7 +295,7 @@ describe("TableToolbar quick filters", () => {
   it("allows choosing advertiser type directly", () => {
     const { props } = renderToolbar();
 
-    const trigger = screen.getByRole("button", { name: "סוג מפרסם" });
+    const trigger = getQuickFilterButton("סוג מפרסם");
     openDropdownMenu(trigger);
     const privateOption = screen.getByRole("menuitemradio", { name: "פרטי" });
     fireEvent.click(privateOption);
@@ -296,7 +308,7 @@ describe("TableToolbar quick filters", () => {
 
     renderToolbar({}, filters);
 
-    fireEvent.click(screen.getByRole("button", { name: "מחיר" }));
+    fireEvent.click(getQuickFilterButton("מחיר"));
 
     fireEvent.change(screen.getByLabelText("מחיר מינימלי"), { target: { value: "1200000" } });
     expect(filters.priceMin.onChange).toHaveBeenCalledWith(1200000);
@@ -308,7 +320,7 @@ describe("TableToolbar quick filters", () => {
   it("places the price popover below the trigger without covering nearby controls", () => {
     renderToolbar();
 
-    fireEvent.click(screen.getByRole("button", { name: "מחיר" }));
+    fireEvent.click(getQuickFilterButton("מחיר"));
 
     const popover = screen.getByLabelText("מחיר מינימלי").closest("[data-state]");
 
@@ -327,7 +339,7 @@ describe("TableToolbar quick filters", () => {
 
     renderToolbar({}, filters);
 
-    fireEvent.click(screen.getByRole("button", { name: "שטח" }));
+    fireEvent.click(getQuickFilterButton("שטח"));
 
     fireEvent.change(screen.getByLabelText("שטח מינימלי"), { target: { value: "80" } });
     expect(filters.areaMin.onChange).toHaveBeenCalledWith(80);
@@ -339,7 +351,7 @@ describe("TableToolbar quick filters", () => {
   it("places the area popover below the trigger without covering nearby controls", () => {
     renderToolbar();
 
-    fireEvent.click(screen.getByRole("button", { name: "שטח" }));
+    fireEvent.click(getQuickFilterButton("שטח"));
 
     const popover = screen.getByLabelText("שטח מינימלי").closest("[data-state]");
 
@@ -358,7 +370,7 @@ describe("TableToolbar quick filters", () => {
 
     renderToolbar({}, filters);
 
-    const trigger = screen.getByRole("button", { name: "סוג נכס" });
+    const trigger = getQuickFilterButton("סוג נכס");
     openDropdownMenu(trigger);
     fireEvent.click(screen.getByRole("menuitemradio", { name: "דירה" }));
 

@@ -59,7 +59,7 @@ import { SavedFiltersMenu } from "@/components/filters/saved-filters-menu";
 import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import type { PaginationState } from "@tanstack/react-table";
+import type { PaginationState, SortingState } from "@tanstack/react-table";
 
 const DEFAULT_RADIUS_METERS = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -110,6 +110,7 @@ export default function AssetsPage() {
   const [nadlanImportOpen, setNadlanImportOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
   const [tableActionsState, setTableActionsState] = useState<AssetsTableActionsState | null>(null);
@@ -1076,6 +1077,56 @@ export default function AssetsPage() {
       if (!isDefaultPageSize) {
         params.set("pageSize", String(pagination.pageSize));
       }
+
+      // Add ordering parameter from sorting state
+      if (sorting.length > 0) {
+        const sortMapping: Record<string, string> = {
+          address: 'address',
+          city: 'city',
+          street: 'street',
+          number: 'number',
+          apartment: 'apartment',
+          block: 'block',
+          parcel: 'parcel',
+          subparcel: 'subparcel',
+          area: 'area',
+          totalArea: 'total_area',
+          subparcelArea: 'subparcel_area',
+          builtArea: 'built_area',
+          floor: 'floor',
+          totalFloors: 'total_floors',
+          listingType: 'listing_type',
+          adType: 'ad_type',
+          price: 'price',
+          rentPrice: 'rent_price',
+          pricePerSqm: 'price_per_sqm',
+          deltaVsAreaPct: 'delta_vs_area_pct',
+          domPercentile: 'dom_percentile',
+          competition1km: 'competition_1km',
+          zoning: 'zoning',
+          remainingRightsSqm: 'remaining_rights_sqm',
+          program: 'program',
+          lastPermitQ: 'last_permit_q',
+          docsCount: 'documents_count',
+          noiseLevel: 'noise_level',
+          antennaDistanceM: 'antenna_distance_m',
+          greenWithin300m: 'green_within_300m',
+          shelterDistanceM: 'shelter_distance_m',
+          assetStatus: 'asset_status',
+          modelPrice: 'model_price',
+          priceGapPct: 'price_gap_pct',
+          confidencePct: 'confidence_pct',
+          capRatePct: 'cap_rate_pct',
+          rentEstimate: 'rent_estimate',
+          recentDeal: 'recent_deal',
+        };
+
+        const primarySort = sorting[0];
+        const backendField = sortMapping[primarySort.id] || 'created_at';
+        const orderingValue = primarySort.desc ? `-${backendField}` : backendField;
+        params.set("ordering", orderingValue);
+      }
+
       const query = params.toString();
       const endpoint = query ? `/api/assets?${query}` : "/api/assets";
       const response = await apiClient.get(endpoint);
@@ -1162,8 +1213,14 @@ export default function AssetsPage() {
   }, [
     pagination.pageIndex,
     pagination.pageSize,
+    sorting,
     buildFilterParams,
   ]);
+
+  // Reset to first page when sorting changes
+  React.useEffect(() => {
+    setPagination(prev => (prev.pageIndex !== 0 ? { ...prev, pageIndex: 0 } : prev));
+  }, [sorting]);
 
   const updateAssetsWatchState = React.useCallback((ids: number[], watched: boolean) => {
     if (!ids.length) return;
@@ -2319,6 +2376,9 @@ export default function AssetsPage() {
               pageCount={pageCount}
               totalCount={totalCount}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
+              manualSorting
+              sortingState={sorting}
+              onSortingChange={(next) => setSorting(next)}
               filters={{
                 city: {
                   value: city,

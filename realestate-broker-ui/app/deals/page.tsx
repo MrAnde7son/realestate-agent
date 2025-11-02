@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { SectionHeader } from '@/components/layout/section-header'
 import { SavedFiltersMenu } from '@/components/filters/saved-filters-menu'
@@ -70,6 +71,23 @@ function assetLabel(asset: DealAssetSummary | null | undefined): string {
   return `נכס ${asset.id}`
 }
 
+function translateStatus(status: string | null | undefined): string {
+  if (!status) return ''
+  const translations: Record<string, string> = {
+    'done': 'מוכן',
+    'failed': 'שגיאה',
+    'enriching': 'מתעשר',
+    'pending': 'ממתין',
+    'active': 'פעיל',
+    'archived': 'בארכיון',
+    'draft': 'טיוטה',
+    'processing': 'בעיבוד',
+    'synced': 'מסונכרן',
+    'none': 'ללא סטטוס',
+  }
+  return translations[status.toLowerCase()] || status
+}
+
 function stageBuckets(deals: DealSummary[]) {
   return DEAL_STAGE_ORDER.reduce<Record<DealStage, DealSummary[]>>((acc, stage) => {
     acc[stage] = deals.filter((deal) => deal.stage === stage)
@@ -85,6 +103,7 @@ function stageBuckets(deals: DealSummary[]) {
 }
 
 export default function DealsPage() {
+  const routerRef = React.useRef(useRouter())
   const [deals, setDeals] = React.useState<DealSummary[]>(DEAL_SUMMARIES_MOCK)
   const [isLoading, setIsLoading] = React.useState(DEAL_SUMMARIES_MOCK.length === 0)
   const [error, setError] = React.useState<string | null>(null)
@@ -103,6 +122,7 @@ export default function DealsPage() {
   const [createConfidentiality, setCreateConfidentiality] = React.useState<DealConfidentiality>('standard')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
+  const isLoadingRef = React.useRef(false)
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -149,6 +169,10 @@ export default function DealsPage() {
   const fallbackMessage = 'שגיאה בטעינת העסקאות - מוצגים נתוני דמו'
 
   const loadDeals = React.useCallback(async () => {
+    if (isLoadingRef.current) {
+      return
+    }
+    isLoadingRef.current = true
     setIsRefreshing(true)
     setError(null)
     setIsLoading(true)
@@ -163,6 +187,16 @@ export default function DealsPage() {
       const endpoint = params.size > 0 ? `/api/deals?${params.toString()}` : '/api/deals'
       const response = await apiClient.get<DealsResponse>(endpoint)
       if (!response.ok) {
+        // Check for authentication errors
+        const data = response.data as any
+        if (response.status === 401 || 
+            response.error?.includes('Authentication credentials were not provided') ||
+            response.error?.includes('Authentication') ||
+            data?.detail?.includes('Authentication credentials were not provided')) {
+          // Redirect to login with current path as redirect parameter
+          routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+          return
+        }
         throw new Error(response.error || fallbackMessage)
       }
       const payload = response.data
@@ -172,21 +206,56 @@ export default function DealsPage() {
       setDeals(payload?.deals ?? [])
     } catch (err) {
       console.error('Failed to load deals:', err)
-      setDeals(fallbackDeals)
+      // Check if error is authentication related
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      if (errorMessage.includes('Authentication credentials were not provided') ||
+          errorMessage.includes('Authentication') ||
+          (typeof err === 'object' && err !== null && 'detail' in err && 
+           typeof (err as any).detail === 'string' && 
+           (err as any).detail.includes('Authentication credentials were not provided'))) {
+        routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        return
+      }
+      // Compute fallback deals inline to avoid dependency cycle
+      const normalizedQuery = debouncedSearch.toLowerCase()
+      const computedFallbackDeals = DEAL_SUMMARIES_MOCK.filter((deal) => {
+        if (stageFilter !== 'all' && deal.stage !== stageFilter) {
+          return false
+        }
+        if (!normalizedQuery) {
+          return true
+        }
+        const fields: (string | number | null | undefined)[] = [
+          deal.asset,
+          deal.asset_summary?.address,
+          deal.asset_summary?.city,
+          deal.asset_summary?.status,
+          deal.asset_summary?.neighborhood,
+        ]
+        return fields.some((value) => {
+          if (value == null) {
+            return false
+          }
+          return value.toString().toLowerCase().includes(normalizedQuery)
+        })
+      })
+      setDeals(computedFallbackDeals)
       setError(
-        fallbackDeals.length > 0
+        computedFallbackDeals.length > 0
           ? fallbackMessage
           : `${fallbackMessage} (ללא נתוני דמו מתאימים)`
       )
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
+      isLoadingRef.current = false
     }
-  }, [stageFilter, debouncedSearch, fallbackDeals])
+  }, [stageFilter, debouncedSearch])
 
   React.useEffect(() => {
     loadDeals()
-  }, [loadDeals])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageFilter, debouncedSearch])
 
   React.useEffect(() => {
     if (!debouncedAssetSearch) {
@@ -202,6 +271,16 @@ export default function DealsPage() {
       const query = new URLSearchParams({ search: debouncedAssetSearch, limit: '6' })
       const response = await apiClient.get(`/api/assets?${query.toString()}`)
       if (!response.ok) {
+        // Check for authentication errors
+        const data = response.data as any
+        if (response.status === 401 || 
+            response.error?.includes('Authentication credentials were not provided') ||
+            response.error?.includes('Authentication') ||
+            data?.detail?.includes('Authentication credentials were not provided')) {
+          // Redirect to login with current path as redirect parameter
+          routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+          return
+        }
         setAssetError(response.error || 'שגיאה בטעינת נכסים')
         setAssetResults([])
         setAssetLoading(false)
@@ -222,6 +301,16 @@ export default function DealsPage() {
       setAssetLoading(false)
     })().catch((err) => {
       console.error('Asset search failed:', err)
+      // Check if error is authentication related
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      if (errorMessage.includes('Authentication credentials were not provided') ||
+          errorMessage.includes('Authentication') ||
+          (typeof err === 'object' && err !== null && 'detail' in err && 
+           typeof (err as any).detail === 'string' && 
+           (err as any).detail.includes('Authentication credentials were not provided'))) {
+        routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        return
+      }
       setAssetError('שגיאה בטעינת נכסים')
       setAssetResults([])
       setAssetLoading(false)
@@ -253,6 +342,16 @@ export default function DealsPage() {
     }
     const response = await apiClient.post('/api/deals', payload)
     if (!response.ok) {
+      // Check for authentication errors
+      const data = response.data as any
+      if (response.status === 401 || 
+          response.error?.includes('Authentication credentials were not provided') ||
+            response.error?.includes('Authentication') ||
+            data?.detail?.includes('Authentication credentials were not provided')) {
+        // Redirect to login with current path as redirect parameter
+        routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        return
+      }
       setCreateError(response.error || 'שגיאה ביצירת העסקה')
       setIsSubmitting(false)
       return
@@ -294,7 +393,7 @@ export default function DealsPage() {
               </Badge>
             ) : null}
             {asset?.status ? (
-              <Badge variant='secondary'>{asset.status}</Badge>
+              <Badge variant='secondary'>{translateStatus(asset.status)}</Badge>
             ) : null}
             {asset?.building_type ? (
               <Badge variant='secondary'>{asset.building_type}</Badge>

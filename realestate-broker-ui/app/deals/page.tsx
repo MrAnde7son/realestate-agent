@@ -102,7 +102,7 @@ function stageBuckets(deals: DealSummary[]) {
 }
 
 export default function DealsPage() {
-  const router = useRouter()
+  const routerRef = React.useRef(useRouter())
   const [deals, setDeals] = React.useState<DealSummary[]>(DEAL_SUMMARIES_MOCK)
   const [isLoading, setIsLoading] = React.useState(DEAL_SUMMARIES_MOCK.length === 0)
   const [error, setError] = React.useState<string | null>(null)
@@ -121,6 +121,7 @@ export default function DealsPage() {
   const [createConfidentiality, setCreateConfidentiality] = React.useState<DealConfidentiality>('standard')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
+  const isLoadingRef = React.useRef(false)
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -167,6 +168,10 @@ export default function DealsPage() {
   const fallbackMessage = 'שגיאה בטעינת העסקאות - מוצגים נתוני דמו'
 
   const loadDeals = React.useCallback(async () => {
+    if (isLoadingRef.current) {
+      return
+    }
+    isLoadingRef.current = true
     setIsRefreshing(true)
     setError(null)
     setIsLoading(true)
@@ -188,7 +193,7 @@ export default function DealsPage() {
             response.error?.includes('Authentication') ||
             data?.detail?.includes('Authentication credentials were not provided')) {
           // Redirect to login with current path as redirect parameter
-          router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+          routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
           return
         }
         throw new Error(response.error || fallbackMessage)
@@ -207,24 +212,49 @@ export default function DealsPage() {
           (typeof err === 'object' && err !== null && 'detail' in err && 
            typeof (err as any).detail === 'string' && 
            (err as any).detail.includes('Authentication credentials were not provided'))) {
-        router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
         return
       }
-      setDeals(fallbackDeals)
+      // Compute fallback deals inline to avoid dependency cycle
+      const normalizedQuery = debouncedSearch.toLowerCase()
+      const computedFallbackDeals = DEAL_SUMMARIES_MOCK.filter((deal) => {
+        if (stageFilter !== 'all' && deal.stage !== stageFilter) {
+          return false
+        }
+        if (!normalizedQuery) {
+          return true
+        }
+        const fields: (string | number | null | undefined)[] = [
+          deal.asset,
+          deal.asset_summary?.address,
+          deal.asset_summary?.city,
+          deal.asset_summary?.status,
+          deal.asset_summary?.neighborhood,
+        ]
+        return fields.some((value) => {
+          if (value == null) {
+            return false
+          }
+          return value.toString().toLowerCase().includes(normalizedQuery)
+        })
+      })
+      setDeals(computedFallbackDeals)
       setError(
-        fallbackDeals.length > 0
+        computedFallbackDeals.length > 0
           ? fallbackMessage
           : `${fallbackMessage} (ללא נתוני דמו מתאימים)`
       )
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
+      isLoadingRef.current = false
     }
-  }, [stageFilter, debouncedSearch, fallbackDeals, router])
+  }, [stageFilter, debouncedSearch])
 
   React.useEffect(() => {
     loadDeals()
-  }, [loadDeals])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageFilter, debouncedSearch])
 
   React.useEffect(() => {
     if (!debouncedAssetSearch) {
@@ -247,7 +277,7 @@ export default function DealsPage() {
             response.error?.includes('Authentication') ||
             data?.detail?.includes('Authentication credentials were not provided')) {
           // Redirect to login with current path as redirect parameter
-          router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+          routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
           return
         }
         setAssetError(response.error || 'שגיאה בטעינת נכסים')
@@ -277,7 +307,7 @@ export default function DealsPage() {
           (typeof err === 'object' && err !== null && 'detail' in err && 
            typeof (err as any).detail === 'string' && 
            (err as any).detail.includes('Authentication credentials were not provided'))) {
-        router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
         return
       }
       setAssetError('שגיאה בטעינת נכסים')
@@ -288,7 +318,7 @@ export default function DealsPage() {
     return () => {
       ignore = true
     }
-  }, [debouncedAssetSearch, router])
+  }, [debouncedAssetSearch])
 
   const totalDeals = deals.length
   const activeDeals = deals.filter((deal) => isActiveStage(deal.stage)).length
@@ -315,10 +345,10 @@ export default function DealsPage() {
       const data = response.data as any
       if (response.status === 401 || 
           response.error?.includes('Authentication credentials were not provided') ||
-          response.error?.includes('Authentication') ||
-          data?.detail?.includes('Authentication credentials were not provided')) {
+            response.error?.includes('Authentication') ||
+            data?.detail?.includes('Authentication credentials were not provided')) {
         // Redirect to login with current path as redirect parameter
-        router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
         return
       }
       setCreateError(response.error || 'שגיאה ביצירת העסקה')

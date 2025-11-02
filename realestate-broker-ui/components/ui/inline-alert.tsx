@@ -32,7 +32,7 @@ const ICONS = {
 }
 
 export interface InlineAlertProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "title">,
     VariantProps<typeof inlineAlertVariants> {
   title?: React.ReactNode
   description?: React.ReactNode

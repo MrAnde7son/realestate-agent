@@ -5,7 +5,7 @@
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import { vi, afterEach } from 'vitest'
 import PlanInfo from '@/components/PlanInfo'
 import { authAPI } from '@/lib/auth'
 
@@ -95,6 +95,11 @@ describe('PlanInfo Component', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    // Clear all mocks to prevent interference between tests
+    vi.clearAllMocks()
+  })
+
   it('falls back to API-provided names when translation is unavailable', async () => {
     const customPlan = {
       ...mockPlanInfo,
@@ -114,13 +119,26 @@ describe('PlanInfo Component', () => {
     expect(screen.getByText('Enterprise description')).toBeInTheDocument()
   })
 
-  it('renders loading state initially', () => {
-    mockAuthAPI.getPlanInfo.mockImplementation(() => new Promise(() => {})) // Never resolves
+  it('renders loading state initially', async () => {
+    // Use a delayed promise that resolves after a short delay to test loading state
+    mockAuthAPI.getPlanInfo.mockImplementation(() => 
+      new Promise((resolve) => {
+        setTimeout(() => resolve(mockPlanInfo), 100)
+      })
+    )
     
-    render(<PlanInfo />)
+    const { unmount } = render(<PlanInfo />)
     
-    // Check for loading skeleton instead of text
+    // Check for loading skeleton initially
     expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
+    
+    // Wait for it to resolve and then unmount to prevent hanging
+    await waitFor(() => {
+      expect(screen.queryByText('בסיסי')).toBeInTheDocument()
+    }, { timeout: 200 })
+    
+    // Clean up
+    unmount()
   })
 
   it('renders plan information correctly for basic plan', async () => {

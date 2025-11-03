@@ -13,7 +13,7 @@ import { Mail, Lock, Building, Eye, EyeOff } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { useAuth } from '@/lib/auth-context'
 import { LoginCredentials, RegisterCredentials } from '@/lib/auth'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 
 const loginSchema = z.object({
   email: z.string().email('דוא״ל לא תקין'),
@@ -42,6 +42,7 @@ export default function AuthPage() {
   const { login, register, googleLogin, isLoading } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
   
   // Get the redirect URL and mode from query parameters
   const redirectTo = searchParams.get('redirect') || '/'
@@ -51,6 +52,8 @@ export default function AuthPage() {
   useEffect(() => {
     if (mode === 'signup') {
       setIsLogin(false)
+    } else {
+      setIsLogin(true)
     }
   }, [mode])
 
@@ -82,12 +85,28 @@ export default function AuthPage() {
     }
   }
 
-  const toggleMode = () => {
-    setIsLogin(!isLogin)
+  const handleModeChange = React.useCallback((nextMode: 'login' | 'signup') => {
+    if ((nextMode === 'login' && isLogin) || (nextMode === 'signup' && !isLogin)) {
+      return
+    }
+
+    setIsLogin(nextMode === 'login')
     setError('')
     loginForm.reset()
     registerForm.reset()
-  }
+
+    const params = new URLSearchParams(searchParams.toString())
+
+    if (nextMode === 'signup') {
+      params.set('mode', 'signup')
+    } else {
+      params.delete('mode')
+    }
+
+    const paramsString = params.toString()
+
+    router.replace(paramsString ? `${pathname}?${paramsString}` : pathname, { scroll: false })
+  }, [isLogin, loginForm, registerForm, pathname, router, searchParams])
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4">
@@ -104,14 +123,14 @@ export default function AuthPage() {
           <Button 
             variant={isLogin ? "default" : "ghost"} 
             className="flex-1"
-            onClick={() => setIsLogin(true)}
+            onClick={() => handleModeChange('login')}
           >
             התחברות
           </Button>
           <Button 
             variant={!isLogin ? "default" : "ghost"} 
             className="flex-1"
-            onClick={() => router.push('/signup')}
+            onClick={() => handleModeChange('signup')}
           >
             הרשמה
           </Button>
@@ -354,7 +373,11 @@ export default function AuthPage() {
         <div className="text-center text-sm text-muted-foreground">
           <p>
             {isLogin ? 'אין לך חשבון? ' : 'יש לך כבר חשבון? '}
-            <Button variant="link" className="p-0 text-sm" onClick={toggleMode}>
+            <Button
+              variant="link"
+              className="p-0 text-sm"
+              onClick={() => handleModeChange(isLogin ? 'signup' : 'login')}
+            >
               {isLogin ? 'הירשם עכשיו' : 'התחבר עכשיו'}
             </Button>
           </p>

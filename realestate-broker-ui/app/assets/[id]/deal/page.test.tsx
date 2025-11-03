@@ -60,8 +60,17 @@ vi.mock('@/components/ui/Badge', () => ({
 }))
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
+  Button: React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(
+    ({ children, asChild, ...props }, ref) => {
+      if (asChild && React.isValidElement(children)) {
+        return React.cloneElement(children, { ...props, ref } as any)
+      }
+      return (
+        <button ref={ref} {...props}>
+          {children}
+        </button>
+      )
+    }
   ),
 }))
 

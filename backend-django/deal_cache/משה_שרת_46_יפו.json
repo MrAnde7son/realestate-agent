@@ -1,0 +1,44 @@
+[
+  {
+    "address": "משה שרת 46, יפו",
+    "deal_date": "24/04/2025",
+    "deal_amount": 3497000.0,
+    "rooms": "2",
+    "floor": "קרקע",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 50.0,
+    "neighborhood": "הצפון החדש סביבת כיכר המדינה",
+    "parcel_block": "6213",
+    "parcel_parcel": "1128",
+    "parcel_sub_parcel": "4"
+  },
+  {
+    "address": "משה שרת 46, יפו",
+    "deal_date": "08/04/2025",
+    "deal_amount": 3720000.0,
+    "rooms": "2",
+    "floor": "קרקע",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 56.0,
+    "neighborhood": "הצפון החדש סביבת כיכר המדינה",
+    "parcel_block": "6213",
+    "parcel_parcel": "1128",
+    "parcel_sub_parcel": "2"
+  },
+  {
+    "address": "משה שרת 46, יפו",
+    "deal_date": "08/01/2025",
+    "deal_amount": 1080000.0,
+    "rooms": "3",
+    "floor": "מרתף",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 30.0,
+    "neighborhood": "הצפון החדש סביבת כיכר המדינה",
+    "parcel_block": "6213",
+    "parcel_parcel": "1128",
+    "parcel_sub_parcel": "1"
+  }
+]

@@ -421,7 +421,16 @@ export default function MortgageAnalyzePage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader heading="מחשבון משכנתא" text="תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ" />
+        <DashboardHeader heading="מחשבון משכנתא" text="תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ">
+          <Button
+            onClick={handleAnalyzePortfolio}
+            disabled={calculating || tranches.length === 0}
+            className="flex items-center gap-2"
+          >
+            {calculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+            <span>חשב תיק</span>
+          </Button>
+        </DashboardHeader>
 
         <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
           <div className="space-y-6">
@@ -736,17 +745,6 @@ export default function MortgageAnalyzePage() {
                 )}
               </CardContent>
             </Card>
-
-            <div className="flex justify-end">
-              <Button
-                onClick={handleAnalyzePortfolio}
-                disabled={calculating || tranches.length === 0}
-                className="flex items-center gap-2"
-              >
-                {calculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-                <span>חשב תיק</span>
-              </Button>
-            </div>
 
             {requiredEquity !== null && (
               <Card>

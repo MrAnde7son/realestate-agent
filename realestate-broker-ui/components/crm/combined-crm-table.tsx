@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
@@ -771,6 +772,7 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
         <DialogContent className="mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>עריכת לקוח</DialogTitle>
+            <DialogDescription>ערוך פרטי לקוח</DialogDescription>
           </DialogHeader>
           {editingContact ? (
             <ContactForm
@@ -789,6 +791,7 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
         <DialogContent className="mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>משימה חדשה ללקוח</DialogTitle>
+            <DialogDescription>יצירת משימה חדשה ללקוח</DialogDescription>
           </DialogHeader>
           {activeTaskContact ? (
             <TaskForm

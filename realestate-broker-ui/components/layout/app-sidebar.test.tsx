@@ -29,10 +29,12 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("next/link", () => ({
   __esModule: true,
-  default: ({ href, children, ...props }: any) => (
-    <a href={typeof href === "string" ? href : href?.pathname || "#"} {...props}>
-      {children}
-    </a>
+  default: React.forwardRef<HTMLAnchorElement, any>(
+    ({ href, children, ...props }, ref) => (
+      <a ref={ref} href={typeof href === "string" ? href : href?.pathname || "#"} {...props}>
+        {children}
+      </a>
+    )
   ),
 }));
 

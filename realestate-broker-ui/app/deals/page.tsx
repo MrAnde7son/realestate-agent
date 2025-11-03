@@ -23,7 +23,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { apiClient } from '@/lib/api-client'
-import { DEAL_SUMMARIES_MOCK } from '@/app/assets/[id]/deal/mock-data'
 import {
   DEAL_STAGE_LABELS,
   DEAL_STAGE_ORDER,
@@ -106,8 +105,8 @@ function stageBuckets(deals: DealSummary[]) {
 
 export default function DealsPage() {
   const routerRef = React.useRef(useRouter())
-  const [deals, setDeals] = React.useState<DealSummary[]>(DEAL_SUMMARIES_MOCK)
-  const [isLoading, setIsLoading] = React.useState(DEAL_SUMMARIES_MOCK.length === 0)
+  const [deals, setDeals] = React.useState<DealSummary[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [stageFilter, setStageFilter] = React.useState<StageFilter>('all')
   const [search, setSearch] = React.useState('')
@@ -141,35 +140,7 @@ export default function DealsPage() {
     return () => window.clearTimeout(timer)
   }, [assetSearch])
 
-  const fallbackDeals = React.useMemo(() => {
-    if (!DEAL_SUMMARIES_MOCK.length) {
-      return []
-    }
-    const normalizedQuery = debouncedSearch.toLowerCase()
-    return DEAL_SUMMARIES_MOCK.filter((deal) => {
-      if (stageFilter !== 'all' && deal.stage !== stageFilter) {
-        return false
-      }
-      if (!normalizedQuery) {
-        return true
-      }
-      const fields: (string | number | null | undefined)[] = [
-        deal.asset,
-        deal.asset_summary?.address,
-        deal.asset_summary?.city,
-        deal.asset_summary?.status,
-        deal.asset_summary?.neighborhood,
-      ]
-      return fields.some((value) => {
-        if (value == null) {
-          return false
-        }
-        return value.toString().toLowerCase().includes(normalizedQuery)
-      })
-    })
-  }, [stageFilter, debouncedSearch])
-
-  const fallbackMessage = 'שגיאה בטעינת העסקאות - מוצגים נתוני דמו'
+  const fallbackMessage = 'שגיאה בטעינת העסקאות'
 
   const loadDeals = React.useCallback(async () => {
     if (isLoadingRef.current) {
@@ -203,9 +174,6 @@ export default function DealsPage() {
         throw new Error(response.error || fallbackMessage)
       }
       const payload = response.data
-      if (payload?.fallback) {
-        throw new Error(payload.error || fallbackMessage)
-      }
       setDeals(payload?.deals ?? [])
     } catch (err) {
       console.error('Failed to load deals:', err)
@@ -219,35 +187,8 @@ export default function DealsPage() {
         routerRef.current.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
         return
       }
-      // Compute fallback deals inline to avoid dependency cycle
-      const normalizedQuery = debouncedSearch.toLowerCase()
-      const computedFallbackDeals = DEAL_SUMMARIES_MOCK.filter((deal) => {
-        if (stageFilter !== 'all' && deal.stage !== stageFilter) {
-          return false
-        }
-        if (!normalizedQuery) {
-          return true
-        }
-        const fields: (string | number | null | undefined)[] = [
-          deal.asset,
-          deal.asset_summary?.address,
-          deal.asset_summary?.city,
-          deal.asset_summary?.status,
-          deal.asset_summary?.neighborhood,
-        ]
-        return fields.some((value) => {
-          if (value == null) {
-            return false
-          }
-          return value.toString().toLowerCase().includes(normalizedQuery)
-        })
-      })
-      setDeals(computedFallbackDeals)
-      setError(
-        computedFallbackDeals.length > 0
-          ? fallbackMessage
-          : `${fallbackMessage} (ללא נתוני דמו מתאימים)`
-      )
+      setDeals([])
+      setError(fallbackMessage)
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)

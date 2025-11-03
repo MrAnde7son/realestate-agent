@@ -786,7 +786,7 @@ interface AssetsTableProps {
     onAddNew?: () => void
     loading: boolean
     importAction?: { label: string; onClick: () => void; icon?: React.ReactNode }
-    bulkActions: Array<{ label: string; action: () => void; icon?: React.ReactNode; disabled?: boolean }>
+    bulkActions: Array<{ label: string; onClick: () => void; icon?: React.ReactNode; disabled?: boolean }>
     onResetColumns?: () => void
   }) => void
 }
@@ -1160,6 +1160,18 @@ export default function AssetsTable({
     [bulkActions, selectedAssets, clearSelection]
   )
 
+  // Bulk actions for callback (TableActionsToolbar expects onClick)
+  const toolbarBulkActionsForCallback = React.useMemo(
+    () =>
+      (bulkActions || []).map(action => ({
+        label: action.label,
+        icon: action.icon,
+        disabled: action.disabled,
+        onClick: () => action.action(selectedAssets, { clearSelection })
+      })),
+    [bulkActions, selectedAssets, clearSelection]
+  )
+
   // Prepare columns for toolbar
   const toolbarColumns = table.getAllColumns()
     .filter(column => column.getCanHide())
@@ -1186,7 +1198,7 @@ export default function AssetsTable({
     onAddNew,
     loading,
     importAction,
-    bulkActions: toolbarBulkActions,
+    bulkActions: toolbarBulkActionsForCallback,
     onResetColumns: handleResetColumns,
   }), [
     toolbarColumns,
@@ -1199,7 +1211,7 @@ export default function AssetsTable({
     onAddNew,
     loading,
     importAction,
-    toolbarBulkActions,
+    toolbarBulkActionsForCallback,
     handleResetColumns,
   ])
 

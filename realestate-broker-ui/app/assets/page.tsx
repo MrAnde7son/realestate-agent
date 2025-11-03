@@ -2767,15 +2767,6 @@ export default function AssetsPage() {
               viewMode={viewMode}
               onViewModeChange={handleViewModeChange}
               bulkActions={[
-                ...(isAdmin
-                  ? [
-                      {
-                        label: "מחק נבחרים",
-                        action: handleBulkDelete,
-                        icon: <Trash2 className="h-4 w-4" />,
-                      },
-                    ]
-                  : []),
                 {
                   label: "הוסף למעקב",
                   action: handleBulkWatch,
@@ -2795,7 +2786,16 @@ export default function AssetsPage() {
                   label: "צור דוחות",
                   action: handleBulkCreateReports,
                   icon: <FileText className="h-4 w-4" />,
-                }
+                },
+                ...(isAdmin
+                  ? [
+                      {
+                        label: "מחק נבחרים",
+                        action: handleBulkDelete,
+                        icon: <Trash2 className="h-4 w-4 text-red-600" />,
+                      },
+                    ]
+                  : []),
               ]}
             />
           )}

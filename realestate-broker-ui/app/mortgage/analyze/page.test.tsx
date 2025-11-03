@@ -50,8 +50,6 @@ describe('MortgageAnalyzePage', () => {
     expect(screen.getByText('מחשבון משכנתא')).toBeInTheDocument()
     expect(screen.getByText('תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ')).toBeInTheDocument()
     expect(screen.getByText('נתוני בסיס')).toBeInTheDocument()
-    expect(screen.getByText('מסלולים')).toBeInTheDocument()
-    expect(screen.getByText('הוסף מסלול')).toBeInTheDocument()
 
     const propertyValueInput = screen.getByDisplayValue('3500000') as HTMLInputElement
     expect(propertyValueInput).toBeInTheDocument()
@@ -60,8 +58,32 @@ describe('MortgageAnalyzePage', () => {
     const monthlyIncomeInput = screen.getByDisplayValue('65000') as HTMLInputElement
     expect(monthlyIncomeInput.value).toBe('65000')
 
-    expect(screen.getByText('בנק ישראל +1%')).toBeInTheDocument()
+    // Open advanced settings to check stress presets
+    const advancedSettingsButton = screen.getByText('הגדרות מתקדמות')
+    fireEvent.click(advancedSettingsButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('בנק ישראל +1%')).toBeInTheDocument()
+    })
+
     expect(screen.getByText('תוספת לעוגן אג״ח')).toBeInTheDocument()
+
+    // Wait for scenarios to appear and then select one
+    await waitFor(() => {
+      expect(screen.getByText('השוואת תרחישים')).toBeInTheDocument()
+    }, { timeout: 3000 })
+
+    // Select first scenario to see details
+    const scenarioButtons = screen.getAllByText(/בחר תרחיש זה/)
+    expect(scenarioButtons.length).toBeGreaterThan(0)
+    
+    fireEvent.click(scenarioButtons[0])
+      
+    await waitFor(() => {
+      expect(screen.getByText('מסלולים')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('הוסף מסלול')).toBeInTheDocument()
     expect(screen.getByText('פריים (P-0.9)')).toBeInTheDocument()
 
     await waitFor(() => {
@@ -78,6 +100,17 @@ describe('MortgageAnalyzePage', () => {
   it('allows collapsing and expanding a tranche editor section', async () => {
     render(<MortgageAnalyzePage />)
 
+    // Wait for scenarios to appear and select first one
+    await waitFor(() => {
+      expect(screen.getByText('השוואת תרחישים')).toBeInTheDocument()
+    }, { timeout: 3000 })
+
+    const scenarioButtons = screen.getAllByText(/בחר תרחיש זה/)
+    expect(scenarioButtons.length).toBeGreaterThan(0)
+    
+    fireEvent.click(scenarioButtons[0])
+
+    // Wait for tranche editors to appear after scenario selection
     const trancheEditors = await screen.findAllByTestId('tranche-editor')
     expect(trancheEditors.length).toBeGreaterThan(0)
 

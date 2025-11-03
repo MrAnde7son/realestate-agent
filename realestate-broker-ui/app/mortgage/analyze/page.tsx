@@ -683,8 +683,9 @@ export default function MortgageAnalyzePage() {
                 {/* Essential Fields - Always Visible */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">שווי נכס</label>
+                    <label htmlFor="property-value" className="text-xs font-medium text-muted-foreground mb-1 block">שווי נכס</label>
                     <Input
+                      id="property-value"
                       type="number"
                       value={propertyValue}
                       onChange={event => setPropertyValue(Number(event.target.value) || 0)}
@@ -693,8 +694,9 @@ export default function MortgageAnalyzePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">הון עצמי</label>
+                    <label htmlFor="user-equity" className="text-xs font-medium text-muted-foreground mb-1 block">הון עצמי</label>
                     <Input
+                      id="user-equity"
                       type="number"
                       value={userEquity}
                       onChange={event => setUserEquity(Number(event.target.value) || 0)}
@@ -703,8 +705,9 @@ export default function MortgageAnalyzePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">הכנסה חודשית</label>
+                    <label htmlFor="monthly-income" className="text-xs font-medium text-muted-foreground mb-1 block">הכנסה חודשית</label>
                     <Input
+                      id="monthly-income"
                       type="number"
                       value={monthlyIncome}
                       onChange={event => setMonthlyIncome(Number(event.target.value) || 0)}

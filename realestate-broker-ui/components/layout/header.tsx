@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Logo from "@/components/Logo"
-import AppSidebar from "./app-sidebar"
+import { baseNavigation } from "./app-sidebar"
 import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft, X, LineChart } from "lucide-react"
+import { User, Users, CreditCard, Settings, LogOut, X, LineChart } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -21,17 +21,13 @@ interface HeaderProps {
 }
 
 // Mobile navigation items
-const mobileNavigation = [
-  { name: "נכסים", href: "/assets", icon: Building },
-  { name: "לקוחות", href: "/crm", icon: Users },
-  { name: "התראות", href: "/alerts", icon: AlertCircle },
-  { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Receipt },
-  { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Banknote },
-  { name: "דוחות", href: "/reports", icon: BarChart3 },
+const baseMobileNavigation = baseNavigation.map((item) => ({ ...item }))
+const additionalMobileNavigation = [
   { name: "פרופיל", href: "/profile", icon: User },
   { name: "חבילות ותשלומים", href: "/billing", icon: CreditCard },
   { name: "הגדרות", href: "/settings", icon: Settings },
 ]
+const mobileNavigation = [...baseMobileNavigation, ...additionalMobileNavigation]
 
 export default function Header({ onToggleSidebar }: HeaderProps) {
   const pathname = usePathname()

@@ -249,6 +249,9 @@ class DataPipeline:
 
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> DBListing:
+        # Check if listing already exists by listing_id
+        existing_listing = session.query(DBListing).filter_by(listing_id=str(listing.listing_id)).first()
+        
         contact_name = getattr(listing, "contact_name", None)
         contact_phone = getattr(listing, "contact_phone", None)
         contact_info = getattr(listing, "contact_info", None)
@@ -280,33 +283,62 @@ class DataPipeline:
         else:
             video_url = raw_video
 
-        obj = DBListing(
-            title=listing.title,
-            price=listing.price,
-            address=listing.address,
-            rooms=listing.rooms,
-            floor=listing.floor,
-            size=listing.size,
-            total_size=listing.total_size,
-            property_type=listing.property_type,
-            description=listing.description,
-            url=listing.url,
-            listing_id=listing.listing_id,
-            listing_type=getattr(listing, "listing_type", None),
-            ad_type=getattr(listing, "ad_type", None),
-            contact_name=contact_name,
-            contact_phone=contact_phone,
-            recent_deal=bool(getattr(listing, "recent_deal", False)),
-            photos=photos_data,
-            video_url=video_url,
-        )
-        if listing.coordinates:
-            try:
-                obj.longitude = listing.coordinates[0]
-                obj.latitude = listing.coordinates[1]
-            except Exception:
-                pass
-        session.add(obj)
+        if existing_listing:
+            # Update existing listing
+            existing_listing.title = listing.title
+            existing_listing.price = listing.price
+            existing_listing.address = listing.address
+            existing_listing.rooms = listing.rooms
+            existing_listing.floor = listing.floor
+            existing_listing.size = listing.size
+            existing_listing.total_size = listing.total_size
+            existing_listing.property_type = listing.property_type
+            existing_listing.description = listing.description
+            existing_listing.url = listing.url
+            existing_listing.listing_type = getattr(listing, "listing_type", None)
+            existing_listing.ad_type = getattr(listing, "ad_type", None)
+            existing_listing.contact_name = contact_name
+            existing_listing.contact_phone = contact_phone
+            existing_listing.recent_deal = bool(getattr(listing, "recent_deal", False))
+            existing_listing.photos = photos_data
+            existing_listing.video_url = video_url
+            if listing.coordinates:
+                try:
+                    existing_listing.longitude = listing.coordinates[0]
+                    existing_listing.latitude = listing.coordinates[1]
+                except Exception:
+                    pass
+            obj = existing_listing
+        else:
+            # Create new listing
+            obj = DBListing(
+                title=listing.title,
+                price=listing.price,
+                address=listing.address,
+                rooms=listing.rooms,
+                floor=listing.floor,
+                size=listing.size,
+                total_size=listing.total_size,
+                property_type=listing.property_type,
+                description=listing.description,
+                url=listing.url,
+                listing_id=str(listing.listing_id),
+                listing_type=getattr(listing, "listing_type", None),
+                ad_type=getattr(listing, "ad_type", None),
+                contact_name=contact_name,
+                contact_phone=contact_phone,
+                recent_deal=bool(getattr(listing, "recent_deal", False)),
+                photos=photos_data,
+                video_url=video_url,
+            )
+            if listing.coordinates:
+                try:
+                    obj.longitude = listing.coordinates[0]
+                    obj.latitude = listing.coordinates[1]
+                except Exception:
+                    pass
+            session.add(obj)
+        
         session.flush()  # populate id
         return obj
 

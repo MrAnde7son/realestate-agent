@@ -3,7 +3,7 @@ import React from 'react'
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import MortgageAnalyzePage from './page'
-import { vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 const mockAuthState: { user: any } = { user: null }
 
 vi.mock('@/components/layout/dashboard-layout', () => ({

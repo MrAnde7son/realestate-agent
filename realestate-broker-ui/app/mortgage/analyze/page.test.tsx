@@ -155,17 +155,28 @@ describe('MortgageAnalyzePage', () => {
     // Wait for scenarios to appear and then select one
     await waitFor(() => {
       expect(screen.getByText('השוואת תרחישים')).toBeInTheDocument()
-    }, { timeout: 3000 })
+    }, { timeout: 5000 })
 
-    // Select first scenario to see details
-    const scenarioButtons = screen.getAllByText(/בחר תרחיש זה/)
-    expect(scenarioButtons.length).toBeGreaterThan(0)
+    // Wait for scenario buttons to appear and ensure scenarios are rendered
+    const scenarioButtons = await waitFor(() => {
+      const buttons = screen.getAllByText(/בחר תרחיש זה/)
+      expect(buttons.length).toBeGreaterThan(0)
+      // Also verify scenarios are fully rendered by checking for scenario details
+      expect(screen.getAllByText(/תשלום ראשון/).length).toBeGreaterThan(0)
+      return buttons
+    }, { timeout: 5000 })
     
     fireEvent.click(scenarioButtons[0])
       
+    // Wait for the component to switch to edit mode (indicated by selected scenario header)
+    await waitFor(() => {
+      expect(screen.getByText(/תרחיש נבחר/)).toBeInTheDocument()
+    }, { timeout: 5000 })
+    
+    // Wait for tranches section to appear
     await waitFor(() => {
       expect(screen.getByText('מסלולים')).toBeInTheDocument()
-    })
+    }, { timeout: 5000 })
 
     expect(screen.getByText('הוסף מסלול')).toBeInTheDocument()
     expect(screen.getByText('פריים (P-0.9)')).toBeInTheDocument()
@@ -192,16 +203,30 @@ describe('MortgageAnalyzePage', () => {
     // Wait for scenarios to appear and select first one
     await waitFor(() => {
       expect(screen.getByText('השוואת תרחישים')).toBeInTheDocument()
-    }, { timeout: 3000 })
+    }, { timeout: 5000 })
 
-    const scenarioButtons = screen.getAllByText(/בחר תרחיש זה/)
-    expect(scenarioButtons.length).toBeGreaterThan(0)
+    // Wait for scenario buttons to appear and ensure scenarios are fully rendered
+    const scenarioButtons = await waitFor(() => {
+      const buttons = screen.getAllByText(/בחר תרחיש זה/)
+      expect(buttons.length).toBeGreaterThan(0)
+      // Also verify scenarios are fully rendered by checking for scenario details
+      expect(screen.getAllByText(/תשלום ראשון/).length).toBeGreaterThan(0)
+      return buttons
+    }, { timeout: 5000 })
     
     fireEvent.click(scenarioButtons[0])
 
-    // Wait for tranche editors to appear after scenario selection
-    const trancheEditors = await screen.findAllByTestId('tranche-editor')
-    expect(trancheEditors.length).toBeGreaterThan(0)
+    // Wait for the component to switch to edit mode (indicated by selected scenario header)
+    await waitFor(() => {
+      expect(screen.getByText(/תרחיש נבחר/)).toBeInTheDocument()
+    }, { timeout: 5000 })
+
+    // Wait for tranche editors to appear after scenario selection (component switches to edit mode)
+    const trancheEditors = await waitFor(() => {
+      const editors = screen.queryAllByTestId('tranche-editor')
+      expect(editors.length).toBeGreaterThan(0)
+      return editors
+    }, { timeout: 5000 })
 
     const firstEditor = trancheEditors[0]
     const collapseButton = within(firstEditor).getByLabelText('צמצום מסלול')

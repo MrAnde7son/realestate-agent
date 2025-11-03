@@ -797,6 +797,58 @@ def _process_gis_data(asset, gis_data):
     if community_facilities:
         asset.set_property('communityFacilitiesCount', len(community_facilities), source='GIS', url='https://www.govmap.gov.il/')
     
+    # Dog parks
+    dog_parks = gis_data.get('dog_parks')
+    if dog_parks:
+        asset.set_property('dogParksCount', len(dog_parks), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Public gardens
+    public_gardens = gis_data.get('public_gardens')
+    if public_gardens:
+        asset.set_property('publicGardensCount', len(public_gardens), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Playgrounds (separate from green_amenities for more granular data)
+    playgrounds = gis_data.get('playgrounds')
+    if playgrounds:
+        asset.set_property('playgroundsCount', len(playgrounds), source='GIS', url='https://www.govmap.gov.il/')
+        # Also update if it was already set from green_amenities (use the larger value)
+        existing_playgrounds = asset.get_property_value('playgroundsCount') or 0
+        if len(playgrounds) > existing_playgrounds:
+            asset.set_property('playgroundsCount', len(playgrounds), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Medical centers (separate from medical_facilities)
+    medical_centers = gis_data.get('medical_centers')
+    if medical_centers:
+        asset.set_property('medicalCentersCount', len(medical_centers), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [m.get('distance') for m in medical_centers if isinstance(m, dict) and m.get('distance')]
+        if distances:
+            min_distance = min(distances)
+            existing_distance = asset.get_property_value('nearestMedicalFacilityDistanceM')
+            if existing_distance is None or min_distance < existing_distance:
+                asset.set_property('nearestMedicalFacilityDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Health funds
+    health_funds = gis_data.get('health_funds')
+    if health_funds:
+        asset.set_property('healthFundsCount', len(health_funds), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [h.get('distance') for h in health_funds if isinstance(h, dict) and h.get('distance')]
+        if distances:
+            min_distance = min(distances)
+            existing_distance = asset.get_property_value('nearestMedicalFacilityDistanceM')
+            if existing_distance is None or min_distance < existing_distance:
+                asset.set_property('nearestMedicalFacilityDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Pharmacies
+    pharmacies = gis_data.get('pharmacies')
+    if pharmacies:
+        asset.set_property('pharmaciesCount', len(pharmacies), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [p.get('distance') for p in pharmacies if isinstance(p, dict) and p.get('distance')]
+        if distances:
+            min_distance = min(distances)
+            existing_distance = asset.get_property_value('nearestMedicalFacilityDistanceM')
+            if existing_distance is None or min_distance < existing_distance:
+                asset.set_property('nearestMedicalFacilityDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
     # TAMA 38 key areas - potential for redevelopment
     tama38_areas = gis_data.get('tama38_key_areas')
     if tama38_areas:

@@ -442,6 +442,51 @@ export const calculateEnvironmentScore = (asset: Record<string, any> | null): nu
     }
   }
 
+  // Dog parks - positive amenity
+  const dogParksCount = pickNumeric(asset.dogParksCount, asset.dog_parks_count)
+  if (dogParksCount !== null) {
+    const normalized = normalizeCountScore(dogParksCount, 3)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
+  // Public gardens - positive amenity
+  const publicGardensCount = pickNumeric(asset.publicGardensCount, asset.public_gardens_count)
+  if (publicGardensCount !== null) {
+    const normalized = normalizeCountScore(publicGardensCount, 5)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1.5 })
+    }
+  }
+
+  // Medical centers - separate from general medical facilities for granularity
+  const medicalCentersCount = pickNumeric(asset.medicalCentersCount, asset.medical_centers_count)
+  if (medicalCentersCount !== null) {
+    const normalized = normalizeCountScore(medicalCentersCount, 3)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
+  // Health funds - medical facility accessibility
+  const healthFundsCount = pickNumeric(asset.healthFundsCount, asset.health_funds_count)
+  if (healthFundsCount !== null) {
+    const normalized = normalizeCountScore(healthFundsCount, 3)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
+  // Pharmacies - medical facility accessibility
+  const pharmaciesCount = pickNumeric(asset.pharmaciesCount, asset.pharmacies_count)
+  if (pharmaciesCount !== null) {
+    const normalized = normalizeCountScore(pharmaciesCount, 5)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
   // Construction sites - can indicate development activity (positive) or disruption (negative)
   // Treat as slightly positive since it indicates area development
   const constructionSitesCount = pickNumeric(

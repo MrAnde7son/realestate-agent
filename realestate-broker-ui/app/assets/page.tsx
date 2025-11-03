@@ -2185,8 +2185,8 @@ export default function AssetsPage() {
 
   const commercialFilterOptions = React.useMemo(
     () => [
-      { value: "commercial", label: "נכסים מסחריים" },
       { value: "residential", label: "נכסים למגורים" },
+      { value: "commercial", label: "נכסים מסחריים" },
     ],
     []
   );

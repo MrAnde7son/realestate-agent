@@ -143,6 +143,11 @@ class AssetSerializer(MetaSerializerMixin):
     medicalFacilitiesCount = serializers.SerializerMethodField()
     nearestMedicalFacilityDistanceM = serializers.SerializerMethodField()
     communityFacilitiesCount = serializers.SerializerMethodField()
+    dogParksCount = serializers.SerializerMethodField()
+    publicGardensCount = serializers.SerializerMethodField()
+    medicalCentersCount = serializers.SerializerMethodField()
+    healthFundsCount = serializers.SerializerMethodField()
+    pharmaciesCount = serializers.SerializerMethodField()
     tama38KeyArea = serializers.SerializerMethodField()
     tama38KeyAreasCount = serializers.SerializerMethodField()
     roadWorksCount = serializers.SerializerMethodField()
@@ -544,6 +549,21 @@ class AssetSerializer(MetaSerializerMixin):
     def get_communityFacilitiesCount(self, obj):
         return self._get_property(obj, 'communityFacilitiesCount')
     
+    def get_dogParksCount(self, obj):
+        return self._get_property(obj, 'dogParksCount')
+    
+    def get_publicGardensCount(self, obj):
+        return self._get_property(obj, 'publicGardensCount')
+    
+    def get_medicalCentersCount(self, obj):
+        return self._get_property(obj, 'medicalCentersCount')
+    
+    def get_healthFundsCount(self, obj):
+        return self._get_property(obj, 'healthFundsCount')
+    
+    def get_pharmaciesCount(self, obj):
+        return self._get_property(obj, 'pharmaciesCount')
+    
     def get_tama38KeyArea(self, obj):
         return self._get_property(obj, 'tama38KeyArea')
     
@@ -577,7 +597,8 @@ class AssetSerializer(MetaSerializerMixin):
             'schoolsCount','nearestSchoolDistanceM','constructionSitesCount','affordableHousingProjectsCount',
             'bikePathsCount','hasBikePaths','soilContaminationSitesCount','nearestSoilContaminationDistanceM',
             'greenAmenitiesCount','playgroundsCount','medicalFacilitiesCount','nearestMedicalFacilityDistanceM',
-            'communityFacilitiesCount','tama38KeyArea','tama38KeyAreasCount','roadWorksCount','hasActiveRoadWorks',
+            'communityFacilitiesCount','dogParksCount','publicGardensCount','medicalCentersCount','healthFundsCount','pharmaciesCount',
+            'tama38KeyArea','tama38KeyAreasCount','roadWorksCount','hasActiveRoadWorks',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'is_commercial', 'isCommercial',
             'isWatched',

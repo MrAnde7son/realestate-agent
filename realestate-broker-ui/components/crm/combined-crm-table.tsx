@@ -456,12 +456,12 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead className="min-w-[180px] rtl:text-start">לקוח</TableHead>
-                <TableHead className="min-w-[200px] rtl:text-start">נכסים ותחומי עניין</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">סטטוס לידים</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">משימות</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">פעילות אחרונה</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">פעולות</TableHead>
+                <TableHead className="min-w-[180px]">לקוח</TableHead>
+                <TableHead className="min-w-[200px]">נכסים ותחומי עניין</TableHead>
+                <TableHead className="min-w-[140px]">סטטוס לידים</TableHead>
+                <TableHead className="min-w-[140px]">משימות</TableHead>
+                <TableHead className="min-w-[140px]">פעילות אחרונה</TableHead>
+                <TableHead className="min-w-[140px]">פעולות</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

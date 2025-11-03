@@ -537,7 +537,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
         />
 
         <DashboardHeader
-          heading={`סביבת עסקה לנכס ${assetId}`}
+          heading={`סביבת עסקה לנכס ${DEAL_METADATA.address}`}
           text='נהלו הצעות, מסמכים, משימות ומשכנתאות במבט אחד מרוכז.'
         />
 

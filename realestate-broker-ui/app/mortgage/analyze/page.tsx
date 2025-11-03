@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -283,6 +284,8 @@ const DEFAULT_BOI_RATE = 4.75
 const DEFAULT_PRIME_SPREAD = 1.5
 
 export default function MortgageAnalyzePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const initialPrimeRate = calcPrime(DEFAULT_BOI_RATE, DEFAULT_PRIME_SPREAD)
   const initialTranchesRef = useRef<UITranche[] | null>(null)
   if (!initialTranchesRef.current) {
@@ -297,21 +300,42 @@ export default function MortgageAnalyzePage() {
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [loadingBoiRate, setLoadingBoiRate] = useState<boolean>(true)
   const [calculating, setCalculating] = useState<boolean>(false)
-  const [selectedStress, setSelectedStress] = useState<string>('base')
+  const [selectedStress, setSelectedStress] = useState<string>(() => {
+    const param = searchParams.get('stress')
+    return param || 'base'
+  })
   const [requiredEquity, setRequiredEquity] = useState<number | null>(null)
   const [isClient, setIsClient] = useState(false)
-  const [userEquity, setUserEquity] = useState<number>(0)
+  const [userEquity, setUserEquity] = useState<number>(() => {
+    const param = searchParams.get('userEquity')
+    return param ? Number(param) || 0 : 0
+  })
 
-  const [propertyValue, setPropertyValue] = useState<number>(3_500_000)
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(65_000)
+  const [propertyValue, setPropertyValue] = useState<number>(() => {
+    const param = searchParams.get('propertyValue')
+    return param ? Number(param) || 3_500_000 : 3_500_000
+  })
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
+    const param = searchParams.get('monthlyIncome')
+    return param ? Number(param) || 65_000 : 65_000
+  })
 
-  const [envConfig, setEnvConfig] = useState<Omit<PortfolioInput, 'tranches'>>({
-    boiAnnual: DEFAULT_BOI_RATE,
-    primeSpread: DEFAULT_PRIME_SPREAD,
-    boiShock: 0,
-    bondShock: 0,
-    cpiShock: 0,
-    monthlyIncome
+  const [envConfig, setEnvConfig] = useState<Omit<PortfolioInput, 'tranches'>>(() => {
+    const boiAnnualParam = searchParams.get('boiAnnual')
+    const primeSpreadParam = searchParams.get('primeSpread')
+    const boiShockParam = searchParams.get('boiShock')
+    const bondShockParam = searchParams.get('bondShock')
+    const cpiShockParam = searchParams.get('cpiShock')
+    const monthlyIncomeParam = searchParams.get('monthlyIncome')
+    
+    return {
+      boiAnnual: boiAnnualParam ? Number(boiAnnualParam) || DEFAULT_BOI_RATE : DEFAULT_BOI_RATE,
+      primeSpread: primeSpreadParam ? Number(primeSpreadParam) || DEFAULT_PRIME_SPREAD : DEFAULT_PRIME_SPREAD,
+      boiShock: boiShockParam ? Number(boiShockParam) || 0 : 0,
+      bondShock: bondShockParam ? Number(bondShockParam) || 0 : 0,
+      cpiShock: cpiShockParam ? Number(cpiShockParam) || 0 : 0,
+      monthlyIncome: monthlyIncomeParam ? Number(monthlyIncomeParam) || 65_000 : 65_000
+    }
   })
 
   const [tranches, setTranches] = useState<UITranche[]>(initialTranchesRef.current ?? [])
@@ -323,7 +347,10 @@ export default function MortgageAnalyzePage() {
     }, {} as Record<string, boolean>)
   })
   const [highlightedTrancheId, setHighlightedTrancheId] = useState<string | null>(null)
-  const [selectedScenarioId, setSelectedScenarioId] = useState<ScenarioType | null>(null)
+  const [selectedScenarioId, setSelectedScenarioId] = useState<ScenarioType | null>(() => {
+    const param = searchParams.get('scenario')
+    return (param && (param === 'even' || param === 'conservative' || param === 'aggressive')) ? param as ScenarioType : null
+  })
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false)
   
   // Default to compare mode if we have loan amount (scenarios will be generated), otherwise edit mode
@@ -427,33 +454,229 @@ export default function MortgageAnalyzePage() {
     trackCalculatorUsage('mortgage', 'page_view')
   }, [trackCalculatorUsage])
 
+  // Read URL parameters on initial load
   useEffect(() => {
     if (!isClient) return
-    const urlParams = new URLSearchParams(window.location.search)
-    const propertyValueParam = urlParams.get('propertyValue')
-    const totalExpenses = urlParams.get('totalExpenses')
-
-    if (propertyValueParam || totalExpenses) {
-      trackCalculatorUsage('mortgage', 'prefilled_from_expenses', {
-        property_value: propertyValueParam,
-        total_expenses: totalExpenses
-      })
-
-      if (propertyValueParam) {
-        const totalCost = Number(propertyValueParam)
-        if (!Number.isNaN(totalCost)) {
-          setPropertyValue(totalCost)
-        }
-      }
-
-      if (totalExpenses) {
-        const expensesValue = Number(totalExpenses)
-        if (!Number.isNaN(expensesValue)) {
-          setRequiredEquity(expensesValue)
-        }
+    
+    // Handle prefilled parameters from other pages
+    const totalExpenses = searchParams.get('totalExpenses')
+    if (totalExpenses) {
+      const expensesValue = Number(totalExpenses)
+      if (!Number.isNaN(expensesValue)) {
+        setRequiredEquity(expensesValue)
+        trackCalculatorUsage('mortgage', 'prefilled_from_expenses', {
+          total_expenses: totalExpenses
+        })
       }
     }
-  }, [isClient, trackCalculatorUsage])
+  }, [isClient, trackCalculatorUsage, searchParams])
+
+  // Sync state to URL parameters
+  useEffect(() => {
+    if (!isClient) return
+    
+    const params = new URLSearchParams()
+    
+    // Update or remove propertyValue
+    if (propertyValue && propertyValue !== 3_500_000) {
+      params.set('propertyValue', propertyValue.toString())
+    }
+    
+    // Update or remove userEquity
+    if (userEquity && userEquity > 0) {
+      params.set('userEquity', userEquity.toString())
+    }
+    
+    // Update or remove monthlyIncome
+    if (monthlyIncome && monthlyIncome !== 65_000) {
+      params.set('monthlyIncome', monthlyIncome.toString())
+    }
+    
+    // Update or remove boiAnnual
+    if (envConfig.boiAnnual && envConfig.boiAnnual !== DEFAULT_BOI_RATE) {
+      params.set('boiAnnual', envConfig.boiAnnual.toString())
+    }
+    
+    // Update or remove primeSpread
+    if (envConfig.primeSpread && envConfig.primeSpread !== DEFAULT_PRIME_SPREAD) {
+      params.set('primeSpread', envConfig.primeSpread.toString())
+    }
+    
+    // Update or remove boiShock
+    if (envConfig.boiShock && envConfig.boiShock !== 0) {
+      params.set('boiShock', envConfig.boiShock.toString())
+    }
+    
+    // Update or remove bondShock
+    if (envConfig.bondShock && envConfig.bondShock !== 0) {
+      params.set('bondShock', envConfig.bondShock.toString())
+    }
+    
+    // Update or remove cpiShock
+    if (envConfig.cpiShock && envConfig.cpiShock !== 0) {
+      params.set('cpiShock', envConfig.cpiShock.toString())
+    }
+    
+    // Update or remove stress
+    if (selectedStress && selectedStress !== 'base') {
+      params.set('stress', selectedStress)
+    }
+    
+    // Update or remove scenario
+    if (selectedScenarioId) {
+      params.set('scenario', selectedScenarioId)
+    }
+    
+    // Preserve other params (like totalExpenses) from current URL
+    if (typeof window !== 'undefined') {
+      const currentParams = new URLSearchParams(window.location.search)
+      currentParams.forEach((value, key) => {
+        if (!params.has(key) && key !== 'propertyValue' && key !== 'userEquity' && 
+            key !== 'monthlyIncome' && key !== 'boiAnnual' && key !== 'primeSpread' &&
+            key !== 'boiShock' && key !== 'bondShock' && key !== 'cpiShock' &&
+            key !== 'stress' && key !== 'scenario') {
+          params.set(key, value)
+        }
+      })
+    }
+    
+    // Update URL without causing a navigation
+    const newQueryString = params.toString()
+    const currentQueryString = typeof window !== 'undefined' ? window.location.search.slice(1) : '' // Remove leading '?'
+    
+    if (newQueryString !== currentQueryString) {
+      const newUrl = typeof window !== 'undefined' 
+        ? `${window.location.pathname}${newQueryString ? `?${newQueryString}` : ''}`
+        : ''
+      if (newUrl) {
+        router.replace(newUrl, { scroll: false })
+      }
+    }
+  }, [
+    isClient,
+    propertyValue,
+    userEquity,
+    monthlyIncome,
+    envConfig.boiAnnual,
+    envConfig.primeSpread,
+    envConfig.boiShock,
+    envConfig.bondShock,
+    envConfig.cpiShock,
+    selectedStress,
+    selectedScenarioId,
+    router
+  ])
+
+  // Sync state from URL parameters when URL changes externally (e.g., shared links, browser navigation)
+  useEffect(() => {
+    if (!isClient) return
+    
+    const urlPropertyValue = searchParams.get('propertyValue')
+    const urlUserEquity = searchParams.get('userEquity')
+    const urlMonthlyIncome = searchParams.get('monthlyIncome')
+    const urlBoiAnnual = searchParams.get('boiAnnual')
+    const urlPrimeSpread = searchParams.get('primeSpread')
+    const urlBoiShock = searchParams.get('boiShock')
+    const urlBondShock = searchParams.get('bondShock')
+    const urlCpiShock = searchParams.get('cpiShock')
+    const urlStress = searchParams.get('stress')
+    const urlScenario = searchParams.get('scenario')
+    
+    // Update propertyValue if URL param differs from state
+    if (urlPropertyValue) {
+      const urlValue = Number(urlPropertyValue)
+      if (!Number.isNaN(urlValue) && urlValue !== propertyValue) {
+        setPropertyValue(urlValue)
+      }
+    }
+    
+    // Update userEquity if URL param differs from state
+    if (urlUserEquity !== null) {
+      const urlValue = Number(urlUserEquity)
+      if (!Number.isNaN(urlValue) && urlValue !== userEquity) {
+        setUserEquity(urlValue)
+      }
+    }
+    
+    // Update monthlyIncome if URL param differs from state
+    if (urlMonthlyIncome) {
+      const urlValue = Number(urlMonthlyIncome)
+      if (!Number.isNaN(urlValue) && urlValue !== monthlyIncome) {
+        setMonthlyIncome(urlValue)
+      }
+    }
+    
+    // Update envConfig if URL params differ from state
+    if (urlBoiAnnual) {
+      const urlValue = Number(urlBoiAnnual)
+      if (!Number.isNaN(urlValue) && urlValue !== envConfig.boiAnnual) {
+        setEnvConfig(prev => ({ ...prev, boiAnnual: urlValue }))
+      }
+    }
+    
+    if (urlPrimeSpread) {
+      const urlValue = Number(urlPrimeSpread)
+      if (!Number.isNaN(urlValue) && urlValue !== envConfig.primeSpread) {
+        setEnvConfig(prev => ({ ...prev, primeSpread: urlValue }))
+      }
+    }
+    
+    if (urlBoiShock !== null) {
+      const urlValue = Number(urlBoiShock)
+      if (!Number.isNaN(urlValue) && urlValue !== envConfig.boiShock) {
+        setEnvConfig(prev => ({ ...prev, boiShock: urlValue }))
+      }
+    }
+    
+    if (urlBondShock !== null) {
+      const urlValue = Number(urlBondShock)
+      if (!Number.isNaN(urlValue) && urlValue !== envConfig.bondShock) {
+        setEnvConfig(prev => ({ ...prev, bondShock: urlValue }))
+      }
+    }
+    
+    if (urlCpiShock !== null) {
+      const urlValue = Number(urlCpiShock)
+      if (!Number.isNaN(urlValue) && urlValue !== envConfig.cpiShock) {
+        setEnvConfig(prev => ({ ...prev, cpiShock: urlValue }))
+      }
+    }
+    
+    // Update stress if URL param differs from state
+    if (urlStress && urlStress !== selectedStress) {
+      setSelectedStress(urlStress)
+    }
+    
+    // Update scenario if URL param differs from state
+    if (urlScenario && (urlScenario === 'even' || urlScenario === 'conservative' || urlScenario === 'aggressive')) {
+      if (urlScenario !== selectedScenarioId) {
+        // Use selectScenario to properly load the scenario (includes tranches, view mode, etc.)
+        const targetLoan = Math.max(0, propertyValue - userEquity)
+        if (targetLoan > 0) {
+          const scenarioScenarios = createMortgageScenarios(primeRate, targetLoan)
+          const scenario = scenarioScenarios.find(s => s.id === urlScenario)
+          if (scenario) {
+            setSelectedScenarioId(urlScenario as ScenarioType)
+            setTranches(scenario.tranches.map(t => ({ ...t })))
+            setExpandedTranches(
+              scenario.tranches.reduce((acc, tranche) => {
+                acc[tranche.id] = true
+                return acc
+              }, {} as Record<string, boolean>)
+            )
+            setViewMode('edit')
+          } else {
+            setSelectedScenarioId(urlScenario as ScenarioType)
+          }
+        } else {
+          setSelectedScenarioId(urlScenario as ScenarioType)
+        }
+      }
+    } else if (!urlScenario && selectedScenarioId) {
+      // Clear scenario if URL doesn't have it
+      setSelectedScenarioId(null)
+    }
+  }, [isClient, searchParams, propertyValue, userEquity, monthlyIncome, envConfig.boiAnnual, envConfig.primeSpread, envConfig.boiShock, envConfig.bondShock, envConfig.cpiShock, selectedStress, selectedScenarioId, primeRate])
 
   useEffect(() => {
     const targetLoan = Math.max(0, propertyValue - userEquity)
@@ -1197,8 +1420,8 @@ export default function MortgageAnalyzePage() {
               {/* Summary Panel - Compare mode */}
               {viewMode === 'compare' && selectedScenarioId && (
                 <>
-                  <Card className="sticky top-6">
-                    <CardHeader className="border-b">
+                  <Card className="top-6">
+                    <CardHeader>
                       <CardTitle className="text-lg">סיכום תרחיש נבחר</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
                         {scenarios.find(s => s.id === selectedScenarioId)?.name}
@@ -1279,7 +1502,7 @@ export default function MortgageAnalyzePage() {
                     const monthlyAtYear = (years: number) => result.blendedMonthlyAt(years * 12)
                     return (
                       <Card>
-                        <CardHeader className="border-b">
+                        <CardHeader>
                           <CardTitle className="text-lg">תשלומים עתידיים</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm">
@@ -1307,7 +1530,7 @@ export default function MortgageAnalyzePage() {
                     const { result } = selectedResult
                     return (
                       <Card>
-                        <CardHeader className="border-b">
+                        <CardHeader>
                           <CardTitle className="text-lg">פירוט מסלולים</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4 text-sm">
@@ -1352,7 +1575,7 @@ export default function MortgageAnalyzePage() {
               {viewMode === 'edit' && selectedScenarioId && tranches.length > 0 && (
                 <>
                   <Card className="top-6">
-                    <CardHeader className="border-b">
+                    <CardHeader>
                       <CardTitle className="text-lg">סיכום תיק</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1409,7 +1632,7 @@ export default function MortgageAnalyzePage() {
 
                   {/* Future Payments - Edit mode */}
                   <Card>
-                    <CardHeader className="border-b">
+                    <CardHeader>
                       <CardTitle className="text-lg">תשלומים עתידיים</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm">
@@ -1430,7 +1653,7 @@ export default function MortgageAnalyzePage() {
 
                   {/* Tranche Details - Edit mode */}
                   <Card>
-                    <CardHeader className="border-b">
+                    <CardHeader>
                       <CardTitle className="text-lg">פירוט מסלולים</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm">

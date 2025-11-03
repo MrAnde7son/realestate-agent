@@ -943,7 +943,7 @@ export default function DealExpensesPage() {
       <DashboardShell>
         <DashboardHeader
           heading="מחשבון הוצאות עסקה"
-          text="חישוב מדויק של כל העלויות הכרוכות ברכישת נכס"
+          text="חישוב של כל העלויות הכרוכות ברכישת נכס"
         />
 
         <div className="mb-6 flex justify-center sm:justify-end">

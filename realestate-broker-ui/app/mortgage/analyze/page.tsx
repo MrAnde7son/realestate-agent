@@ -23,7 +23,7 @@ import {
   type GraceType,
   type RepaymentMethod
 } from '@/lib/mortgage'
-import { Loader2, Calculator, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, Calculator, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Settings, ChevronLeft } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOptionalAuth } from '@/lib/auth-context'
 interface UITranche extends TrancheInput {
@@ -55,6 +55,176 @@ const GRACE_OPTIONS: { value: GraceType; label: string }[] = [
   { value: 'INTEREST_ONLY', label: 'רק ריבית' },
   { value: 'FULL', label: 'דחיית תשלומים מלאה' }
 ]
+
+type ScenarioType = 'even' | 'conservative' | 'aggressive'
+
+interface MortgageScenario {
+  id: ScenarioType
+  name: string
+  description: string
+  tranches: UITranche[]
+}
+
+const createMortgageScenarios = (primeRate: number, totalLoanAmount: number): MortgageScenario[] => {
+  // Scenario 1: Evenly distributed (חלוקה שווה)
+  const evenAmount = totalLoanAmount / 3
+  const evenScenario: MortgageScenario = {
+    id: 'even',
+    name: 'חלוקה שווה',
+    description: 'חלוקה שווה בין שלושת המסלולים',
+    tranches: [
+      {
+        id: createId(),
+        name: 'פריים (P-0.9)',
+        amount: Math.round(evenAmount),
+        termMonths: 360,
+        track: 'PRIME',
+        anchorAnnual: primeRate,
+        marginAnnual: -0.9,
+        indexation: 'NONE',
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0,
+        feesUpfront: 1_500
+      },
+      {
+        id: createId(),
+        name: 'קבועה לא צמודה 4.7%',
+        amount: Math.round(evenAmount),
+        termMonths: 300,
+        track: 'FIXED_UNLINKED',
+        anchorAnnual: 4.7,
+        marginAnnual: 0,
+        indexation: 'NONE',
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0,
+        feesUpfront: 1_500
+      },
+      {
+        id: createId(),
+        name: 'משתנה אג״ח +0.8% (צמוד מדד)',
+        amount: Math.round(totalLoanAmount - evenAmount * 2),
+        termMonths: 360,
+        track: 'VARIABLE_BOND',
+        anchorAnnual: 3.9,
+        marginAnnual: 0.8,
+        resetEveryMonths: 60,
+        indexation: 'CPI',
+        cpiAnnualAssumption: 2,
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0
+      }
+    ]
+  }
+
+  // Scenario 2: Conservative (שמרני) - More fixed, less variable
+  const conservativeScenario: MortgageScenario = {
+    id: 'conservative',
+    name: 'שמרני',
+    description: 'דגש על מסלולים קבועים ויציבים',
+    tranches: [
+      {
+        id: createId(),
+        name: 'פריים (P-0.9)',
+        amount: Math.round(totalLoanAmount * 0.2),
+        termMonths: 360,
+        track: 'PRIME',
+        anchorAnnual: primeRate,
+        marginAnnual: -0.9,
+        indexation: 'NONE',
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0,
+        feesUpfront: 1_500
+      },
+      {
+        id: createId(),
+        name: 'קבועה לא צמודה 4.7%',
+        amount: Math.round(totalLoanAmount * 0.5),
+        termMonths: 300,
+        track: 'FIXED_UNLINKED',
+        anchorAnnual: 4.7,
+        marginAnnual: 0,
+        indexation: 'NONE',
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0,
+        feesUpfront: 1_500
+      },
+      {
+        id: createId(),
+        name: 'משתנה אג״ח +0.8% (צמוד מדד)',
+        amount: Math.round(totalLoanAmount * 0.3),
+        termMonths: 360,
+        track: 'VARIABLE_BOND',
+        anchorAnnual: 3.9,
+        marginAnnual: 0.8,
+        resetEveryMonths: 60,
+        indexation: 'CPI',
+        cpiAnnualAssumption: 2,
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0
+      }
+    ]
+  }
+
+  // Scenario 3: Aggressive/Prime-focused (אגרסיבי) - More prime and variable
+  const aggressiveScenario: MortgageScenario = {
+    id: 'aggressive',
+    name: 'אגרסיבי',
+    description: 'דגש על פריים ומסלולים משתנים',
+    tranches: [
+      {
+        id: createId(),
+        name: 'פריים (P-0.9)',
+        amount: Math.round(totalLoanAmount * 0.5),
+        termMonths: 360,
+        track: 'PRIME',
+        anchorAnnual: primeRate,
+        marginAnnual: -0.9,
+        indexation: 'NONE',
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0,
+        feesUpfront: 1_500
+      },
+      {
+        id: createId(),
+        name: 'קבועה לא צמודה 4.7%',
+        amount: Math.round(totalLoanAmount * 0.2),
+        termMonths: 300,
+        track: 'FIXED_UNLINKED',
+        anchorAnnual: 4.7,
+        marginAnnual: 0,
+        indexation: 'NONE',
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0,
+        feesUpfront: 1_500
+      },
+      {
+        id: createId(),
+        name: 'משתנה אג״ח +0.8% (צמוד מדד)',
+        amount: Math.round(totalLoanAmount * 0.3),
+        termMonths: 360,
+        track: 'VARIABLE_BOND',
+        anchorAnnual: 3.9,
+        marginAnnual: 0.8,
+        resetEveryMonths: 60,
+        indexation: 'CPI',
+        cpiAnnualAssumption: 2,
+        repayment: 'ANNUITY',
+        graceType: 'NONE',
+        graceMonths: 0
+      }
+    ]
+  }
+
+  return [evenScenario, conservativeScenario, aggressiveScenario]
+}
 
 const createDefaultTranches = (primeRate: number): UITranche[] => [
   {
@@ -153,6 +323,19 @@ export default function MortgageAnalyzePage() {
     }, {} as Record<string, boolean>)
   })
   const [highlightedTrancheId, setHighlightedTrancheId] = useState<string | null>(null)
+  const [selectedScenarioId, setSelectedScenarioId] = useState<ScenarioType | null>(null)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false)
+  
+  // Default to compare mode if we have loan amount (scenarios will be generated), otherwise edit mode
+  const getInitialViewMode = (): 'compare' | 'edit' => {
+    const targetLoan = Math.max(0, propertyValue - userEquity)
+    return targetLoan > 0 ? 'compare' : 'edit'
+  }
+  const [viewMode, setViewMode] = useState<'compare' | 'edit'>(() => {
+    // Check initial values - if we have property value without equity, start in compare mode
+    const targetLoan = Math.max(0, propertyValue - userEquity)
+    return targetLoan > 0 ? 'compare' : 'edit'
+  })
   const trancheRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const scrollTimeoutRef = useRef<number | null>(null)
 
@@ -160,6 +343,26 @@ export default function MortgageAnalyzePage() {
     () => tranches.reduce((sum, tranche) => sum + tranche.amount, 0),
     [tranches]
   )
+
+  const scenarios = useMemo(() => {
+    const targetLoan = Math.max(0, propertyValue - userEquity)
+    if (targetLoan <= 0) return []
+    return createMortgageScenarios(primeRate, targetLoan)
+  }, [propertyValue, userEquity, primeRate])
+
+  const scenarioResults = useMemo(() => {
+    return scenarios.map(scenario => {
+      const input: PortfolioInput = {
+        ...envConfig,
+        monthlyIncome,
+        tranches: scenario.tranches.map(({ id, ...rest }) => rest)
+      }
+      return {
+        scenario,
+        result: pricePortfolio(input)
+      }
+    })
+  }, [scenarios, envConfig, monthlyIncome])
 
   const portfolioInput: PortfolioInput = useMemo(
     () => ({
@@ -254,8 +457,44 @@ export default function MortgageAnalyzePage() {
 
   useEffect(() => {
     const targetLoan = Math.max(0, propertyValue - userEquity)
-    rebalanceTranches(targetLoan)
-  }, [propertyValue, userEquity, rebalanceTranches])
+    if (viewMode === 'edit') {
+      rebalanceTranches(targetLoan)
+    }
+    // Always switch to compare mode if we have property value entered (whether scenarios exist or not)
+    // This ensures we show either scenarios or the empty state message
+    if (propertyValue > 0 && !selectedScenarioId && viewMode === 'edit') {
+      setViewMode('compare')
+      // Clear tranches when switching to compare mode so scenarios are the focus
+      if (scenarios.length > 0) {
+        setTranches([])
+      }
+    }
+    // Switch to edit mode only if we don't have property value entered
+    if (propertyValue <= 0 && viewMode === 'compare' && !selectedScenarioId) {
+      setViewMode('edit')
+      setSelectedScenarioId(null)
+    }
+  }, [propertyValue, userEquity, rebalanceTranches, viewMode, selectedScenarioId, scenarios.length])
+
+  const selectScenario = (scenarioId: ScenarioType) => {
+    const scenario = scenarios.find(s => s.id === scenarioId)
+    if (scenario) {
+      setSelectedScenarioId(scenarioId)
+      setTranches(scenario.tranches.map(t => ({ ...t })))
+      setExpandedTranches(
+        scenario.tranches.reduce((acc, tranche) => {
+          acc[tranche.id] = true
+          return acc
+        }, {} as Record<string, boolean>)
+      )
+      setViewMode('edit')
+    }
+  }
+
+  const resetToCompare = () => {
+    setSelectedScenarioId(null)
+    setViewMode('compare')
+  }
 
   useEffect(() => {
     setEnvConfig(prev => ({ ...prev, monthlyIncome }))
@@ -432,113 +671,301 @@ export default function MortgageAnalyzePage() {
           </Button>
         </DashboardHeader>
 
-        <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1fr,400px] xl:grid-cols-[2fr,1fr]">
+          {/* Main Content Column */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>נתוני בסיס</CardTitle>
+            {/* Basic Data - Compact at top */}
+            <Card className="border-primary/10">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">נתוני בסיס</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                {/* Essential Fields - Always Visible */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">שווי נכס</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">שווי נכס</label>
                     <Input
                       type="number"
                       value={propertyValue}
                       onChange={event => setPropertyValue(Number(event.target.value) || 0)}
+                      className="h-9"
+                      placeholder="₪"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">הון עצמי</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">הון עצמי</label>
                     <Input
                       type="number"
                       value={userEquity}
                       onChange={event => setUserEquity(Number(event.target.value) || 0)}
+                      className="h-9"
+                      placeholder="₪"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">הכנסה חודשית</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">הכנסה חודשית</label>
                     <Input
                       type="number"
                       value={monthlyIncome}
                       onChange={event => setMonthlyIncome(Number(event.target.value) || 0)}
+                      className="h-9"
+                      placeholder="₪"
                     />
                   </div>
-                </div>
-                <Separator />
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">ריבית בנק ישראל</label>
-                    <div className="flex items-center gap-2">
-                      {loadingBoiRate ? (
-                        <Skeleton className="h-10 w-full" />
+                  <div className="flex items-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                      className="w-full justify-between"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="text-xs">הגדרות מתקדמות</span>
+                      {showAdvancedSettings ? (
+                        <ChevronUp className="h-3 w-3" />
                       ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={envConfig.boiAnnual}
-                          onChange={event => setEnvConfig(prev => ({ ...prev, boiAnnual: Number(event.target.value) || 0 }))}
-                        />
+                        <ChevronDown className="h-3 w-3" />
                       )}
-                      <Button variant="outline" size="icon" onClick={fetchBOIRateFromApi} aria-label="רענון ריבית בנק ישראל">
-                        <Loader2 className={`h-4 w-4 ${loadingBoiRate ? 'animate-spin' : ''}`} />
-                      </Button>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Advanced Settings - Collapsible */}
+                {showAdvancedSettings && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-2 block">ריביות וסביבה</label>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">ריבית בנק ישראל</label>
+                            <div className="flex items-center gap-2">
+                              {loadingBoiRate ? (
+                                <Skeleton className="h-9 w-full" />
+                              ) : (
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={envConfig.boiAnnual}
+                                  onChange={event => setEnvConfig(prev => ({ ...prev, boiAnnual: Number(event.target.value) || 0 }))}
+                                  className="h-9"
+                                />
+                              )}
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={fetchBOIRateFromApi} 
+                                aria-label="רענון ריבית בנק ישראל"
+                                className="h-9 w-9"
+                              >
+                                <Loader2 className={`h-3 w-3 ${loadingBoiRate ? 'animate-spin' : ''}`} />
+                              </Button>
+                            </div>
+                            {lastUpdated && (
+                              <p className="mt-1 text-xs text-muted-foreground">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">מרווח פריים</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={envConfig.primeSpread}
+                              onChange={event => setEnvConfig(prev => ({ ...prev, primeSpread: Number(event.target.value) || 0 }))}
+                              className="h-9"
+                            />
+                            <p className="mt-1 text-xs text-muted-foreground">פריים: {primeRate.toFixed(2)}%</p>
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">תוספת לעוגן אג״ח</label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={envConfig.bondShock ?? 0}
+                              onChange={event => setEnvConfig(prev => ({ ...prev, bondShock: Number(event.target.value) || 0 }))}
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-2 block">תרחישי לחץ</label>
+                        <div className="flex flex-wrap gap-2">
+                          {stressPresets.map(preset => (
+                            <Button
+                              key={preset.id}
+                              type="button"
+                              size="sm"
+                              variant={selectedStress === preset.id ? 'default' : 'outline'}
+                              onClick={() => handleStressPreset(preset.id)}
+                              className="h-8 text-xs"
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          שינוי ריבית בנק ישראל: {(envConfig.boiShock ?? 0).toFixed(2)}% · שינוי מדד: {(envConfig.cpiShock ?? 0).toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
-                    {lastUpdated && (
-                      <p className="mt-1 text-xs text-muted-foreground">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">מרווח פריים</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={envConfig.primeSpread}
-                      onChange={event => setEnvConfig(prev => ({ ...prev, primeSpread: Number(event.target.value) || 0 }))}
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">פריים נוכחי: {primeRate.toFixed(2)}%</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">תוספת לעוגן אג״ח</label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={envConfig.bondShock ?? 0}
-                      onChange={event => setEnvConfig(prev => ({ ...prev, bondShock: Number(event.target.value) || 0 }))}
-                    />
-                  </div>
-                </div>
-                <Separator />
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">תרחישי לחץ</label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {stressPresets.map(preset => (
-                      <Button
-                        key={preset.id}
-                        type="button"
-                        size="sm"
-                        variant={selectedStress === preset.id ? 'default' : 'outline'}
-                        onClick={() => handleStressPreset(preset.id)}
-                      >
-                        {preset.label}
-                      </Button>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    שינוי ריבית בנק ישראל: {(envConfig.boiShock ?? 0).toFixed(2)}% · שינוי מדד: {(envConfig.cpiShock ?? 0).toFixed(2)}%
-                  </p>
-                </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>מסלולים</CardTitle>
-                <Button type="button" onClick={addTranche} variant="outline" size="sm" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span>הוסף מסלול</span>
-                </Button>
-              </CardHeader>
+            {/* Scenarios Comparison - Show right below basic data */}
+            {viewMode === 'compare' && scenarios.length > 0 && (
+              <Card className="border-primary/20 shadow-lg">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-2xl">השוואת תרחישים</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        בחר תרחיש כדי לראות פרטים נוספים ולערוך את המסלולים
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-3">
+                    {scenarioResults.map(({ scenario, result }) => {
+                      const affordability = calculateAffordability(monthlyIncome, result.blendedFirstPayment)
+                      const ltv = calculateLTV(
+                        scenario.tranches.reduce((sum, t) => sum + t.amount, 0),
+                        propertyValue
+                      )
+                      const isSelected = selectedScenarioId === scenario.id
+                      return (
+                        <Card 
+                          key={scenario.id} 
+                          className={cn(
+                            "relative transition-all duration-200 cursor-pointer hover:shadow-md",
+                            isSelected && "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.01]",
+                            !isSelected && "hover:border-primary/30",
+                            "border-2"
+                          )}
+                          onClick={() => selectScenario(scenario.id)}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1 gap-2">
+                              <CardTitle className="text-lg font-bold">{scenario.name}</CardTitle>
+                              {isSelected && (
+                                <Badge variant="default" className="w-fit">✓ נבחר</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">{scenario.description}</p>
+                          </CardHeader>
+                          <CardContent className="space-y-3 pt-0">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">תשלום ראשון</span>
+                                <span className="text-base font-bold">{fmtCurrency(result.blendedFirstPayment)}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">תשלום מקסימלי</span>
+                                <span className="font-semibold">{fmtCurrency(result.blendedMaxPayment)}</span>
+                              </div>
+                              <Separator className="my-2" />
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">סה״כ תשלומים</span>
+                                <span className="font-semibold">{fmtCurrency(result.totals.paid)}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                                <div>
+                                  <span className="text-muted-foreground block">ריבית</span>
+                                  <span className="font-medium">{fmtCurrency(result.totals.interest)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground block">הצמדה</span>
+                                  <span className="font-medium">{fmtCurrency(result.totals.indexation)}</span>
+                                </div>
+                              </div>
+                              <Separator className="my-2" />
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">יחס החזר להכנסה</span>
+                                <Badge variant={affordability.isAffordable ? 'success' : 'destructive'} className="text-xs">
+                                  {affordability.ratio.toFixed(1)}%
+                                </Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">יחס מימון (LTV)</span>
+                                <Badge variant={ltv <= 60 ? 'success' : ltv <= 75 ? 'neutral' : 'destructive'} className="text-xs">
+                                  {ltv.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </div>
+                            <Button
+                              className="w-full mt-4"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                selectScenario(scenario.id)
+                              }}
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                            >
+                              {isSelected ? '✓ נבחר' : 'בחר תרחיש זה'}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Empty State - when no loan amount or equity >= property value */}
+            {viewMode === 'compare' && scenarios.length === 0 && (
+              <Card className="border-2 border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 px-4">
+                  <div className="rounded-full bg-muted p-4 mb-4">
+                    <Calculator className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2 text-center">
+                    {propertyValue > 0 && userEquity >= propertyValue 
+                      ? 'הון עצמי גדול משווי הנכס - לא נדרש מימון'
+                      : 'הכנס נתונים כדי לראות תרחישים'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-sm">
+                    {propertyValue > 0 && userEquity >= propertyValue
+                      ? 'כאשר ההון העצמי גדול או שווה לשווי הנכס, לא ניתן ליצור תרחישי משכנתא'
+                      : 'הזן שווי נכס והון עצמי (כאשר ההון העצמי קטן משווי הנכס) כדי לראות 3 תרחישי משכנתא אפשריים'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Selected Scenario Header */}
+            {viewMode === 'edit' && selectedScenarioId && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">תרחיש נבחר: {scenarios.find(s => s.id === selectedScenarioId)?.name}</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {scenarios.find(s => s.id === selectedScenarioId)?.description}
+                    </p>
+                  </div>
+                  <Button onClick={resetToCompare} variant="outline" size="sm">
+                    ← חזרה להשוואה
+                  </Button>
+                </CardHeader>
+              </Card>
+            )}
+
+
+            {/* Tranches section - Only show when a scenario is selected (which switches to edit mode) */}
+            {viewMode === 'edit' && selectedScenarioId && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>מסלולים</CardTitle>
+                  <Button type="button" onClick={addTranche} variant="outline" size="sm" className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span>הוסף מסלול</span>
+                  </Button>
+                </CardHeader>
               <CardContent className="space-y-4">
                 {tranches.map(tranche => {
                   const isExpanded = expandedTranches[tranche.id] ?? true
@@ -745,6 +1172,7 @@ export default function MortgageAnalyzePage() {
                 )}
               </CardContent>
             </Card>
+            )}
 
             {requiredEquity !== null && (
               <Card>
@@ -760,121 +1188,285 @@ export default function MortgageAnalyzePage() {
             )}
           </div>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>סיכום תיק</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">תשלום ראשון</span>
-                    <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedFirstPayment)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">תשלום מקסימלי</span>
-                    <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedMaxPayment)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">סה״כ הלוואה</span>
-                    <span className="text-lg font-semibold">{fmtCurrency(totalLoanAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">סה״כ תשלומים (כולל עמלות)</span>
-                    <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.totals.paid)}</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span>ריבית</span>
-                    <span>{fmtCurrency(portfolioResult.totals.interest)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>הצמדה</span>
-                    <span>{fmtCurrency(portfolioResult.totals.indexation)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>עמלות</span>
-                    <span>{fmtCurrency(portfolioResult.totals.fees)}</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span>יחס החזר להכנסה</span>
-                    <Badge variant={affordability.isAffordable ? 'success' : 'destructive'}>
-                      {affordability.ratio.toFixed(1)}%
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>יחס מימון (LTV)</span>
-                    <Badge variant={ltv <= 60 ? 'success' : ltv <= 75 ? 'neutral' : 'destructive'}>
-                      {ltv.toFixed(1)}%
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Sidebar Column - Summary & Details - Only show when scenario selected */}
+          {((viewMode === 'compare' && selectedScenarioId) || (viewMode === 'edit' && selectedScenarioId)) && (
+            <div className="space-y-6">
+              {/* Summary Panel - Compare mode */}
+              {viewMode === 'compare' && selectedScenarioId && (
+                <>
+                  <Card className="sticky top-6">
+                    <CardHeader className="border-b">
+                      <CardTitle className="text-lg">סיכום תרחיש נבחר</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {scenarios.find(s => s.id === selectedScenarioId)?.name}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {(() => {
+                        const selectedResult = scenarioResults.find(sr => sr.scenario.id === selectedScenarioId)
+                        if (!selectedResult) return null
+                        const { result } = selectedResult
+                        const selectedScenario = scenarios.find(s => s.id === selectedScenarioId)
+                        const loanAmount = selectedScenario
+                          ? selectedScenario.tranches.reduce((sum, t) => sum + t.amount, 0)
+                          : 0
+                        const ltvValue = calculateLTV(loanAmount, propertyValue)
+                        const affordabilityValue = calculateAffordability(monthlyIncome, result.blendedFirstPayment)
+                        return (
+                          <>
+                            <div className="grid gap-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">תשלום ראשון</span>
+                                <span className="text-lg font-semibold">{fmtCurrency(result.blendedFirstPayment)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">תשלום מקסימלי</span>
+                                <span className="text-lg font-semibold">{fmtCurrency(result.blendedMaxPayment)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">סה״כ הלוואה</span>
+                                <span className="text-lg font-semibold">{fmtCurrency(loanAmount)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">סה״כ תשלומים (כולל עמלות)</span>
+                                <span className="text-lg font-semibold">{fmtCurrency(result.totals.paid)}</span>
+                              </div>
+                            </div>
+                            <Separator />
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between">
+                                <span>ריבית</span>
+                                <span>{fmtCurrency(result.totals.interest)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>הצמדה</span>
+                                <span>{fmtCurrency(result.totals.indexation)}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>עמלות</span>
+                                <span>{fmtCurrency(result.totals.fees)}</span>
+                              </div>
+                            </div>
+                            <Separator />
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between">
+                                <span>יחס החזר להכנסה</span>
+                                <Badge variant={affordabilityValue.isAffordable ? 'success' : 'destructive'}>
+                                  {affordabilityValue.ratio.toFixed(1)}%
+                                </Badge>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>יחס מימון (LTV)</span>
+                                <Badge variant={ltvValue <= 60 ? 'success' : ltvValue <= 75 ? 'neutral' : 'destructive'}>
+                                  {ltvValue.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>תשלומים עתידיים</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span>שנה 1</span>
-                  <span>{fmtCurrency(monthlyAtYear(1))}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>שנה 5</span>
-                  <span>{fmtCurrency(monthlyAtYear(5))}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>שנה 10</span>
-                  <span>{fmtCurrency(monthlyAtYear(10))}</span>
-                </div>
-              </CardContent>
-            </Card>
+                  {/* Future Payments - Compare mode */}
+                  {viewMode === 'compare' && selectedScenarioId && (() => {
+                    const selectedResult = scenarioResults.find(sr => sr.scenario.id === selectedScenarioId)
+                    if (!selectedResult) return null
+                    const { result } = selectedResult
+                    const monthlyAtYear = (years: number) => result.blendedMonthlyAt(years * 12)
+                    return (
+                      <Card>
+                        <CardHeader className="border-b">
+                          <CardTitle className="text-lg">תשלומים עתידיים</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span>שנה 1</span>
+                            <span>{fmtCurrency(monthlyAtYear(1))}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>שנה 5</span>
+                            <span>{fmtCurrency(monthlyAtYear(5))}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>שנה 10</span>
+                            <span>{fmtCurrency(monthlyAtYear(10))}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>פירוט מסלולים</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                {portfolioResult.tranches.map((tranche, index) => (
-                  <div key={`${tranche.input.name}-${index}`} className="rounded-md border p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">{tranche.input.name}</div>
-                      <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.input.track)?.label}</Badge>
-                    </div>
-                    <div className="mt-2 grid gap-2">
+                  {/* Tranche Details - Compare mode */}
+                  {viewMode === 'compare' && selectedScenarioId && (() => {
+                    const selectedResult = scenarioResults.find(sr => sr.scenario.id === selectedScenarioId)
+                    if (!selectedResult) return null
+                    const { result } = selectedResult
+                    return (
+                      <Card>
+                        <CardHeader className="border-b">
+                          <CardTitle className="text-lg">פירוט מסלולים</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4 text-sm">
+                          {result.tranches.map((tranche, index) => (
+                            <div key={`${tranche.input.name}-${index}`} className="rounded-md border p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="font-medium">{tranche.input.name}</div>
+                                <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.input.track)?.label}</Badge>
+                              </div>
+                              <div className="mt-2 grid gap-2">
+                                <div className="flex items-center justify-between">
+                                  <span>תשלום ראשון</span>
+                                  <span>{fmtCurrency(tranche.firstPayment)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>תשלום מקסימלי</span>
+                                  <span>{fmtCurrency(tranche.maxPayment)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>סה״כ ריבית</span>
+                                  <span>{fmtCurrency(tranche.totalInterest)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>סה״כ הצמדה</span>
+                                  <span>{fmtCurrency(tranche.totalIndexation)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>תשואה שנתית משוערת</span>
+                                  <span>{tranche.aprApprox.toFixed(2)}%</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
+                </>
+              )}
+
+              {/* Summary Panel - Edit mode */}
+              {viewMode === 'edit' && selectedScenarioId && tranches.length > 0 && (
+                <>
+                  <Card className="top-6">
+                    <CardHeader className="border-b">
+                      <CardTitle className="text-lg">סיכום תיק</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">תשלום ראשון</span>
+                          <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedFirstPayment)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">תשלום מקסימלי</span>
+                          <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedMaxPayment)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">סה״כ הלוואה</span>
+                          <span className="text-lg font-semibold">{fmtCurrency(totalLoanAmount)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">סה״כ תשלומים (כולל עמלות)</span>
+                          <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.totals.paid)}</span>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span>ריבית</span>
+                          <span>{fmtCurrency(portfolioResult.totals.interest)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>הצמדה</span>
+                          <span>{fmtCurrency(portfolioResult.totals.indexation)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>עמלות</span>
+                          <span>{fmtCurrency(portfolioResult.totals.fees)}</span>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span>יחס החזר להכנסה</span>
+                          <Badge variant={affordability.isAffordable ? 'success' : 'destructive'}>
+                            {affordability.ratio.toFixed(1)}%
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>יחס מימון (LTV)</span>
+                          <Badge variant={ltv <= 60 ? 'success' : ltv <= 75 ? 'neutral' : 'destructive'}>
+                            {ltv.toFixed(1)}%
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Future Payments - Edit mode */}
+                  <Card>
+                    <CardHeader className="border-b">
+                      <CardTitle className="text-lg">תשלומים עתידיים</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
                       <div className="flex items-center justify-between">
-                        <span>תשלום ראשון</span>
-                        <span>{fmtCurrency(tranche.firstPayment)}</span>
+                        <span>שנה 1</span>
+                        <span>{fmtCurrency(monthlyAtYear(1))}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>תשלום מקסימלי</span>
-                        <span>{fmtCurrency(tranche.maxPayment)}</span>
+                        <span>שנה 5</span>
+                        <span>{fmtCurrency(monthlyAtYear(5))}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>סה״כ ריבית</span>
-                        <span>{fmtCurrency(tranche.totalInterest)}</span>
+                        <span>שנה 10</span>
+                        <span>{fmtCurrency(monthlyAtYear(10))}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>סה״כ הצמדה</span>
-                        <span>{fmtCurrency(tranche.totalIndexation)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>תשואה שנתית משוערת</span>
-                        <span>{tranche.aprApprox.toFixed(2)}%</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Tranche Details - Edit mode */}
+                  <Card>
+                    <CardHeader className="border-b">
+                      <CardTitle className="text-lg">פירוט מסלולים</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 text-sm">
+                      {portfolioResult.tranches.map((tranche, index) => (
+                        <div key={`${tranche.input.name}-${index}`} className="rounded-md border p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">{tranche.input.name}</div>
+                            <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.input.track)?.label}</Badge>
+                          </div>
+                          <div className="mt-2 grid gap-2">
+                            <div className="flex items-center justify-between">
+                              <span>תשלום ראשון</span>
+                              <span>{fmtCurrency(tranche.firstPayment)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>תשלום מקסימלי</span>
+                              <span>{fmtCurrency(tranche.maxPayment)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>סה״כ ריבית</span>
+                              <span>{fmtCurrency(tranche.totalInterest)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>סה״כ הצמדה</span>
+                              <span>{fmtCurrency(tranche.totalIndexation)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>תשואה שנתית משוערת</span>
+                              <span>{tranche.aprApprox.toFixed(2)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </DashboardShell>
     </DashboardLayout>

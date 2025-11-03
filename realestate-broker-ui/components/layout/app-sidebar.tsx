@@ -38,7 +38,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { getRoleLabel } from "@/lib/role-constants";
 
-const baseNavigation = [
+export const baseNavigation = [
   {
     name: "נכסים",
     href: "/assets",

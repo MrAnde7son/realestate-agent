@@ -454,15 +454,12 @@ class GovMapClient:
 
 if __name__ == "__main__":
     api_client = GovMapClient()
-    result = api_client.autocomplete("רוזוב 14 תל אביב")
+    result = api_client.autocomplete("רוקח 95 תל אביב")
     catalog = api_client.get_layers_catalog().get('catalog', [])
     if result.get("results"):
         first = result["results"][0]
         coords = api_client.extract_coordinates_from_shapes(first)
         if coords:
             x, y = coords
-            print(f"Coordinates: {x}, {y}")
-            entities = api_client.entities_by_point(x, y, [386,19,315,218044,218043,321,318,323,325,324,442,311,13,326,313,49,48,201,359,361,50,358,186,336,216478,216477,339,333,159253,159207,159206,360,210778,216010,200722,200557,200720,202,68,340,363,362,200558,335,143,79,200723,51,93,338,334,75,80,81,83,210772,448,94,200544,204,407,151,149,195,210777,210775,4,160,411,410,412,405,409,200708,402,403,200,184,156,364,406,329,183,155,185,200709,173,179,159,158,200540,60])
+            entities = api_client.entities_by_point(x, y, [400,394,386,150,384,305,417,11,20,17,15,21,16,18,407,151,160])
             print("Entities by point:", entities)
-        else:
-            print("No coordinates found in autocomplete result.")

@@ -197,6 +197,11 @@ export type Asset = {
   medicalFacilitiesCount?: number | null;
   nearestMedicalFacilityDistanceM?: number | null;
   communityFacilitiesCount?: number | null;
+  dogParksCount?: number | null;
+  publicGardensCount?: number | null;
+  medicalCentersCount?: number | null;
+  healthFundsCount?: number | null;
+  pharmaciesCount?: number | null;
   tama38KeyArea?: boolean | null;
   tama38KeyAreasCount?: number | null;
   roadWorksCount?: number | null;
@@ -906,6 +911,11 @@ export function normalizeFromBackend(row: any): Asset {
     medicalFacilitiesCount: row.medicalFacilitiesCount ?? row.medical_facilities_count ?? null,
     nearestMedicalFacilityDistanceM: row.nearestMedicalFacilityDistanceM ?? row.nearest_medical_facility_distance_m ?? null,
     communityFacilitiesCount: row.communityFacilitiesCount ?? row.community_facilities_count ?? null,
+    dogParksCount: row.dogParksCount ?? row.dog_parks_count ?? null,
+    publicGardensCount: row.publicGardensCount ?? row.public_gardens_count ?? null,
+    medicalCentersCount: row.medicalCentersCount ?? row.medical_centers_count ?? null,
+    healthFundsCount: row.healthFundsCount ?? row.health_funds_count ?? null,
+    pharmaciesCount: row.pharmaciesCount ?? row.pharmacies_count ?? null,
     tama38KeyArea: row.tama38KeyArea ?? row.tama38_key_area ?? null,
     tama38KeyAreasCount: row.tama38KeyAreasCount ?? row.tama38_key_areas_count ?? null,
     roadWorksCount: row.roadWorksCount ?? row.road_works_count ?? null,

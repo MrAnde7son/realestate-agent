@@ -35,7 +35,8 @@ vi.mock('next/navigation', () => ({
   useRouter: vi.fn(),
   useSearchParams: vi.fn(() => ({
     get: searchParamsGetMock
-  }))
+  })),
+  usePathname: vi.fn(() => '/assets/1')
 }))
 vi.mock('@/lib/auth-context', () => ({
   useAuth: () => mockUseAuth,
@@ -295,6 +296,37 @@ describe('AssetDetailPage', () => {
       expect(global.alert).toHaveBeenCalledWith('Quota exceeded')
       expect(lastShareMessagePayload).toEqual({ language: 'he', provider: 'gemini' })
     })
+  })
+
+  it('redirects to login when syncing without authentication', async () => {
+    mockUseAuth.isAuthenticated = false
+    mockUseAuth.user = null
+
+    await act(async () => {
+      render(<AssetDetailPageClient assetId="1" />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
+    })
+
+    const moreActionsButton = screen.getByText('עוד פעולות')
+    await act(async () => {
+      fireEvent.click(moreActionsButton)
+    })
+
+    const syncMenuItem = await screen.findByText('סנכרן נתונים')
+
+    await act(async () => {
+      fireEvent.click(syncMenuItem)
+    })
+
+    await waitFor(() => {
+      expect(mockUseRouter.push).toHaveBeenCalledWith('/auth?redirect=%2Fassets%2F1')
+    })
+
+    mockUseAuth.isAuthenticated = true
+    mockUseAuth.user = { id: '1', onboarding_flags: {} }
   })
 
   it('navigates to deal expenses calculator with asset price prefilled', async () => {

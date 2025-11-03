@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
@@ -62,8 +63,40 @@ export default function AssetCard({ asset }: AssetCardProps) {
   const statusLabel =
     status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
 
+  const router = useRouter()
+
+  const handleNavigate = React.useCallback(() => {
+    router.push(`/assets/${asset.id}`)
+  }, [asset.id, router])
+
+  const handleKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        handleNavigate()
+      }
+    },
+    [handleNavigate]
+  )
+
+  const handleExportClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      exportAssetCsv(asset)
+    },
+    [asset]
+  )
+
   return (
-    <Card variant="elevated" className="flex h-full flex-col gap-3 p-3 sm:p-4">
+    <Card
+      variant="elevated"
+      className="flex h-full flex-col gap-3 p-3 transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary cursor-pointer sm:p-4"
+      role="link"
+      tabIndex={0}
+      aria-label={asset.address ? `צפה בפרטי ${asset.address}` : 'צפה בפרטי נכס'}
+      onClick={handleNavigate}
+      onKeyDown={handleKeyDown}
+    >
       {/* Images */}
       {asset.images && asset.images.length > 0 && (
         <ImageGallery
@@ -108,7 +141,10 @@ export default function AssetCard({ asset }: AssetCardProps) {
       </div>
 
       <div className="mt-auto flex flex-wrap gap-2 pt-2">
-        <Link href={`/assets/${asset.id}`}>
+        <Link
+          href={`/assets/${asset.id}`}
+          onClick={event => event.stopPropagation()}
+        >
           <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px]">
             <Eye className="h-4 w-4" />
             <span className="sr-only">צפה בפרטים</span>
@@ -118,7 +154,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
           variant="outline"
           size="icon"
           className="min-h-[44px] min-w-[44px]"
-          onClick={() => exportAssetCsv(asset)}
+          onClick={handleExportClick}
         >
           <FileText className="h-4 w-4" />
           <span className="sr-only">ייצוא פרטי נכס</span>

@@ -13,7 +13,7 @@ graph TB
         GIS[GIS MCP Server<br/>12 tools]
         GOV[Gov MCP Server<br/>6 tools]
         MAVAT[Mavat MCP Server<br/>10 tools]
-        GOVMAP[GovMap MCP Server<br/>5 tools]
+        GOVMAP[GovMap MCP Server<br/>9 tools]
     end
     
     subgraph "External APIs"
@@ -460,48 +460,76 @@ graph TB
 
 ### Tools
 
-#### `govmap_autocomplete`
+#### `autocomplete`
 **Purpose**: GovMap public autocomplete (no token required)  
-**Inputs**: `query` (str): Search query  
+**Inputs**:
+- `query` (str): Search query
+- `language` (str, optional): Language code (default: "he")
+- `max_results` (int, optional): Maximum results to return (default: 10)
+
 **Outputs**: Raw JSON buckets with autocomplete results
 
-#### `govmap_wfs`
-**Purpose**: Call WFS GetFeature on an OpenData layer  
-**Inputs**:
-- `type_name` (str): Layer name
-- `cql_filter` (str, optional): CQL filter expression
-- `max_features` (int): Maximum features to return (default: 50)
-
-**Outputs**: WFS feature data
-
-#### `govmap_featureinfo`
-**Purpose**: WMS GetFeatureInfo around a point  
-**Inputs**:
-- `layer` (str): Layer name
-- `x` (float): X coordinate (EPSG:2039)
-- `y` (float): Y coordinate (EPSG:2039)
-- `buffer_m` (int): Buffer in meters (default: 5)
-
-**Outputs**: Feature information at the point
-
-#### `govmap_parcel_at_point`
-**Purpose**: Get parcel feature at a point  
-**Inputs**:
-- `x` (float): X coordinate (EPSG:2039)
-- `y` (float): Y coordinate (EPSG:2039)
-- `type_name` (str): Parcel layer type (default: "opendata:PARCEL_ALL")
-
-**Outputs**: Parcel feature data
-
-#### `govmap_coordinate_conversion`
-**Purpose**: Convert coordinates between ITM and WGS84  
+#### `coordinate_conversion`
+**Purpose**: Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326)  
 **Inputs**:
 - `x` (float): X coordinate
 - `y` (float): Y coordinate
-- `from_crs` (str): Source CRS (ITM/WGS84)
-- `to_crs` (str): Target CRS (ITM/WGS84)
+- `from_crs` (str): Source CRS (ITM/WGS84, default: "ITM")
+- `to_crs` (str): Target CRS (ITM/WGS84, default: "WGS84")
 
-**Outputs**: Converted coordinates
+**Outputs**: Converted coordinates with CRS information
+
+#### `get_layers_catalog`
+**Purpose**: Get the layers catalog from GovMap  
+**Inputs**:
+- `language` (str, optional): Language code (default: "he")
+
+**Outputs**: Layers catalog data
+
+#### `get_search_types`
+**Purpose**: Get search types from GovMap  
+**Inputs**:
+- `language` (str, optional): Language code (default: "he")
+
+**Outputs**: Search types data
+
+#### `get_parcel_data`
+**Purpose**: Get parcel data for specific coordinates (EPSG:2039)  
+**Inputs**:
+- `x` (float): X coordinate (EPSG:2039)
+- `y` (float): Y coordinate (EPSG:2039)
+
+**Outputs**: Parcel data for the specified coordinates
+
+#### `get_parcel_addresses`
+**Purpose**: Get detailed address information for a parcel using its objectid  
+**Inputs**:
+- `objectid` (int): Parcel object ID
+
+**Outputs**: List of addresses associated with the parcel
+
+#### `get_addresses_by_block_parcel`
+**Purpose**: Get addresses for a given block and parcel using GovMap autocomplete API  
+**Inputs**:
+- `block` (str): Block number
+- `parcel` (str): Parcel number
+
+**Outputs**: List of addresses matching the block/parcel combination
+
+#### `get_base_layers`
+**Purpose**: Get base layers from GovMap API  
+**Inputs**: None  
+**Outputs**: Base layers configuration
+
+#### `entities_by_point`
+**Purpose**: Get entities by point with specified layer IDs (EPSG:2039)  
+**Inputs**:
+- `x` (float): X coordinate (EPSG:2039)
+- `y` (float): Y coordinate (EPSG:2039)
+- `layer_ids` (list): List of layer IDs (strings or integers)
+- `tolerance_m` (float, optional): Tolerance in meters (default: 30.0)
+
+**Outputs**: Entities at the specified point for the given layers
 
 ---
 

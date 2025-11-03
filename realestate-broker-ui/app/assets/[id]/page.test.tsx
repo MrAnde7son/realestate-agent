@@ -242,6 +242,69 @@ describe('AssetDetailPage', () => {
           json: async () => ({ id: '2', address: 'Second Asset', documents: [] })
         })
       }
+      if (url === '/api/assets/1/rights' || url === '/api/assets/2/rights') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            calculated_rights: null,
+            tabu_data: [],
+            gis_rights: [],
+            detailed_rights: []
+          })
+        })
+      }
+      if (url.startsWith('/api/documents/table')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            results: [],
+            count: 0,
+            filters: { category: [], type: [], source: [], status: [] }
+          })
+        })
+      }
+      if (url === '/api/documents/by_category?asset_id=1' || url === '/api/documents/by_category?asset_id=2') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({})
+        })
+      }
+      if (url === '/api/settings') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ report_sections: ['summary', 'plans'] })
+        })
+      }
+      if (url === '/api/assets/1/appraisal' || url === '/api/assets/2/appraisal') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ comps: [], appraisal: null, decisive_appraisals: [], rami_appraisals: [], comparable_transactions: [] })
+        })
+      }
+      if (url === '/api/assets/1/permits' || url === '/api/assets/2/permits') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ permits: [] })
+        })
+      }
+      if (url === '/api/assets/1/plans' || url === '/api/assets/2/plans') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ plans: [] })
+        })
+      }
+      if (url === '/api/assets/1/transactions' || url === '/api/assets/2/transactions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ transactions: [], market_analysis: null })
+        })
+      }
+      if (url === '/api/analytics/track') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true })
+        })
+      }
       return defaultFetch(url, options)
     })
 

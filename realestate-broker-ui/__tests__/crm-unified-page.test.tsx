@@ -5,6 +5,7 @@ import CrmUnifiedPage from '@/app/crm/page';
 import { CrmApi } from '@/lib/api/crm';
 
 const trackEventMock = vi.fn();
+const toastMock = vi.fn();
 
 vi.mock('@/hooks/useAnalytics', () => ({
   useAnalytics: () => ({
@@ -24,7 +25,7 @@ vi.mock('@/lib/auth-context', () => ({
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: toastMock }),
 }));
 
 vi.mock('@/components/layout/dashboard-layout', () => ({
@@ -38,7 +39,7 @@ vi.mock('@/components/crm/combined-crm-table', () => ({
     <div data-testid="combined-table">
       <div>contacts:{contacts.length}</div>
       <div>leads:{leads.length}</div>
-      <button onClick={() => onRefresh()}>refresh</button>
+      <button onClick={() => void onRefresh()}>refresh</button>
     </div>
   ),
 }));
@@ -54,6 +55,9 @@ vi.mock('@/lib/api/crm', () => ({
 describe('CrmUnifiedPage', () => {
   beforeEach(() => {
     trackEventMock.mockReset();
+    vi.mocked(CrmApi.getContacts).mockReset();
+    vi.mocked(CrmApi.getLeads).mockReset();
+    vi.mocked(CrmApi.getTasks).mockReset();
     vi.mocked(CrmApi.getContacts).mockResolvedValue([]);
     vi.mocked(CrmApi.getLeads).mockResolvedValue([]);
     vi.mocked(CrmApi.getTasks).mockResolvedValue([]);
@@ -85,6 +89,11 @@ describe('CrmUnifiedPage', () => {
 
     render(<CrmUnifiedPage />);
 
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.getByTestId('combined-table')).toBeInTheDocument();
+    });
+
     await screen.findByText('contacts:1');
     await screen.findByText('leads:2');
   });
@@ -92,20 +101,38 @@ describe('CrmUnifiedPage', () => {
   it('allows refreshing data from the combined table', async () => {
     render(<CrmUnifiedPage />);
 
-    await screen.findByTestId('combined-table');
+    // Wait for loading to complete and component to render
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('combined-table')).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
 
-    expect(CrmApi.getContacts).toHaveBeenCalled();
-    expect(CrmApi.getLeads).toHaveBeenCalled();
+    // Verify initial API calls were made
+    await waitFor(() => {
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
+    });
 
+    // Get call counts after initial load
     const initialContactsCalls = vi.mocked(CrmApi.getContacts).mock.calls.length;
     const initialLeadsCalls = vi.mocked(CrmApi.getLeads).mock.calls.length;
 
-    const refreshButton = await screen.findByText('refresh');
+    // Clear the mocks to isolate refresh calls
+    vi.mocked(CrmApi.getContacts).mockClear();
+    vi.mocked(CrmApi.getLeads).mockClear();
+
+    const refreshButton = screen.getByText('refresh');
     fireEvent.click(refreshButton);
 
-    await waitFor(() => {
-      expect(vi.mocked(CrmApi.getContacts).mock.calls.length).toBeGreaterThan(initialContactsCalls);
-      expect(vi.mocked(CrmApi.getLeads).mock.calls.length).toBeGreaterThan(initialLeadsCalls);
-    });
+    // Wait for refresh calls
+    await waitFor(
+      () => {
+        expect(CrmApi.getContacts).toHaveBeenCalled();
+        expect(CrmApi.getLeads).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
   });
 });

@@ -12,7 +12,8 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle, 
+  DialogTitle,
+  DialogDescription, 
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -191,6 +192,7 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
         <DialogContent className="mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>הוסף הערה</DialogTitle>
+            <DialogDescription>הוסף הערה חדשה לליד</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

@@ -59,11 +59,24 @@ vi.mock('@/components/ui/Badge', () => ({
   Badge: ({ children, ...props }: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>{children}</span>,
 }))
 
-vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
-  ),
-}))
+vi.mock('@/components/ui/button', () => {
+  const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(
+    ({ children, asChild, ...props }, ref) => {
+      if (asChild && React.isValidElement(children)) {
+        return React.cloneElement(children, { ...props, ref } as any)
+      }
+      return (
+        <button ref={ref} {...props}>
+          {children}
+        </button>
+      )
+    }
+  )
+  Button.displayName = 'Button'
+  return {
+    Button,
+  }
+})
 
 vi.mock('@/components/ui/input', () => ({
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,

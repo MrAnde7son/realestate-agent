@@ -5,7 +5,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import AppSidebar from "@/components/layout/app-sidebar";
 
@@ -27,14 +27,20 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/assets",
 }));
 
-vi.mock("next/link", () => ({
-  __esModule: true,
-  default: ({ href, children, ...props }: any) => (
-    <a href={typeof href === "string" ? href : href?.pathname || "#"} {...props}>
-      {children}
-    </a>
-  ),
-}));
+vi.mock("next/link", () => {
+  const Link = React.forwardRef<HTMLAnchorElement, any>(
+    ({ href, children, ...props }, ref) => (
+      <a ref={ref} href={typeof href === "string" ? href : href?.pathname || "#"} {...props}>
+        {children}
+      </a>
+    )
+  )
+  Link.displayName = 'Link'
+  return {
+    __esModule: true,
+    default: Link,
+  }
+});
 
 describe("AppSidebar accessibility when collapsed", () => {
   beforeEach(() => {

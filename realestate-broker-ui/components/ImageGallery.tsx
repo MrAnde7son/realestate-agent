@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
@@ -136,6 +137,9 @@ export default function ImageGallery({
               <DialogTitle>
                 תמונה {selectedImage !== null ? selectedImage + 1 : 1} מתוך {images.length}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                גלריית תמונות - צפה בתמונות בגדול
+              </DialogDescription>
               <Button
                 variant="ghost"
                 size="icon"

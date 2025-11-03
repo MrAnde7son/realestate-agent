@@ -158,8 +158,15 @@ describe('reports API', () => {
   })
 
   it('lists reports', async () => {
+    // Mock the backend fetch call
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ reports: [] }), { status: 200 })
+    );
+
     const res = await GET(new Request('http://127.0.0.1/api/reports'));
     const data = await res.json();
     expect(Array.isArray(data.reports)).toBe(true);
+
+    fetchMock.mockRestore();
   });
 });

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, Star, StarOff, Trash2, Filter } from "lucide-react"
+import { ChevronDown, Star, StarOff, Trash2, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -62,7 +62,7 @@ export function SavedFiltersMenu({
             className
           )}
         >
-          <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <Bookmark className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
           <span className="hidden sm:inline">
             {activePreset ? (
               <>

@@ -9,6 +9,14 @@ vi.mock("@/hooks/useAnalytics", () => ({
   }),
 }));
 
+const mockUseMediaQuery = vi.hoisted(() =>
+  vi.fn(() => ({ matches: true, isReady: true }))
+);
+
+vi.mock("@/hooks/use-media-query", () => ({
+  useMediaQuery: mockUseMediaQuery,
+}));
+
 type FiltersConfig = NonNullable<Parameters<typeof TableToolbar>[0]["filters"]>;
 
 const createFilters = (): FiltersConfig => ({
@@ -125,6 +133,7 @@ const getQuickFilterButton = (label: string) =>
 describe("TableToolbar quick filters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseMediaQuery.mockReturnValue({ matches: true, isReady: true });
   });
 
   it("renders the quick filter buttons", () => {
@@ -172,8 +181,24 @@ describe("TableToolbar quick filters", () => {
 
     const container = screen.getByTestId("toolbar-actions-container");
 
+    expect(container).toHaveClass("inline-flex");
     expect(container).toHaveClass("flex-wrap");
-    expect(container).toHaveClass("w-full");
+  });
+
+  it("collapses quick filters behind a toggle on mobile", () => {
+    mockUseMediaQuery.mockReturnValue({ matches: false, isReady: true });
+
+    renderToolbar();
+
+    const toggleButton = screen.getByRole("button", { name: /מסננים מהירים/ });
+    expect(toggleButton).toBeInTheDocument();
+    expect(toggleButton).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("quick-filters-container")).not.toBeInTheDocument();
+
+    fireEvent.click(toggleButton);
+
+    expect(screen.getByTestId("quick-filters-container")).toBeInTheDocument();
+    expect(toggleButton).toHaveAttribute("aria-expanded", "true");
   });
 
   it("organizes the full filters into guided sections", () => {

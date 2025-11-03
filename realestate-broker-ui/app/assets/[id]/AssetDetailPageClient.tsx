@@ -1836,6 +1836,17 @@ useDedupedEffect(() => {
 
   const handleSyncData = async () => {
     if (!id || !asset?.address) return
+
+    if (!isAuthenticated) {
+      toast({
+        title: 'נדרשת התחברות',
+        description: 'עליך להתחבר כדי לסנכרן נתוני נכס',
+        variant: 'destructive'
+      })
+      router.push(`/auth?redirect=${encodeURIComponent(`/assets/${id}`)}`)
+      return
+    }
+
     setSyncing(true)
     setSyncMessage('מסנכרן נתונים...')
     

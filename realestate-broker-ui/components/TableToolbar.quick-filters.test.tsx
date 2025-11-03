@@ -190,7 +190,7 @@ describe("TableToolbar quick filters", () => {
 
     renderToolbar();
 
-    const toggleButton = screen.getByRole("button", { name: /מסננים מהירים/ });
+    const toggleButton = screen.getByRole("button", { name: /מסננים/ });
     expect(toggleButton).toBeInTheDocument();
     expect(toggleButton).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTestId("quick-filters-container")).not.toBeInTheDocument();

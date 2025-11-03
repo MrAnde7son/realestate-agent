@@ -1379,7 +1379,7 @@ export default function TableToolbar({
             aria-controls="quick-filters-panel"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="px-1">מסננים מהירים</span>
+            <span className="px-1">מסננים</span>
             <ChevronDown
               className={`h-3 w-3 transition-transform ${quickFiltersExpanded ? "rotate-180" : ""}`}
               aria-hidden="true"

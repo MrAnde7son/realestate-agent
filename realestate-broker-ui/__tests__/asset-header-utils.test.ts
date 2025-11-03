@@ -4,6 +4,8 @@ import {
   computeHeaderPricePerSqmValue,
   computeHeaderPriceValue,
   resolveContributorDisplayName,
+  calculatePotentialScore,
+  calculateEnvironmentScore,
 } from '@/app/assets/[id]/AssetDetailPageClient'
 
 describe('resolveContributorDisplayName', () => {
@@ -53,5 +55,46 @@ describe('computeHeaderPricePerSqmValue', () => {
     expect(
       computeHeaderPricePerSqmValue({ area: 120 }, 2_400_000, null)
     ).toBe(20_000)
+  })
+})
+
+describe('calculatePotentialScore', () => {
+  it('returns investment potential score when available', () => {
+    expect(calculatePotentialScore({ investmentPotentialScore: 120 }, 80)).toBe(100)
+  })
+
+  it('combines available signals when direct score is missing', () => {
+    const asset = {
+      rightsUsagePct: 40,
+      area: 100,
+      tama38KeyArea: true,
+      tama38KeyAreasCount: 2,
+    }
+    expect(calculatePotentialScore(asset, 30)).toBe(52)
+  })
+
+  it('returns null when no relevant data is present', () => {
+    expect(calculatePotentialScore({}, null)).toBeNull()
+  })
+})
+
+describe('calculateEnvironmentScore', () => {
+  it('prefers explicit environment score when provided', () => {
+    expect(calculateEnvironmentScore({ environmentScore: 105 })).toBe(100)
+  })
+
+  it('aggregates contextual signals into a score', () => {
+    const asset = {
+      noiseLevel: 2,
+      schoolsCount: 3,
+      greenAmenitiesCount: 4,
+      publicParkingLotsCount: 1,
+    }
+    expect(calculateEnvironmentScore(asset)).toBe(58)
+  })
+
+  it('returns null when there are no environmental indicators', () => {
+    expect(calculateEnvironmentScore(null)).toBeNull()
+    expect(calculateEnvironmentScore({})).toBeNull()
   })
 })

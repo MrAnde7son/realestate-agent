@@ -35,8 +35,22 @@ DEFAULT_WFS = "https://open.govmap.gov.il/geoserver/opendata/ows"
 _TO_WGS84 = Transformer.from_crs(2039, 4326, always_xy=True)
 _FROM_WGS84 = Transformer.from_crs(4326, 2039, always_xy=True)
 
+# 16 עסקאות נדל"ן
+# 20 תחנות אוטובוס
+# 407 תחנות רכבת
+# 160 קווי מטרו
+# 151 תחנות קווי מטרו
+# 200723 התחדשות עירונית
+# 400 מתקני ספורט
+# 388 מסעדות
+# 394 חניונים
+# 150 אתרי רשות הטבע והגנים
+# 417 מקלטים
+# 17 בתי ספר
+# 18 גני ילדים
+# 215699 פארקים עירוניים
 ENVIRONMENTAL_LAYER_IDS = [
-    400, 394, 386, 150, 384, 305, 417, 20, 17, 15, 21, 16, 18, 407, 151, 160, 200723, 215699, 178
+    400, 394, 386, 150, 384, 305, 417, 20, 17, 15, 21, 16, 18, 407, 151, 160, 200723, 215699, 178, 388
 ]
 
 def itm_to_wgs84(x: float, y: float) -> Tuple[float, float]:
@@ -66,7 +80,6 @@ class GovMapAuthError(GovMapError):
 
 
 class DealType(Enum):
-    ALL = "all"
     STREET = "street"
     NEIGHBORHOOD = "neighborhood"
     SETTLEMENT = "settlement"
@@ -469,8 +482,8 @@ class GovMapClient:
         self,
         x: float,
         y: float,
-        start_date: str,
-        end_date: str,
+        start_date: str = "1998-01",
+        end_date: str = "2025-11",
         radius: float = 100.0,
         deal_type: DealType = DealType.STREET,
         limit: int = 9,
@@ -543,7 +556,6 @@ class GovMapClient:
                             deal_type=deal_type,
                             limit=limit,
                             offset=offset,
-
                         )
                         # Merge detailed deal data into the deal entry
                         deal["deals"] = details.get("data", [])
@@ -567,8 +579,8 @@ class GovMapClient:
     def _get_deal_details(
         self,
         polygon_id: str,
-        start_date: str,
-        end_date: str,
+        start_date: str = "1998-01",
+        end_date: str = "2025-11",
         deal_type: DealType = DealType.STREET,
         limit: int = 9,
         offset: int = 0,
@@ -601,17 +613,13 @@ class GovMapClient:
             propertyTypeDescription, dealNatureDescription, etc.
         """
         try:
-            # Format dates if provided
-            start_date_param = start_date or "1998-01"
-            end_date_param = end_date or "2025-11"
-            
             url = self.specific_deals_url.format(
                 deal_type=deal_type.value,
                 polygon_id=polygon_id,
                 limit=limit,
                 offset=offset,
-                startDate=start_date_param,
-                endDate=end_date_param,
+                startDate=start_date,
+                endDate=end_date,
             )
             
             headers = {
@@ -643,9 +651,9 @@ if __name__ == "__main__":
         coords = api_client.extract_coordinates_from_shapes(first)
         if coords:
             x, y = coords
-            entities = api_client.entities_by_point(x, y, radius=1000.0)
-            print(entities)
-            # deals = api_client.get_deals_by_location(x, y, "1998-01", "2025-11", radius=100.0, deal_type=DealType.STREET)
-            # print(deals)
+            # entities = api_client.entities_by_point(x, y, radius=1000.0)
+            # print(entities)
+            deals = api_client.get_deals_by_location(x, y)
+            print(deals)
 
 

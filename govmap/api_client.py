@@ -14,6 +14,7 @@ Notes
   We allow providing candidate names to try.
 * Keep layers configurable via constructor args (no environment variables).
 """
+from enum import Enum
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, List
@@ -34,6 +35,9 @@ DEFAULT_WFS = "https://open.govmap.gov.il/geoserver/opendata/ows"
 _TO_WGS84 = Transformer.from_crs(2039, 4326, always_xy=True)
 _FROM_WGS84 = Transformer.from_crs(4326, 2039, always_xy=True)
 
+ENVIRONMENTAL_LAYER_IDS = [
+    400, 394, 386, 150, 384, 305, 417, 20, 17, 15, 21, 16, 18, 407, 151, 160, 200723, 215699, 178
+]
 
 def itm_to_wgs84(x: float, y: float) -> Tuple[float, float]:
     lon, lat = _TO_WGS84.transform(x, y)
@@ -61,6 +65,12 @@ class GovMapAuthError(GovMapError):
     pass
 
 
+class DealType(Enum):
+    ALL = "all"
+    STREET = "street"
+    NEIGHBORHOOD = "neighborhood"
+    SETTLEMENT = "settlement"
+
 class GovMapClient:
     """Thin client for GovMap OpenData and public endpoints."""
 
@@ -83,6 +93,9 @@ class GovMapClient:
         self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
         self.base_layers_url = "https://www.govmap.gov.il/api/layers-catalog/baseLayers?language=he"
         self.entities_by_point_url = "https://www.govmap.gov.il/api/layers-catalog/entitiesByPoint"
+        self.deals_url = "https://www.govmap.gov.il/api/real-estate/deals/{x},{y}/{radius}"
+        self.specific_deals_url = "https://www.govmap.gov.il/api/real-estate/{deal_type}-deals/{polygon_id}?limit={limit}&offset={offset}&startDate={startDate}&endDate={endDate}"
+
 
         self.http = session or requests.Session()
         self.timeout = timeout
@@ -432,15 +445,15 @@ class GovMapClient:
         self,
         x_itm: float,
         y_itm: float,
-        layer_ids: list[str] | list[int],
-        tolerance_m: float = 100.0,
+        layer_ids: list[str] | list[int] = ENVIRONMENTAL_LAYER_IDS,
+        radius: float = 100.0,
     ):
         layers = [{"layerId": str(lid)} for lid in layer_ids]
 
         payload = {
             "point": [float(x_itm), float(y_itm)],
             "layers": layers,
-            "tolerance": float(tolerance_m),
+            "tolerance": float(radius),
         }
 
         r = self.http.post(self.entities_by_point_url, json=payload, timeout=self.timeout, verify=False)
@@ -450,6 +463,175 @@ class GovMapClient:
         if json_resp and json_resp.get("data"):
             return json_resp["data"]
         return []
+
+    # ----------------------------- Deals -----------------------------
+    def get_deals_by_location(
+        self,
+        x: float,
+        y: float,
+        start_date: str,
+        end_date: str,
+        radius: float = 100.0,
+        deal_type: DealType = DealType.STREET,
+        limit: int = 9,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """Get deals for a specific location and radius with detailed deal information.
+        
+        This method fetches deals for a location and automatically retrieves detailed
+        deal data for each polygon_id found.
+        
+        Parameters
+        ----------
+        x : float
+            ITM X coordinate
+        y : float
+            ITM Y coordinate
+        radius : float
+            Radius in meters to search for deals
+        deal_type : str
+            Type of deals: "street", "neighborhood", or "settlement" (default: "street")
+        limit : int
+            Maximum number of deals to return per polygon (default: 9)
+        offset : int
+            Offset for pagination (default: 0)
+        start_date : Optional[str]
+            Start date in format "YYYY-MM" (e.g., "1998-01")
+        end_date : Optional[str]
+            End date in format "YYYY-MM" (e.g., "2025-11")
+            
+        Returns
+        -------
+        List[Dict[str, Any]]
+            List of enriched deal entries. Each entry contains:
+            - Original polygon data (dealscount, settlementNameHeb, polygon_id, objectid, etc.)
+            - Detailed deal data (deals array with dealAmount, dealDate, assetArea, etc.)
+        """
+        try:
+            url = self.deals_url.format(x=x, y=y, radius=radius)
+            
+            headers = {
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                "Content-Type": "application/json",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            }
+            
+            r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
+            if r.status_code != 200:
+                raise GovMapError(f"Get deals by location HTTP {r.status_code}")
+            
+            response = r.json()
+            deals_list = []
+            if isinstance(response, list):
+                deals_list = response
+            elif isinstance(response, dict) and "data" in response:
+                deals_list = response["data"]
+            
+            # Enrich each deal with detailed data
+            enriched_deals = []
+            for deal in deals_list:
+                polygon_id = deal.get("polygon_id")
+                if polygon_id:
+                    try:
+                        details = self._get_deal_details(
+                            polygon_id=polygon_id,
+                            start_date=start_date,
+                            end_date=end_date,
+                            deal_type=deal_type,
+                            limit=limit,
+                            offset=offset,
+
+                        )
+                        # Merge detailed deal data into the deal entry
+                        deal["deals"] = details.get("data", [])
+                        deal["totalCount"] = details.get("totalCount")
+                        deal["limit"] = details.get("limit")
+                        deal["offset"] = details.get("offset")
+                    except Exception as e:
+                        logger.warning(f"Failed to get deal details for polygon_id {polygon_id}: {e}")
+                        # Keep the deal entry even if details fetch fails
+                        deal["deals"] = []
+                        deal["totalCount"] = "0"
+                
+                enriched_deals.append(deal)
+            
+            return enriched_deals
+            
+        except Exception as e:
+            logger.error(f"Failed to get deals by location for ({x}, {y}) with radius {radius}: {e}")
+            raise GovMapError(f"Get deals by location failed: {e}")
+
+    def _get_deal_details(
+        self,
+        polygon_id: str,
+        start_date: str,
+        end_date: str,
+        deal_type: DealType = DealType.STREET,
+        limit: int = 9,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Get detailed deal data for a specific polygon_id (protected method).
+        
+        This method is called internally by get_deals_by_location to fetch detailed
+        deal information for each polygon_id.
+        
+        Parameters
+        ----------
+        polygon_id : str
+            Polygon ID (e.g., "7228-50")
+        deal_type : DealType
+            Type of deals: "street", "neighborhood", or "settlement" (default: "street")
+        limit : int
+            Maximum number of deals to return (default: 9)
+        offset : int
+            Offset for pagination (default: 0)
+        start_date : Optional[str]
+            Start date in format "YYYY-MM" (e.g., "1998-01")
+        end_date : Optional[str]
+            End date in format "YYYY-MM" (e.g., "2025-11")
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Response containing totalCount, data (list of deals), limit, and offset.
+            Each deal in data contains: objectid, dealAmount, dealDate, assetArea, 
+            propertyTypeDescription, dealNatureDescription, etc.
+        """
+        try:
+            # Format dates if provided
+            start_date_param = start_date or "1998-01"
+            end_date_param = end_date or "2025-11"
+            
+            url = self.specific_deals_url.format(
+                deal_type=deal_type.value,
+                polygon_id=polygon_id,
+                limit=limit,
+                offset=offset,
+                startDate=start_date_param,
+                endDate=end_date_param,
+            )
+            
+            headers = {
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                "Content-Type": "application/json",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            }
+            
+            r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
+            if r.status_code != 200:
+                raise GovMapError(f"Get deal details HTTP {r.status_code}")
+            
+            return r.json()
+            
+        except Exception as e:
+            logger.error(f"Failed to get deal details for polygon_id {polygon_id}: {e}")
+            raise GovMapError(f"Get deal details failed: {e}")
 
 
 if __name__ == "__main__":
@@ -461,5 +643,9 @@ if __name__ == "__main__":
         coords = api_client.extract_coordinates_from_shapes(first)
         if coords:
             x, y = coords
-            entities = api_client.entities_by_point(x, y, [400,394,386,150,384,305,417,20,17,15,21,16,18,407,151,160, 200723])
+            entities = api_client.entities_by_point(x, y, radius=1000.0)
             print(entities)
+            # deals = api_client.get_deals_by_location(x, y, "1998-01", "2025-11", radius=100.0, deal_type=DealType.STREET)
+            # print(deals)
+
+

@@ -947,9 +947,14 @@ export default function DealExpensesPage() {
         />
 
         <div className="mb-6 flex justify-center sm:justify-end">
-          <Button onClick={calculate} size="lg" className="w-full sm:w-auto">
-            <Receipt className="h-5 w-5 ms-2" />
-            חשב הוצאות
+          <Button 
+            onClick={calculate} 
+            size="sm"
+            className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm w-full sm:w-auto"
+          >
+            <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="hidden sm:inline">חשב הוצאות</span>
+            <span className="sm:hidden">חשב</span>
           </Button>
         </div>
 
@@ -1753,11 +1758,13 @@ export default function DealExpensesPage() {
                   </p>
                   <Button 
                     onClick={goToMortgageCalculator}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    size="sm"
+                    className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    <Banknote className="h-4 w-4 ms-2" />
-                    חשב משכנתא
-                    <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
+                    <Banknote className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <span className="hidden sm:inline">חשב משכנתא</span>
+                    <span className="sm:hidden">משכנתא</span>
+                    <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>

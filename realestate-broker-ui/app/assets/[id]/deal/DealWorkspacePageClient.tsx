@@ -537,11 +537,11 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
         />
 
         <DashboardHeader
-          heading={`סביבת עסקה לנכס ${assetId}`}
+          heading={`סביבת עסקה לנכס ${DEAL_METADATA.address}`}
           text='נהלו הצעות, מסמכים, משימות ומשכנתאות במבט אחד מרוכז.'
         />
 
-        <div className='grid gap-6 pb-10'>
+        <div className='grid gap-4 sm:gap-6 pb-6 sm:pb-10 min-w-0'>
           <DealHeader
             assetId={assetId}
             address={DEAL_METADATA.address}
@@ -555,7 +555,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
             documentsCount={documents.length}
           />
 
-          <div className='grid gap-6 lg:grid-cols-[2fr_1fr]'>
+          <div className='grid gap-4 sm:gap-6 md:grid-cols-[2fr_1fr] lg:grid-cols-[2fr_1fr] min-w-0'>
             <TimelinePanel
               activeFilter={timelineFilter}
               events={filteredTimelineEvents}
@@ -577,7 +577,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
             />
           </div>
 
-          <div className='grid gap-6 lg:grid-cols-[3fr_2fr]'>
+          <div className='grid gap-4 sm:gap-6 md:grid-cols-[3fr_2fr] lg:grid-cols-[3fr_2fr] min-w-0'>
             <OfferComposer
               latestOffer={latestOffer}
               onSubmit={handleOfferSubmit}
@@ -597,14 +597,14 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
         </div>
       </DashboardShell>
       <Dialog open={isUploadDialogOpen} onOpenChange={handleUploadDialogChange}>
-        <DialogContent>
+        <DialogContent className='mx-4 sm:mx-0 max-w-[calc(100vw-2rem)] sm:max-w-lg'>
           <DialogHeader>
-            <DialogTitle>העלה מסמך חדש לסביבת העסקה</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className='text-lg sm:text-xl'>העלה מסמך חדש לסביבת העסקה</DialogTitle>
+            <DialogDescription className='text-sm'>
               צרפו מסמכי משכנתא, מסמכים משפטיים או חומרים נוספים לזמינות לכלל צוות העסקה.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUploadSubmit} className='space-y-4'>
+          <form onSubmit={handleUploadSubmit} className='space-y-3 sm:space-y-4'>
             <div className='space-y-2'>
               <Label htmlFor='document-title'>כותרת המסמך</Label>
               <Input
@@ -727,20 +727,20 @@ function DealHeader({
   const stageIndex = STAGE_FLOW.findIndex(item => item.key === stage)
 
   return (
-    <Card>
-      <CardHeader className='gap-4'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div>
-            <CardTitle className='text-3xl font-semibold'>נכס {assetId}</CardTitle>
-            <CardDescription>{address}</CardDescription>
+      <Card className='min-w-0'>
+        <CardHeader className='gap-3 sm:gap-4 p-4 sm:p-6'>
+          <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3'>
+            <div>
+              <CardTitle className='text-2xl sm:text-3xl font-semibold'>נכס {assetId}</CardTitle>
+              <CardDescription className='text-sm sm:text-base'>{address}</CardDescription>
+            </div>
+            <Badge variant='info' className='flex items-center gap-2 w-fit'>
+              <Gavel className='h-4 w-4' />
+              {stageMeta.label}
+            </Badge>
           </div>
-          <Badge variant='info' className='flex items-center gap-2'>
-            <Gavel className='h-4 w-4' />
-            {stageMeta.label}
-          </Badge>
-        </div>
 
-        <div className='grid gap-4 md:grid-cols-3'>
+          <div className='grid gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3'>
           <DealHeaderStat
             label='הצעה מאושרת'
             icon={<Handshake className='h-4 w-4 text-primary' />}
@@ -763,12 +763,12 @@ function DealHeader({
 
         <Separator />
 
-        <div className='flex flex-wrap items-center gap-3'>
+        <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4'>
           {STAGE_FLOW.map((item, index) => (
             <div key={item.key} className='flex items-center gap-2'>
               <div
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold',
+                  'flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border text-xs sm:text-sm font-semibold shrink-0',
                   index < stageIndex
                     ? 'bg-primary text-primary-foreground border-primary'
                     : index === stageIndex
@@ -778,15 +778,15 @@ function DealHeader({
               >
                 {index + 1}
               </div>
-              <div>
-                <div className='text-sm font-medium'>{item.label}</div>
+              <div className='min-w-0'>
+                <div className='text-xs sm:text-sm font-medium'>{item.label}</div>
                 <div className='text-xs text-muted-foreground'>{item.helper}</div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className='rounded-lg border bg-muted/40 p-4'>
+        <div className='rounded-lg border bg-muted/40 p-3 sm:p-4'>
           <div className='text-sm font-semibold text-muted-foreground'>צדדים מעורבים</div>
           <div className='mt-3 flex flex-wrap gap-2'>
             {parties.map(party => (
@@ -817,12 +817,12 @@ type DealHeaderStatProps = {
 
 function DealHeaderStat({ label, value, helper, icon }: DealHeaderStatProps) {
   return (
-    <div className='rounded-lg border bg-background p-4 shadow-sm'>
-      <div className='flex items-center gap-2 text-sm font-medium text-muted-foreground'>
+    <div className='rounded-lg border bg-background p-3 sm:p-4 shadow-sm'>
+      <div className='flex items-center gap-2 text-xs sm:text-sm font-medium text-muted-foreground'>
         {icon}
         {label}
       </div>
-      <div className='mt-2 text-xl font-semibold'>{value}</div>
+      <div className='mt-2 text-lg sm:text-xl font-semibold'>{value}</div>
       <div className='text-xs text-muted-foreground'>{helper}</div>
     </div>
   )
@@ -837,15 +837,15 @@ type TimelinePanelProps = {
 
 function TimelinePanel({ events, activeFilter, onFilterChange, filterOptions }: TimelinePanelProps) {
   return (
-    <Card className='h-full'>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-xl'>
-          <ArrowRightLeft className='h-5 w-5 text-primary' />
+    <Card className='h-full min-w-0'>
+      <CardHeader className='p-4 sm:p-6'>
+        <CardTitle className='flex items-center gap-2 text-lg sm:text-xl'>
+          <ArrowRightLeft className='h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0' />
           ציר פעילות העסקה
         </CardTitle>
-        <CardDescription>עקבו אחר הצעות, מסמכים ומשימות בזמן אמת.</CardDescription>
+        <CardDescription className='text-xs sm:text-sm'>עקבו אחר הצעות, מסמכים ומשימות בזמן אמת.</CardDescription>
       </CardHeader>
-      <CardContent className='flex h-full flex-col gap-4'>
+      <CardContent className='flex h-full flex-col gap-3 sm:gap-4 p-4 sm:p-6'>
         <div className='flex flex-wrap gap-2'>
           {filterOptions.map(option => (
             <Button
@@ -859,29 +859,30 @@ function TimelinePanel({ events, activeFilter, onFilterChange, filterOptions }: 
           ))}
         </div>
 
-        <div className='space-y-4'>
+        <div className='space-y-3 sm:space-y-4'>
           {events.map(event => (
-            <div key={event.id} className='rounded-lg border bg-background p-4'>
-              <div className='flex flex-wrap items-center justify-between gap-2'>
-                <div className='flex items-center gap-2'>
+            <div key={event.id} className='rounded-lg border bg-background p-3 sm:p-4'>
+              <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2'>
+                <div className='flex items-center gap-2 flex-wrap'>
                   <Badge
                     size='sm'
                     variant={event.side === 'buyer' ? 'success' : event.side === 'seller' ? 'secondary' : 'neutral'}
+                    className='text-xs'
                   >
                     {TIMELINE_TYPE_LABELS[event.type]}
                   </Badge>
-                  <div className='text-sm font-medium'>{event.title}</div>
+                  <div className='text-xs sm:text-sm font-medium'>{event.title}</div>
                 </div>
                 <div className='text-xs text-muted-foreground'>{formatDateTime(event.timestamp)}</div>
               </div>
-              <p className='mt-2 text-sm text-muted-foreground'>{event.description}</p>
+              <p className='mt-2 text-xs sm:text-sm text-muted-foreground'>{event.description}</p>
               {event.statusLabel ? (
                 <div className='mt-2 text-xs font-semibold text-muted-foreground'>סטטוס: {event.statusLabel}</div>
               ) : null}
             </div>
           ))}
           {events.length === 0 ? (
-            <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
+            <div className='rounded-lg border border-dashed p-4 sm:p-6 text-center text-xs sm:text-sm text-muted-foreground'>
               אין פעילות במסנן הנבחר. נסו לסנן אחרת כדי לראות אירועים נוספים.
             </div>
           ) : null}
@@ -917,15 +918,15 @@ function DocsPanel({
   error,
 }: DocsPanelProps) {
   return (
-    <Card className='h-full'>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-xl'>
-          <FileUp className='h-5 w-5 text-primary' />
+    <Card className='h-full min-w-0'>
+      <CardHeader className='p-4 sm:p-6'>
+        <CardTitle className='flex items-center gap-2 text-lg sm:text-xl'>
+          <FileUp className='h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0' />
           מסמכים ותובנות
         </CardTitle>
-        <CardDescription>{summary}</CardDescription>
+        <CardDescription className='text-xs sm:text-sm'>{summary}</CardDescription>
       </CardHeader>
-      <CardContent className='space-y-4'>
+      <CardContent className='space-y-3 sm:space-y-4 p-4 sm:p-6'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div className='flex flex-wrap gap-2'>
             {DOC_FILTERS.map(filter => {
@@ -954,27 +955,27 @@ function DocsPanel({
         </div>
 
         {error ? (
-          <div className='flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
-            <AlertCircle className='h-4 w-4' />
+          <div className='flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs sm:text-sm text-destructive'>
+            <AlertCircle className='h-4 w-4 shrink-0' />
             {error}
           </div>
         ) : null}
 
         {isLoading ? (
-          <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
+          <div className='rounded-lg border border-dashed p-4 sm:p-6 text-center text-xs sm:text-sm text-muted-foreground'>
             <Loader2 className='me-2 inline h-4 w-4 animate-spin' />
             טוען מסמכים...
           </div>
         ) : (
           <div className='space-y-3'>
             {documents.map(doc => (
-              <div key={doc.id} className='rounded-lg border bg-background p-4'>
-                <div className='flex flex-wrap items-center justify-between gap-2'>
-                  <div>
-                    <div className='text-sm font-semibold'>{doc.title}</div>
+              <div key={doc.id} className='rounded-lg border bg-background p-3 sm:p-4'>
+                <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2'>
+                  <div className='min-w-0 flex-1'>
+                    <div className='text-xs sm:text-sm font-semibold'>{doc.title}</div>
                     <div className='text-xs text-muted-foreground'>הועלה ב־{formatDateTime(doc.uploadedAt)} • {doc.uploader}</div>
                   </div>
-                  <div className='flex items-center gap-2'>
+                  <div className='flex items-center gap-2 flex-wrap'>
                     <Badge size='sm' variant={doc.kind === 'legal' ? 'secondary' : doc.kind === 'mortgage' ? 'info' : 'neutral'}>
                       {DOC_KIND_LABELS[doc.kind]}
                     </Badge>
@@ -1130,17 +1131,17 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
   }
 
   return (
-    <Card className='h-full'>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-xl'>
-          <Sparkles className='h-5 w-5 text-primary' />
+    <Card className='h-full min-w-0'>
+      <CardHeader className='p-4 sm:p-6'>
+        <CardTitle className='flex items-center gap-2 text-lg sm:text-xl'>
+          <Sparkles className='h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0' />
           מחולל הצעות
         </CardTitle>
-        <CardDescription>צרו הצעות נגדיות והשוו במהירות להצעה האחרונה שהתקבלה.</CardDescription>
+        <CardDescription className='text-xs sm:text-sm'>צרו הצעות נגדיות והשוו במהירות להצעה האחרונה שהתקבלה.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form className='space-y-4' onSubmit={handleSubmit}>
-          <div className='grid gap-4 sm:grid-cols-2'>
+      <CardContent className='p-4 sm:p-6'>
+        <form className='space-y-3 sm:space-y-4' onSubmit={handleSubmit}>
+          <div className='grid gap-3 sm:gap-4 sm:grid-cols-2'>
             <label className='space-y-1 text-sm font-medium'>
               סכום ההצעה (₪)
               <Input
@@ -1184,7 +1185,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
             </label>
           </div>
 
-          <div className='grid gap-4 md:grid-cols-3'>
+          <div className='grid gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3'>
             <ConditionToggle
               label='בדק בית'
               description='השאר תנאי בדיקת נכס'
@@ -1234,13 +1235,13 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
             />
           </label>
 
-          <div className='space-y-3 rounded-lg border bg-muted/40 p-4'>
-            <div className='text-sm font-semibold text-muted-foreground'>השוואה להצעה האחרונה</div>
+          <div className='space-y-3 rounded-lg border bg-muted/40 p-3 sm:p-4'>
+            <div className='text-xs sm:text-sm font-semibold text-muted-foreground'>השוואה להצעה האחרונה</div>
             {latestOffer ? (
               diff.length > 0 ? (
-                <ul className='space-y-2 text-sm'>
+                <ul className='space-y-2 text-xs sm:text-sm'>
                   {diff.map(item => (
-                    <li key={item.label} className='flex items-center justify-between rounded-md bg-background p-2'>
+                    <li key={item.label} className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md bg-background p-2'>
                       <div className='font-medium'>{item.label}</div>
                       <div className='text-xs text-muted-foreground'>
                         <span className='me-2 line-through decoration-muted'>{item.previous}</span>
@@ -1250,16 +1251,16 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
                   ))}
                 </ul>
               ) : (
-                <p className='text-sm text-muted-foreground'>לא זוהו שינויים ביחס להצעה שהתקבלה.</p>
+                <p className='text-xs sm:text-sm text-muted-foreground'>לא זוהו שינויים ביחס להצעה שהתקבלה.</p>
               )
             ) : (
-              <p className='text-sm text-muted-foreground'>התחילו לנסח הצעה כדי לראות השוואות.</p>
+              <p className='text-xs sm:text-sm text-muted-foreground'>התחילו לנסח הצעה כדי לראות השוואות.</p>
             )}
           </div>
 
-          {statusMessage ? <div className='text-sm text-emerald-600'>{statusMessage}</div> : null}
+          {statusMessage ? <div className='text-xs sm:text-sm text-emerald-600'>{statusMessage}</div> : null}
 
-          <div className='flex flex-wrap items-center gap-3'>
+          <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3'>
             <Button type='submit' className='flex items-center gap-2'>
               <CheckCircle2 className='h-4 w-4' /> שמור טיוטת הצעה
             </Button>
@@ -1286,12 +1287,12 @@ function ConditionToggle({ label, description, active, onToggle }: ConditionTogg
       type='button'
       onClick={onToggle}
       className={cn(
-        'rounded-lg border p-4 text-left transition-colors',
+        'rounded-lg border p-3 sm:p-4 text-left transition-colors w-full',
         active ? 'border-primary bg-primary/10' : 'border-dashed border-muted-foreground/50'
       )}
       aria-pressed={active}
     >
-      <div className='text-sm font-semibold'>{label}</div>
+      <div className='text-xs sm:text-sm font-semibold'>{label}</div>
       <div className='text-xs text-muted-foreground'>{description}</div>
       <div className='mt-2 text-xs font-medium text-primary'>{active ? 'כלול' : 'לא כלול'}</div>
     </button>
@@ -1306,16 +1307,17 @@ type MortgageCompareTableProps = {
 
 function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCompareTableProps) {
   return (
-    <Card className='h-full'>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-xl'>
-          <Layers className='h-5 w-5 text-primary' />
+    <Card className='h-full min-w-0'>
+      <CardHeader className='p-4 sm:p-6'>
+        <CardTitle className='flex items-center gap-2 text-lg sm:text-xl'>
+          <Layers className='h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0' />
           השוואת משכנתאות
         </CardTitle>
-        <CardDescription>השוו בין הצעות הבנקים ובחרו את מסלול המימון המתאים ביותר.</CardDescription>
+        <CardDescription className='text-xs sm:text-sm'>השוו בין הצעות הבנקים ובחרו את מסלול המימון המתאים ביותר.</CardDescription>
       </CardHeader>
-      <CardContent className='space-y-4'>
-        <Table>
+      <CardContent className='space-y-3 sm:space-y-4 p-4 sm:p-6'>
+        <div className='overflow-x-auto'>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>בנק</TableHead>
@@ -1355,7 +1357,8 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
             ))}
           </TableBody>
         </Table>
-        <CardFooter className='justify-between px-0 pt-0 text-xs text-muted-foreground'>
+        </div>
+        <CardFooter className='flex-col sm:flex-row justify-between gap-2 sm:gap-0 px-0 pt-3 sm:pt-0 text-xs text-muted-foreground'>
           <span>הריביות מוצגות כריבית בפועל כולל הערכת עמלות וביטוחים.</span>
           <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
         </CardFooter>
@@ -1378,22 +1381,22 @@ function LegalChecklist({ tasks, onStatusChange }: LegalChecklistProps) {
   }, [tasks])
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-xl'>
-          <ShieldCheck className='h-5 w-5 text-primary' />
+    <Card className='min-w-0'>
+      <CardHeader className='p-4 sm:p-6'>
+        <CardTitle className='flex items-center gap-2 text-lg sm:text-xl'>
+          <ShieldCheck className='h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0' />
           מעקב משפטי וסגירה
         </CardTitle>
-        <CardDescription>נהלו חסמים ומשימות קריטיות עד לחתימה וסגירה.</CardDescription>
+        <CardDescription className='text-xs sm:text-sm'>נהלו חסמים ומשימות קריטיות עד לחתימה וסגירה.</CardDescription>
       </CardHeader>
-      <CardContent className='space-y-6'>
+      <CardContent className='space-y-4 sm:space-y-6 p-4 sm:p-6'>
         <div className='space-y-3'>
           <div className='text-sm font-semibold text-muted-foreground'>משימות פעילות</div>
           {grouped.active.map(task => (
             <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} />
           ))}
           {grouped.active.length === 0 ? (
-            <div className='rounded-lg border border-dashed p-4 text-sm text-muted-foreground'>
+            <div className='rounded-lg border border-dashed p-3 sm:p-4 text-xs sm:text-sm text-muted-foreground'>
               כל המשימות הושלמו. ממתינים לחתימות.
             </div>
           ) : null}
@@ -1407,7 +1410,7 @@ function LegalChecklist({ tasks, onStatusChange }: LegalChecklistProps) {
             <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} isCompleted />
           ))}
           {grouped.completed.length === 0 ? (
-            <div className='rounded-lg border border-dashed p-4 text-sm text-muted-foreground'>
+            <div className='rounded-lg border border-dashed p-3 sm:p-4 text-xs sm:text-sm text-muted-foreground'>
               אין משימות שהושלמו עדיין.
             </div>
           ) : null}
@@ -1428,13 +1431,13 @@ function TaskRow({ task, onStatusChange, isCompleted }: TaskRowProps) {
     task.status === 'blocked' ? 'warning' : task.status === 'done' ? 'success' : 'info'
 
   return (
-    <div className='rounded-lg border bg-background p-4'>
-      <div className='flex flex-wrap items-center justify-between gap-2'>
-        <div>
-          <div className='text-sm font-semibold'>{task.title}</div>
+    <div className='rounded-lg border bg-background p-3 sm:p-4'>
+      <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2'>
+        <div className='min-w-0 flex-1'>
+          <div className='text-xs sm:text-sm font-semibold'>{task.title}</div>
           <div className='text-xs text-muted-foreground'>אחראי: {task.owner} • יעד {formatDate(task.dueDate)}</div>
         </div>
-        <Badge size='sm' variant={statusVariant}>{TASK_STATUS_LABELS[task.status]}</Badge>
+        <Badge size='sm' variant={statusVariant} className='w-fit'>{TASK_STATUS_LABELS[task.status]}</Badge>
       </div>
       {task.blocker ? <p className='mt-2 text-xs text-amber-600'>{task.blocker}</p> : null}
       <div className='mt-3 flex flex-wrap items-center gap-2'>

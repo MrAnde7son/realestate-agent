@@ -388,8 +388,11 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
           <div className="text-lg text-muted-foreground">אין נתונים להצגה עדיין</div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
+              <Button
+                size="sm"
+                className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                 הוסף לקוח חדש
               </Button>
             </DialogTrigger>
@@ -417,17 +420,23 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center rtl:flex-row-reverse">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setIsImportDialogOpen(true)}
-            className="flex items-center gap-2"
+            className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
           >
-            <DownloadCloud className="h-4 w-4" />
-            ייבוא נתונים מנדל&quot;ן וואן
+            <DownloadCloud className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="hidden sm:inline">ייבוא נתונים</span>
+            <span className="sm:hidden">ייבוא</span>
           </Button>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-                לקוח חדש
+              <Button
+                size="sm"
+                className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                <span className="hidden sm:inline">לקוח חדש</span>
+                <span className="sm:hidden">חדש</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="mx-4 sm:mx-0">
@@ -456,12 +465,12 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead className="min-w-[180px] rtl:text-start">לקוח</TableHead>
-                <TableHead className="min-w-[200px] rtl:text-start">נכסים ותחומי עניין</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">סטטוס לידים</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">משימות</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">פעילות אחרונה</TableHead>
-                <TableHead className="min-w-[140px] rtl:text-start">פעולות</TableHead>
+                <TableHead className="min-w-[180px]">לקוח</TableHead>
+                <TableHead className="min-w-[200px]">נכסים ותחומי עניין</TableHead>
+                <TableHead className="min-w-[140px]">סטטוס לידים</TableHead>
+                <TableHead className="min-w-[140px]">משימות</TableHead>
+                <TableHead className="min-w-[140px]">פעילות אחרונה</TableHead>
+                <TableHead className="min-w-[140px]">פעולות</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

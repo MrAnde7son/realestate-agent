@@ -262,15 +262,23 @@ export default function AlertsPage() {
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button 
               onClick={() => setAlertRulesModalOpen(true)} 
-              className="w-full sm:w-auto"
+              size="sm"
+              className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm w-full sm:w-auto"
             >
-              <Plus className="h-4 w-4 ms-2" />
-              הוסף כלל התראה
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+              <span className="hidden sm:inline">הוסף כלל התראה</span>
+              <span className="sm:hidden">הוסף כלל</span>
             </Button>
             {unreadCount > 0 && (
-              <Button onClick={markAllAsRead} variant="outline" className="w-full sm:w-auto">
-                <CheckCircle className="h-4 w-4 ms-2" />
-                סמן הכל כנקרא ({unreadCount})
+              <Button 
+                onClick={markAllAsRead} 
+                variant="outline" 
+                size="sm"
+                className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm w-full sm:w-auto"
+              >
+                <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                <span className="hidden sm:inline">סמן הכל כנקרא ({unreadCount})</span>
+                <span className="sm:hidden">סמן הכל ({unreadCount})</span>
               </Button>
             )}
           </div>

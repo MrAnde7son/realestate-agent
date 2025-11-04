@@ -2849,25 +2849,30 @@ useDedupedEffect(() => {
                 size="sm"
                 onClick={() => setSectionsModal(true)}
                 disabled={generatingReport}
+                className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
               >
                 {generatingReport ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin me-2" />
-                    יוצר דוח...
+                    <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 animate-spin" />
+                    <span className="hidden sm:inline">יוצר דוח...</span>
+                    <span className="sm:hidden">יוצר...</span>
                   </>
                 ) : (
                   <>
-                    <FileText className="h-4 w-4 me-2" />
-                    צור דוח
+                    <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <span className="hidden sm:inline">צור דוח</span>
+                    <span className="sm:hidden">דוח</span>
                   </>
                 )}
               </Button>
               <Button
                 size="sm"
                 onClick={handleDealWorkspaceClick}
+                className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
               >
-                <Handshake className="h-4 w-4 me-2" />
-                סביבת עסקה
+                <Handshake className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                <span className="hidden sm:inline">סביבת עסקה</span>
+                <span className="sm:hidden">עסקה</span>
               </Button>
 
               {/* Actions Dropdown Menu */}
@@ -2876,9 +2881,11 @@ useDedupedEffect(() => {
                   <Button
                     size="sm"
                     variant="outline"
+                    className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
                   >
-                    <MoreVertical className="h-4 w-4 me-2" />
-                    עוד פעולות
+                    <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <span className="hidden sm:inline">עוד פעולות</span>
+                    <span className="sm:hidden">פעולות</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">

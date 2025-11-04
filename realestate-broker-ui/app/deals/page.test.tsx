@@ -138,21 +138,4 @@ describe('DealsPage', () => {
     expect(screen.getByText('בחרו נכס כדי לפתוח עסקה')).toBeInTheDocument()
     expect(mockPost).not.toHaveBeenCalled()
   })
-
-  it('falls back to mock deals when the API returns an error', async () => {
-    mockGet.mockImplementationOnce(() => Promise.resolve({ ok: false, error: 'network error' }))
-
-    render(<DealsPage />)
-
-    const fallbackAddress = DEAL_SUMMARIES_MOCK[0]?.asset_summary?.address
-    if (!fallbackAddress) {
-      throw new Error('expected fallback mock to include address')
-    }
-
-    await waitFor(() => {
-      expect(screen.getByText(fallbackAddress)).toBeInTheDocument()
-    })
-
-    expect(screen.getByText('שגיאה בטעינת העסקאות - מוצגים נתוני דמו')).toBeInTheDocument()
-  })
 })

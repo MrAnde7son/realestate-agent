@@ -43,8 +43,10 @@ import {
   RefreshCw,
   ChevronDown,
   MoreHorizontal,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 export type AdditionalFilterValue =
   | string
@@ -357,6 +359,23 @@ export default function TableToolbar({
   const [adTypeMenuOpen, setAdTypeMenuOpen] = useState(false);
   const [commercialMenuOpen, setCommercialMenuOpen] = useState(false);
   const [userAssetsMenuOpen, setUserAssetsMenuOpen] = useState(false);
+  const { matches: isSmAndUp } = useMediaQuery("(min-width: 640px)", {
+    defaultValue: true,
+  });
+  const [quickFiltersExpanded, setQuickFiltersExpanded] = useState(true);
+  const quickFiltersBreakpointInitialized = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!quickFiltersBreakpointInitialized.current) {
+      quickFiltersBreakpointInitialized.current = true;
+    }
+
+    if (isSmAndUp) {
+      setQuickFiltersExpanded(true);
+    } else if (quickFiltersBreakpointInitialized.current) {
+      setQuickFiltersExpanded(false);
+    }
+  }, [isSmAndUp]);
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -1302,21 +1321,19 @@ export default function TableToolbar({
 
   return (
     <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
-      {/* Search - Full width */}
-      <div className="relative w-full">
-        <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-        <Input
-          placeholder={searchPlaceholder}
-          value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
-          dir="rtl"
-        />
-      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3" dir="rtl">
+        <div className="relative flex min-w-[180px] flex-1">
+          <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+          <Input
+            placeholder={searchPlaceholder}
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
+            dir="rtl"
+          />
+        </div>
 
-      {/* Layout controls - View mode (separate from table actions) */}
-      <div className="flex w-full items-center justify-start" dir="rtl">
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="ms-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
           <Button
             variant={viewMode === 'table' ? 'default' : 'outline'}
             size="sm"
@@ -1324,7 +1341,7 @@ export default function TableToolbar({
             className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center p-0"
             title="תצוגת טבלה"
             aria-label="תצוגת טבלה"
-         >
+          >
             <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
           <Button
@@ -1350,11 +1367,34 @@ export default function TableToolbar({
         </div>
       </div>
 
+      {!isSmAndUp && (
+        <div className="flex w-full justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setQuickFiltersExpanded((previous) => !previous)}
+            className="h-8 rounded-full px-3 text-xs"
+            aria-expanded={quickFiltersExpanded}
+            aria-controls="quick-filters-panel"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="px-1">מסננים</span>
+            <ChevronDown
+              className={`h-3 w-3 transition-transform ${quickFiltersExpanded ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
+          </Button>
+        </div>
+      )}
+
       {/* Quick filters and toolbar actions */}
       <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
         <div className="lg:flex-1">
-          <div
-            data-testid="quick-filters-container"
+          {(isSmAndUp || quickFiltersExpanded) && (
+            <div
+              id="quick-filters-panel"
+              data-testid="quick-filters-container"
             className="flex w-full flex-wrap items-center gap-1.5 sm:gap-2 pb-1 lg:pb-0"
           >
             {userAssetsQuickFilter && (
@@ -1885,15 +1925,14 @@ export default function TableToolbar({
                   </div>
                 </SheetContent>
               </Sheet>
-
-
-          </div>
+            </div>
+          )}
         </div>
 
         {!hideActionsContainer && (
           <div
             data-testid="toolbar-actions-container"
-            className="flex w-full flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:w-auto lg:justify-end"
+            className="inline-flex flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:justify-end"
           >
         {/* Column selection */}
         <DropdownMenu>

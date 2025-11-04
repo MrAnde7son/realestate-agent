@@ -484,7 +484,7 @@ export default function AdminUsersClient() {
                       <div>
                         <div className="font-semibold">{user.full_name}</div>
                         <div className="text-sm text-muted-foreground">
-                          @{user.username}
+                          {user.email}
                         </div>
                       </div>
                     </TableCell>

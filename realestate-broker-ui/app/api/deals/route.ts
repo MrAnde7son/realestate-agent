@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { validateToken } from '@/lib/token-utils'
-import { DEAL_SUMMARIES_MOCK } from '@/app/assets/[id]/deal/mock-data'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -68,11 +67,10 @@ export async function GET(request: Request) {
       console.warn('Backend deals API returned error:', res.status, message)
       return NextResponse.json(
         {
-          deals: DEAL_SUMMARIES_MOCK,
-          fallback: true,
+          deals: [],
           error: message || `Failed to load deals (status ${res.status})`,
         },
-        { status: 200 }
+        { status: res.status }
       )
     }
 
@@ -82,11 +80,10 @@ export async function GET(request: Request) {
     console.error('Failed to fetch deals from backend:', error)
     return NextResponse.json(
       {
-        deals: DEAL_SUMMARIES_MOCK,
-        fallback: true,
+        deals: [],
         error: 'Unable to fetch deals',
       },
-      { status: 200 }
+      { status: 500 }
     )
   }
 }

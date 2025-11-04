@@ -88,7 +88,10 @@ export function TableActionsToolbar({
   return (
     <div
       data-testid="toolbar-actions-container"
-      className={cn("flex w-full flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:w-auto lg:justify-end", className)}
+      className={cn(
+        "inline-flex flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:justify-end",
+        className
+      )}
     >
       {/* Column selection */}
       {columns && columns.length > 0 && (

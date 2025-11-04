@@ -14,7 +14,6 @@ Notes
   We allow providing candidate names to try.
 * Keep layers configurable via constructor args (no environment variables).
 """
-import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, List
@@ -30,7 +29,6 @@ logger = logging.getLogger(__name__)
 # Default endpoints (no env usage)
 DEFAULT_WMS = "https://open.govmap.gov.il/geoserver/opendata/wms"
 DEFAULT_WFS = "https://open.govmap.gov.il/geoserver/opendata/ows"
-DEFAULT_AUTOCOMPLETE = "https://www.govmap.gov.il/api/search-service/autocomplete"
 
 # Reusable transformers
 _TO_WGS84 = Transformer.from_crs(2039, 4326, always_xy=True)
@@ -70,7 +68,6 @@ class GovMapClient:
         self,
         wms_url: str = DEFAULT_WMS,
         wfs_url: str = DEFAULT_WFS,
-        autocomplete_url: str = DEFAULT_AUTOCOMPLETE,
         session: Optional[requests.Session] = None,
         timeout: int = 30,
         api_token: Optional[str] = None,
@@ -80,7 +77,7 @@ class GovMapClient:
     ) -> None:
         self.wms_url = wms_url.rstrip("?")
         self.wfs_url = wfs_url.rstrip("?")
-        self.autocomplete_url = autocomplete_url
+        self.autocomplete_url = "https://www.govmap.gov.il/api/search-service/autocomplete"
         self.layers_catalog_url = "https://www.govmap.gov.il/api/layers-catalog/catalog"
         self.search_types_url = "https://www.govmap.gov.il/api/search-service/getTypes"
         self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
@@ -436,7 +433,7 @@ class GovMapClient:
         x_itm: float,
         y_itm: float,
         layer_ids: list[str] | list[int],
-        tolerance_m: float = 30.0,
+        tolerance_m: float = 100.0,
     ):
         layers = [{"layerId": str(lid)} for lid in layer_ids]
 
@@ -449,17 +446,20 @@ class GovMapClient:
         r = self.http.post(self.entities_by_point_url, json=payload, timeout=self.timeout, verify=False)
         if r.status_code != 200:
             raise GovMapError(f"entitiesByPoint HTTP {r.status_code}")
-        return r.json()
+        json_resp = r.json()
+        if json_resp and json_resp.get("data"):
+            return json_resp["data"]
+        return []
 
 
 if __name__ == "__main__":
     api_client = GovMapClient()
-    result = api_client.autocomplete("רוקח 95 תל אביב")
+    result = api_client.autocomplete("רוזוב 14 תל אביב")
     catalog = api_client.get_layers_catalog().get('catalog', [])
     if result.get("results"):
         first = result["results"][0]
         coords = api_client.extract_coordinates_from_shapes(first)
         if coords:
             x, y = coords
-            entities = api_client.entities_by_point(x, y, [400,394,386,150,384,305,417,11,20,17,15,21,16,18,407,151,160])
-            print("Entities by point:", entities)
+            entities = api_client.entities_by_point(x, y, [400,394,386,150,384,305,417,20,17,15,21,16,18,407,151,160, 200723])
+            print(entities)

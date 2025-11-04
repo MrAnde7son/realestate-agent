@@ -2760,11 +2760,11 @@ useDedupedEffect(() => {
     { value: 'analysis', label: 'ניתוח כללי' },
     { value: 'listings', label: 'מודעות' },
     { value: 'transactions', label: 'עיסקאות השוואה' },
-    { value: 'permits', label: 'היתרים' },
-    { value: 'plans', label: 'תוכניות' },
-    { value: 'rights', label: 'זכויות' },
     { value: 'environment', label: 'סביבה' },
     ...(canViewCrm ? [{ value: 'crm', label: 'לקוחות' }] : []),
+    { value: 'rights', label: 'זכויות' },
+    { value: 'permits', label: 'היתרים' },
+    { value: 'plans', label: 'תוכניות' },
     { value: 'appraisals', label: 'שומות באיזור' },
     { value: 'documents', label: 'מסמכים' },
   ]
@@ -3397,11 +3397,11 @@ useDedupedEffect(() => {
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="listings">מודעות</TabsTrigger>
             <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="permits">היתרים</TabsTrigger>
-            <TabsTrigger value="plans">תוכניות</TabsTrigger>
-            <TabsTrigger value="rights">זכויות</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             {canViewCrm && <TabsTrigger value="crm">לקוחות</TabsTrigger>}
+            <TabsTrigger value="rights">זכויות</TabsTrigger>
+            <TabsTrigger value="permits">היתרים</TabsTrigger>
+            <TabsTrigger value="plans">תוכניות</TabsTrigger>
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}

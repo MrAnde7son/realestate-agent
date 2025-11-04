@@ -115,7 +115,7 @@ export default function AuthPage() {
         <div className="text-center">
           <Logo variant="horizontal" size={48} color="var(--brand-teal)" />
           <h1 className="text-2xl font-bold text-foreground mt-4">נדל״נר</h1>
-          <p className="text-muted-foreground">נדל״ן חכם לשמאים, מתווכים ומשקיעים</p>
+          <p className="text-muted-foreground">נדל״ן חכם לאנשים פרטיים, מתווכים ושמאים</p>
         </div>
 
         {/* Auth Tabs */}

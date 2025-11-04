@@ -400,7 +400,7 @@ export default function DealsPage() {
           </div>
           <div className='flex flex-wrap gap-2'>
             <Link href={`/assets/${deal.asset}/deal`}>
-              <Button size='sm' variant='default'>לפתוח מרחב עסקה</Button>
+              <Button size='sm' variant='default'>מרחב עסקה</Button>
             </Link>
             <Link href={`/assets/${deal.asset}`}>
               <Button size='sm' variant='outline'>פרטי נכס</Button>

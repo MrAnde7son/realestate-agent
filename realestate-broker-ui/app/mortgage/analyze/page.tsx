@@ -887,13 +887,13 @@ export default function MortgageAnalyzePage() {
           <Button
             onClick={handleAnalyzePortfolio}
             disabled={calculating || tranches.length === 0}
-            size="sm"
-            className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
+            size="lg"
+            className="h-11 sm:h-12 rounded-full px-4 sm:px-6 flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm w-full sm:w-auto"
           >
             {calculating ? (
-              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 animate-spin" />
+              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 animate-spin" />
             ) : (
-              <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+              <Calculator className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             )}
             <span className="hidden sm:inline">חשב תיק</span>
             <span className="sm:hidden">חשב</span>

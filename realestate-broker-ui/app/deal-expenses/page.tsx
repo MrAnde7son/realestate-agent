@@ -947,12 +947,12 @@ export default function DealExpensesPage() {
         />
 
         <div className="mb-6 flex justify-center sm:justify-end">
-          <Button 
-            onClick={calculate} 
-            size="sm"
-            className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm w-full sm:w-auto"
+          <Button
+            onClick={calculate}
+            size="lg"
+            className="h-11 sm:h-12 rounded-full px-4 sm:px-6 flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm w-full sm:w-auto"
           >
-            <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <Receipt className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             <span className="hidden sm:inline">חשב הוצאות</span>
             <span className="sm:hidden">חשב</span>
           </Button>

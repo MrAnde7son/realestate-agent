@@ -15,9 +15,11 @@ from .analytics import track, track_page_view, track_session_end
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def analytics_timeseries(request):
+    """Get analytics timeseries data from AnalyticsDaily rollups."""
     today = timezone.now().date()
     start = today - timedelta(days=29)
     daily = AnalyticsDaily.objects.filter(date__gte=start).order_by("date")
+    
     series = [
         {
             "date": d.date.isoformat(),
@@ -44,6 +46,7 @@ def analytics_timeseries(request):
         }
         for d in daily
     ]
+    
     return Response({"series": series})
 
 

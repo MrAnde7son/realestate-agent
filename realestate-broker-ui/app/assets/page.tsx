@@ -313,6 +313,7 @@ export default function AssetsPage() {
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const [viewModeManuallySet, setViewModeManuallySet] = useState(false);
   const { matches: isDesktop, isReady: isViewportReady } = useMediaQuery('(min-width: 1024px)');
+  const { matches: isMobileViewport } = useMediaQuery('(max-width: 768px)');
 
   const handleViewModeChange = React.useCallback(
     (nextMode: 'table' | 'cards' | 'map') => {
@@ -2458,7 +2459,7 @@ export default function AssetsPage() {
                 onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
                 searchValue={search}
                 onSearchChange={setSearch}
-                height="calc(100vh - 180px)"
+                height={isMobileViewport ? '100dvh' : 'calc(100vh - 180px)'}
                 onBackToTable={() => handleViewModeChange('table')}
               />
             )

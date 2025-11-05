@@ -12,6 +12,8 @@ import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
 import { buildMarkerDisplayData, shouldDisplayMarkerLabel, type MarkerDisplayData } from '@/components/map-marker-utils'
 import { normalizeToLonLat } from '@/lib/geo/transform'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { cn } from '@/lib/utils'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 type MarkerElement = HTMLDivElement & { __cleanupTooltip?: () => void }
@@ -238,6 +240,18 @@ export default function MapView({
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [layers, setLayers] = useState<LayerConfig[]>([])
   const [showLayerControls, setShowLayerControls] = useState(false)
+
+  const { matches: isMobile } = useMediaQuery('(max-width: 768px)', {
+    defaultValue: false,
+    initializeWithValue: true,
+  })
+
+  const containerClasses = cn(
+    'relative w-full overflow-hidden',
+    isMobile ? 'fixed inset-0 z-50 rounded-none bg-background' : 'rounded-lg'
+  )
+
+  const computedHeight = isMobile ? height ?? '100dvh' : height
 
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
   
@@ -688,7 +702,11 @@ export default function MapView({
   }
 
   return (
-    <div className="relative w-full rounded-lg overflow-hidden" style={{ height }}>
+    <div
+      data-testid="map-view-container"
+      className={containerClasses}
+      style={{ height: computedHeight }}
+    >
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted">
           <div className="flex flex-col items-center space-y-2">
@@ -705,19 +723,44 @@ export default function MapView({
             variant="outline"
             size="sm"
             onClick={onBackToTable}
-            className="bg-white/90 backdrop-blur-sm"
+            className={cn(
+              'bg-white/90 backdrop-blur-sm transition-shadow',
+              isMobile ? 'h-10 w-10 rounded-full p-0 shadow-md' : 'h-8 px-3'
+            )}
             title="חזרה לטבלה"
+            aria-label="חזרה לטבלה"
           >
-            <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
-            חזרה לטבלה
+            <ArrowLeft
+              className={cn(
+                'rtl:rotate-180',
+                isMobile ? 'h-5 w-5' : 'h-4 w-4 me-2'
+              )}
+            />
+            {!isMobile && <span>חזרה לטבלה</span>}
           </Button>
         </div>
       )}
 
       {/* Search Bar */}
-      <div className={`absolute top-4 z-20 ${onBackToTable ? 'start-48 end-24' : 'start-4 end-24'}`}>
-        <div className="relative max-w-xs">
-          <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <div
+        className={cn(
+          'absolute top-4 z-20',
+          isMobile
+            ? onBackToTable
+              ? 'start-16 end-4'
+              : 'start-4 end-4'
+            : onBackToTable
+              ? 'start-48 end-24'
+              : 'start-4 end-24'
+        )}
+      >
+        <div className={cn('relative', isMobile ? 'w-full max-w-full' : 'max-w-xs')}>
+          <Search
+            className={cn(
+              'absolute end-2 top-1/2 -translate-y-1/2 transform text-muted-foreground',
+              isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'
+            )}
+          />
           <Input
             value={localSearchValue}
             onChange={(e) => {
@@ -738,7 +781,10 @@ export default function MapView({
               }
             }}
             placeholder="חפש נכסים לפי כתובת, עיר או שכונה..."
-            className="h-8 pe-8 text-sm bg-white/90 backdrop-blur-sm"
+            className={cn(
+              'pe-8 text-sm bg-white/90 backdrop-blur-sm',
+              isMobile ? 'h-10 shadow-md' : 'h-8'
+            )}
             dir="rtl"
             onFocus={() => {
               if (localSearchValue) {
@@ -778,12 +824,32 @@ export default function MapView({
       <div className="absolute top-4 end-4 z-20">
         <Popover open={showLayerControls} onOpenChange={setShowLayerControls}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 px-2 bg-white/90 backdrop-blur-sm">
-              <Layers className="h-3.5 w-3.5 me-1.5" />
-              <span className="text-xs">שכבות</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'bg-white/90 backdrop-blur-sm transition-shadow',
+                isMobile ? 'h-10 w-10 rounded-full p-0 shadow-md' : 'h-8 px-2'
+              )}
+              aria-label="ניהול שכבות"
+              title="ניהול שכבות"
+            >
+              <Layers
+                className={cn(
+                  'text-muted-foreground',
+                  isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 me-1.5'
+                )}
+              />
+              {!isMobile && <span className="text-xs">שכבות</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 bg-white text-gray-900 border border-gray-200" align="end">
+          <PopoverContent
+            className={cn(
+              'bg-white text-gray-900 border border-gray-200',
+              isMobile ? 'w-64 max-w-[90vw]' : 'w-80'
+            )}
+            align="end"
+          >
             <div className="space-y-4">
               <h4 className="font-medium">ניהול שכבות</h4>
               {layers.map((layer) => (
@@ -822,7 +888,12 @@ export default function MapView({
 
       {/* Asset Count */}
       <div className="absolute bottom-4 start-4 z-20">
-        <div className="bg-white/90 backdrop-blur-sm rounded-md px-3 py-2 text-sm">
+        <div
+          className={cn(
+            'bg-white/90 backdrop-blur-sm rounded-md px-3 py-2 text-sm',
+            isMobile && 'text-xs shadow-md'
+          )}
+        >
           <span className="font-medium">{assets.length}</span> נכסים
         </div>
       </div>

@@ -23,3 +23,18 @@ output "redis_port" {
   description = "Memorystore port"
   value       = google_redis_instance.primary.port
 }
+
+output "artifact_registry_repository" {
+  description = "Artifact Registry repository URL"
+  value       = google_artifact_registry_repository.app.name
+}
+
+output "static_bucket_name" {
+  description = "Cloud Storage bucket name for static files"
+  value       = google_storage_bucket.static.name
+}
+
+output "media_bucket_name" {
+  description = "Cloud Storage bucket name for media files"
+  value       = google_storage_bucket.media.name
+}

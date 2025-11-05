@@ -88,3 +88,9 @@ variable "redis_size_gb" {
   type        = number
   default     = 1
 }
+
+variable "enable_cloud_scheduler" {
+  description = "Enable Cloud Scheduler for periodic tasks (alternative to Celery Beat)"
+  type        = bool
+  default     = false
+}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Nadlaner™ keeps the customer-facing Next.js UI on Vercel while moving all application logic and stateful services to Google Cloud Platform in the `me-west1` (Tel Aviv) region. Django serves the public API, Celery powers background processing, and both workloads run on Cloud Run with private networking to a highly available Cloud SQL PostgreSQL instance and Memorystore Redis. Traffic is terminated by a global HTTPS load balancer protected with Cloud Armor, and Cloud DNS publishes records for both the API and the Vercel-hosted UI.
+Nadlaner™ customer-facing Next.js UI on Vercel and all other application logic and stateful services to Google Cloud Platform in the `me-west1` (Tel Aviv) region. Django serves the public API, Celery powers background processing, and both workloads run on Cloud Run with private networking to a highly available Cloud SQL PostgreSQL instance and Memorystore Redis. Traffic is terminated by a global HTTPS load balancer protected with Cloud Armor, and Cloud DNS publishes records for both the API and the Vercel-hosted UI.
 
 ## End-State Architecture
 
@@ -16,8 +16,8 @@ graph TD
         subgraph Network[VPC]
             LB[External HTTPS Load Balancer]
             Armor[Cloud Armor WAF]
-            RunAPI[Cloud Run Service\nDjango API]
-            RunWorker[Cloud Run Service\nCelery Worker]
+            RunAPI[Cloud Run Service: Django API]
+            RunWorker[Cloud Run Service: Celery Worker]
             Redis[(Memorystore Redis)]
             SQL[(Cloud SQL for PostgreSQL)]
             Storage[(Cloud Storage for media/static)]

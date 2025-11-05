@@ -7,7 +7,12 @@ resource "google_project_service" "required" {
     "servicenetworking.googleapis.com",
     "dns.googleapis.com",
     "redis.googleapis.com",
-    "cloudbuild.googleapis.com"
+    "cloudbuild.googleapis.com",
+    "secretmanager.googleapis.com",
+    "storage.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "cloudtasks.googleapis.com"
   ])
 
   project = var.project_id
@@ -378,4 +383,115 @@ resource "google_dns_record_set" "ui" {
   type         = "CNAME"
   ttl          = 300
   rrdatas      = [var.ui_cname_target]
+}
+
+# Artifact Registry for container images
+resource "google_artifact_registry_repository" "app" {
+  location      = var.region
+  repository_id = "nadlaner-app"
+  description   = "Container images for Nadlaner services"
+  format        = "DOCKER"
+}
+
+# Cloud Storage for static/media files
+resource "google_storage_bucket" "static" {
+  name          = "${var.project_id}-static"
+  location      = var.region
+  force_destroy = false
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  labels = var.labels
+}
+
+resource "google_storage_bucket" "media" {
+  name          = "${var.project_id}-media"
+  location      = var.region
+  force_destroy = false
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 90
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  labels = var.labels
+}
+
+# Service account for Cloud Storage access
+resource "google_service_account" "storage" {
+  account_id   = "nadlaner-storage"
+  display_name = "Nadlaner Cloud Storage Access"
+}
+
+resource "google_project_iam_member" "storage_object_admin" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.storage.email}"
+}
+
+resource "google_project_iam_member" "api_storage" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "worker_storage" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
+# Secret Manager access
+resource "google_project_iam_member" "api_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "worker_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
+# Cloud Scheduler for periodic tasks (alternative to Celery Beat)
+resource "google_cloud_scheduler_job" "celery_beat_tasks" {
+  count = var.enable_cloud_scheduler ? 1 : 0
+
+  name             = "nadlaner-celery-beat"
+  region           = var.region
+  schedule         = "*/5 * * * *"  # Every 5 minutes
+  time_zone        = "Asia/Jerusalem"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_service.api.status[0].url}/api/internal/trigger-celery-beat/"
+    oidc_token {
+      service_account_email = google_service_account.api.email
+    }
+  }
 }

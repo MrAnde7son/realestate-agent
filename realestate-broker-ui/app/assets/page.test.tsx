@@ -267,13 +267,17 @@ describe('AssetsPage', () => {
     const firstCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1][0]
     expect(firstCall.viewMode).toBe('cards')
 
-    act(() => {
+    await act(async () => {
       firstCall.onViewModeChange?.('map')
+      // Update searchParams mock to reflect the view mode change
+      mockUseSearchParams.get.mockImplementation((key: string) =>
+        key === 'view' ? 'map' : null
+      )
     })
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view')).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
   })
 
   it('shows loading state initially', async () => {

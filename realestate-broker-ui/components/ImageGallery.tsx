@@ -131,8 +131,8 @@ export default function ImageGallery({
 
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-          <DialogHeader className="p-4 pb-0">
+        <DialogContent className="max-w-7xl w-[95vw] max-h-[95vh] p-0 flex flex-col">
+          <DialogHeader className="p-4 pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DialogTitle>
                 תמונה {selectedImage !== null ? selectedImage + 1 : 1} מתוך {images.length}
@@ -152,15 +152,15 @@ export default function ImageGallery({
             </div>
           </DialogHeader>
           
-          <div className="relative flex-1 p-2 sm:p-4">
+          <div className="relative flex-1 p-2 sm:p-4 min-h-0 flex items-center justify-center">
             {selectedImage !== null && (
-              <div className="relative h-64 sm:h-96 md:h-[500px]">
+              <div className="relative w-full h-full min-h-[300px] sm:min-h-[400px] md:min-h-[500px] lg:min-h-[600px] max-h-[calc(95vh-180px)]">
                 <Image
                   src={images[selectedImage]}
                   alt={`תמונה ${selectedImage + 1}`}
                   fill
                   className="object-contain"
-                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 80vw"
+                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, (max-width: 1024px) 85vw, 80vw"
                   priority
                   quality={90}
                 />
@@ -171,7 +171,7 @@ export default function ImageGallery({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-10"
+                      className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-10 h-10 w-10 sm:h-12 sm:w-12"
                       onClick={(e) => {
                         e.stopPropagation()
                         prevImage()
@@ -179,12 +179,12 @@ export default function ImageGallery({
                       aria-label="הצג תמונה קודמת"
                       title="הצג תמונה קודמת"
                     >
-                      <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+                      <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 rtl:rotate-180" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute end-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-50"
+                      className="absolute end-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-50 h-10 w-10 sm:h-12 sm:w-12"
                       onClick={(e) => {
                         e.stopPropagation()
                         nextImage()
@@ -192,7 +192,7 @@ export default function ImageGallery({
                       aria-label="הצג תמונה הבאה"
                       title="הצג תמונה הבאה"
                     >
-                      <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                      <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 rtl:rotate-180" />
                     </Button>
                   </>
                 )}
@@ -202,12 +202,12 @@ export default function ImageGallery({
 
           {/* Thumbnail strip */}
           {showThumbnails && images.length > 1 && (
-            <div className="p-2 sm:p-4 pt-0">
-              <div className="flex gap-1 sm:gap-2 overflow-x-auto">
+            <div className="p-2 sm:p-4 pt-0 flex-shrink-0 border-t">
+              <div className="flex gap-1 sm:gap-2 md:gap-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 {images.map((image, index) => (
                   <div
                     key={index}
-                    className={`relative h-12 w-12 sm:h-16 sm:w-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${
+                    className={`relative h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${
                       selectedImage === index ? 'border-primary' : 'border-transparent'
                     }`}
                     onClick={() => setSelectedImage(index)}
@@ -217,7 +217,7 @@ export default function ImageGallery({
                       alt={`תמונה ${index + 1}`}
                       fill
                       className="object-cover"
-                      sizes="(max-width: 640px) 48px, 64px"
+                      sizes="(max-width: 640px) 48px, (max-width: 768px) 64px, 80px"
                       loading="lazy"
                       quality={75}
                     />

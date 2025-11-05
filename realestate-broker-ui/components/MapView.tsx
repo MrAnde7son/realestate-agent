@@ -238,8 +238,22 @@ export default function MapView({
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [layers, setLayers] = useState<LayerConfig[]>([])
   const [showLayerControls, setShowLayerControls] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
+  
+  // Detect mobile device and screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      const isTouchDevice = isCoarsePointerEnvironment()
+      const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 768
+      setIsMobile(isTouchDevice || isSmallScreen)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
   
   // Sync local search value with prop
   useEffect(() => {
@@ -644,6 +658,18 @@ export default function MapView({
     setShowSearchResults(false)
   }, [onSearchChange])
 
+  // Prevent body scrolling when map is full screen on mobile
+  useEffect(() => {
+    const isFullScreenMobile = isMobile && onBackToTable
+    if (isFullScreenMobile) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [isMobile, onBackToTable])
+
   // Layer controls
   const toggleLayer = useCallback((layerId: string) => {
     if (!layerService.current) return
@@ -676,9 +702,72 @@ export default function MapView({
     }
   }, [])
 
+  // On mobile with full screen mode (when onBackToTable exists), make map fixed and full viewport
+  const isFullScreenMobile = isMobile && onBackToTable
+  
+  // Calculate height for mobile full screen
+  // On mobile full screen, use fixed positioning covering entire viewport
+  // Header will overlay it (header has z-50, map has z-30)
+  const mapHeight = isFullScreenMobile ? '100dvh' : (isMobile ? 'calc(100vh - 4rem)' : height)
+  const mapStyle = isFullScreenMobile
+    ? { 
+        position: 'fixed' as const, 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0,
+        width: '100vw',
+        height: '100dvh',
+        zIndex: 30 
+      }
+    : isMobile
+    ? { position: 'fixed' as const, top: '4rem', bottom: 0, left: 0, right: 0, zIndex: 40 }
+    : { height: mapHeight }
+
+  // Resize map when container size changes (especially on mobile full screen)
+  useEffect(() => {
+    if (!map.current) return
+    
+    const resizeMap = () => {
+      if (map.current) {
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+          if (map.current) {
+            map.current.resize()
+          }
+        })
+      }
+    }
+    
+    // Resize immediately when full screen mode changes
+    resizeMap()
+    
+    // Also resize on window resize events
+    window.addEventListener('resize', resizeMap)
+    window.addEventListener('orientationchange', resizeMap)
+    
+    // Small delay to ensure container has updated
+    const timeoutId = setTimeout(resizeMap, 100)
+    
+    return () => {
+      window.removeEventListener('resize', resizeMap)
+      window.removeEventListener('orientationchange', resizeMap)
+      clearTimeout(timeoutId)
+    }
+  }, [isFullScreenMobile, isMobile])
+
   if (error) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground" style={{ height }}>
+      <div className="flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground" style={isFullScreenMobile ? {
+        position: 'fixed' as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100dvh',
+        zIndex: 30
+      } : isMobile ? { position: 'fixed' as const, top: '4rem', bottom: 0, left: 0, right: 0, zIndex: 40 } : { height: mapHeight }}>
         <div className="text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p>{error}</p>
@@ -688,7 +777,7 @@ export default function MapView({
   }
 
   return (
-    <div className="relative w-full rounded-lg overflow-hidden" style={{ height }}>
+    <div className={`relative w-full overflow-hidden ${isFullScreenMobile || isMobile ? 'rounded-none' : 'rounded-lg'}`} style={mapStyle}>
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted">
           <div className="flex flex-col items-center space-y-2">
@@ -700,22 +789,24 @@ export default function MapView({
 
       {/* Back to Table */}
       {onBackToTable && (
-        <div className="absolute top-4 start-4 z-20">
+        <div className={`absolute z-20 ${isFullScreenMobile ? 'top-16 start-4' : 'top-4 start-4'}`}>
           <Button
             variant="outline"
-            size="sm"
+            size={isFullScreenMobile ? "icon" : (isMobile ? "icon" : "sm")}
             onClick={onBackToTable}
-            className="bg-white/90 backdrop-blur-sm"
+            className={`bg-white/90 backdrop-blur-sm ${isFullScreenMobile || isMobile ? 'h-8 w-8 p-0' : ''}`}
             title="חזרה לטבלה"
           >
-            <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
-            חזרה לטבלה
+            <ArrowLeft className={`h-4 w-4 ${isFullScreenMobile || isMobile ? '' : 'me-2 rtl:rotate-180'}`} />
+            {!isFullScreenMobile && !isMobile && <span>חזרה לטבלה</span>}
           </Button>
         </div>
       )}
 
       {/* Search Bar */}
-      <div className={`absolute top-4 z-20 ${onBackToTable ? 'start-48 end-24' : 'start-4 end-24'}`}>
+      <div className={`absolute z-20 ${isFullScreenMobile 
+        ? `top-16 ${onBackToTable != null ? 'start-12 end-4' : 'start-4 end-4'}` 
+        : `top-4 ${onBackToTable != null ? (isMobile ? 'start-12 end-4' : 'start-48 end-24') : 'start-4 end-24'}`}`}>
         <div className="relative max-w-xs">
           <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -775,12 +866,16 @@ export default function MapView({
       </div>
 
       {/* Layer Controls */}
-      <div className="absolute top-4 end-4 z-20">
+      <div className={`absolute z-20 ${isFullScreenMobile ? 'top-16 end-4' : 'top-4 end-4'}`}>
         <Popover open={showLayerControls} onOpenChange={setShowLayerControls}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 px-2 bg-white/90 backdrop-blur-sm">
-              <Layers className="h-3.5 w-3.5 me-1.5" />
-              <span className="text-xs">שכבות</span>
+            <Button 
+              variant="outline" 
+              size={isFullScreenMobile ? "icon" : (isMobile ? "icon" : "sm")} 
+              className={`bg-white/90 backdrop-blur-sm ${isFullScreenMobile || isMobile ? 'h-8 w-8 p-0' : 'h-8 px-2'}`}
+            >
+              <Layers className={`h-3.5 w-3.5 ${isFullScreenMobile || isMobile ? '' : 'me-1.5'}`} />
+              {!isFullScreenMobile && !isMobile && <span className="text-xs">שכבות</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80 bg-white text-gray-900 border border-gray-200" align="end">
@@ -828,7 +923,11 @@ export default function MapView({
       </div>
 
       {/* Map Container */}
-      <div ref={mapContainer} className="w-full h-full" />
+      <div 
+        ref={mapContainer} 
+        className="w-full h-full" 
+        style={isFullScreenMobile ? { height: '100%', width: '100%' } : undefined}
+      />
     </div>
   )
 }

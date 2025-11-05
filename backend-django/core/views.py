@@ -1339,6 +1339,19 @@ def report_file(request, filename):
     report = report_service.get_report_by_filename(filename)
     if not report or not os.path.exists(report.file_path):
         raise Http404("Report not found")
+    
+    # Track export/download event
+    track_feature_usage(
+        "export",
+        user=getattr(request, "user", None),
+        asset_id=report.asset_id if report.asset else None,
+        meta={
+            "export_type": "report",
+            "report_type": report.report_type,
+            "filename": filename,
+        }
+    )
+    
     return FileResponse(open(report.file_path, "rb"), content_type="application/pdf")
 
 
@@ -1784,6 +1797,13 @@ def _apply_asset_filters(queryset, params, user):
             | Q(building_type__icontains=search)
             | Q(meta__address__icontains=search)
             | Q(meta__raw_input__address__icontains=search)
+        )
+        # Track search query
+        track_search(
+            query=search,
+            user=user if user and getattr(user, "is_authenticated", False) else None,
+            results_count=queryset.count(),
+            meta={"source": "assets_list"}
         )
 
     city = params.get("city")
@@ -2263,6 +2283,27 @@ def _get_assets_list(request):
                 )
             )
 
+        # Track if any filters are applied (excluding search which is tracked separately)
+        has_filters = any(
+            params.get(key) not in (None, "", "all")
+            for key in [
+                "city", "type", "priceMin", "priceMax", "neighborhood", "zoning",
+                "risk", "documents", "status", "rentalSale", "adType", "ad_type",
+                "commercial", "userAssets", "buildingType", "floorMin", "floorMax",
+                "areaMin", "areaMax", "rooms", "features", "pricePerSqmMin", "pricePerSqmMax"
+            ]
+        )
+        
+        if has_filters:
+            track_feature_usage(
+                "filter",
+                user=user if user and getattr(user, "is_authenticated", False) else None,
+                meta={
+                    "filter_params": {k: v for k, v in params.items() if k != "search" and v not in (None, "", "all")},
+                    "source": "assets_list"
+                }
+            )
+        
         queryset = _apply_asset_filters(queryset, params, user)
 
         # Handle ordering parameter

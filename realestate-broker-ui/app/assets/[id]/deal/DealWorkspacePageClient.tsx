@@ -1245,7 +1245,7 @@ function DocsPanel({
                 <AlertDialogHeader>
                   <AlertDialogTitle>מחיקת מסמך</AlertDialogTitle>
                   <AlertDialogDescription>
-                    האם אתם בטוחים שברצונכם למחוק את המסמך "{documentToDelete?.title}"? פעולה זו לא ניתנת לביטול.
+                    האם אתם בטוחים שברצונכם למחוק את המסמך &quot;{documentToDelete?.title}&quot;? פעולה זו לא ניתנת לביטול.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -1,0 +1,52 @@
+# ============================================================================
+# Terraform Variables Example
+# ============================================================================
+# Copy this file to terraform.tfvars and fill in your values
+# terraform.tfvars is git-ignored to protect sensitive information
+
+# ============================================================================
+# GCP Project Configuration
+# ============================================================================
+project_id = "your-project-id"
+region     = "me-west1"  # Tel Aviv region
+
+# ============================================================================
+# Domain Configuration
+# ============================================================================
+domain = "yourdomain.com"
+ui_cname_target = "cname.vercel-dns.com."
+
+# ============================================================================
+# Container Images
+# ============================================================================
+api_image    = "me-west1-docker.pkg.dev/your-project-id/nadlaner-app/api:latest"
+worker_image = "me-west1-docker.pkg.dev/your-project-id/nadlaner-app/worker:latest"
+
+# ============================================================================
+# Database Configuration
+# ============================================================================
+db_name     = "nadlaner"
+db_user     = "nadlaner"
+db_password = "CHANGE_ME_GENERATE_STRONG_PASSWORD"
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+allowed_office_cidrs = []  # Add IP ranges like ["203.0.113.0/24"]
+
+# ============================================================================
+# Resource Labels
+# ============================================================================
+labels = {
+  environment = "production"
+  owner        = "nadlaner-platform"
+  managed-by   = "terraform"
+}
+
+# ============================================================================
+# Optional Configuration
+# ============================================================================
+enable_cloud_scheduler = false
+api_env_vars           = {}
+worker_env_vars        = {}
+

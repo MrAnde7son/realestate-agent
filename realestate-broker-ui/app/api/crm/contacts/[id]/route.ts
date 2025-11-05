@@ -25,12 +25,18 @@ export async function GET(
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        errorData = { detail: errorText };
+      }
+      return NextResponse.json(errorData, { status: response.status });
     }
 
+    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching contact:', error);
@@ -68,12 +74,18 @@ export async function PATCH(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        errorData = { detail: errorText };
+      }
+      return NextResponse.json(errorData, { status: response.status });
     }
 
+    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error updating contact:', error);
@@ -110,8 +122,14 @@ export async function DELETE(
     });
 
     if (!response.ok) {
-      const data = await response.json();
-      return NextResponse.json(data, { status: response.status });
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        errorData = { detail: errorText };
+      }
+      return NextResponse.json(errorData, { status: response.status });
     }
 
     return new NextResponse(null, { status: 204 });

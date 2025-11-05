@@ -310,23 +310,64 @@ export default function AssetsPage() {
     const value = searchParams.get("hasElevator");
     return value ?? "all";
   });
-  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>(() => {
+    const urlViewMode = searchParams.get("view");
+    if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
+      return urlViewMode;
+    }
+    // Default to cards on mobile if no URL parameter
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      const isMobile = !window.matchMedia('(min-width: 1024px)').matches;
+      return isMobile ? 'cards' : 'table';
+    }
+    // SSR fallback: default to table (will be adjusted by auto-switch effect)
+    return 'table';
+  });
   const [viewModeManuallySet, setViewModeManuallySet] = useState(false);
   const { matches: isDesktop, isReady: isViewportReady } = useMediaQuery('(min-width: 1024px)');
+  const router = useRouter();
+  const pathname = usePathname();
 
   const handleViewModeChange = React.useCallback(
     (nextMode: 'table' | 'cards' | 'map') => {
       setViewMode(nextMode);
       setViewModeManuallySet(true);
+      
+      // Update URL with view mode
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('view', nextMode);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [setViewMode, setViewModeManuallySet]
+    [setViewMode, setViewModeManuallySet, searchParams, router, pathname]
   );
+
+  // Sync URL view mode to state (for browser back/forward and refresh)
+  React.useEffect(() => {
+    const urlViewMode = searchParams.get("view");
+    if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
+      if (viewMode !== urlViewMode) {
+        setViewMode(urlViewMode);
+        setViewModeManuallySet(true);
+      }
+    } else if (urlViewMode === null && viewModeManuallySet) {
+      // URL was cleared (e.g., browser back), reset manual flag
+      setViewModeManuallySet(false);
+    }
+  }, [searchParams, viewMode, viewModeManuallySet]);
 
   React.useEffect(() => {
     if (!isViewportReady) {
       return
     }
 
+    // Only auto-switch if view mode wasn't manually set and not in URL
+    const urlViewMode = searchParams.get("view");
+    if (urlViewMode) {
+      // View mode is in URL, don't auto-switch
+      return;
+    }
+
+    // Auto-switch to cards on mobile, table on desktop
     if (!isDesktop && !viewModeManuallySet && viewMode !== 'cards') {
       setViewMode('cards')
       return
@@ -335,12 +376,10 @@ export default function AssetsPage() {
     if (isDesktop && !viewModeManuallySet && viewMode === 'cards') {
       setViewMode('table')
     }
-  }, [isDesktop, isViewportReady, setViewMode, viewMode, viewModeManuallySet])
+  }, [isDesktop, isViewportReady, setViewMode, viewMode, viewModeManuallySet, searchParams])
   const { user, isAuthenticated, refreshUser } = useAuth();
   const isAdmin = user?.role === 'admin';
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
-  const router = useRouter();
-  const pathname = usePathname();
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const { savedFilters, saveFilters, deleteFilter, applyFilter, hasActiveFilters } = useSavedFilters('assets');

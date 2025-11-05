@@ -399,7 +399,7 @@ export default function DealsPage() {
             {neutralCount > 0 ? <span className='flex items-center gap-1'>צדדים נוספים: {neutralCount}</span> : null}
           </div>
           <div className='flex flex-wrap gap-2'>
-            <Link href={`/assets/${deal.asset}/deal`}>
+            <Link href={`/assets/${deal.asset}/deal?from=deals`}>
               <Button size='sm' variant='default'>מרחב עסקה</Button>
             </Link>
             <Link href={`/assets/${deal.asset}`}>

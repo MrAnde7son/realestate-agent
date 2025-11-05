@@ -632,7 +632,7 @@ export default function DealsPage() {
           ) : null}
 
           <div className='grid gap-4 lg:grid-cols-3'>
-            {DEAL_STAGE_ORDER.filter((stage) => stage !== 'abandoned').map(renderStageColumn)}
+            {DEAL_STAGE_ORDER.filter((stage) => stage !== 'abandoned' && stage !== 'closing').map(renderStageColumn)}
           </div>
 
           <div className='grid gap-4 lg:grid-cols-2'>

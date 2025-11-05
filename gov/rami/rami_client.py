@@ -292,11 +292,16 @@ class RamiClient:
             if 'text/html' in content_type:
                 self.logger.warning(f"Got HTML response instead of document for {url}")
                 # Log some of the HTML to understand the error
-                html_preview = response.text[:200] if hasattr(response, 'text') else "Cannot read HTML"
+                # Read text for preview (this consumes the body, but we're returning anyway)
+                try:
+                    html_preview = response.text[:200] if hasattr(response, 'text') else "Cannot read HTML"
+                except Exception:
+                    html_preview = "Cannot read HTML"
                 self.logger.warning(f"HTML preview: {html_preview}...")
                 return False
             
             # Write file in chunks
+            # Note: response.iter_content() can only be used if response.text hasn't been accessed
             total_size = 0
             with open(save_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):

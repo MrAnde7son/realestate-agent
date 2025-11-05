@@ -150,9 +150,14 @@ export async function POST(req: Request) {
       const errorText = await res.text();
       console.error('Backend error response:', errorText);
 
-      // If asset not found in backend, fall back to local generation
+      // If asset not found in backend, return 404 error
       if (res.status === 404) {
         console.log('Asset not found in backend, falling back to local data');
+        return NextResponse.json({
+          error: 'Asset not found',
+          details: errorText,
+          suggestion: 'The asset may not exist in the backend database'
+        }, { status: 404 });
       } else {
         // For other backend errors, return the backend error
         return NextResponse.json({

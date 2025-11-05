@@ -1107,12 +1107,140 @@ def _process_govmap_data(asset, govmap_data):
         if parcel.get('land_use'):
             asset.set_property('govmapLandUse', parcel.get('land_use'), source='GovMap', url='https://www.govmap.gov.il/')
 
-    # Process nearby layers data (if available in the future)
-    if govmap_data.get('nearby'):
+    # Check if city is Tel Aviv (GIS is supported for Tel Aviv, so skip GovMap entities)
+    city = getattr(asset, 'city', '') or ''
+    is_tel_aviv = 'תל אביב' in city
+    
+    # Process nearby layers data (entities_by_point results)
+    # Only for cities outside Tel Aviv (where GIS is not supported)
+    if govmap_data.get('nearby') and not is_tel_aviv:
         nearby = govmap_data.get('nearby', {})
-        for layer_name, features in nearby.items():
-            if features:
-                asset.set_property(f'govmap_{layer_name}_count', len(features), source='GovMap', url='https://www.govmap.gov.il/')
+        
+        # Map GovMap layer keys to GIS field names (same fields as GIS uses)
+        layer_to_gis_field_map = {
+            'schools': 'schoolsCount',
+            'kindergartens': 'schoolsCount',  # Kindergartens are included in schools
+            'metro_stations': 'metroStationsCount',
+            'parking_lots': 'parkingLotsCount',
+            'bus_stations': 'publicTransport',  # Special handling - sets string value
+            'train_stations': 'publicTransport',  # Special handling - sets string value
+            'urban_parks': 'publicGardensCount',
+            'nature_parks': 'greenAmenitiesCount',
+            'shelters': 'shelterDistanceM',  # Distance-based field (calculated from coordinates)
+            'urban_renewal': 'tama38KeyArea',  # Maps to TAMA 38 key areas (special handling)
+            'sports_facilities': None,  # No direct GIS equivalent
+            'restaurants': None,  # No direct GIS equivalent
+        }
+        
+        # Track public transport indicators
+        public_transport_indicators = []
+        
+        for layer_key, layer_data in nearby.items():
+            if isinstance(layer_data, dict):
+                # New format: layer_data contains 'entities' list
+                entities = layer_data.get('entities', [])
+                count = layer_data.get('count', len(entities))
+                
+                if count > 0:
+                    # Map to GIS field name if available
+                    gis_field_name = layer_to_gis_field_map.get(layer_key)
+                    
+                    if gis_field_name:
+                        # Special handling for publicTransport (string field, not count)
+                        if gis_field_name == 'publicTransport':
+                            # Collect public transport indicators
+                            if layer_key == 'bus_stations':
+                                public_transport_indicators.append(f'תחנות אוטובוס ({count})')
+                            elif layer_key == 'train_stations':
+                                public_transport_indicators.append(f'תחנות רכבת ({count})')
+                        elif gis_field_name == 'shelterDistanceM':
+                            # Shelters only set distance, not count (like GIS)
+                            # Distance will be calculated below
+                            pass
+                        elif gis_field_name == 'tama38KeyArea':
+                            # Urban renewal maps to TAMA 38 key areas (like GIS)
+                            asset.set_property('tama38KeyArea', True, source='GovMap', url='https://www.govmap.gov.il/')
+                            asset.set_property('tama38KeyAreasCount', count, source='GovMap', url='https://www.govmap.gov.il/')
+                        else:
+                            # Use the same field name as GIS (will update/supplement GIS data)
+                            asset.set_property(gis_field_name, count, source='GovMap', url='https://www.govmap.gov.il/')
+                        
+                        # Calculate distances if we have entity centroids and asset coordinates
+                        # This applies to shelters, metro_stations, schools, etc.
+                        if entities and hasattr(asset, 'lat') and hasattr(asset, 'lon') and asset.lat and asset.lon:
+                            try:
+                                from govmap.api_client import itm_to_wgs84
+                                from math import radians, cos, sin, asin, sqrt
+                                
+                                # Calculate distances for relevant layers
+                                distances = []
+                                for entity in entities:
+                                    centroid = entity.get('centroid')
+                                    if centroid and len(centroid) == 2:
+                                        # Convert ITM to WGS84
+                                        entity_lon, entity_lat = itm_to_wgs84(centroid[0], centroid[1])
+                                        
+                                        # Calculate distance using Haversine formula
+                                        def haversine_distance(lat1, lon1, lat2, lon2):
+                                            """Calculate distance between two points in meters."""
+                                            R = 6371000  # Earth radius in meters
+                                            dlat = radians(lat2 - lat1)
+                                            dlon = radians(lon2 - lon1)
+                                            a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+                                            c = 2 * asin(sqrt(a))
+                                            return R * c
+                                        
+                                        distance = haversine_distance(asset.lat, asset.lon, entity_lat, entity_lon)
+                                        distances.append(distance)
+                                
+                                if distances:
+                                    min_distance = min(distances)
+                                    
+                                    # Set distance fields for relevant layers
+                                    if layer_key == 'metro_stations':
+                                        asset.set_property('metroStationDistanceM', min_distance, source='GovMap', url='https://www.govmap.gov.il/')
+                                    elif layer_key == 'schools':
+                                        asset.set_property('nearestSchoolDistanceM', min_distance, source='GovMap', url='https://www.govmap.gov.il/')
+                                    elif layer_key == 'kindergartens':
+                                        # Update nearest school distance if kindergartens are closer
+                                        existing_distance = asset.get_property_value('nearestSchoolDistanceM') or float('inf')
+                                        if min_distance < existing_distance:
+                                            asset.set_property('nearestSchoolDistanceM', min_distance, source='GovMap', url='https://www.govmap.gov.il/')
+                                    elif layer_key == 'shelters':
+                                        # Set shelter distance (GIS uses shelterDistanceM)
+                                        asset.set_property('shelterDistanceM', min_distance, source='GovMap', url='https://www.govmap.gov.il/')
+                            except Exception as e:
+                                logger.debug(f"Failed to calculate distances for {layer_key}: {e}")
+                    else:
+                        # For layers without GIS equivalents, store with GovMap prefix
+                        asset.set_property(f'govmap_{layer_key}_count', count, source='GovMap', url='https://www.govmap.gov.il/')
+            elif isinstance(layer_data, list):
+                # Legacy format: direct list of features
+                if layer_data:
+                    gis_field_name = layer_to_gis_field_map.get(layer_key)
+                    if gis_field_name:
+                        # Special handling for publicTransport (string field, not count)
+                        if gis_field_name == 'publicTransport':
+                            if layer_key == 'bus_stations':
+                                public_transport_indicators.append(f'תחנות אוטובוס ({len(layer_data)})')
+                            elif layer_key == 'train_stations':
+                                public_transport_indicators.append(f'תחנות רכבת ({len(layer_data)})')
+                        elif gis_field_name == 'tama38KeyArea':
+                            # Urban renewal maps to TAMA 38 key areas (like GIS)
+                            asset.set_property('tama38KeyArea', True, source='GovMap', url='https://www.govmap.gov.il/')
+                            asset.set_property('tama38KeyAreasCount', len(layer_data), source='GovMap', url='https://www.govmap.gov.il/')
+                        else:
+                            asset.set_property(gis_field_name, len(layer_data), source='GovMap', url='https://www.govmap.gov.il/')
+                    else:
+                        asset.set_property(f'govmap_{layer_key}_count', len(layer_data), source='GovMap', url='https://www.govmap.gov.il/')
+        
+        # Set publicTransport field if we found bus or train stations
+        if public_transport_indicators:
+            public_transport_text = ', '.join(public_transport_indicators)
+            asset.set_property('publicTransport', public_transport_text, source='GovMap', url='https://www.govmap.gov.il/')
+        elif not asset.get_property_value('publicTransport'):
+            # If no public transport found and GIS didn't set it, set default
+            asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GovMap', url='https://www.govmap.gov.il/')
 
 
 def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings):
@@ -1308,11 +1436,25 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                 deal_id = f"{address}_{deal_date}_{deal_amount}".replace(' ', '_')
             
             # Parse deal_date to proper date format
+            # Handle both Nadlan format (DD/MM/YYYY) and GovMap format (YYYY-MM-DD or YYYY-MM)
             parsed_date = None
             if transaction.get('deal_date'):
                 try:
                     from datetime import datetime
-                    parsed_date = datetime.strptime(transaction.get('deal_date'), "%d/%m/%Y")
+                    deal_date_str = transaction.get('deal_date')
+                    # Try Nadlan format first (DD/MM/YYYY)
+                    try:
+                        parsed_date = datetime.strptime(deal_date_str, "%d/%m/%Y")
+                    except ValueError:
+                        # Try GovMap format (YYYY-MM-DD)
+                        try:
+                            parsed_date = datetime.strptime(deal_date_str, "%Y-%m-%d")
+                        except ValueError:
+                            # Try GovMap format (YYYY-MM) - use first day of month
+                            try:
+                                parsed_date = datetime.strptime(deal_date_str, "%Y-%m")
+                            except ValueError:
+                                pass
                 except (ValueError, TypeError):
                     pass
             

@@ -595,10 +595,13 @@ class DataPipeline:
             if block and parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
+                    # Pass coordinates to GovCollector for GovMap deals integration
                     gov_data = self._collect_with_observability(
                         "gov",
                         self.gov.collect,
                         location=location,
+                        x_itm=x_itm,
+                        y_itm=y_itm,
                         timeout=self.TIMEOUTS.get("gov"),
                         retries=self.RETRIES.get("gov", 0),
                         asset_id=asset_id,

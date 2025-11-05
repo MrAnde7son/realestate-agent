@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ReactNode } from 'react'
+import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth-context'
 import { AnalyticsProvider } from '@/components/analytics-provider'
@@ -24,6 +25,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="alternate icon" href="/brand/favicon-32.png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/brand/favicon-192.png" />
       </head>
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-Y7L94EMRRG"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-Y7L94EMRRG');
+        `}
+      </Script>
       <body className="min-h-[100dvh] bg-background font-sans antialiased">
         <ThemeProvider
           attribute="class"

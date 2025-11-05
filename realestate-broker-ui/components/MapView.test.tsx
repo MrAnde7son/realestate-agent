@@ -180,10 +180,18 @@ describe('MapView responsive layout', () => {
     const container = screen.getByTestId('map-view-container')
     expect(container).toHaveClass('fixed')
     expect(container).toHaveClass('rounded-none')
+    expect(container.style.getPropertyValue('--map-safe-top')).toContain('env(')
 
     const backButton = screen.getByRole('button', { name: 'חזרה לטבלה' })
     expect(backButton).toHaveAttribute('aria-label', 'חזרה לטבלה')
     expect(backButton).not.toHaveTextContent('חזרה לטבלה')
+
+    const searchInput = screen.getByPlaceholderText('חפש נכסים לפי כתובת, עיר או שכונה...')
+    const searchContainer = searchInput.parentElement?.parentElement
+    expect(searchContainer).toBeTruthy()
+    expect(searchContainer).toHaveStyle('top: var(--map-safe-top)')
+    expect(searchContainer).toHaveStyle('inset-inline-start: calc(var(--map-safe-left) + 3.5rem)')
+    expect(searchContainer).toHaveStyle('inset-inline-end: var(--map-safe-right)')
 
     const layerButton = screen.getByRole('button', { name: 'ניהול שכבות' })
     expect(layerButton).not.toHaveTextContent('שכבות')

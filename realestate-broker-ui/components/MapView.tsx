@@ -253,6 +253,50 @@ export default function MapView({
 
   const computedHeight = isMobile ? height ?? '100dvh' : height
 
+  const safeAreaVariables = useMemo<React.CSSProperties>(() => {
+    if (!isMobile) {
+      return {}
+    }
+
+    return {
+      '--map-safe-top': 'calc(env(safe-area-inset-top, 0px) + 1rem)',
+      '--map-safe-right': 'calc(env(safe-area-inset-right, 0px) + 1rem)',
+      '--map-safe-bottom': 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+      '--map-safe-left': 'calc(env(safe-area-inset-left, 0px) + 1rem)',
+    }
+  }, [isMobile])
+
+  const mobileBackButtonPosition: React.CSSProperties | undefined = isMobile
+    ? {
+        top: 'var(--map-safe-top)',
+        insetInlineStart: 'var(--map-safe-left)',
+      }
+    : undefined
+
+  const mobileSearchPosition: React.CSSProperties | undefined = isMobile
+    ? {
+        top: 'var(--map-safe-top)',
+        insetInlineStart: onBackToTable
+          ? 'calc(var(--map-safe-left) + 3.5rem)'
+          : 'var(--map-safe-left)',
+        insetInlineEnd: 'var(--map-safe-right)',
+      }
+    : undefined
+
+  const mobileLayerButtonPosition: React.CSSProperties | undefined = isMobile
+    ? {
+        top: 'var(--map-safe-top)',
+        insetInlineEnd: 'var(--map-safe-right)',
+      }
+    : undefined
+
+  const mobileAssetCounterPosition: React.CSSProperties | undefined = isMobile
+    ? {
+        bottom: 'var(--map-safe-bottom)',
+        insetInlineStart: 'var(--map-safe-left)',
+      }
+    : undefined
+
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
   
   // Sync local search value with prop
@@ -705,7 +749,7 @@ export default function MapView({
     <div
       data-testid="map-view-container"
       className={containerClasses}
-      style={{ height: computedHeight }}
+      style={{ height: computedHeight, ...safeAreaVariables }}
     >
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted">
@@ -718,7 +762,10 @@ export default function MapView({
 
       {/* Back to Table */}
       {onBackToTable && (
-        <div className="absolute top-4 start-4 z-20">
+        <div
+          className={cn('absolute z-20', !isMobile && 'top-4 start-4')}
+          style={mobileBackButtonPosition}
+        >
           <Button
             variant="outline"
             size="sm"
@@ -744,15 +791,10 @@ export default function MapView({
       {/* Search Bar */}
       <div
         className={cn(
-          'absolute top-4 z-20',
-          isMobile
-            ? onBackToTable
-              ? 'start-16 end-4'
-              : 'start-4 end-4'
-            : onBackToTable
-              ? 'start-48 end-24'
-              : 'start-4 end-24'
+          'absolute z-20',
+          !isMobile && (onBackToTable ? 'top-4 start-48 end-24' : 'top-4 start-4 end-24')
         )}
+        style={mobileSearchPosition}
       >
         <div className={cn('relative', isMobile ? 'w-full max-w-full' : 'max-w-xs')}>
           <Search
@@ -821,7 +863,10 @@ export default function MapView({
       </div>
 
       {/* Layer Controls */}
-      <div className="absolute top-4 end-4 z-20">
+      <div
+        className={cn('absolute z-20', !isMobile && 'top-4 end-4')}
+        style={mobileLayerButtonPosition}
+      >
         <Popover open={showLayerControls} onOpenChange={setShowLayerControls}>
           <PopoverTrigger asChild>
             <Button
@@ -887,7 +932,10 @@ export default function MapView({
       </div>
 
       {/* Asset Count */}
-      <div className="absolute bottom-4 start-4 z-20">
+      <div
+        className={cn('absolute z-20', !isMobile && 'bottom-4 start-4')}
+        style={mobileAssetCounterPosition}
+      >
         <div
           className={cn(
             'bg-white/90 backdrop-blur-sm rounded-md px-3 py-2 text-sm',

@@ -1334,6 +1334,21 @@ export default function TableToolbar({
         </div>
 
         <div className="ms-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
+          {!isSmAndUp && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setQuickFiltersExpanded((previous) => !previous)}
+              className="h-8 w-8 rounded-full flex items-center justify-center p-0"
+              aria-expanded={quickFiltersExpanded}
+              aria-controls="quick-filters-panel"
+              title="מסננים"
+              aria-label="מסננים"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant={viewMode === 'table' ? 'default' : 'outline'}
             size="sm"
@@ -1366,27 +1381,6 @@ export default function TableToolbar({
           </Button>
         </div>
       </div>
-
-      {!isSmAndUp && (
-        <div className="flex w-full justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setQuickFiltersExpanded((previous) => !previous)}
-            className="h-8 rounded-full px-3 text-xs"
-            aria-expanded={quickFiltersExpanded}
-            aria-controls="quick-filters-panel"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="px-1">מסננים</span>
-            <ChevronDown
-              className={`h-3 w-3 transition-transform ${quickFiltersExpanded ? "rotate-180" : ""}`}
-              aria-hidden="true"
-            />
-          </Button>
-        </div>
-      )}
 
       {/* Quick filters and toolbar actions */}
       <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
@@ -1809,7 +1803,7 @@ export default function TableToolbar({
                   )}
                 </Button>
               </SheetTrigger>
-                <SheetContent className="w-80" side="right">
+                <SheetContent className="w-full sm:w-80 max-w-[95vw]" side="right">
                   <SheetHeader>
                     <SheetTitle>אפשרויות סינון</SheetTitle>
                   </SheetHeader>

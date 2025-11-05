@@ -25,12 +25,18 @@ export async function POST(
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        errorData = { detail: errorText };
+      }
+      return NextResponse.json(errorData, { status: response.status });
     }
 
+    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error completing task:', error);

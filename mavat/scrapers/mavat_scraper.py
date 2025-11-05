@@ -157,12 +157,16 @@ class MavatScraper:
                         if "/api/" in url and response.status == 200:
                             if any(key in url.lower() for key in ["search", "find", "query"]):
                                 try:
-                                    data = response.json()
-                                except Exception:
+                                    # Read response body as text first to avoid double consumption
+                                    # In Playwright, you can only read the response body once
+                                    response_text = response.text()
                                     try:
-                                        data = json.loads(response.text())
-                                    except Exception:
+                                        data = json.loads(response_text)
+                                    except json.JSONDecodeError:
+                                        # If JSON parsing fails, data remains None
                                         data = None
+                                except Exception:
+                                    data = None
                                 if isinstance(data, dict):
                                     items = (
                                         data.get("data", {}).get("items")

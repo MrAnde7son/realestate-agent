@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
@@ -39,6 +40,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -74,8 +85,11 @@ import {
   Sparkles,
   Home,
   Building,
+  Briefcase,
+  Trash2,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { authAPI } from '@/lib/auth'
 
 type TimelineEvent = {
   id: string
@@ -271,6 +285,7 @@ type DealWorkspacePageClientProps = {
 }
 
 export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageClientProps) {
+  const searchParams = useSearchParams()
   const [offers, setOffers] = useState<Offer[]>(INITIAL_OFFERS)
   const [documents, setDocuments] = useState<DealDocument[]>(() => [...INITIAL_DOCUMENTS])
   const [tasks, setTasks] = useState<DealTask[]>(INITIAL_TASKS)
@@ -512,6 +527,38 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     setRecommendedMortgageId(mortgageId)
   }
 
+  const handleDocumentDeleted = useCallback(async () => {
+    // Refresh documents list after deletion
+    if (!dealId) return
+    setDocumentsLoading(true)
+    setDocumentsError(null)
+    try {
+      const docsResponse = await apiClient.get<{ documents?: BackendDocument[] }>(
+        `/api/deal-workspace/documents?deal_id=${dealId}`
+      )
+
+      if (docsResponse.ok && docsResponse.data) {
+        const raw = (docsResponse.data as { documents?: BackendDocument[] })?.documents
+        const payload = Array.isArray(raw)
+          ? raw
+          : Array.isArray(docsResponse.data)
+            ? (docsResponse.data as BackendDocument[])
+            : []
+
+        if (payload.length > 0) {
+          setDocuments(payload.map(mapBackendDocument))
+        } else {
+          setDocuments([])
+        }
+        setDocumentsError(null)
+      }
+    } catch (error) {
+      console.error('Failed to refresh documents:', error)
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [dealId])
+
   const docsSummary = useMemo(() => {
     const parts = DOC_FILTERS.filter(filter => filter.key !== 'all').map(filter => {
       const key = filter.key as DocumentKind
@@ -521,12 +568,47 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     return parts.join(' • ')
   }, [documentCounts])
 
-  const breadcrumbItems: PersistentBreadcrumbItemType[] = [
-    { label: 'בית', href: '/', icon: Home },
-    { label: 'נכסים', href: '/assets', icon: Building },
-    { label: DEAL_METADATA.address, href: `/assets/${assetId}` },
-    { label: 'סביבת עסקה' },
-  ]
+  const [navigationSource, setNavigationSource] = useState<'deals' | 'asset'>('asset')
+
+  useEffect(() => {
+    // Check for explicit 'from' query parameter first
+    const fromParam = searchParams.get('from')
+    if (fromParam === 'deals') {
+      setNavigationSource('deals')
+      return
+    }
+    // Fallback to checking document.referrer if available
+    if (typeof window !== 'undefined' && document.referrer) {
+      try {
+        const referrerUrl = new URL(document.referrer)
+        if (referrerUrl.pathname === '/deals') {
+          setNavigationSource('deals')
+          return
+        }
+      } catch {
+        // Ignore invalid URLs
+      }
+    }
+    // Default to asset details
+    setNavigationSource('asset')
+  }, [searchParams])
+
+  const breadcrumbItems: PersistentBreadcrumbItemType[] = useMemo(() => {
+    if (navigationSource === 'deals') {
+      return [
+        { label: 'בית', href: '/', icon: Home },
+        { label: 'עסקאות', href: '/deals', icon: Briefcase },
+        { label: 'סביבת עסקה' },
+      ]
+    }
+    // Default: from asset details
+    return [
+      { label: 'בית', href: '/', icon: Home },
+      { label: 'נכסים', href: '/assets', icon: Building },
+      { label: DEAL_METADATA.address, href: `/assets/${assetId}` },
+      { label: 'סביבת עסקה' },
+    ]
+  }, [navigationSource, assetId])
 
   return (
     <DashboardLayout>
@@ -574,6 +656,8 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
               onUploadClick={() => setIsUploadDialogOpen(true)}
               isLoading={documentsLoading}
               error={documentsError}
+              assetId={assetId}
+              onDocumentDeleted={handleDocumentDeleted}
             />
           </div>
 
@@ -903,6 +987,8 @@ type DocsPanelProps = {
   onUploadClick: () => void
   isLoading: boolean
   error?: string | null
+  assetId: string
+  onDocumentDeleted?: () => void
 }
 
 function DocsPanel({
@@ -916,7 +1002,141 @@ function DocsPanel({
   onUploadClick,
   isLoading,
   error,
+  assetId,
+  onDocumentDeleted,
 }: DocsPanelProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [documentToDelete, setDocumentToDelete] = useState<DealDocument | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const handleDownloadDocument = useCallback(
+    async (doc: DealDocument) => {
+      if (!doc.storageUrl) {
+        console.error('Document has no storage URL')
+        return
+      }
+
+      try {
+        // Get authentication token
+        const token = authAPI.getAccessToken()
+        if (!token) {
+          console.error('No authentication token available')
+          return
+        }
+
+        let downloadUrl: string
+
+        // Check if storageUrl is a relative URL (starts with /api/assets/)
+        if (doc.storageUrl.startsWith('/api/assets/')) {
+          // Extract assetId and documentId from relative URL
+          // Format: /api/assets/{assetId}/documents/{documentId}/download
+          const urlMatch = doc.storageUrl.match(/\/api\/assets\/(\d+)\/documents\/(\d+)\/download/)
+          if (urlMatch) {
+            const [, urlAssetId, documentId] = urlMatch
+            downloadUrl = `/api/assets/${urlAssetId}/documents/${documentId}/download`
+          } else {
+            // If it's a relative URL but not in the expected format, try to use it directly
+            downloadUrl = doc.storageUrl
+          }
+        } else {
+          // Absolute URL - extract the path and construct Next.js API route
+          try {
+            const url = new URL(doc.storageUrl)
+            const pathMatch = url.pathname.match(/\/api\/assets\/(\d+)\/documents\/(\d+)\/download/)
+            if (pathMatch) {
+              const [, urlAssetId, documentId] = pathMatch
+              downloadUrl = `/api/assets/${urlAssetId}/documents/${documentId}/download`
+            } else {
+              // If we can't extract from URL, try to use the storage_url directly
+              // This might be a direct backend URL that we need to proxy
+              console.warn('Could not extract IDs from storage URL, using direct fetch:', doc.storageUrl)
+              downloadUrl = doc.storageUrl
+            }
+          } catch {
+            // Invalid URL format, use as-is
+            downloadUrl = doc.storageUrl
+          }
+        }
+
+        // Fetch the document with authentication
+        const response = await fetch(downloadUrl, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Download failed' }))
+          console.error('Download failed:', errorData)
+          return
+        }
+
+        // Get the blob and filename
+        const blob = await response.blob()
+        const contentDisposition = response.headers.get('Content-Disposition')
+        let filename = doc.title || 'document'
+
+        // Extract filename from Content-Disposition header if available
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+          if (filenameMatch) {
+            filename = filenameMatch[1]
+          }
+        }
+
+        // Create download link and trigger download
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      } catch (error) {
+        console.error('Error downloading document:', error)
+      }
+    },
+    []
+  )
+
+  const handleDeleteClick = useCallback((doc: DealDocument) => {
+    setDocumentToDelete(doc)
+    setDeleteDialogOpen(true)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!documentToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const response = await apiClient.delete(`/api/deal-workspace/documents/${documentToDelete.id}`)
+
+      if (!response.ok) {
+        throw new Error(response.error || 'מחיקת המסמך נכשלה')
+      }
+
+      // Remove document from local state
+      if (onDocumentDeleted) {
+        onDocumentDeleted()
+      }
+
+      setDeleteDialogOpen(false)
+      setDocumentToDelete(null)
+    } catch (error) {
+      console.error('Failed to delete document:', error)
+      alert(error instanceof Error ? error.message : 'מחיקת המסמך נכשלה')
+    } finally {
+      setIsDeleting(false)
+    }
+  }, [documentToDelete, onDocumentDeleted])
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false)
+    setDocumentToDelete(null)
+  }, [])
+
   return (
     <Card className='h-full min-w-0'>
       <CardHeader className='p-4 sm:p-6'>
@@ -999,27 +1219,56 @@ function DocsPanel({
                   >
                     קשר להצעה האחרונה
                   </Button>
-                  {doc.storageUrl ? (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      disabled={doc.status === 'processing'}
-                      asChild
-                    >
-                      <a href={doc.storageUrl} target='_blank' rel='noopener noreferrer'>
-                        <Download className='h-4 w-4 ms-2' />
-                        הורד מסמך
-                      </a>
-                    </Button>
-                  ) : (
-                    <Button size='sm' variant='outline' disabled>
-                      <Download className='h-4 w-4 ms-2' />
-                      הורד מסמך
-                    </Button>
-                  )}
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    disabled={!doc.storageUrl}
+                    onClick={() => handleDownloadDocument(doc)}
+                  >
+                    <Download className='h-4 w-4 ms-2' />
+                    הורד מסמך
+                  </Button>
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    onClick={() => handleDeleteClick(doc)}
+                    className='text-destructive hover:text-destructive hover:bg-destructive/10'
+                  >
+                    <Trash2 className='h-4 w-4 ms-2' />
+                    מחק
+                  </Button>
                 </div>
               </div>
             ))}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>מחיקת מסמך</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    האם אתם בטוחים שברצונכם למחוק את המסמך &quot;{documentToDelete?.title}&quot;? פעולה זו לא ניתנת לביטול.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={handleDeleteCancel} disabled={isDeleting}>
+                    בטל
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteConfirm}
+                    disabled={isDeleting}
+                    className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className='h-4 w-4 ms-2 animate-spin' />
+                        מוחק...
+                      </>
+                    ) : (
+                      'מחק'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {documents.length === 0 ? (
               <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
                 אין מסמכים במסנן שנבחר.

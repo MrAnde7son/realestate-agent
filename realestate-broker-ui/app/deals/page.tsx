@@ -365,20 +365,20 @@ export default function DealsPage() {
     const neutralCount = deal.party_roles.filter((role) => role.side === 'neutral').length
 
     return (
-      <Card key={deal.id} className='border-muted bg-card/60 shadow-sm'>
-        <CardHeader className='gap-2'>
+      <Card key={deal.id} className='border-muted bg-card/60 shadow-sm transition-all hover:shadow-md hover:border-primary/20'>
+        <CardHeader className='gap-2 pb-3'>
           <div className='flex items-center justify-between gap-2'>
-            <div className='flex flex-col gap-1'>
-              <CardTitle className='text-base font-semibold'>{assetLabel(asset)}</CardTitle>
-              <CardDescription className='flex items-center gap-2 text-xs text-muted-foreground'>
-                <span className='flex items-center gap-1'><MapPin className='h-3 w-3' />{asset?.city || 'ללא עיר'}</span>
-                <span>עודכן {formatDate(deal.updated_at)}</span>
+            <div className='flex flex-col gap-1 min-w-0 flex-1'>
+              <CardTitle className='text-base font-semibold truncate'>{assetLabel(asset)}</CardTitle>
+              <CardDescription className='flex items-center gap-2 text-xs text-muted-foreground flex-wrap'>
+                <span className='flex items-center gap-1 shrink-0'><MapPin className='h-3 w-3' />{asset?.city || 'ללא עיר'}</span>
+                <span className='shrink-0'>עודכן {formatDate(deal.updated_at)}</span>
               </CardDescription>
             </div>
-            <Badge variant='outline'>{DEAL_STAGE_LABELS[deal.stage].label}</Badge>
+            <Badge variant='outline' className='shrink-0'>{DEAL_STAGE_LABELS[deal.stage].label}</Badge>
           </div>
         </CardHeader>
-        <CardContent className='space-y-3 text-sm'>
+        <CardContent className='space-y-3 text-sm pt-0'>
           <div className='flex flex-wrap gap-2 text-muted-foreground'>
             {typeof asset?.price === 'number' && asset.price > 0 ? (
               <Badge variant='secondary' className='flex items-center gap-1'>
@@ -398,12 +398,12 @@ export default function DealsPage() {
             <span className='flex items-center gap-1'>צד מוכר: {sellerCount}</span>
             {neutralCount > 0 ? <span className='flex items-center gap-1'>צדדים נוספים: {neutralCount}</span> : null}
           </div>
-          <div className='flex flex-wrap gap-2'>
-            <Link href={`/assets/${deal.asset}/deal`}>
-              <Button size='sm' variant='default'>מרחב עסקה</Button>
+          <div className='flex flex-wrap gap-2 pt-1'>
+            <Link href={`/assets/${deal.asset}/deal?from=deals`}>
+              <Button size='sm' variant='default' className='w-full sm:w-auto'>מרחב עסקה</Button>
             </Link>
             <Link href={`/assets/${deal.asset}`}>
-              <Button size='sm' variant='outline'>פרטי נכס</Button>
+              <Button size='sm' variant='outline' className='w-full sm:w-auto'>פרטי נכס</Button>
             </Link>
           </div>
         </CardContent>
@@ -414,23 +414,29 @@ export default function DealsPage() {
   const renderStageColumn = (stage: DealStage) => {
     const dealsForStage = grouped[stage]
     const meta = DEAL_STAGE_LABELS[stage]
+    const isAbandoned = stage === 'abandoned'
     return (
-      <Card key={stage} className='flex h-full flex-col border-dashed border-muted'>
-        <CardHeader className='space-y-1'>
+      <Card key={stage} className={cn(
+        'flex h-full flex-col border transition-all hover:shadow-md',
+        isAbandoned ? 'border-muted/50 bg-muted/20' : 'border-dashed border-muted bg-card'
+      )}>
+        <CardHeader className='space-y-2 pb-3'>
           <div className='flex items-center justify-between gap-2'>
             <CardTitle className='text-sm font-semibold'>{meta.label}</CardTitle>
-            <Badge variant='secondary'>{dealsForStage.length}</Badge>
+            <Badge variant={dealsForStage.length > 0 ? 'default' : 'secondary'} className='min-w-[2rem] justify-center'>
+              {dealsForStage.length}
+            </Badge>
           </div>
-          <CardDescription className='text-xs text-muted-foreground'>{meta.description}</CardDescription>
+          <CardDescription className='text-xs text-muted-foreground leading-relaxed'>{meta.description}</CardDescription>
         </CardHeader>
-        <CardContent className='flex flex-1 flex-col gap-3'>
+        <CardContent className='flex flex-1 flex-col gap-3 pt-0'>
           {isLoading && dealsForStage.length === 0 ? (
             <div className='space-y-3'>
               <Skeleton className='h-20 w-full rounded-lg' />
               <Skeleton className='h-20 w-full rounded-lg' />
             </div>
           ) : dealsForStage.length === 0 ? (
-            <p className='text-xs text-muted-foreground'>אין עסקאות בשלב זה כרגע.</p>
+            <p className='text-xs text-muted-foreground text-center py-4'>אין עסקאות בשלב זה כרגע.</p>
           ) : (
             dealsForStage.map(renderDealCard)
           )}
@@ -631,13 +637,8 @@ export default function DealsPage() {
             </Card>
           ) : null}
 
-          <div className='grid gap-4 lg:grid-cols-3'>
-            {DEAL_STAGE_ORDER.filter((stage) => stage !== 'abandoned').map(renderStageColumn)}
-          </div>
-
-          <div className='grid gap-4 lg:grid-cols-2'>
-            {renderStageColumn('closing')}
-            {renderStageColumn('abandoned')}
+          <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+            {DEAL_STAGE_ORDER.map(renderStageColumn)}
           </div>
         </section>
       </DashboardShell>

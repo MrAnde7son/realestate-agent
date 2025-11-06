@@ -2843,18 +2843,39 @@ def asset_transactions(request, asset_id):
         area_filter = (request.GET.get("area") or "").strip()
         ordering_param = request.GET.get("ordering", "-date")
 
-        # Get transactions for comparable analysis - use neighborhood-based approach
-        # First try to get transactions from the same neighborhood
-        if asset.neighborhood:
-            transactions = RealEstateTransaction.objects.filter(
-                Q(asset__neighborhood=asset.neighborhood, asset__city=asset.city)
-                | Q(assets__neighborhood=asset.neighborhood, assets__city=asset.city)
-            ).distinct()
-        else:
-            # Fallback to asset-specific transactions if no neighborhood
-            transactions = RealEstateTransaction.objects.filter(
-                Q(asset_id=asset_id) | Q(assets__id=asset_id)
-            ).distinct()
+        # Get transactions for comparable analysis
+        # Always include transactions directly linked to this asset
+        # Additionally include transactions from the same neighborhood if available
+        transaction_filters = Q(asset_id=asset_id) | Q(assets__id=asset_id)
+        
+        # Check for transactions matching by city (from GovMap deals)
+        # GovMap deals have neighborhood and settlementNameHeb in their raw data
+        if asset.city:
+            city_name = asset.city.strip()
+            if asset.neighborhood:
+                neighborhood_name = asset.neighborhood.strip()
+                transaction_filters |= (
+                    Q(asset__neighborhood=neighborhood_name, asset__city=city_name)
+                    | Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
+                    | Q(raw__neighborhood=neighborhood_name)
+                )
+            
+            # Also match by city in linked assets
+            transaction_filters |= (
+                Q(asset__city=city_name) | Q(assets__city=city_name)
+            )
+            
+            # If we have a street, also match by street name in address
+            if asset.street:
+                street_name = asset.street.strip()
+                transaction_filters |= (
+                    Q(address__icontains=street_name) |
+                    Q(asset__street=street_name, asset__city=city_name) |
+                    Q(assets__street=street_name, assets__city=city_name)
+                    | Q(raw__streetNameHeb__icontains=street_name)
+                )
+        
+        transactions = RealEstateTransaction.objects.filter(transaction_filters).distinct()
 
         transactions = transactions.annotate(
             price_per_sqm=Case(

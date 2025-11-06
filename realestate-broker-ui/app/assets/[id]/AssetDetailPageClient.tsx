@@ -540,7 +540,7 @@ export const calculateEnvironmentScore = (asset: Record<string, any> | null): nu
 }
 
 const formatScoreDisplay = (score: number | null): string =>
-  score === null ? '—' : `${score}/100`
+  !score ? '—' : `${score}/100`
 
 export const resolveContributorDisplayName = (
   person?: { name?: string | null; email?: string | null } | null

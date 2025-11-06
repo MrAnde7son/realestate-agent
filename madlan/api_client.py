@@ -927,7 +927,7 @@ class MadlanAPIClient:
         """
         # Build variables dictionary
         variables: Dict[str, Any] = {
-            "dealType": deal_type,
+            "dealType": deal_type.value,
             "noFee": no_fee,
             "priceDrop": price_drop,
             "underPriceEstimation": under_price_estimation,
@@ -1086,7 +1086,7 @@ class MadlanAPIClient:
 
 if __name__ == "__main__":
     client = MadlanAPIClient()
-    addresses = client.get_addresses("רוזוב 14 תל")
+    addresses = client.get_addresses("ארלנג'ר 2 תל אביב - יפו")
     if addresses:
         first_address = addresses[0]
         doc_id = first_address.get("docId")

@@ -10,6 +10,7 @@ from drf_spectacular.renderers import OpenApiYamlRenderer
 from . import views
 from . import views_analytics as va
 from . import views_support as vs
+from . import views_api_tokens
 from .urls_assets import urlpatterns as asset_urlpatterns
 from .admin_views import AdminUserViewSet
 from .api import (
@@ -86,6 +87,10 @@ urlpatterns = [
         views.update_user_profile,
         name='update_user_profile',
     ),
+    path('api-tokens', views_api_tokens.list_api_tokens, name='list_api_tokens'),
+    path('api-tokens/create', views_api_tokens.create_api_token, name='create_api_token'),
+    path('api-tokens/<int:token_id>', views_api_tokens.update_api_token, name='update_api_token'),
+    path('api-tokens/<int:token_id>/delete', views_api_tokens.delete_api_token, name='delete_api_token'),
     path('top-contributors', views.top_contributors, name='top_contributors'),
 
     # Plan endpoints

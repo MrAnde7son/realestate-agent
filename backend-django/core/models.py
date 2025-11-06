@@ -1485,6 +1485,51 @@ class ShareToken(models.Model):
         return f"ShareToken({self.asset_id}, {self.token})"
 
 
+class APIToken(models.Model):
+    """API token for programmatic access to the API."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="api_tokens"
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="A descriptive name for this token (e.g., 'MCP Server', 'LangChain Agent')"
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["token"]),
+            models.Index(fields=["user", "is_active"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"APIToken({self.user.email}, {self.name})"
+
+    def is_expired(self):
+        """Check if the token has expired."""
+        if not self.expires_at:
+            return False
+        return timezone.now() > self.expires_at
+
+    def is_valid(self):
+        """Check if the token is valid (active and not expired)."""
+        return self.is_active and not self.is_expired()
+
+    @classmethod
+    def generate_token(cls):
+        """Generate a new secure token."""
+        import secrets
+        return secrets.token_urlsafe(32)
+
+
 class AnalyticsEvent(models.Model):
     """Raw analytics events for tracking system activity."""
 

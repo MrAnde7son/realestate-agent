@@ -144,8 +144,17 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         poc = poi.get("poc", {})
         poc_type = poc.get("type") if poc else None
         
-        # Extract ad_type (similar to yad2's adType)
-        ad_type_raw = poc_type
+        # Determine ad_type based on madlan's structure (different from yad2)
+        # Commercial listings are identified by poi_type or isCommercial field
+        ad_type_raw = None
+        if poi_type == "commercialbulletin":
+            ad_type_raw = "commercial"
+        elif poi.get("isCommercial", False):
+            ad_type_raw = "commercial"
+        elif poc_type:
+            # For non-commercial listings, use poc.type (agent or private)
+            ad_type_raw = poc_type
+        
         ad_type = ad_type_raw.lower() if isinstance(ad_type_raw, str) else None
         
         seller_type: Optional[str] = None
@@ -182,8 +191,11 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         if seller_type:
             listing.features["seller_type"] = seller_type
             listing.meta["seller_type"] = seller_type
-            listing.ad_type = seller_type
-            listing.meta["ad_type"] = seller_type
+        
+        # Set ad_type (matching yad2_scraper behavior - use raw value)
+        if ad_type_raw:
+            listing.ad_type = ad_type_raw
+            listing.meta["ad_type"] = ad_type_raw
         
 
 

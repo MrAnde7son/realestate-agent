@@ -150,6 +150,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
             if "x" in govmap_data and "y" in govmap_data:
                 x_itm = govmap_data.get("x")
                 y_itm = govmap_data.get("y")
+                # Update location with coordinates
+                location = location.with_coordinates(x_itm, y_itm)
                 try:
                     lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
                 except Exception:
@@ -163,6 +165,7 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
                     parcel_props = parcel_api or {}
                 block = parcel_props.get("gushnumber", "")
                 parcel = parcel_props.get("parcelnumber", "")
+                # Update location with block/parcel, preserving coordinates
                 location = LocationQuery(
                     city=location.city,
                     street=location.street,
@@ -170,6 +173,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
                     block=block,
                     parcel=parcel,
                     subparcel=subparcel,
+                    x_itm=location.x_itm,
+                    y_itm=location.y_itm,
                 )
         except Exception as exc:  # noqa: BLE001
             collect_summary["govmap"] = False
@@ -228,6 +233,7 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
 
         if block and parcel:
             try:
+                # GovCollector will use coordinates from LocationQuery if available
                 gov_data = pipeline._collect_with_observability(
                     "gov",
                     pipeline.gov.collect,
@@ -237,6 +243,12 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
                     asset_id=asset_id,
                 )
                 collect_summary["gov"] = True
+                logger.info(
+                    "Government data collected for asset %s: %d decisives, %d transactions",
+                    asset_id,
+                    len(gov_data.get("decisive", [])),
+                    len(gov_data.get("transactions", [])),
+                )
             except Exception as exc:  # noqa: BLE001
                 collect_summary["gov"] = False
                 gov_data = {"decisive": [], "transactions": []}

@@ -451,6 +451,8 @@ class DataPipeline:
                 if "x" in govmap_data and "y" in govmap_data:
                     x_itm = govmap_data["x"]
                     y_itm = govmap_data["y"]
+                    # Update location with coordinates
+                    location = location.with_coordinates(x_itm, y_itm)
                     # Convert ITM to WGS84
                     lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
                     logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
@@ -603,13 +605,11 @@ class DataPipeline:
             if block and parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
-                    # Pass coordinates to GovCollector for GovMap deals integration
+                    # GovCollector will use coordinates from LocationQuery if available
                     gov_data = self._collect_with_observability(
                         "gov",
                         self.gov.collect,
                         location=location,
-                        x_itm=x_itm,
-                        y_itm=y_itm,
                         timeout=self.TIMEOUTS.get("gov"),
                         retries=self.RETRIES.get("gov", 0),
                         asset_id=asset_id,

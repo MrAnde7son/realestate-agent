@@ -13,6 +13,9 @@ class LocationQuery:
     The query keeps street, city and house number as structured fields while
     also providing convenient derived representations (e.g. a formatted
     address string) for collectors that still operate on free text.
+    
+    Coordinates (x_itm, y_itm) are optional and can be added when discovered
+    from geocoding services like GovMap.
     """
 
     city: str = ""
@@ -21,6 +24,8 @@ class LocationQuery:
     block: Optional[int] = None
     parcel: Optional[int] = None
     subparcel: Optional[int] = None
+    x_itm: Optional[float] = None  # ITM X coordinate (EPSG:2039)
+    y_itm: Optional[float] = None  # ITM Y coordinate (EPSG:2039)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "city", (self.city or "").strip())
@@ -68,7 +73,22 @@ class LocationQuery:
             "block": self.block,
             "parcel": self.parcel,
             "subparcel": self.subparcel,
+            "x_itm": self.x_itm,
+            "y_itm": self.y_itm,
         }
+    
+    def with_coordinates(self, x_itm: Optional[float] = None, y_itm: Optional[float] = None) -> "LocationQuery":
+        """Create a new LocationQuery with updated coordinates."""
+        return LocationQuery(
+            city=self.city,
+            street=self.street,
+            house_number=self.house_number,
+            block=self.block,
+            parcel=self.parcel,
+            subparcel=self.subparcel,
+            x_itm=x_itm if x_itm is not None else self.x_itm,
+            y_itm=y_itm if y_itm is not None else self.y_itm,
+        )
 
 
 def ensure_location_query(
@@ -80,6 +100,8 @@ def ensure_location_query(
     block: Optional[int] = None,
     parcel: Optional[int] = None,
     subparcel: Optional[int] = None,
+    x_itm: Optional[float] = None,
+    y_itm: Optional[float] = None,
 ) -> LocationQuery:
     """Return a :class:`LocationQuery` from either an instance or components."""
 
@@ -91,6 +113,8 @@ def ensure_location_query(
             block=block or location.block,
             parcel=parcel or location.parcel,
             subparcel=subparcel or location.subparcel,
+            x_itm=x_itm if x_itm is not None else location.x_itm,
+            y_itm=y_itm if y_itm is not None else location.y_itm,
         )
     return LocationQuery(
         city=city,
@@ -99,4 +123,6 @@ def ensure_location_query(
         block=block,
         parcel=parcel,
         subparcel=subparcel,
+        x_itm=x_itm,
+        y_itm=y_itm,
     )

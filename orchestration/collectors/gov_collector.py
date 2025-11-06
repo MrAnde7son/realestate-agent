@@ -41,17 +41,13 @@ class GovCollector(BaseCollector):
         location: Optional[LocationQuery] = None,
         max_age_days: Optional[int] = None,
         force_refresh: bool = False,
-        x_itm: Optional[float] = None,
-        y_itm: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Collect government data for a given block/parcel and location.
 
         Args:
-            location: Location query for transaction history
+            location: Location query for transaction history (may contain coordinates in x_itm, y_itm)
             max_age_days: Override default max age for transactions (optional)
             force_refresh: Force refresh even if cache is available (optional)
-            x_itm: ITM X coordinate for GovMap deals lookup (optional)
-            y_itm: ITM Y coordinate for GovMap deals lookup (optional)
         """
 
         query = ensure_location_query(location)
@@ -62,10 +58,10 @@ class GovCollector(BaseCollector):
         # Collect Nadlan transactions
         nadlan_transactions = self._collect_transactions(address, max_age_days, force_refresh)
         
-        # Collect GovMap deals if coordinates are available
+        # Collect GovMap deals if coordinates are available in LocationQuery
         govmap_transactions = []
-        if x_itm is not None and y_itm is not None:
-            govmap_transactions = self._collect_govmap_deals(x_itm, y_itm, max_age_days)
+        if query.x_itm is not None and query.y_itm is not None:
+            govmap_transactions = self._collect_govmap_deals(query.x_itm, query.y_itm, max_age_days)
         
         # Merge and deduplicate transactions (prefer Nadlan when duplicates exist)
         all_transactions = self._merge_and_deduplicate_transactions(

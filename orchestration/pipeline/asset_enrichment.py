@@ -1606,19 +1606,10 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
 
         meta = listing_data.get('meta')
         if isinstance(meta, dict):
-            category_candidate = meta.get('category_id') or meta.get('categoryId')
-            if category_candidate is not None and str(category_candidate).strip() == '2':
-                return True
-
             raw_meta = meta.get('raw')
-            if isinstance(raw_meta, dict):
-                category_raw = raw_meta.get('categoryId')
-                if category_raw is not None and str(category_raw).strip() == '2':
-                    return True
-
-                _, normalized_raw_listing_type = _extract_listing_type(raw_meta)
-                if normalized_raw_listing_type == 'commercial':
-                    return True
+            _, normalized_raw_listing_type = _extract_listing_type(raw_meta)
+            if normalized_raw_listing_type == 'commercial':
+                return True
 
         return False
 

@@ -265,24 +265,41 @@ def _candidate_keys_from_asset(asset: Any) -> List[Tuple[str, ...]]:
 
 
 def _asset_exists(candidate: AddressCandidate, AssetModel: Any) -> bool:
+    """Check if an asset matching the candidate already exists.
+    
+    Uses the centralized deduplication service for consistent matching logic.
+    """
     try:
-        queryset = AssetModel.objects.all()
-        if candidate.scope_type == "parcel":
-            if candidate.location.block:
-                queryset = queryset.filter(block__iexact=candidate.location.block)
-            if candidate.location.parcel:
-                queryset = queryset.filter(parcel__iexact=candidate.location.parcel)
-            if candidate.location.subparcel:
-                queryset = queryset.filter(subparcel__iexact=candidate.location.subparcel)
-            if candidate.city:
-                queryset = queryset.filter(city__iexact=candidate.city.strip())
-            return queryset.exists()
+        # Try to use the centralized deduplication service
+        try:
+            from core.services.asset_deduplication import find_existing_asset
+            
+            # Use LocationQuery directly for cleaner API
+            existing = find_existing_asset(
+                location=candidate.location,
+                scope_type=candidate.scope_type,
+            )
+            return existing is not None
+        except ImportError:
+            # Fallback to direct query if deduplication service unavailable
+            logger.debug("Deduplication service unavailable, using fallback query")
+            queryset = AssetModel.objects.all()
+            if candidate.scope_type == "parcel":
+                if candidate.location.block:
+                    queryset = queryset.filter(block__iexact=candidate.location.block)
+                if candidate.location.parcel:
+                    queryset = queryset.filter(parcel__iexact=candidate.location.parcel)
+                if candidate.location.subparcel:
+                    queryset = queryset.filter(subparcel__iexact=candidate.location.subparcel)
+                if candidate.city:
+                    queryset = queryset.filter(city__iexact=candidate.city.strip())
+                return queryset.exists()
 
-        return queryset.filter(
-            street__iexact=candidate.street.strip(),
-            number=candidate.number,
-            city__iexact=candidate.city.strip(),
-        ).exists()
+            return queryset.filter(
+                street__iexact=candidate.street.strip(),
+                number=candidate.number,
+                city__iexact=candidate.city.strip(),
+            ).exists()
     except Exception:
         return True  # fail-safe to avoid duplicates if query fails
 

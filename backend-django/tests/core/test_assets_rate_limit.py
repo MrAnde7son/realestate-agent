@@ -1,6 +1,5 @@
 import json
 
-import pytest
 from django.test import RequestFactory
 
 from core import views
@@ -31,6 +30,10 @@ def test_assets_post_rate_limited(monkeypatch):
     views._assets_rate_limit.clear()
 
     monkeypatch.setattr(views, "run_data_pipeline", DummyTask())
+
+    # Mock find_existing_asset to return None (no existing asset found)
+    from core.services import asset_deduplication
+    monkeypatch.setattr(asset_deduplication, "find_existing_asset", lambda *args, **kwargs: None)
 
     counter = {"value": 0}
 

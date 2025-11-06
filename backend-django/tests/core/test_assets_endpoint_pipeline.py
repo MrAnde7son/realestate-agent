@@ -37,6 +37,10 @@ def test_assets_post_triggers_pipeline(monkeypatch):
     dummy_asset = type("Asset", (), {"id": 1})()
     monkeypatch.setattr(Asset.objects, "create", lambda **kw: dummy_asset)
 
+    # Mock find_existing_asset to return None (no existing asset found)
+    from core.services import asset_deduplication
+    monkeypatch.setattr(asset_deduplication, "find_existing_asset", lambda *args, **kwargs: None)
+
     # Mock Celery settings to make it appear available
     from django.conf import settings
     monkeypatch.setattr(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0')

@@ -86,6 +86,21 @@ from .serializers import (
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
 
+# Import agent
+try:
+    from agent.real_estate_agent import RealEstateAgent
+except ImportError:
+    # Try alternative import path
+    try:
+        import sys
+        import os
+        agent_path = os.path.join(os.path.dirname(__file__), "..", "agent")
+        if agent_path not in sys.path:
+            sys.path.insert(0, agent_path)
+        from real_estate_agent import RealEstateAgent
+    except ImportError:
+        RealEstateAgent = None
+
 # Tenacity retry errors
 try:
     from tenacity import RetryError
@@ -4710,3 +4725,107 @@ def dashboard_market_data(request):
     except Exception as e:
         logger.error(f"Error fetching dashboard market data: {e}")
         return Response({"error": "Failed to fetch market data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    summary="Agent Chat",
+    description="Chat with the AI real estate agent",
+    tags=["Agent"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'message': {'type': 'string', 'description': 'User message'},
+                'chat_history': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'role': {'type': 'string'},
+                            'content': {'type': 'string'}
+                        }
+                    },
+                    'description': 'Optional chat history'
+                }
+            },
+            'required': ['message']
+        }
+    },
+    responses={
+        200: {
+            'description': 'Agent response',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_chat(request):
+    """Chat with the AI real estate agent."""
+    try:
+        if RealEstateAgent is None:
+            return Response(
+                {"error": "Agent not available. Please install langchain dependencies."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
+        data = json.loads(request.body.decode("utf-8"))
+        message = data.get("message")
+        chat_history = data.get("chat_history", [])
+        
+        if not message:
+            return Response(
+                {"error": "Message is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get API token for agent
+        api_token = None
+        try:
+            from .models import APIToken
+            # Try to get or create an API token for the user
+            api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
+            if api_token_obj:
+                api_token = api_token_obj.key
+        except Exception:
+            pass
+        
+        # Initialize agent
+        agent = RealEstateAgent(
+            llm_provider=os.getenv("AGENT_LLM_PROVIDER", "openai"),
+            api_token=api_token,
+            api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+            temperature=0.3
+        )
+        
+        # Convert chat history format if needed
+        formatted_history = []
+        for msg in chat_history:
+            if isinstance(msg, dict):
+                formatted_history.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
+        
+        # Get response from agent
+        response = async_to_sync(agent.chat)(message, formatted_history)
+        
+        return Response({"response": response})
+        
+    except json.JSONDecodeError:
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.exception("Error in agent chat: %s", e)
+        return Response(
+            {"error": f"Failed to get agent response: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

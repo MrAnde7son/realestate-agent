@@ -67,6 +67,7 @@ urlpatterns = [
     path('support/contact', vs.support_contact),
     path('support/bug', vs.support_bug),
     path('support/consultation', vs.support_consultation),
+    path('agent/chat', views.agent_chat, name='agent_chat'),
 
     # Asset enrichment endpoints
     path('assets/', include(asset_urlpatterns)),

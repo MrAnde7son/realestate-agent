@@ -885,7 +885,6 @@ export default function AssetsPage() {
     router,
     pathname,
     searchParams,
-    debouncedSearch,
   ]);
 
   React.useEffect(() => {

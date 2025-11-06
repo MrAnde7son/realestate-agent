@@ -63,28 +63,53 @@ except ImportError:
                 )
 
 # Import MCP server functions dynamically
-mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp", "server.py")
-spec = importlib.util.spec_from_file_location("mcp_server", mcp_server_path)
-mcp_server = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mcp_server)
-
-# Import functions from MCP server
-list_assets = mcp_server.list_assets
-get_asset = mcp_server.get_asset
-create_asset = mcp_server.create_asset
-get_asset_transactions = mcp_server.get_asset_transactions
-get_asset_appraisal = mcp_server.get_asset_appraisal
-list_deals = mcp_server.list_deals
-create_deal = mcp_server.create_deal
-get_offer = mcp_server.get_offer
-estimate_build_cost = mcp_server.estimate_build_cost
-get_cost_options = mcp_server.get_cost_options
-analyze_mortgage = mcp_server.analyze_mortgage
-list_contacts = mcp_server.list_contacts
-create_contact = mcp_server.create_contact
-list_leads = mcp_server.list_leads
-create_lead = mcp_server.create_lead
-list_tasks = mcp_server.list_tasks
+try:
+    mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp", "server.py")
+    spec = importlib.util.spec_from_file_location("mcp_server", mcp_server_path)
+    mcp_server = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mcp_server)
+    
+    # Import functions from MCP server
+    list_assets = mcp_server.list_assets
+    get_asset = mcp_server.get_asset
+    create_asset = mcp_server.create_asset
+    get_asset_transactions = mcp_server.get_asset_transactions
+    get_asset_appraisal = mcp_server.get_asset_appraisal
+    list_deals = mcp_server.list_deals
+    create_deal = mcp_server.create_deal
+    get_offer = mcp_server.get_offer
+    estimate_build_cost = mcp_server.estimate_build_cost
+    get_cost_options = mcp_server.get_cost_options
+    analyze_mortgage = mcp_server.analyze_mortgage
+    list_contacts = mcp_server.list_contacts
+    create_contact = mcp_server.create_contact
+    list_leads = mcp_server.list_leads
+    create_lead = mcp_server.create_lead
+    list_tasks = mcp_server.list_tasks
+except Exception as e:
+    # MCP server not available - create stub functions
+    import warnings
+    warnings.warn(f"MCP server not available: {e}. Agent will have limited functionality.")
+    
+    async def _stub_func(*args, **kwargs):
+        return {"success": False, "error": "MCP server not available. Please install fastmcp and mcp packages."}
+    
+    list_assets = _stub_func
+    get_asset = _stub_func
+    create_asset = _stub_func
+    get_asset_transactions = _stub_func
+    get_asset_appraisal = _stub_func
+    list_deals = _stub_func
+    create_deal = _stub_func
+    get_offer = _stub_func
+    estimate_build_cost = _stub_func
+    get_cost_options = _stub_func
+    analyze_mortgage = _stub_func
+    list_contacts = _stub_func
+    create_contact = _stub_func
+    list_leads = _stub_func
+    create_lead = _stub_func
+    list_tasks = _stub_func
 
 
 class RealEstateAgent:
@@ -124,8 +149,22 @@ class RealEstateAgent:
     
     def _create_llm(self, provider: str, temperature: float):
         """Create LLM instance based on provider."""
+        # Helper to get API key from env or Django settings
+        def get_api_key(env_var_name: str, settings_attr: str = None) -> Optional[str]:
+            key = os.getenv(env_var_name)
+            if key:
+                return key
+            # Try Django settings if available
+            try:
+                from django.conf import settings
+                if settings_attr:
+                    return getattr(settings, settings_attr, None)
+            except ImportError:
+                pass
+            return None
+        
         if provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
+            api_key = get_api_key("OPENAI_API_KEY", "OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY environment variable is required")
             return ChatOpenAI(
@@ -134,7 +173,7 @@ class RealEstateAgent:
                 api_key=api_key,
             )
         elif provider == "gemini":
-            api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            api_key = get_api_key("GEMINI_API_KEY", "GEMINI_API_KEY") or get_api_key("GOOGLE_API_KEY", "GOOGLE_API_KEY")
             if not api_key:
                 raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required")
             return ChatGoogleGenerativeAI(
@@ -143,7 +182,7 @@ class RealEstateAgent:
                 google_api_key=api_key,
             )
         elif provider == "groq":
-            api_key = os.getenv("GROQ_API_KEY")
+            api_key = get_api_key("GROQ_API_KEY", "GROQ_API_KEY")
             if not api_key:
                 raise ValueError("GROQ_API_KEY environment variable is required")
             # Groq uses OpenAI-compatible API

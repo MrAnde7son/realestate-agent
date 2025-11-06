@@ -87,19 +87,39 @@ from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
 
 # Import agent
+RealEstateAgent = None
+_agent_import_error = None
+
 try:
+    # Try importing as a package from the Django project root
     from agent.real_estate_agent import RealEstateAgent
-except ImportError:
-    # Try alternative import path
+except ImportError as e:
+    _agent_import_error = str(e)
+    # Try alternative import path - direct file import
     try:
         import sys
         import os
-        agent_path = os.path.join(os.path.dirname(__file__), "..", "agent")
-        if agent_path not in sys.path:
-            sys.path.insert(0, agent_path)
-        from real_estate_agent import RealEstateAgent
-    except ImportError:
-        RealEstateAgent = None
+        # Get the backend-django directory
+        backend_django_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        if backend_django_path not in sys.path:
+            sys.path.insert(0, backend_django_path)
+        from agent.real_estate_agent import RealEstateAgent
+        _agent_import_error = None
+    except ImportError as e2:
+        _agent_import_error = f"{str(e)}; {str(e2)}"
+        # Last resort: try importing the file directly
+        try:
+            import importlib.util
+            agent_file = os.path.join(os.path.dirname(__file__), "..", "agent", "real_estate_agent.py")
+            spec = importlib.util.spec_from_file_location("real_estate_agent", agent_file)
+            if spec and spec.loader:
+                agent_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(agent_module)
+                RealEstateAgent = getattr(agent_module, "RealEstateAgent", None)
+                if RealEstateAgent:
+                    _agent_import_error = None
+        except Exception as e3:
+            _agent_import_error = f"{_agent_import_error}; {str(e3)}"
 
 # Tenacity retry errors
 try:
@@ -4773,8 +4793,11 @@ def agent_chat(request):
     """Chat with the AI real estate agent."""
     try:
         if RealEstateAgent is None:
+            error_msg = "Agent not available. Please install langchain dependencies."
+            if _agent_import_error:
+                error_msg += f" Import error: {_agent_import_error}"
             return Response(
-                {"error": "Agent not available. Please install langchain dependencies."},
+                {"error": error_msg},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         
@@ -4800,8 +4823,54 @@ def agent_chat(request):
             pass
         
         # Initialize agent
+        def has_valid_api_key(provider: str) -> bool:
+            if provider == "groq":
+                key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            elif provider == "gemini":
+                key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                       getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+            elif provider == "openai":
+                key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            else:
+                return False
+            return bool(key and key.strip())
+        
+        llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+        if not llm_provider:
+            llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+        
+        if llm_provider and not has_valid_api_key(llm_provider):
+            logger.warning(f"LLM provider '{llm_provider}' selected but no valid API key found. Auto-detecting provider...")
+            llm_provider = None
+        
+        if not llm_provider:
+            groq_key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                         getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+            openai_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            
+            if groq_key and groq_key.strip():
+                llm_provider = "groq"
+            elif gemini_key and gemini_key.strip():
+                llm_provider = "gemini"
+            elif openai_key and openai_key.strip():
+                llm_provider = "openai"
+            else:
+                # Default fallback
+                llm_provider = "openai"
+        
+        # Final validation - ensure we have a valid API key for the selected provider
+        if not has_valid_api_key(llm_provider):
+            return Response(
+                {
+                    "error": f"No valid API key found for provider '{llm_provider}'. "
+                            f"Please set {llm_provider.upper()}_API_KEY environment variable or in Django settings."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         agent = RealEstateAgent(
-            llm_provider=os.getenv("AGENT_LLM_PROVIDER", "openai"),
+            llm_provider=llm_provider,
             api_token=api_token,
             api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
             temperature=0.3

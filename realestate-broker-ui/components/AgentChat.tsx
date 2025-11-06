@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { MessageCircle, X, Send, Loader2 } from "lucide-react"
+import { MessageCircle, X, Send, Loader2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
@@ -108,6 +108,16 @@ export function AgentChat() {
     }
   }
 
+  const handleClearChat = () => {
+    setMessages([
+      {
+        role: "assistant",
+        content: "שלום! אני העוזר החכם שלך. איך אני יכול לעזור לך היום?",
+        timestamp: new Date()
+      }
+    ])
+  }
+
   if (!user) {
     return null
   }
@@ -132,15 +142,29 @@ export function AgentChat() {
           <Card className="flex flex-col h-full border-0 shadow-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b">
               <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsOpen(false)}
-                className="h-8 w-8"
-                aria-label="סגור"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                {messages.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleClearChat}
+                    className="h-8 w-8"
+                    aria-label="נקה היסטוריית שיחה"
+                    title="נקה היסטוריית שיחה"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsOpen(false)}
+                  className="h-8 w-8"
+                  aria-label="סגור"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-4">

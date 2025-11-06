@@ -33,10 +33,10 @@ class MadlanCollector(BaseCollector):
             assumed.
         **kwargs
             Additional parameters:
-            - deal_type: "unitBuy" or "unitRent" (default: "unitBuy")
+            - deal_type: "unitBuy", "unitRent", or "both" (default: "both" to fetch both types)
             - price_range: [min, max] price range
             - rooms_range: [min, max] number of rooms range
-            - limit: Maximum number of results (default: 50)
+            - limit: Maximum number of results per deal type (default: 50)
         """
         query = ensure_location_query(location)
         
@@ -56,9 +56,16 @@ class MadlanCollector(BaseCollector):
 
         listings = []
         try:
-            # Get deal_type from kwargs or default to unitBuy
-            deal_type_str = kwargs.get("deal_type", "unitBuy")
-            deal_type = DealType.UNIT_BUY if deal_type_str == "unitBuy" else DealType.UNIT_RENT
+            # Get deal_type from kwargs - default to "both" to fetch both types
+            deal_type_str = kwargs.get("deal_type", "both")
+            
+            # Determine which deal types to fetch
+            if deal_type_str == "both":
+                deal_types = [DealType.UNIT_BUY, DealType.UNIT_RENT]
+            elif deal_type_str == "unitRent":
+                deal_types = [DealType.UNIT_RENT]
+            else:  # default to unitBuy
+                deal_types = [DealType.UNIT_BUY]
             
             # Search for addresses matching the location
             addresses = self.client.get_addresses(address)
@@ -82,18 +89,24 @@ class MadlanCollector(BaseCollector):
             floor_range = kwargs.get("floor_range")
             limit = kwargs.get("limit", 50)
             
-            # Fetch listings
-            fetched_listings = self.client.fetch_listings(
-                location_doc_id=location_doc_id,
-                deal_type=deal_type,
-                price_range=price_range,
-                rooms_range=rooms_range,
-                area_range=area_range,
-                floor_range=floor_range,
-                limit=limit,
-            )
-            
-            listings.extend(fetched_listings)
+            # Fetch listings for each deal type
+            for deal_type in deal_types:
+                try:
+                    fetched_listings = self.client.fetch_listings(
+                        location_doc_id=location_doc_id,
+                        deal_type=deal_type,
+                        price_range=price_range,
+                        rooms_range=rooms_range,
+                        area_range=area_range,
+                        floor_range=floor_range,
+                        limit=limit,
+                    )
+                    
+                    listings.extend(fetched_listings)
+                    logger.info(f"Fetched {len(fetched_listings)} {deal_type.value} listings")
+                except Exception as e:
+                    logger.error(f"Failed to fetch {deal_type.value} listings: {e}")
+                    # Continue with other deal types even if one fails
             
         except Exception as e:
             logger.error(f"Madlan collection failed: {e}")

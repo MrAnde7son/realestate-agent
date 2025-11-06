@@ -841,6 +841,7 @@ class DataPipeline:
                         y_itm,
                         lon_wgs84,
                         lat_wgs84,
+                        subparcel=str(subparcel) if subparcel else None,
                     )
 
                     # Create snapshot for alert evaluation

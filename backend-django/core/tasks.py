@@ -473,6 +473,7 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
             state.get("y_itm"),
             state.get("lon_wgs84"),
             state.get("lat_wgs84"),
+            subparcel=str(state.get("subparcel")) if state.get("subparcel") else None,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("Asset update failed for asset %s", asset_id)

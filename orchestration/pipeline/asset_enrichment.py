@@ -74,7 +74,7 @@ def _extract_listing_type(listing_data: Any) -> Tuple[Optional[str], Optional[st
     return None, None
 
 
-def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
+def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None) -> None:
     """Update the Asset with collected enrichment data.
 
     Improvements:
@@ -119,6 +119,8 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             asset.block = block
         if parcel:
             asset.parcel = parcel
+        if subparcel:
+            asset.subparcel = subparcel
         
         # Helper function to check if coordinates are valid (within Israel bounds)
         def is_valid_israel_coords(lat, lon):
@@ -409,7 +411,7 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             logger.info(f"Asset {asset_id}: Skipping planning and legal analysis (not Tel Aviv)")
             _calculate_planning_legal_analysis(asset, {}, gov_data)
 
-    logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
+    logger.info("Updated asset %s with block=%s, parcel=%s, subparcel=%s", asset_id, block, parcel, subparcel)
 
 
 def create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
@@ -1839,6 +1841,15 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 '[ASSET_FIELDS] Using Madlan listing as fallback for asset %s (no Yad2 match found)',
                 asset.id
             )
+        else:
+            # Final fallback: check all normalized listings if no source-specific match
+            best_listing = _find_best_listing(normalized_listings, 'all')
+            if best_listing:
+                listing_source = 'unknown'
+                logger.info(
+                    '[ASSET_FIELDS] Using unclassified listing for asset %s (no Yad2/Madlan match found)',
+                    asset.id
+                )
     
     # Update is_commercial based on primary listing only
     if best_listing:

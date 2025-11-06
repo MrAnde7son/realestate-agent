@@ -21,8 +21,46 @@ if project_root not in sys.path:
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+# Import agent components - try multiple import paths for compatibility
+try:
+    # Standard LangChain 0.3+ imports
+    from langchain.agents import AgentExecutor, create_openai_tools_agent
+    from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+except ImportError:
+    try:
+        # Try alternative import structure
+        from langchain.agents.agent import AgentExecutor
+        from langchain.agents import create_openai_tools_agent
+        from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+    except ImportError:
+        try:
+            # Try with langchain_core prompts
+            from langchain.agents import AgentExecutor, create_openai_tools_agent
+            from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+        except ImportError:
+            # Last resort: check if modules exist and import manually
+            import langchain.agents as agents_mod
+            import langchain.prompts as prompts_mod
+            
+            AgentExecutor = getattr(agents_mod, 'AgentExecutor', None)
+            create_openai_tools_agent = getattr(agents_mod, 'create_openai_tools_agent', None)
+            ChatPromptTemplate = getattr(prompts_mod, 'ChatPromptTemplate', None)
+            MessagesPlaceholder = getattr(prompts_mod, 'MessagesPlaceholder', None)
+            
+            if not AgentExecutor or not create_openai_tools_agent:
+                # Try langchain_core for prompts
+                try:
+                    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+                except ImportError:
+                    pass
+            
+            if not all([AgentExecutor, create_openai_tools_agent, ChatPromptTemplate, MessagesPlaceholder]):
+                raise ImportError(
+                    "Could not import required LangChain components.\n"
+                    "Please install: pip install langchain>=0.3.0 langchain-openai langchain-core\n"
+                    "Or run: pip install -r backend-django/requirements-langchain.txt"
+                )
 
 # Import MCP server functions dynamically
 mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp", "server.py")
@@ -120,8 +158,6 @@ class RealEstateAgent:
     
     def _create_tools(self) -> List[BaseTool]:
         """Create LangChain tools from MCP server functions."""
-        from langchain_core.tools import tool
-        
         # Create a context object for MCP tools
         class MockContext:
             def info(self, msg: str):
@@ -522,4 +558,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

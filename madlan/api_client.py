@@ -254,7 +254,7 @@ fragment PoiInner on Poi {
     }
     tags {
       bestSchool
-      bestSecural
+      bestSecular
       bestReligious
       safety
       parkAccess
@@ -1193,11 +1193,9 @@ if __name__ == "__main__":
                 listings = client.fetch_listings(
                     location_doc_id=doc_id,
                     deal_type="unitBuy",
-                    price_range=[1000000, 5000000],
-                    rooms_range=[3, 5],
                     limit=10,
                 )
-                print(f"Found {listings.get('total', 0)} listings")
+                print(listings)
             except MadlanAPIError as e:
                 print(f"Error: {e}")
                 print("Tip: You may need to manually set the token using client.set_user_token()")

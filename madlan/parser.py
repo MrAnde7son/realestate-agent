@@ -6,8 +6,7 @@ Parses Madlan API responses and converts them to RealEstateListing objects.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+from typing import Dict, Optional, Any
 
 from yad2.core.models import RealEstateListing
 
@@ -180,13 +179,13 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         else:
             seller_type = ad_type
         
-        # Set seller_type in features and meta (matching yad2_scraper behavior)
         if seller_type:
             listing.features["seller_type"] = seller_type
             listing.meta["seller_type"] = seller_type
-        
-        if ad_type_raw:
+            listing.ad_type = seller_type
             listing.meta["ad_type"] = seller_type
+        
+
 
         # Extract tags and insights
         tags = poi.get("tags", {})

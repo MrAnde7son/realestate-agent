@@ -119,11 +119,7 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
             listing.date_posted = first_time_seen
 
         # Extract URL
-        url = poi.get("url")
-        if url:
-            if not url.startswith("http"):
-                url = f"https://www.madlan.co.il{url}"
-            listing.url = url
+        listing.url = f"https://www.madlan.co.il/listings/{listing.listing_id}"
 
         # Extract images
         images = poi.get("images", [])
@@ -133,12 +129,10 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
                 if isinstance(img, dict):
                     image_url = img.get("imageUrl") or img.get("path")
                     if image_url:
-                        if not image_url.startswith("http"):
-                            image_url = f"https://www.madlan.co.il{image_url}"
+                        image_url = f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{image_url}"
                         image_urls.append(image_url)
                 elif isinstance(img, str):
-                    if not img.startswith("http"):
-                        img = f"https://www.madlan.co.il{img}"
+                    img = f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{img}"
                     image_urls.append(img)
             listing.images = image_urls
 

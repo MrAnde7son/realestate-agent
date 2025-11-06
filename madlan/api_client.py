@@ -1093,7 +1093,7 @@ class MadlanAPIClient:
 
 if __name__ == "__main__":
     client = MadlanAPIClient()
-    addresses = client.get_addresses("רוזוב 14 תל")
+    addresses = client.get_addresses("רמת החייל")
     if addresses:
         first_address = addresses[0]
         doc_id = first_address.get("docId")

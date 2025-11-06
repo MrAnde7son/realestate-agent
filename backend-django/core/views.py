@@ -830,16 +830,40 @@ def sync_address(request):
 
     # Execute sync with comprehensive error handling
     try:
-        # Create a new asset for the address
+        # Check for existing asset using deduplication service
         from .models import Asset
-
-        asset = Asset.objects.create(
-            scope_type="address",
+        from .services.asset_deduplication import find_existing_asset
+        from orchestration.location import LocationQuery
+        
+        # Try to find existing asset (city may not be available in this endpoint)
+        location = LocationQuery(
+            city="",
             street=street,
-            number=number,
-            status="pending",
-            meta={"radius": 150},
+            house_number=number,
         )
+        existing_asset = find_existing_asset(
+            location=location,
+            scope_type="address",
+        )
+        
+        if existing_asset:
+            # Update existing asset instead of creating duplicate
+            asset = existing_asset
+            asset.status = "pending"  # Reset status to trigger re-enrichment
+            if not asset.meta:
+                asset.meta = {}
+            asset.meta.update({"radius": 150})
+            asset.save()
+            logger.info("Found existing asset %s in sync_address, updating instead of creating duplicate", asset.id)
+        else:
+            # Create a new asset for the address
+            asset = Asset.objects.create(
+                scope_type="address",
+                street=street,
+                number=number,
+                status="pending",
+                meta={"radius": 150},
+            )
 
         # Start enrichment pipeline
         try:
@@ -1636,29 +1660,78 @@ def assets(request):
                     'remaining': validation_result.get('remaining', 0)
                 }, status=status.HTTP_403_FORBIDDEN)
         
-        # Create asset record with attribution
-        asset_data = {
-            "scope_type": scope_type,
-            "city": data.get("city") or scope.get("city"),
-            "neighborhood": data.get("neighborhood"),
-            "street": data.get("street"),
-            "number": data.get("number"),
-            "apartment": data.get("apartment"),
-            "block": data.get("block"),
-            "parcel": data.get("parcel"),
-            "subparcel": data.get("subparcel"),
-            "status": "pending",
-            "created_by": user if is_authenticated else None,
-            "last_updated_by": user if is_authenticated else None,
-            "meta": {
+        # Check for existing asset using deduplication service
+        from .services.asset_deduplication import find_existing_asset
+        from orchestration.location import LocationQuery
+        
+        city = data.get("city") or scope.get("city")
+        location = LocationQuery(
+            city=city or "",
+            street=data.get("street") or "",
+            house_number=data.get("number"),
+            block=data.get("block"),
+            parcel=data.get("parcel"),
+            subparcel=data.get("subparcel"),
+        )
+        existing_asset = find_existing_asset(
+            location=location,
+            scope_type=scope_type,
+        )
+        
+        if existing_asset:
+            # Update existing asset instead of creating duplicate
+            asset = existing_asset
+            asset.status = "pending"  # Reset status to trigger re-enrichment
+            asset.last_updated_by = user if is_authenticated else None
+            
+            # Update meta with new scope/input if needed
+            if not asset.meta:
+                asset.meta = {}
+            asset.meta.update({
                 "scope": scope,
                 "raw_input": data,
                 "radius": data.get("radius", 150),
-            },
-        }
+            })
+            asset.save()
+            logger.info("Found existing asset %s, updating instead of creating duplicate", asset.id)
+            
+            # Create asset_data dict for response consistency
+            asset_data = {
+                "status": asset.status,
+                "scope_type": asset.scope_type,
+                "city": asset.city,
+                "neighborhood": asset.neighborhood,
+                "street": asset.street,
+                "number": asset.number,
+                "apartment": asset.apartment,
+                "block": asset.block,
+                "parcel": asset.parcel,
+                "subparcel": asset.subparcel,
+            }
+        else:
+            # Create asset record with attribution
+            asset_data = {
+                "scope_type": scope_type,
+                "city": city,
+                "neighborhood": data.get("neighborhood"),
+                "street": data.get("street"),
+                "number": data.get("number"),
+                "apartment": data.get("apartment"),
+                "block": data.get("block"),
+                "parcel": data.get("parcel"),
+                "subparcel": data.get("subparcel"),
+                "status": "pending",
+                "created_by": user if is_authenticated else None,
+                "last_updated_by": user if is_authenticated else None,
+                "meta": {
+                    "scope": scope,
+                    "raw_input": data,
+                    "radius": data.get("radius", 150),
+                },
+            }
 
-        # Save to Django database
-        asset = Asset.objects.create(**asset_data)
+            # Save to Django database
+            asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
         
         # Create attribution record if user is authenticated

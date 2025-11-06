@@ -51,19 +51,68 @@ def _store_assets(
                 except ValueError:
                     scraped_at = datetime.utcnow()
 
-            # Check if asset already exists
-            existing = Asset.objects.filter(
-                scope_type='address',
-                street=item.address.split()[0] if item.address else None,
-                number=item.address.split()[-1] if item.address else None
-            ).first()
+            # Parse address to extract street, number, and city
+            street = None
+            number = None
+            city = None
+            
+            if item.address:
+                address_parts = item.address.split()
+                if len(address_parts) >= 2:
+                    # Try to extract street and number from address
+                    # Format is typically: "Street Name Number City"
+                    # Last part might be city, second-to-last might be number
+                    try:
+                        # Try to parse number from last numeric part
+                        for i in range(len(address_parts) - 1, -1, -1):
+                            if address_parts[i].isdigit():
+                                number = int(address_parts[i])
+                                street = ' '.join(address_parts[:i])
+                                if i < len(address_parts) - 1:
+                                    city = ' '.join(address_parts[i+1:])
+                                break
+                        # If no number found, use first part as street
+                        if number is None:
+                            street = address_parts[0]
+                            if len(address_parts) > 1:
+                                city = ' '.join(address_parts[1:])
+                    except (ValueError, IndexError):
+                        # Fallback: use first part as street
+                        street = address_parts[0] if address_parts else None
+                        if len(address_parts) > 1:
+                            city = ' '.join(address_parts[1:])
+            
+            # Check if asset already exists using deduplication service
+            try:
+                from core.services.asset_deduplication import find_existing_asset
+                from orchestration.location import LocationQuery
+                
+                location = LocationQuery(
+                    city=city or "",
+                    street=street or "",
+                    house_number=number,
+                )
+                existing = find_existing_asset(
+                    location=location,
+                    scope_type='address',
+                )
+            except Exception as e:
+                # Fallback to simple check if deduplication service unavailable
+                print(f"Warning: Could not use deduplication service: {e}")
+                existing = Asset.objects.filter(
+                    scope_type='address',
+                    street=street,
+                    number=number,
+                    city=city
+                ).first() if (street or number or city) else None
 
             if not existing:
                 # Create new asset
                 asset = Asset.objects.create(
                     scope_type='address',
-                    street=item.address.split()[0] if item.address else None,
-                    number=item.address.split()[-1] if item.address else None,
+                    city=city,
+                    street=street,
+                    number=number,
                     status='done',
                     # Set building_type directly from property_type
                     building_type=item.property_type,
@@ -90,6 +139,32 @@ def _store_assets(
 
                 if notifier:
                     notifier.notify(asset)
+            else:
+                # Update existing asset with new listing data
+                if not existing.meta:
+                    existing.meta = {}
+                if 'yad2_data' not in existing.meta:
+                    existing.meta['yad2_data'] = {}
+                
+                # Update or append listing data
+                existing.meta['yad2_data'].update({
+                    'listing_id': item.listing_id,
+                    'title': item.title,
+                    'price': item.price,
+                    'address': item.address,
+                    'rooms': item.rooms,
+                    'floor': item.floor,
+                    'size': item.size,
+                    'property_type': item.property_type,
+                    'description': item.description,
+                    'images': item.images,
+                    'contact_info': item.contact_info,
+                    'features': item.features,
+                    'url': item.url,
+                    'date_posted': item.date_posted,
+                    'scraped_at': scraped_at.isoformat() if scraped_at else None,
+                })
+                existing.save()
     except Exception as e:
         print(f"Error storing assets: {e}")
 
@@ -101,7 +176,7 @@ def fetch_and_store(
     
     try:
         scraper = Yad2Scraper()
-        assets = scraper.scrape_page()
+        assets = scraper.fetch_listings()
         _store_assets(assets, notifier=notifier)
     except Exception as e:
         print(f"Error fetching Yad2 data: {e}")

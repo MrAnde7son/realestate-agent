@@ -154,10 +154,15 @@ class Yad2Scraper:
                     logger.warning("Failed to fetch map listings: %s", response.status_code)
                     continue
 
+                # Check if response is empty before parsing JSON
+                if not response.text or not response.text.strip():
+                    logger.warning("Empty response from map listings API")
+                    continue
+
                 try:
                     payload = response.json()
-                except json.JSONDecodeError:
-                    logger.error("Failed to decode map listings response as JSON")
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to decode map listings response as JSON: %s. Response: %s", e, response.text[:200])
                     continue
 
 
@@ -235,7 +240,19 @@ class Yad2Scraper:
             try:
                 response = self.session.get(url, timeout=30)
                 if response.status_code == 200:
-                    payload = response.json()
+                    # Check if response is empty before parsing JSON
+                    if not response.text or not response.text.strip():
+                        logger.warning("Empty response from contact API for token %s", token)
+                        last_exception = Exception("Empty response from API")
+                        continue
+
+                    try:
+                        payload = response.json()
+                    except json.JSONDecodeError as e:
+                        logger.warning("Failed to parse JSON from contact API for token %s: %s. Response: %s", token, e, response.text[:200])
+                        last_exception = e
+                        continue
+
                     result = payload.get("data")
                     return Contact(**result)
                 if response.status_code == 429:
@@ -251,6 +268,10 @@ class Yad2Scraper:
             except requests.exceptions.RequestException as e:
                 last_exception = e
                 logger.warning("Network error fetching contact: %s", e)
+                continue
+            except json.JSONDecodeError as e:
+                last_exception = e
+                logger.warning("JSON decode error fetching contact: %s", e)
                 continue
         # Exhausted retries
         if last_exception:
@@ -282,7 +303,17 @@ class Yad2Scraper:
                 logger.warning("Failed to fetch project autocomplete: %s", response.status_code)
                 return None
 
-            data = response.json()
+            # Check if response is empty before parsing JSON
+            if not response.text or not response.text.strip():
+                logger.warning("Empty response from project autocomplete API")
+                return None
+
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse JSON from project autocomplete API: %s. Response: %s", e, response.text[:200])
+                return None
+
             entries: List[str, Any] = data.get("data", {}).get('projects', [])
 
             best: Optional[Dict[str, Any]] = None
@@ -438,7 +469,17 @@ class Yad2Scraper:
             response = self.session.get(url, params=params, timeout=30)
 
             if response.status_code == 200:
-                data = response.json()
+                # Check if response is empty before parsing JSON
+                if not response.text or not response.text.strip():
+                    logger.warning("Empty response from location autocomplete API")
+                    return None
+
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to parse JSON from location autocomplete API: %s. Response: %s", e, response.text[:200])
+                    return None
+
                 hoods = data.get("hoods", [])
                 cities = data.get("cities", [])
                 areas = data.get("areas", [])
@@ -556,7 +597,18 @@ class Yad2Scraper:
                         page_to_fetch, response.status_code))
                     break
 
-                data = response.json()
+                # Check if response is empty before parsing JSON
+                if not response.text or not response.text.strip():
+                    logger.warning("Empty response from latest deals API (page {})".format(page_to_fetch))
+                    break
+
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to parse JSON from latest deals API (page {}): {}. Response: {}".format(
+                        page_to_fetch, e, response.text[:200]))
+                    break
+
                 data = data.get("data", [])
                 page_results = data.get("results", [])
                 pagination_info = data.get("pagination", {}) or {}

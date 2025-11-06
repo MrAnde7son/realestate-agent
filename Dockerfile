@@ -4,7 +4,8 @@ FROM python:3.11-slim AS base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    CHROME_BIN=/usr/bin/google-chrome-stable
 
 WORKDIR /app
 
@@ -61,7 +62,9 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearm
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && google-chrome --version \
+    && which google-chrome-stable || which google-chrome || (echo "Chrome binary not found in PATH" && exit 1)
 
 # Install Python dependencies for backend + pipeline + collectors
 COPY requirements-production.txt /tmp/requirements-production.txt
@@ -91,8 +94,10 @@ RUN mkdir -p /etc/supervisor/conf.d \
     && chmod +x backend-django/deploy/boot.sh
 
 # Ensure runtime user has access to application files and Playwright browsers
+# Also ensure Chrome is accessible (it should be in /usr/bin which is world-readable)
 RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app "$PLAYWRIGHT_BROWSERS_PATH"
+    && chown -R app:app /app "$PLAYWRIGHT_BROWSERS_PATH" \
+    && test -x /usr/bin/google-chrome-stable || test -x /usr/bin/google-chrome || (echo "Chrome is not executable" && exit 1)
 
 USER app
 

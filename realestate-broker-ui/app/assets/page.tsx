@@ -2341,6 +2341,7 @@ export default function AssetsPage() {
                             id="city"
                             list="city-options"
                             placeholder="בחר עיר"
+                            autoComplete="off"
                             className={`min-h-[44px] ${form.formState.errors.city ? "border-error" : ""}`}
                             {...form.register("city", {
                               onChange: (e) =>
@@ -2367,6 +2368,7 @@ export default function AssetsPage() {
                             id="street"
                             list="street-options"
                             placeholder="בחר רחוב"
+                            autoComplete="off"
                             className={`min-h-[44px] ${form.formState.errors.street ? "border-error" : ""}`}
                             {...form.register("street", {
                               onChange: (e) =>

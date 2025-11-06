@@ -26,6 +26,7 @@ Notes
 
 from __future__ import annotations
 import atexit
+import os
 import shutil
 import json
 import logging
@@ -81,6 +82,46 @@ class NadlanDealsScraper:
             self.cache = None
             self.incremental_collector = None
     
+    def _find_chrome_binary(self) -> Optional[str]:
+        """Find Chrome binary path in common locations.
+        
+        Returns:
+            Path to Chrome binary if found, None otherwise
+        """
+        # Check environment variable first
+        chrome_bin = os.environ.get('CHROME_BIN')
+        if chrome_bin and os.path.isfile(chrome_bin) and os.access(chrome_bin, os.X_OK):
+            return chrome_bin
+        
+        # Common locations for Chrome binary
+        common_paths = [
+            # Linux/Docker
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            # macOS
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '/Applications/Chromium.app/Contents/MacOS/Chromium',
+            # Windows (if running on Windows)
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        ]
+        
+        # Check common paths
+        for path in common_paths:
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+        
+        # Try to find Chrome in PATH
+        chrome_names = ['google-chrome-stable', 'google-chrome', 'chromium-browser', 'chromium', 'chrome']
+        for name in chrome_names:
+            chrome_path = shutil.which(name)
+            if chrome_path:
+                return chrome_path
+        
+        return None
+    
     def _init_driver(self):
         """Initialize the Selenium WebDriver with headless-safe, Mac ARM-friendly settings."""
         if self.driver is not None:
@@ -116,9 +157,30 @@ class NadlanDealsScraper:
         # capture performance logs if you use self.driver.get_log('performance')
         opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
+        # Find and set Chrome binary path explicitly for containerized environments
+        chrome_binary = self._find_chrome_binary()
+        if chrome_binary:
+            opts.binary_location = chrome_binary
+            logger.debug(f"Using Chrome binary at: {chrome_binary}")
+        else:
+            logger.warning("Chrome binary not found in common locations, relying on Selenium Manager")
+
         # Let Selenium Manager fetch a matching chromedriver (no webdriver_manager, no explicit path)
         service = Service()
-        driver = webdriver.Chrome(service=service, options=opts)
+        try:
+            driver = webdriver.Chrome(service=service, options=opts)
+        except WebDriverException as e:
+            error_msg = str(e)
+            if "session not created" in error_msg.lower():
+                # Provide more helpful error message
+                chrome_info = f"Chrome binary: {chrome_binary or 'not found'}"
+                logger.error(f"Failed to create Chrome session. {chrome_info}. Error: {error_msg}")
+                raise WebDriverException(
+                    f"Failed to create Chrome WebDriver session. "
+                    f"This usually means Chrome/Chromium is not installed or ChromeDriver version mismatch. "
+                    f"{chrome_info}. Original error: {error_msg}"
+                ) from e
+            raise
 
         # Soft CDP tweaks (best-effort)
         try:

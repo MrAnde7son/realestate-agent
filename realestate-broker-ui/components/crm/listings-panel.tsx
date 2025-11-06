@@ -455,11 +455,40 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     }))
   }, [listingsState.filters.listing_type])
 
+  const sourceOptions = useMemo(() => {
+    const serverSources = Array.isArray(listingsState.filters.source)
+      ? listingsState.filters.source.filter(Boolean)
+      : []
+
+    if (serverSources.length > 0) {
+      return serverSources.map((source) => ({
+        value: source.toLowerCase(),
+        label: getSourceDisplay(source),
+      }))
+    }
+
+    const derived = new Map<string, { value: string; label: string }>()
+
+    listingsState.items.forEach((listing) => {
+      if (!listing.source) {
+        return
+      }
+      const value = listing.source.toLowerCase()
+      if (derived.has(value)) {
+        return
+      }
+      const label = getSourceDisplay(listing.source)
+      derived.set(value, { value, label })
+    })
+
+    return Array.from(derived.values())
+  }, [listingsState.filters.source, listingsState.items])
+
   useEffect(() => {
     if (
       sourceFilter !== 'all' &&
-      listingsState.filters.source.length > 0 &&
-      !listingsState.filters.source.includes(sourceFilter)
+      sourceOptions.length > 0 &&
+      !sourceOptions.some((option) => option.value === sourceFilter)
     ) {
       setSourceFilter('all')
     }
@@ -486,10 +515,10 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       setRoomsFilter('all')
     }
   }, [
-    listingsState.filters.source,
     listingsState.filters.property_type,
     listingsState.filters.listing_type,
     roomOptions,
+    sourceOptions,
     sourceFilter,
     propertyTypeFilter,
     listingTypeFilter,
@@ -543,17 +572,14 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       })
     }
 
-    if (listingsState.filters.source.length > 0) {
+    if (sourceOptions.length > 0) {
       filters.push({
         key: 'source',
         label: 'מקור',
         value: sourceFilter,
         options: [
           { value: 'all', label: 'כל המקורות' },
-          ...listingsState.filters.source.map((source) => ({
-            value: source,
-            label: getSourceDisplay(source),
-          })),
+          ...sourceOptions,
         ],
       })
     }
@@ -561,7 +587,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     return filters
   }, [
     listingsState.filters.property_type,
-    listingsState.filters.source,
+    sourceOptions,
     listingTypeOptions,
     roomOptions,
     roomsFilter,

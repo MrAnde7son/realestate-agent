@@ -1683,7 +1683,7 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         if normalized_listing_type == 'commercial':
             return True
 
-        return listing_data.pop('ad_type', '') == 'commercial'
+        return listing_data.get('ad_type', '') == 'commercial'
 
     def _extract_street_and_number(address: str) -> Tuple[Optional[str], Optional[str]]:
         """

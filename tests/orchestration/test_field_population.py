@@ -377,6 +377,7 @@ class TestAssetFieldPopulation:
                 'rooms': 5,       # Different rooms
                 'bedrooms': 4,
                 'floor': 2,
+                'url': 'https://yad2.co.il/item/12345',  # Add URL to identify as Yad2 listing
                 'meta': {
                     'neighborhood': 'רמת החייל',
                 }

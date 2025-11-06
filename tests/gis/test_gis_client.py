@@ -45,10 +45,10 @@ def test_geocode_address_not_found(monkeypatch):
     gs = TelAvivGS()
     payload = {"features": []}
 
-    def fake_get(url, params=None, headers=None, timeout=30):
+    def fake_post(url, params=None, headers=None, timeout=30):
         return _make_response(json_payload=payload)
 
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         try:
             gs.get_address_coordinates("missing", 999)
             assert False, "Expected ArcGISError"
@@ -64,12 +64,12 @@ def test_get_building_permits_no_download(monkeypatch, tmp_path):
         ]
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30):
+    def fake_post(url, params=None, headers=None, timeout=30):
         if "MapServer/772/query" in url:
             return _make_response(json_payload=permit_payload)
         raise AssertionError("Unexpected URL: " + url)
 
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         results = gs.get_building_permits(178000, 665000, radius=30, download_pdfs=False)
         assert len(results) == 1
         assert results[0]["permission_num"] == "123"
@@ -84,7 +84,7 @@ def test_get_building_permits_with_download(monkeypatch, tmp_path):
         ]
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/772/query" in url:
             return _make_response(json_payload=permit_payload)
         if url.endswith("/docs/123.pdf"):
@@ -95,7 +95,7 @@ def test_get_building_permits_with_download(monkeypatch, tmp_path):
             return r
         raise AssertionError("Unexpected URL: " + url)
 
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         results = gs.get_building_permits(178000, 665000, radius=30, download_pdfs=True, save_dir=str(save_dir))
         assert len(results) == 1
         pdf_path = save_dir / "123.pdf"
@@ -115,7 +115,7 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
     # Mock the privilege page content (PDF)
     privilege_content = b"%PDF-1.4\n%Test PDF content for privilege page"
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:  # blocks layer
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
@@ -128,7 +128,7 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
             return r
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         
         assert result is not None
@@ -179,7 +179,7 @@ is_iriamode   = 'internet';
 is_house      = '';
 </script></html>""".encode()
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
@@ -204,7 +204,7 @@ is_house      = '';
             return r
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         
         assert result is not None
@@ -232,14 +232,14 @@ def test_get_building_privilege_page_no_blocks(monkeypatch, tmp_path):
     # Mock empty blocks response
     blocks_payload = {"features": []}
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:  # blocks layer
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer - won't be called due to early return
             return _make_response(json_payload={"features": []})
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         assert result is None
 
@@ -252,14 +252,14 @@ def test_get_building_privilege_page_no_parcels(monkeypatch, tmp_path):
     blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": []}
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         assert result is None
 
@@ -272,14 +272,14 @@ def test_get_building_privilege_page_missing_block(monkeypatch, tmp_path):
     blocks_payload = {"features": [{"attributes": {"other_field": "value"}}]}
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         assert result is None
 
@@ -292,14 +292,14 @@ def test_get_building_privilege_page_missing_parcel(monkeypatch, tmp_path):
     blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": [{"attributes": {"other_field": "value"}}]}
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         assert result is None
 
@@ -312,7 +312,7 @@ def test_get_building_privilege_page_download_failure(monkeypatch, tmp_path):
     blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
@@ -322,7 +322,7 @@ def test_get_building_privilege_page_download_failure(monkeypatch, tmp_path):
             raise requests.RequestException("Connection failed")
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         assert result is not None
         assert isinstance(result, dict)
@@ -339,7 +339,7 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test content"
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
@@ -352,7 +352,7 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
             return r
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(custom_dir))
         
         assert result is not None
@@ -373,7 +373,7 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test content"
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
@@ -386,7 +386,7 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
             return r
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         # The method doesn't handle save_dir=None properly, so we'll test with a valid directory
         # but verify the behavior when save_dir is provided
         result = gs.get_building_privilege_page(178000, 665000, save_dir="")
@@ -412,7 +412,7 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
     blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:  # blocks layer
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
@@ -425,7 +425,7 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
             return r
         raise AssertionError(f"Unexpected URL: {url}")
     
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         
         assert result is not None

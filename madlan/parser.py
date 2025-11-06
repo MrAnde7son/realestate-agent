@@ -14,40 +14,6 @@ from yad2.core.models import RealEstateListing
 logger = logging.getLogger(__name__)
 
 
-def parse_listing_response(response: Dict[str, Any]) -> List[RealEstateListing]:
-    """
-    Parse a Madlan searchPoiV2 response and convert to RealEstateListing objects.
-
-    Args:
-        response: The full API response dictionary containing searchPoiV2
-
-    Returns:
-        List of RealEstateListing objects
-    """
-    if not isinstance(response, dict):
-        logger.warning(f"Invalid response type: {type(response)}")
-        return []
-
-    search_result = response.get("searchPoiV2", {})
-    poi_list = search_result.get("poi", [])
-
-    if not isinstance(poi_list, list):
-        logger.warning(f"Invalid poi list type: {type(poi_list)}")
-        return []
-
-    listings = []
-    for poi_item in poi_list:
-        try:
-            listing = parse_poi_to_listing(poi_item)
-            if listing:
-                listings.append(listing)
-        except Exception as e:
-            logger.error(f"Failed to parse POI item: {e}")
-            continue
-
-    return listings
-
-
 def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing]:
     """
     Parse a single POI item from Madlan API response to RealEstateListing.

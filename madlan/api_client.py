@@ -672,12 +672,6 @@ class MadlanAPIClient:
                     self.session.cookies.set("USER_TOKEN_V2", token, domain=".madlan.co.il")
                     return token
 
-        logger.warning(
-            "Could not find userToken in cookies or HTML. "
-            "The token is typically set by JavaScript after page load. "
-            "You may need to extract it manually from your browser's cookies "
-            "(USER_TOKEN_V2) or use a headless browser."
-        )
         return None
 
     def set_user_token(self, token: str) -> None:
@@ -868,7 +862,7 @@ class MadlanAPIClient:
         is_commercial_real_estate: bool = False,
         search_context: str = "marketplace",
         abtests: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+    ) -> List[RealEstateListing]:
         """
         Fetch real estate listings (POIs - Points of Interest) from Madlan.
 
@@ -908,12 +902,7 @@ class MadlanAPIClient:
             abtests: A/B test configuration dictionary
 
         Returns:
-            Dictionary containing:
-            - total: Total number of results
-            - totalNearby: Total number of nearby results
-            - lastInGeometryId: Last geometry ID
-            - cursor: Cursor for pagination
-            - poi: List of POI (Point of Interest) objects with listing details
+            List of RealEstateListing objects
 
         Raises:
             MadlanAPIError: If the request fails
@@ -928,9 +917,9 @@ class MadlanAPIClient:
             ...     rooms_range=[3, 5],
             ...     limit=20
             ... )
-            >>> print(f"Found {listings['total']} listings")
-            >>> for poi in listings['poi']:
-            ...     print(f"{poi['poi'].get('address')} - {poi['poi'].get('price')}")
+            >>> print(f"Found {len(listings)} listings")
+            >>> for listing in listings:
+            ...     print(f"{listing.address} - {listing.price}")
         """
         # Build variables dictionary
         variables: Dict[str, Any] = {
@@ -1068,12 +1057,21 @@ class MadlanAPIClient:
             data = response.get("data", {})
             search_result = data.get("searchPoiV2", {})
 
+            # Build full response structure for parser
+            full_response = {
+                "searchPoiV2": search_result,
+            }
+
+            # Parse response to RealEstateListing objects
+            listings = parse_listing_response(full_response)
+
             logger.info(
-                f"Found {search_result.get('total', 0)} listings "
-                f"(totalNearby: {search_result.get('totalNearby', 0)})"
+                f"Found {len(listings)} listings "
+                f"(total: {search_result.get('total', 0)}, "
+                f"totalNearby: {search_result.get('totalNearby', 0)})"
             )
 
-            return search_result
+            return listings
 
         except MadlanAPIError:
             raise
@@ -1117,8 +1115,9 @@ class MadlanAPIClient:
         """
         Fetch real estate listings and parse them to RealEstateListing objects.
 
-        This is a convenience method that calls fetch_listings and automatically
-        parses the response to RealEstateListing objects.
+        This is a convenience method that calls fetch_listings. Since fetch_listings
+        now returns parsed listings directly, this method is kept for backward
+        compatibility and simply calls fetch_listings.
 
         Args:
             All arguments are the same as fetch_listings().
@@ -1140,7 +1139,7 @@ class MadlanAPIClient:
             >>> for listing in listings:
             ...     print(f"{listing.address} - {listing.price} NIS")
         """
-        response = self.fetch_listings(
+        return self.fetch_listings(
             location_doc_id=location_doc_id,
             deal_type=deal_type,
             tile_ranges=tile_ranges,
@@ -1173,28 +1172,16 @@ class MadlanAPIClient:
             abtests=abtests,
         )
 
-        # Build full response structure for parser
-        full_response = {
-            "searchPoiV2": response,
-        }
-
-        return parse_listing_response(full_response)
-
 
 if __name__ == "__main__":
     client = MadlanAPIClient()
     addresses = client.get_addresses("רוזוב 14 תל")
-    print(addresses)
     if addresses:
         first_address = addresses[0]
         doc_id = first_address.get("docId")
         if doc_id:
             try:
-                listings = client.fetch_listings(
-                    location_doc_id=doc_id,
-                    deal_type="unitBuy",
-                    limit=10,
-                )
+                listings = client.fetch_listings(location_doc_id=doc_id)
                 print(listings)
             except MadlanAPIError as e:
                 print(f"Error: {e}")

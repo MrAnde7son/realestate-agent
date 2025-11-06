@@ -6,6 +6,7 @@ This client provides methods to interact with the Madlan GraphQL API,
 including address autocomplete and property listing retrieval.
 """
 
+from enum import Enum
 import logging
 import re
 from typing import Dict, List, Optional, Any
@@ -480,6 +481,9 @@ fragment ImageItem on ImageItem {
 }
 """
 
+class DealType(Enum):
+    UNIT_BUY = "unitBuy"
+    UNIT_RENT = "unitRent"
 
 class MadlanAPIError(Exception):
     """Base exception for Madlan API errors."""
@@ -833,7 +837,7 @@ class MadlanAPIClient:
     def fetch_listings(
         self,
         location_doc_id: Optional[str] = None,
-        deal_type: str = "unitBuy",
+        deal_type: DealType = DealType.UNIT_BUY,
         tile_ranges: Optional[List[Dict[str, int]]] = None,
         sort: Optional[List[Dict[str, Any]]] = None,
         price_range: Optional[List[Optional[int]]] = None,
@@ -1181,7 +1185,7 @@ if __name__ == "__main__":
         doc_id = first_address.get("docId")
         if doc_id:
             try:
-                listings = client.fetch_listings(location_doc_id=doc_id)
+                listings = client.fetch_listings(location_doc_id=doc_id, deal_type=DealType.UNIT_RENT)
                 print(listings)
             except MadlanAPIError as e:
                 print(f"Error: {e}")

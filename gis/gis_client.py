@@ -138,7 +138,7 @@ class TelAvivGS:
 
     def _query(self, layer: str, params: Dict[str, Any], method: str = "GET", retries: int = 1) -> Dict[str, Any]:
         url = f"{self.BASE}/{layer}/query"
-        self._logger.info("ArcGIS request", extra={"method": method, "url": url, "params": params})
+        self._logger.info(f"ArcGIS request {method} {url} {params}")
         if method == "POST":
             r = request_with_retry(
                 requests.post,

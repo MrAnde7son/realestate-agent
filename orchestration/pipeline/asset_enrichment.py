@@ -772,8 +772,10 @@ def _process_gis_data(asset, gis_data):
         soil_contamination = gis_data.get('soil_contamination', [])
         if soil_contamination and len(soil_contamination) > 0:
             asset.set_property('soilContaminationSitesCount', len(soil_contamination), source='GIS', url='https://www.govmap.gov.il/')
-            min_distance = min([s.get('distance') for s in soil_contamination if isinstance(s, dict) and s.get('distance')])
-            asset.set_property('nearestSoilContaminationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+            distances = [s.get('distance') for s in soil_contamination if isinstance(s, dict) and s.get('distance')]
+            if distances:
+                min_distance = min(distances)
+                asset.set_property('nearestSoilContaminationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Green amenities (playgrounds, dog parks, public gardens)
     if gis_data.get('green_amenities'):
@@ -879,7 +881,7 @@ def _process_gis_data(asset, gis_data):
     soil_contamination_count = asset.get_property_value('soilContaminationSitesCount') or 0
     if soil_contamination_count and soil_contamination_count > 0:
         nearest_contamination = asset.get_property_value('nearestSoilContaminationDistanceM')
-        if nearest_contamination < 100:
+        if nearest_contamination and nearest_contamination < 100:
             risk_flags.append('קרוב לאתר זיהום קרקע')
     
     road_works_count = asset.get_property_value('roadWorksCount') or 0

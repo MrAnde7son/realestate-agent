@@ -216,7 +216,7 @@ class TelAvivGS:
                 "returnGeometry": "true",
                 "resultRecordCount": 1,
             }
-            parcel_data = self._query(self.L_PARCELS, parcel_params)
+            parcel_data = self._query(self.L_PARCELS, parcel_params, method="POST")
             parcel_feats = parcel_data.get("features", [])
             
             if not parcel_feats:
@@ -241,7 +241,7 @@ class TelAvivGS:
                 "returnGeometry": "false",
             }
             
-            address_data = self._query(self.L_ADDR, address_params)
+            address_data = self._query(self.L_ADDR, address_params, method="POST")
             address_feats = address_data.get("features", [])
             
             addresses = []
@@ -298,7 +298,7 @@ class TelAvivGS:
             "outFields": ",".join(fields),
             "returnGeometry": "false",
         }
-        data = self._query(self.L_PERMITS, params)
+        data = self._query(self.L_PERMITS, params, method="POST")
         permits = [f.get("attributes", {}) for f in data.get("features", [])]
         self._logger.info("Permits fetched", extra={"count": len(permits)})
 
@@ -833,7 +833,7 @@ class TelAvivGS:
             p["distance"] = radius
             p["units"] = "esriSRUnit_Meter"
         self._logger.info("Querying layer intersects point", extra={"layer": layer, "x": x, "y": y, "radius": radius})
-        data = self._query(layer, p)
+        data = self._query(layer, p, method="POST")
         feats = [f.get("attributes", {}) for f in data.get("features", [])]
         self._logger.debug("Layer features fetched", extra={"layer": layer, "count": len(feats)})
         return feats

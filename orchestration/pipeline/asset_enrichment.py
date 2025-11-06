@@ -208,70 +208,77 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
         if not asset.meta:
             asset.meta = {}
 
+    # Check if city is Tel Aviv (GIS and Handasa only support Tel Aviv)
+    city = getattr(asset, 'city', '') or ''
+    is_tel_aviv = 'תל אביב' in city
+
     # GIS processing ------------------------------------------------------------------
     with asset_update_phase("process_gis", asset_id):
-        logger.info(f"Asset {asset_id}: GIS processing - gis_data exists: {bool(gis_data)}, keys: {list(gis_data.keys()) if gis_data else 'None'}")
-        if gis_data:
-            asset.meta['gis_data'] = {
-                'permits': gis_data.get('permits', []),
-                'rights': gis_data.get('rights', []),
-                'shelters': gis_data.get('shelters', []),
-                'green_areas': gis_data.get('green', []),
-                'noise_levels': gis_data.get('noise', []),
-                'cell_antennas': gis_data.get('antennas', []),
-                'blocks': gis_data.get('blocks', []),
-                'parcels': gis_data.get('parcels', []),
-                'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
-            }
+        if not is_tel_aviv:
+            logger.info(f"Asset {asset_id}: Skipping GIS processing (not Tel Aviv)")
         else:
-            logger.info(f"Asset {asset_id}: No GIS data available for processing")
-        if handasa_archive:
-            asset.meta['handasa_archive'] = handasa_archive
-        existing_privilege_data = asset.meta.get('privilege_page_data')
+            logger.info(f"Asset {asset_id}: GIS processing - gis_data exists: {bool(gis_data)}, keys: {list(gis_data.keys()) if gis_data else 'None'}")
+            if gis_data:
+                asset.meta['gis_data'] = {
+                    'permits': gis_data.get('permits', []),
+                    'rights': gis_data.get('rights', []),
+                    'shelters': gis_data.get('shelters', []),
+                    'green_areas': gis_data.get('green', []),
+                    'noise_levels': gis_data.get('noise', []),
+                    'cell_antennas': gis_data.get('antennas', []),
+                    'blocks': gis_data.get('blocks', []),
+                    'parcels': gis_data.get('parcels', []),
+                    'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
+                }
+            else:
+                logger.info(f"Asset {asset_id}: No GIS data available for processing")
+            if handasa_archive:
+                asset.meta['handasa_archive'] = handasa_archive
+            existing_privilege_data = asset.meta.get('privilege_page_data')
 
-        try:
-            from gis.gis_client import TelAvivGS  # type: ignore
+            try:
+                from gis.gis_client import TelAvivGS  # type: ignore
 
-            def _extract_coord(data, key):
-                if isinstance(data, dict):
-                    if data.get(key) is not None:
-                        return data.get(key)
-                    coords = data.get('coordinates')
-                    if isinstance(coords, dict):
-                        return coords.get(key)
-                return None
+                def _extract_coord(data, key):
+                    if isinstance(data, dict):
+                        if data.get(key) is not None:
+                            return data.get(key)
+                        coords = data.get('coordinates')
+                        if isinstance(coords, dict):
+                            return coords.get(key)
+                    return None
 
-            x = (
-                _extract_coord(gis_data, 'x')
-                or _extract_coord(asset.meta.get('gis_data'), 'x')
-                or _extract_coord(govmap_data, 'x')
-            )
-            y = (
-                _extract_coord(gis_data, 'y')
-                or _extract_coord(asset.meta.get('gis_data'), 'y')
-                or _extract_coord(govmap_data, 'y')
-            )
+                x = (
+                    _extract_coord(gis_data, 'x')
+                    or _extract_coord(asset.meta.get('gis_data'), 'x')
+                    or _extract_coord(govmap_data, 'x')
+                )
+                y = (
+                    _extract_coord(gis_data, 'y')
+                    or _extract_coord(asset.meta.get('gis_data'), 'y')
+                    or _extract_coord(govmap_data, 'y')
+                )
 
-            if x is not None and y is not None:
-                gis_client = TelAvivGS()
-                privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
-                if privilege_data and isinstance(privilege_data, dict):
-                    parsed_items = []
-                    pdf_entries = privilege_data.get('pdf_data') or []
-                    for pdf_item in pdf_entries:
-                        if isinstance(pdf_item, dict) and pdf_item.get('data'):
-                            parsed_items.append(pdf_item['data'])
-                    if parsed_items:
-                        asset.meta['privilege_page_data'] = parsed_items
-                        asset.meta['privilege_page_refreshed_at'] = datetime.utcnow().isoformat()
-                    elif existing_privilege_data is not None:
-                        # Keep previously stored privilege data if refresh yielded nothing
-                        asset.meta['privilege_page_data'] = existing_privilege_data
-        except Exception:
-            logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
-        
-        # Always process GIS data (even if empty) to store gis_collector_data
-        _process_gis_data(asset, gis_data)
+                if x is not None and y is not None:
+                    gis_client = TelAvivGS()
+                    privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
+                    if privilege_data and isinstance(privilege_data, dict):
+                        parsed_items = []
+                        pdf_entries = privilege_data.get('pdf_data') or []
+                        for pdf_item in pdf_entries:
+                            if isinstance(pdf_item, dict) and pdf_item.get('data'):
+                                parsed_items.append(pdf_item['data'])
+                        if parsed_items:
+                            asset.meta['privilege_page_data'] = parsed_items
+                            asset.meta['privilege_page_refreshed_at'] = datetime.utcnow().isoformat()
+                        elif existing_privilege_data is not None:
+                            # Keep previously stored privilege data if refresh yielded nothing
+                            asset.meta['privilege_page_data'] = existing_privilege_data
+            except Exception:
+                logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
+            
+            # Always process GIS data (even if empty) to store gis_collector_data
+            _process_gis_data(asset, gis_data)
 
     # GovMap autocomplete --------------------------------------------------------------
     with asset_update_phase("process_govmap_autocomplete", asset_id):
@@ -356,7 +363,11 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Building rights calculation (after Yad2 to ensure area data is available)
     with asset_update_phase("calculate_building_rights", asset_id):
-        _calculate_building_rights(asset, gis_data)
+        if is_tel_aviv:
+            _calculate_building_rights(asset, gis_data)
+        else:
+            logger.info(f"Asset {asset_id}: Skipping building rights calculation (not Tel Aviv)")
+            _calculate_building_rights(asset, {})
 
     # Timestamp -----------------------------------------------------------------------
     with asset_update_phase("timestamp_and_save", asset_id):
@@ -379,7 +390,11 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Documents & plans ---------------------------------------------------------------
     with asset_update_phase("create_documents_and_plans", asset_id):
-        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_archive)
+        # Skip handasa for non-Tel Aviv cities (only supported for Tel Aviv)
+        handasa_to_process = handasa_archive if is_tel_aviv else []
+        if not is_tel_aviv and handasa_archive:
+            logger.info(f"Asset {asset_id}: Skipping Handasa processing (not Tel Aviv)")
+        _create_documents_and_plans(asset, gis_data if is_tel_aviv else {}, gov_data, plans, mavat_plans, handasa_to_process)
 
     # Market metrics ------------------------------------------------------------------
     with asset_update_phase("calculate_market_metrics", asset_id):
@@ -387,7 +402,11 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Planning and Legal Analysis -----------------------------------------------------
     with asset_update_phase("calculate_planning_legal_analysis", asset_id):
-        _calculate_planning_legal_analysis(asset, gis_data, gov_data)
+        if is_tel_aviv:
+            _calculate_planning_legal_analysis(asset, gis_data, gov_data)
+        else:
+            logger.info(f"Asset {asset_id}: Skipping planning and legal analysis (not Tel Aviv)")
+            _calculate_planning_legal_analysis(asset, {}, gov_data)
 
     logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
 

@@ -176,47 +176,55 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
             govmap_data = {}
             logger.warning("GovMap collection failed for asset %s: %s", asset_id, exc)
 
-        try:
-            gis_data = pipeline._collect_with_observability(
-                "gis",
-                pipeline.gis.collect,
-                location=location,
-                timeout=pipeline.TIMEOUTS.get("gis"),
-                retries=pipeline.RETRIES.get("gis", 0),
-                asset_id=asset_id,
-            )
-            collect_summary["gis"] = True
-            if gis_data.get("block") and gis_data.get("parcel"):
-                block = gis_data.get("block", block)
-                parcel = gis_data.get("parcel", parcel)
-                location = LocationQuery(
-                    city=location.city,
-                    street=location.street,
-                    house_number=location.house_number,
-                    block=block,
-                    parcel=parcel,
-                    subparcel=subparcel,
-                )
-        except Exception as exc:  # noqa: BLE001
+        # Check if city is Tel Aviv (GIS and Handasa only support Tel Aviv)
+        city = asset.city or location.city or ""
+        is_tel_aviv = "תל אביב" in city
+        if not is_tel_aviv:
+            logger.info("Asset %s: City '%s' is not Tel Aviv - skipping GIS and Handasa collection (only supported for Tel Aviv)", asset_id, city)
             collect_summary["gis"] = False
-            gis_data = {}
-            logger.warning("GIS collection failed for asset %s: %s", asset_id, exc)
-
-        if block:
+            collect_summary["handasa"] = 0
+        else:
             try:
-                handasa_archive = pipeline._collect_with_observability(
-                    "handasa",
-                    pipeline.handasa.collect,
+                gis_data = pipeline._collect_with_observability(
+                    "gis",
+                    pipeline.gis.collect,
                     location=location,
-                    timeout=pipeline.TIMEOUTS.get("handasa"),
-                    retries=pipeline.RETRIES.get("handasa", 0),
+                    timeout=pipeline.TIMEOUTS.get("gis"),
+                    retries=pipeline.RETRIES.get("gis", 0),
                     asset_id=asset_id,
                 )
-                collect_summary["handasa"] = len(handasa_archive)
+                collect_summary["gis"] = True
+                if gis_data.get("block") and gis_data.get("parcel"):
+                    block = gis_data.get("block", block)
+                    parcel = gis_data.get("parcel", parcel)
+                    location = LocationQuery(
+                        city=location.city,
+                        street=location.street,
+                        house_number=location.house_number,
+                        block=block,
+                        parcel=parcel,
+                        subparcel=subparcel,
+                    )
             except Exception as exc:  # noqa: BLE001
-                collect_summary["handasa"] = 0
-                handasa_archive = []
-                logger.warning("Handasa collection failed for asset %s: %s", asset_id, exc)
+                collect_summary["gis"] = False
+                gis_data = {}
+                logger.warning("GIS collection failed for asset %s: %s", asset_id, exc)
+
+            if block:
+                try:
+                    handasa_archive = pipeline._collect_with_observability(
+                        "handasa",
+                        pipeline.handasa.collect,
+                        location=location,
+                        timeout=pipeline.TIMEOUTS.get("handasa"),
+                        retries=pipeline.RETRIES.get("handasa", 0),
+                        asset_id=asset_id,
+                    )
+                    collect_summary["handasa"] = len(handasa_archive)
+                except Exception as exc:  # noqa: BLE001
+                    collect_summary["handasa"] = 0
+                    handasa_archive = []
+                    logger.warning("Handasa collection failed for asset %s: %s", asset_id, exc)
 
         if block and parcel:
             try:

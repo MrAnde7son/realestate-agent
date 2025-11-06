@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 # Default API endpoint
 DEFAULT_API_URL = "https://www.madlan.co.il/api2"
 
+class DealType(Enum):
+    UNIT_BUY = "unitBuy"
+    UNIT_RENT = "unitRent"
+
 # Default completion types for address autocomplete
 DEFAULT_COMPLETION_TYPES = [
     "neighbourhood",
@@ -481,9 +485,6 @@ fragment ImageItem on ImageItem {
 }
 """
 
-class DealType(Enum):
-    UNIT_BUY = "unitBuy"
-    UNIT_RENT = "unitRent"
 
 class MadlanAPIError(Exception):
     """Base exception for Madlan API errors."""
@@ -676,6 +677,12 @@ class MadlanAPIClient:
                     self.session.cookies.set("USER_TOKEN_V2", token, domain=".madlan.co.il")
                     return token
 
+        logger.warning(
+            "Could not find userToken in cookies or HTML. "
+            "The token is typically set by JavaScript after page load. "
+            "You may need to extract it manually from your browser's cookies "
+            "(USER_TOKEN_V2) or use a headless browser."
+        )
         return None
 
     def set_user_token(self, token: str) -> None:
@@ -866,7 +873,7 @@ class MadlanAPIClient:
         is_commercial_real_estate: bool = False,
         search_context: str = "marketplace",
         abtests: Optional[Dict[str, str]] = None,
-    ) -> List[RealEstateListing]:
+    ) -> Dict[str, Any]:
         """
         Fetch real estate listings (POIs - Points of Interest) from Madlan.
 
@@ -906,7 +913,12 @@ class MadlanAPIClient:
             abtests: A/B test configuration dictionary
 
         Returns:
-            List of RealEstateListing objects
+            Dictionary containing:
+            - total: Total number of results
+            - totalNearby: Total number of nearby results
+            - lastInGeometryId: Last geometry ID
+            - cursor: Cursor for pagination
+            - poi: List of POI (Point of Interest) objects with listing details
 
         Raises:
             MadlanAPIError: If the request fails
@@ -921,9 +933,9 @@ class MadlanAPIClient:
             ...     rooms_range=[3, 5],
             ...     limit=20
             ... )
-            >>> print(f"Found {len(listings)} listings")
-            >>> for listing in listings:
-            ...     print(f"{listing.address} - {listing.price}")
+            >>> print(f"Found {listings['total']} listings")
+            >>> for poi in listings['poi']:
+            ...     print(f"{poi['poi'].get('address')} - {poi['poi'].get('price')}")
         """
         # Build variables dictionary
         variables: Dict[str, Any] = {
@@ -1061,21 +1073,12 @@ class MadlanAPIClient:
             data = response.get("data", {})
             search_result = data.get("searchPoiV2", {})
 
-            # Build full response structure for parser
-            full_response = {
-                "searchPoiV2": search_result,
-            }
-
-            # Parse response to RealEstateListing objects
-            listings = parse_listing_response(full_response)
-
             logger.info(
-                f"Found {len(listings)} listings "
-                f"(total: {search_result.get('total', 0)}, "
-                f"totalNearby: {search_result.get('totalNearby', 0)})"
+                f"Found {search_result.get('total', 0)} listings "
+                f"(totalNearby: {search_result.get('totalNearby', 0)})"
             )
 
-            return listings
+            return search_result
 
         except MadlanAPIError:
             raise
@@ -1083,16 +1086,19 @@ class MadlanAPIClient:
             logger.error(f"Failed to fetch listings: {e}")
             raise MadlanAPIError(f"Failed to fetch listings: {e}")
 
-
 if __name__ == "__main__":
     client = MadlanAPIClient()
-    addresses = client.get_addresses("ארלנג'ר 2 תל אביב - יפו")
+    addresses = client.get_addresses("רוזוב 14 תל")
+    print(addresses)
     if addresses:
         first_address = addresses[0]
         doc_id = first_address.get("docId")
         if doc_id:
             try:
-                listings = client.fetch_listings(location_doc_id=doc_id, deal_type=DealType.UNIT_RENT)
+                listings = client.fetch_listings(
+                    location_doc_id=doc_id,
+                    limit=10,
+                )
                 print(listings)
             except MadlanAPIError as e:
                 print(f"Error: {e}")

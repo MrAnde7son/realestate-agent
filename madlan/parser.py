@@ -130,11 +130,11 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         # Extract listing type from dealType
         deal_type = poi.get("dealType", "")
         if deal_type == "unitBuy":
-            listing.listing_type = "buy"
+            listing.listing_type = "sale"
         elif deal_type == "unitRent":
             listing.listing_type = "rent"
         else:
-            listing.listing_type = deal_type or "buy"
+            listing.listing_type = deal_type
 
         # Extract date posted
         last_updated = poi.get("lastUpdated")

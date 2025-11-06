@@ -135,15 +135,23 @@ def test_fetch_listings_converts_markers(monkeypatch):
     class DummyResponse:
         status_code = 200
 
+        def __init__(self, payload_data):
+            self._payload = payload_data
+
+        @property
+        def text(self):
+            return json.dumps(self._payload)
+
         def json(self):
-            return payload
+            return self._payload
 
     scraper = Yad2Scraper(Yad2SearchParameters(city=5000, neighborhood=203))
-    monkeypatch.setattr(
-        scraper.session,
-        "get",
-        lambda url, params, timeout: DummyResponse(),
-    )
+    # fetch_listings calls the API 3 times (sale, rent, commercial) when listing_type is ALL
+    # So we need to return the same response for all 3 calls
+    def mock_get(url, params, timeout):
+        return DummyResponse(payload)
+    
+    monkeypatch.setattr(scraper.session, "get", mock_get)
 
     listings = scraper.fetch_listings()
     assert len(listings) == 3

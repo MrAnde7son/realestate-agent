@@ -25,21 +25,24 @@ def test_privilege_page(tmp_path):
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test PDF content"
 
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, data=None, headers=None, timeout=30, **kwargs):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         if "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
+        raise AssertionError(f"Unexpected POST URL: {url}")
+
+    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True, **kwargs):
         if "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
             r.headers["Content-Type"] = "application/pdf"
             return r
-        raise AssertionError(f"Unexpected URL: {url}")
+        raise AssertionError(f"Unexpected GET URL: {url}")
 
     save_dir = tmp_path / "privilege_pages"
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post), mock.patch("requests.get", side_effect=fake_get):
         blocks = gs.get_blocks(x, y)
         parcels = gs.get_parcels(x, y)
         result = gs.get_building_privilege_page(x, y, save_dir=str(save_dir))
@@ -59,14 +62,14 @@ def test_block_parcel_extraction():
     blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
 
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+    def fake_post(url, data=None, headers=None, timeout=30, **kwargs):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         if "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        raise AssertionError(f"Unexpected URL: {url}")
+        raise AssertionError(f"Unexpected POST URL: {url}")
 
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         result = gs.get_block_parcel_info(x, y)
 
     assert result["success"] is True

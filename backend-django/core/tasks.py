@@ -300,6 +300,23 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
             listings_payload = []
             logger.warning("Yad2 collection failed for asset %s: %s", asset_id, exc)
 
+        try:
+            madlan_listings = pipeline._collect_with_observability(
+                "madlan",
+                pipeline.madlan.collect,
+                location,
+                timeout=pipeline.TIMEOUTS.get("madlan"),
+                retries=pipeline.RETRIES.get("madlan", 0),
+                asset_id=asset_id,
+            )
+            madlan_listings_payload = [_object_to_payload(item) for item in madlan_listings or []]
+            collect_summary["madlan"] = len(madlan_listings_payload)
+            # Combine with yad2 listings
+            listings_payload.extend(madlan_listings_payload)
+        except Exception as exc:  # noqa: BLE001
+            collect_summary["madlan"] = 0
+            logger.warning("Madlan collection failed for asset %s: %s", asset_id, exc)
+
         state: Dict[str, Any] = {
             "asset_id": asset_id,
             "location": _serialize_location(location),

@@ -627,7 +627,7 @@ class GovMapClient:
                     pass  # Keep original format if parsing fails
             
             # Extract address
-            address = f"{deal.get('streetNameHeb') or ''} {deal.get('houseNum') or ''} {deal.get('settlementNameHeb') or ''}"
+            address = f"{deal.get('streetNameHeb') or ''} {deal.get('houseNum') or ''}, {deal.get('settlementNameHeb') or ''}"
             if settlement_name and address and settlement_name not in address:
                 address = f"{address}, {settlement_name}" if address else settlement_name
             

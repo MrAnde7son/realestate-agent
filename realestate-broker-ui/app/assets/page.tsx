@@ -143,7 +143,8 @@ export default function AssetsPage() {
     balconyAreaRange: { min: null, max: null },
   });
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [searchInput, setSearchInput] = useState(() => searchParams.get("search") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") ?? "");
   const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
   const [typeFilter, setTypeFilter] = useState(
     () => searchParams.get("type") ?? "all"
@@ -423,8 +424,18 @@ export default function AssetsPage() {
   };
 
 
+  // Debounce search input
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
   useEffect(() => {
-    setSearch(searchParams.get("search") ?? "");
+    const searchParam = searchParams.get("search") ?? "";
+    setSearchInput(searchParam);
+    setDebouncedSearch(searchParam);
     setCity(searchParams.get("city") ?? "all");
     setTypeFilter(searchParams.get("type") ?? "all");
     const min = searchParams.get("priceMin");
@@ -527,8 +538,8 @@ export default function AssetsPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
-    if (search) {
-      params.set("search", search);
+    if (debouncedSearch) {
+      params.set("search", debouncedSearch);
     } else {
       params.delete("search");
     }
@@ -815,7 +826,7 @@ export default function AssetsPage() {
       router.replace(newUrl, { scroll: false });
     }
   }, [
-    search,
+    debouncedSearch,
     city,
     typeFilter,
     priceMin,
@@ -874,12 +885,13 @@ export default function AssetsPage() {
     router,
     pathname,
     searchParams,
+    debouncedSearch,
   ]);
 
   React.useEffect(() => {
     setPagination(prev => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
   }, [
-    search,
+    debouncedSearch,
     city,
     typeFilter,
     priceMin,
@@ -939,7 +951,7 @@ export default function AssetsPage() {
   const buildFilterParams = React.useCallback(() => {
     const params = new URLSearchParams();
 
-    if (search) params.set("search", search);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (city && city !== "all") params.set("city", city);
     if (typeFilter && typeFilter !== "all") params.set("type", typeFilter);
     if (priceMin != null) params.set("priceMin", String(priceMin));
@@ -996,7 +1008,7 @@ export default function AssetsPage() {
 
     return params;
   }, [
-    search,
+    debouncedSearch,
     city,
     typeFilter,
     priceMin,
@@ -1893,7 +1905,7 @@ export default function AssetsPage() {
   // Build current filter state for saving
   const buildCurrentFilters = React.useCallback(() => {
     return {
-      search,
+      search: debouncedSearch,
       city,
       type: typeFilter,
       priceMin,
@@ -1949,7 +1961,7 @@ export default function AssetsPage() {
       remainingRightsMax,
     };
   }, [
-    search, city, typeFilter, priceMin, priceMax, neighborhood, zoning, riskFilter,
+    debouncedSearch, city, typeFilter, priceMin, priceMax, neighborhood, zoning, riskFilter,
     documentsFilter, statusFilter, rentalSaleFilter, adTypeFilter, commercialFilter,
     userAssetsFilter, buildingTypeFilter, floorMin, floorMax, areaMin, areaMax,
     bedroomsMin, bedroomsMax, bathroomsMin, bathroomsMax, totalFloorsMin, totalFloorsMax,
@@ -1962,7 +1974,11 @@ export default function AssetsPage() {
 
   // Apply saved filter
   const handleApplyFilter = React.useCallback((filterData: Record<string, any>) => {
-    if (filterData.search !== undefined) setSearch(filterData.search || '');
+    if (filterData.search !== undefined) {
+      const searchValue = filterData.search || '';
+      setSearchInput(searchValue);
+      setDebouncedSearch(searchValue);
+    }
     if (filterData.city !== undefined) setCity(filterData.city || 'all');
     if (filterData.type !== undefined) setTypeFilter(filterData.type || 'all');
     if (filterData.priceMin !== undefined) setPriceMin(filterData.priceMin);
@@ -2456,8 +2472,8 @@ export default function AssetsPage() {
                 center={[34.98, 31.0]}
                 zoom={14}
                 onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
-                searchValue={search}
-                onSearchChange={setSearch}
+                searchValue={searchInput}
+                onSearchChange={setSearchInput}
                 height="calc(100vh - 180px)"
                 onBackToTable={() => handleViewModeChange('table')}
               />
@@ -2471,8 +2487,8 @@ export default function AssetsPage() {
               onToggleWatch={handleToggleWatch}
               watchingAssetIds={watchingAssetIds}
               onExportAllRequest={handleExportAllAssets}
-              searchValue={search}
-              onSearchChange={setSearch}
+              searchValue={searchInput}
+              onSearchChange={setSearchInput}
               manualPagination
               paginationState={pagination}
               onPaginationChange={(next) => setPagination(next)}

@@ -14,7 +14,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from madlan.parser import parse_listing_response
+from madlan.parser import parse_poi_to_listing
 from yad2.core.models import RealEstateListing
 
 logger = logging.getLogger(__name__)
@@ -873,7 +873,7 @@ class MadlanAPIClient:
         is_commercial_real_estate: bool = False,
         search_context: str = "marketplace",
         abtests: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+    ) -> List[RealEstateListing]:
         """
         Fetch real estate listings (POIs - Points of Interest) from Madlan.
 
@@ -1078,7 +1078,12 @@ class MadlanAPIClient:
                 f"(totalNearby: {search_result.get('totalNearby', 0)})"
             )
 
-            return search_result
+            listings = []
+            for poi_item in search_result.get("poi", []):
+                listing = parse_poi_to_listing(poi_item)
+                if listing:
+                    listings.append(listing)
+            return listings
 
         except MadlanAPIError:
             raise
@@ -1089,7 +1094,6 @@ class MadlanAPIClient:
 if __name__ == "__main__":
     client = MadlanAPIClient()
     addresses = client.get_addresses("רוזוב 14 תל")
-    print(addresses)
     if addresses:
         first_address = addresses[0]
         doc_id = first_address.get("docId")
@@ -1101,5 +1105,4 @@ if __name__ == "__main__":
                 )
                 print(listings)
             except MadlanAPIError as e:
-                print(f"Error: {e}")
-                print("Tip: You may need to manually set the token using client.set_user_token()")
+              pass

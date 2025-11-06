@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Header onToggleSidebar={handleToggleSidebar} />
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden pt-16 touch-pan-y -webkit-overflow-scrolling-touch">
-          <div className="min-h-full">
+          <div>
             {children}
           </div>
         </main>

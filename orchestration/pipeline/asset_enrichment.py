@@ -9,6 +9,7 @@ from datetime import datetime, date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from govmap.api_client import itm_to_wgs84
 
 from utils.helpers import _first_nonempty, _safe_get
@@ -371,7 +372,6 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Timestamp -----------------------------------------------------------------------
     with asset_update_phase("timestamp_and_save", asset_id):
-        from django.utils import timezone  # type: ignore
         asset.meta['last_enrichment'] = timezone.now().isoformat()
         asset.save()
 
@@ -1476,6 +1476,9 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                                 parsed_date = datetime.strptime(deal_date_str, "%Y-%m")
                             except ValueError:
                                 pass
+                    # Make datetime timezone-aware if it was successfully parsed
+                    if parsed_date and timezone.is_naive(parsed_date):
+                        parsed_date = timezone.make_aware(parsed_date)
                 except (ValueError, TypeError):
                     pass
             

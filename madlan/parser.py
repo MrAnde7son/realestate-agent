@@ -141,9 +141,17 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         if virtual_tours:
             listing.meta["virtual_tours"] = virtual_tours
 
-        # Extract contact information
+        # Extract contact information and determine seller type
         poc = poi.get("poc", {})
-        if poc and poc.get("type") == "agent":
+        poc_type = poc.get("type") if poc else None
+        
+        # Extract ad_type (similar to yad2's adType)
+        ad_type_raw = poc_type
+        ad_type = ad_type_raw.lower() if isinstance(ad_type_raw, str) else None
+        
+        seller_type: Optional[str] = None
+        if poc_type == "agent":
+            seller_type = "broker"
             contact_info = {
                 "type": "agent",
                 "officeId": poc.get("officeId"),
@@ -155,12 +163,30 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
                     if not image_url.startswith("http"):
                         image_url = f"https://www.madlan.co.il{image_url}"
                     contact_info["imageUrl"] = image_url
+                    # Store agency info in features (similar to yad2)
+                    listing.features["agency"] = {
+                        "imageUrl": image_url,
+                    }
 
             exclusivity = poc.get("exclusivity", {})
             if exclusivity:
                 contact_info["exclusive"] = exclusivity.get("exclusive")
 
             listing.contact_info = contact_info
+        elif ad_type in {"private"}:
+            seller_type = "private"
+        elif ad_type in {"agent", "broker"}:
+            seller_type = "broker"
+        else:
+            seller_type = ad_type
+        
+        # Set seller_type in features and meta (matching yad2_scraper behavior)
+        if seller_type:
+            listing.features["seller_type"] = seller_type
+            listing.meta["seller_type"] = seller_type
+        
+        if ad_type_raw:
+            listing.meta["ad_type"] = seller_type
 
         # Extract tags and insights
         tags = poi.get("tags", {})

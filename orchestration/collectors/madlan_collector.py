@@ -96,36 +96,20 @@ class MadlanCollector(BaseCollector):
                     offset = 0
                     page = 0
                     
-                    # Paginate through all results
-                    while True:
-                        page += 1
-                        page_listings = self.client.fetch_listings(
-                            location_doc_id=location_doc_id,
-                            deal_type=deal_type,
-                            price_range=price_range,
-                            rooms_range=rooms_range,
-                            area_range=area_range,
-                            floor_range=floor_range,
-                            limit=limit,
-                            offset=offset,
-                        )
+                    fetched_listings = self.client.fetch_listings(
+                        location_doc_id=location_doc_id,
+                        deal_type=deal_type,
+                        price_range=price_range,
+                        rooms_range=rooms_range,
+                        area_range=area_range,
+                        floor_range=floor_range,
+                        limit=limit,
+                        offset=offset,
+                    )
                         
-                        if not page_listings:
-                            # No more results
-                            break
-                        
-                        all_fetched_listings.extend(page_listings)
-                        logger.info(f"Fetched page {page} for {deal_type.value}: {len(page_listings)} listings (total so far: {len(all_fetched_listings)})")
-                        
-                        # If we got fewer results than the limit, we've reached the end
-                        if len(page_listings) < limit:
-                            break
-                        
-                        # Update offset for next page
-                        offset += limit
-                    
-                    listings.extend(all_fetched_listings)
-                    logger.info(f"Fetched {len(all_fetched_listings)} total {deal_type.value} listings across {page} page(s)")
+                                            
+                    listings.extend(fetched_listings)
+                    logger.info(f"Fetched {len(fetched_listings)} total {deal_type.value} listings across {page} page(s)")
                 except Exception as e:
                     logger.error(f"Failed to fetch {deal_type.value} listings: {e}")
                     # Continue with other deal types even if one fails

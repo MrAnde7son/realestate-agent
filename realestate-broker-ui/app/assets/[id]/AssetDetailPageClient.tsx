@@ -540,7 +540,7 @@ export const calculateEnvironmentScore = (asset: Record<string, any> | null): nu
 }
 
 const formatScoreDisplay = (score: number | null): string =>
-  score === null ? '—' : `${score}/100`
+  !score ? '—' : `${score}/100`
 
 export const resolveContributorDisplayName = (
   person?: { name?: string | null; email?: string | null } | null
@@ -4395,8 +4395,8 @@ useDedupedEffect(() => {
                 <div className="grid gap-4 md:grid-cols-4">
                   <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {!!asset.pricePerSqm
-                        ? formatCurrency(asset.pricePerSqm)
+                      {headerPricePerSqmValue !== null
+                        ? formatCurrency(headerPricePerSqmValue)
                         : '—'}
                       <DataBadge
                         source={asset?._meta?.pricePerSqm?.source}
@@ -4415,7 +4415,7 @@ useDedupedEffect(() => {
                   </div>
                   <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold">
-                      {marketAnalysis?.min_price_per_sqm !== null && marketAnalysis?.max_price_per_sqm !== null
+                      {!!marketAnalysis?.min_price_per_sqm && !!marketAnalysis?.max_price_per_sqm
                         ? `${formatCurrency(marketAnalysis?.min_price_per_sqm)} - ${formatCurrency(marketAnalysis?.max_price_per_sqm)}`
                         : '—'}
                     </div>
@@ -4423,8 +4423,8 @@ useDedupedEffect(() => {
                   </div>
                   <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!marketAnalysis?.avg_price_per_sqm
-                        ? `${Math.round(((asset.pricePerSqm / marketAnalysis?.avg_price_per_sqm) - 1) * 100)}%`
+                      {headerPricePerSqmValue !== null && !!marketAnalysis?.avg_price_per_sqm
+                        ? `${Math.round(((headerPricePerSqmValue / marketAnalysis?.avg_price_per_sqm) - 1) * 100)}%`
                         : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">פער מהממוצע</div>

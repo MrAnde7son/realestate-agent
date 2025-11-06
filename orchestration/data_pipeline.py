@@ -451,6 +451,8 @@ class DataPipeline:
                 if "x" in govmap_data and "y" in govmap_data:
                     x_itm = govmap_data["x"]
                     y_itm = govmap_data["y"]
+                    # Update location with coordinates
+                    location = location.with_coordinates(x_itm, y_itm)
                     # Convert ITM to WGS84
                     lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
                     logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
@@ -538,63 +540,72 @@ class DataPipeline:
                     logger.warning(f"Failed to parse corrected address '{corrected_address}': {e}")
                     logger.info("📍 Keeping original location due to parsing error")
             
-            # Get GIS data (supplementary or fallback for coordinates)
-            gis_data = {}
-            try:
-                logger.info("🗺️ Collecting GIS data...")
-                gis_data = self._collect_with_observability(
-                    "gis",
-                    self.gis.collect,
-                    location=location,
-                    timeout=self.TIMEOUTS.get("gis"),
-                    retries=self.RETRIES.get("gis", 0),
-                    asset_id=asset_id,
-                )
-                track("collector_success", source="gis")
-                
-                # Extract block and parcel from successful GIS collection
-                if gis_data.get('block') and gis_data.get('parcel'):
-                    block = gis_data.get('block', '')
-                    parcel = gis_data.get('parcel', '')
-                    location = LocationQuery(
-                        city=location.city,
-                        street=location.street,
-                        house_number=location.house_number,
-                        block=block,
-                        parcel=parcel,
-                        subparcel=subparcel,
-                    )
-                    logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
-            except Exception as e:
+            # Check if city is Tel Aviv (GIS and Handasa only support Tel Aviv)
+            city = location.city or ""
+            is_tel_aviv = "תל אביב" in city
+            if not is_tel_aviv:
+                logger.info(f"📍 City '{city}' is not Tel Aviv - skipping GIS and Handasa collection (only supported for Tel Aviv)")
                 gis_data = {}
-                track("collector_fail", source="gis", error_code=str(e))
-                logger.warning(f"⚠️ GIS collection failed: {e}")
-
-            # Collect Handasa archive
-            handasa_archive: List[Dict[str, Any]] = []
-            if block:
+                handasa_archive = []
+            else:
+                # Get GIS data (supplementary or fallback for coordinates)
+                gis_data = {}
                 try:
-                    logger.info("🏗️ Collecting Handasa permits...")
-                    handasa_archive = self._collect_with_observability(
-                        "handasa",
-                        self.handasa.collect,
+                    logger.info("🗺️ Collecting GIS data...")
+                    gis_data = self._collect_with_observability(
+                        "gis",
+                        self.gis.collect,
                         location=location,
-                        timeout=self.TIMEOUTS.get("handasa"),
-                        retries=self.RETRIES.get("handasa", 0),
+                        timeout=self.TIMEOUTS.get("gis"),
+                        retries=self.RETRIES.get("gis", 0),
                         asset_id=asset_id,
                     )
-                    track("collector_success", source="handasa")
-                    logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
+                    track("collector_success", source="gis")
+                    
+                    # Extract block and parcel from successful GIS collection
+                    if gis_data.get('block') and gis_data.get('parcel'):
+                        block = gis_data.get('block', '')
+                        parcel = gis_data.get('parcel', '')
+                        location = LocationQuery(
+                            city=location.city,
+                            street=location.street,
+                            house_number=location.house_number,
+                            block=block,
+                            parcel=parcel,
+                            subparcel=subparcel,
+                        )
+                        logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
                 except Exception as e:
-                    handasa_archive = []
-                    track("collector_fail", source="handasa", error_code=str(e))
-                    logger.warning(f"⚠️ Handasa collection failed: {e}")
+                    gis_data = {}
+                    track("collector_fail", source="gis", error_code=str(e))
+                    logger.warning(f"⚠️ GIS collection failed: {e}")
+
+                # Collect Handasa archive
+                handasa_archive: List[Dict[str, Any]] = []
+                if block:
+                    try:
+                        logger.info("🏗️ Collecting Handasa permits...")
+                        handasa_archive = self._collect_with_observability(
+                            "handasa",
+                            self.handasa.collect,
+                            location=location,
+                            timeout=self.TIMEOUTS.get("handasa"),
+                            retries=self.RETRIES.get("handasa", 0),
+                            asset_id=asset_id,
+                        )
+                        track("collector_success", source="handasa")
+                        logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
+                    except Exception as e:
+                        handasa_archive = []
+                        track("collector_fail", source="handasa", error_code=str(e))
+                        logger.warning(f"⚠️ Handasa collection failed: {e}")
 
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
             if block and parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
+                    # GovCollector will use coordinates from LocationQuery if available
                     gov_data = self._collect_with_observability(
                         "gov",
                         self.gov.collect,

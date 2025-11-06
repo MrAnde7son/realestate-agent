@@ -16,7 +16,7 @@ if "x" in result and "y" in result:
 """
 import logging
 from difflib import SequenceMatcher
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
 from govmap.api_client import GovMapClient
@@ -157,6 +157,15 @@ class GovMapCollector(BaseCollector):
                     except Exception as e:
                         logger.warning(f"Failed to get parcel data: {e}")
 
+                    # Get entities by point (schools, parks, parking, metro, etc.)
+                    try:
+                        entities = self.client.entities_by_point(x, y, radius=500.0)
+                        if entities:
+                            out["nearby"] = self._process_entities_by_layer(entities)
+                            logger.info(f"Found entities from {len(entities)} layers")
+                    except Exception as e:
+                        logger.warning(f"Failed to get entities by point: {e}")
+
                 else:
                     logger.warning("Could not extract coordinates from autocomplete result")
             else:
@@ -165,6 +174,91 @@ class GovMapCollector(BaseCollector):
             logger.error(f"Failed to process query '{search_query}': {e}")
 
         return out
+
+    def _process_entities_by_layer(self, entities: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Process entities_by_point response and organize by layer type.
+        
+        Maps GovMap layer IDs to human-readable layer names:
+        - 17: בתי ספר (schools)
+        - 18: גני ילדים (kindergartens)
+        - 20: תחנות אוטובוס (bus stations)
+        - 151: תחנות קווי מטרו (metro stations)
+        - 160: קווי מטרו (metro lines)
+        - 394: חניונים (parking lots)
+        - 400: מתקני ספורט (sports facilities)
+        - 407: תחנות רכבת (train stations)
+        - 417: מקלטים (shelters)
+        - 388: מסעדות (restaurants)
+        - 150: אתרי רשות הטבע והגנים (nature and parks authority sites)
+        - 215699: פארקים עירוניים (urban parks)
+        - 200723: התחדשות עירונית (urban renewal)
+        """
+        layer_name_map = {
+            "17": "schools",
+            "18": "kindergartens",
+            "20": "bus_stations",
+            "151": "metro_stations",
+            "160": "metro_lines",
+            "394": "parking_lots",
+            "400": "sports_facilities",
+            "407": "train_stations",
+            "417": "shelters",
+            "388": "restaurants",
+            "150": "nature_parks",
+            "215699": "urban_parks",
+            "200723": "urban_renewal",
+            "16": "real_estate_transactions",  # This is already handled separately
+        }
+        
+        organized = {}
+        
+        for layer_data in entities:
+            layer_name = layer_data.get("name", "")
+            caption = layer_data.get("caption", "")
+            entities_list = layer_data.get("entities", [])
+            
+            # Try to match by layer name or caption
+            layer_key = None
+            for layer_id, key in layer_name_map.items():
+                if layer_id in layer_name or layer_id in caption:
+                    layer_key = key
+                    break
+            
+            # If no match, use a sanitized version of the name
+            if not layer_key:
+                layer_key = layer_name.lower().replace(" ", "_").replace("-", "_") if layer_name else "unknown"
+            
+            # Process entities to extract relevant fields
+            processed_entities = []
+            for entity in entities_list:
+                processed_entity = {
+                    "objectId": entity.get("objectId"),
+                    "centroid": entity.get("centroid"),
+                    "fields": self._extract_entity_fields(entity.get("fields", [])),
+                }
+                processed_entities.append(processed_entity)
+            
+            if processed_entities:
+                organized[layer_key] = {
+                    "layer_name": layer_name,
+                    "caption": caption,
+                    "entities": processed_entities,
+                    "count": len(processed_entities),
+                }
+        
+        return organized
+
+    def _extract_entity_fields(self, fields: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract entity fields into a structured dictionary."""
+        extracted = {}
+        for field in fields:
+            field_name = field.get("fieldName", "")
+            field_value = field.get("fieldValue", "")
+            if field_name and field_value:
+                # Use English field names when available, otherwise use Hebrew
+                extracted[field_name] = field_value
+        
+        return extracted
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate that a non-empty location is provided."""

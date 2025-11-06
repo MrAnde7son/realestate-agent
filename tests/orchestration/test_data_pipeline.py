@@ -203,7 +203,7 @@ def test_data_pipeline_integration():
     )
 
     # Run the pipeline - it should return collected data, not save to database
-    location = LocationQuery(street="Fake", house_number=1)
+    location = LocationQuery(street="Fake", house_number=1, city="תל אביב")
     results = pipeline.run(location=location, asset_id=123)
     
     # Verify that the pipeline returned results

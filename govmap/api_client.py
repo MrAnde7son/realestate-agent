@@ -18,6 +18,7 @@ from enum import Enum
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, List
+from datetime import datetime
 
 import requests
 from pyproj import Transformer
@@ -26,6 +27,14 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
+
+# Import Deal model for unified interface
+try:
+    from gov.nadlan.models import Deal
+except ImportError:
+    # Fallback if import fails (for testing or standalone usage)
+    Deal = None
+    logger.warning("Could not import Deal from gov.nadlan.models - will return dicts instead")
 
 # Default endpoints (no env usage)
 DEFAULT_WMS = "https://open.govmap.gov.il/geoserver/opendata/wms"
@@ -488,11 +497,12 @@ class GovMapClient:
         deal_type: DealType = DealType.STREET,
         limit: int = 9,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
-        """Get deals for a specific location and radius with detailed deal information.
+    ) -> List[Deal]:
+        """Get deals for a specific location and radius, returning standardized Deal objects.
         
         This method fetches deals for a location and automatically retrieves detailed
-        deal data for each polygon_id found.
+        deal data for each polygon_id found, then converts them to Deal objects
+        (same format as Nadlan Deal).
         
         Parameters
         ----------
@@ -502,23 +512,23 @@ class GovMapClient:
             ITM Y coordinate
         radius : float
             Radius in meters to search for deals
-        deal_type : str
+        deal_type : DealType
             Type of deals: "street", "neighborhood", or "settlement" (default: "street")
         limit : int
             Maximum number of deals to return per polygon (default: 9)
         offset : int
             Offset for pagination (default: 0)
-        start_date : Optional[str]
+        start_date : str
             Start date in format "YYYY-MM" (e.g., "1998-01")
-        end_date : Optional[str]
+        end_date : str
             End date in format "YYYY-MM" (e.g., "2025-11")
             
         Returns
         -------
-        List[Dict[str, Any]]
-            List of enriched deal entries. Each entry contains:
-            - Original polygon data (dealscount, settlementNameHeb, polygon_id, objectid, etc.)
-            - Detailed deal data (deals array with dealAmount, dealDate, assetArea, etc.)
+        List[Deal]
+            List of Deal objects (same format as Nadlan Deal).
+            Each Deal contains: address, deal_date, deal_amount, rooms, floor,
+            asset_type, area, neighborhood, parcel_block, parcel_parcel, etc.
         """
         try:
             url = self.deals_url.format(x=x, y=y, radius=radius)
@@ -543,10 +553,12 @@ class GovMapClient:
             elif isinstance(response, dict) and "data" in response:
                 deals_list = response["data"]
             
-            # Enrich each deal with detailed data
-            enriched_deals = []
-            for deal in deals_list:
-                polygon_id = deal.get("polygon_id")
+            # Collect all deals and convert to Deal objects
+            deal_objects = []
+            for polygon_data in deals_list:
+                polygon_id = polygon_data.get("polygon_id")
+                settlement_name = polygon_data.get("settlementNameHeb", "")
+                
                 if polygon_id:
                     try:
                         details = self._get_deal_details(
@@ -557,24 +569,193 @@ class GovMapClient:
                             limit=limit,
                             offset=offset,
                         )
-                        # Merge detailed deal data into the deal entry
-                        deal["deals"] = details.get("data", [])
-                        deal["totalCount"] = details.get("totalCount")
-                        deal["limit"] = details.get("limit")
-                        deal["offset"] = details.get("offset")
+                        deals = details.get("data", [])
+                        
+                        # Convert each deal to Deal object
+                        for deal in deals:
+                            deal_obj = self._convert_deal_to_deal_object(deal, settlement_name)
+                            if deal_obj:
+                                deal_objects.append(deal_obj)
                     except Exception as e:
                         logger.warning(f"Failed to get deal details for polygon_id {polygon_id}: {e}")
-                        # Keep the deal entry even if details fetch fails
-                        deal["deals"] = []
-                        deal["totalCount"] = "0"
-                
-                enriched_deals.append(deal)
             
-            return enriched_deals
+            return deal_objects
             
         except Exception as e:
             logger.error(f"Failed to get deals by location for ({x}, {y}) with radius {radius}: {e}")
             raise GovMapError(f"Get deals by location failed: {e}")
+
+    def _convert_deal_to_deal_object(self, deal: Dict[str, Any], settlement_name: str = "") -> Optional[Deal]:
+        """Convert GovMap deal format to Deal object (matching Nadlan Deal format).
+        
+        This method normalizes GovMap deal data to match the format used by Nadlan deals,
+        providing a unified interface for transaction data.
+        
+        Parameters
+        ----------
+        deal : Dict[str, Any]
+            Raw GovMap deal data
+        settlement_name : str
+            Settlement name from polygon data
+            
+        Returns
+        -------
+        Optional[Deal]
+            Deal object matching Nadlan Deal format, or None if conversion fails or Deal class unavailable
+        """
+        if Deal is None:
+            # Fallback to dict if Deal class is not available
+            return self._convert_deal_to_transaction(deal, settlement_name)
+        
+        try:
+            # Extract deal date and convert format
+            deal_date = deal.get("dealDate")
+            if deal_date:
+                # GovMap returns dates in ISO format "YYYY-MM-DDTHH:MM:SS.sssZ" or "YYYY-MM-DD"
+                try:
+                    # Try ISO format first
+                    if "T" in deal_date:
+                        date_obj = datetime.fromisoformat(deal_date.replace("Z", "+00:00"))
+                        deal_date = date_obj.strftime("%d/%m/%Y")
+                    elif len(deal_date) == 10:  # "YYYY-MM-DD"
+                        date_obj = datetime.strptime(deal_date, "%Y-%m-%d")
+                        deal_date = date_obj.strftime("%d/%m/%Y")
+                    elif len(deal_date) == 7:  # "YYYY-MM"
+                        date_obj = datetime.strptime(deal_date, "%Y-%m")
+                        deal_date = date_obj.strftime("01/%m/%Y")  # Use first day of month
+                except (ValueError, TypeError):
+                    pass  # Keep original format if parsing fails
+            
+            # Extract address
+            address = f"{deal.get('streetNameHeb') or ''} {deal.get('houseNum') or ''}, {deal.get('settlementNameHeb') or ''}"
+            if settlement_name and address and settlement_name not in address:
+                address = f"{address}, {settlement_name}" if address else settlement_name
+            
+            # Extract and clean deal amount using Deal's helper method
+            deal_amount = deal.get("dealAmount")
+            if deal_amount:
+                deal_amount = Deal._num(deal_amount)
+            
+            # Extract area using Deal's helper method
+            area = deal.get("assetArea") or deal.get("area")
+            if area:
+                area = Deal._parse_number(area)
+            
+            # Extract rooms (convert to string to match Nadlan format)
+            rooms = deal.get("assetRoomNum") or deal.get("rooms")
+            if rooms is not None:
+                rooms = str(rooms)
+            
+            # Extract floor (convert to string to match Nadlan format)
+            floor = deal.get("floorNo") or deal.get("floor")
+            if floor is not None:
+                floor = str(floor)
+            
+            # Extract parcel information
+            gush_num = deal.get("gushNum")
+            parcel_num = deal.get("parcelNum")
+            sub_parcel_num = deal.get("subParcelNum")
+            
+            # Build Deal object matching Nadlan Deal format
+            deal_obj = Deal(
+                address=address,
+                deal_date=deal_date,
+                deal_amount=deal_amount,
+                rooms=rooms,
+                floor=floor,
+                asset_type=deal.get("propertyTypeDescription") or deal.get("assetType"),
+                year_built=str(deal.get("yearBuilt")) if deal.get("yearBuilt") else None,
+                area=area,
+                neighborhood=deal.get("neighborhood") or settlement_name,
+                # Parcel information (matching Nadlan field names)
+                parcel_block=str(gush_num) if gush_num else None,
+                parcel_parcel=str(parcel_num) if parcel_num else None,
+                parcel_sub_parcel=str(sub_parcel_num) if sub_parcel_num else None,
+                raw=deal,
+            )
+            
+            return deal_obj
+            
+        except Exception as e:
+            logger.warning(f"Failed to convert GovMap deal to Deal object: {e}")
+            return None
+
+    def _convert_deal_to_transaction(self, deal: Dict[str, Any], settlement_name: str = "") -> Optional[Dict[str, Any]]:
+        """Convert GovMap deal format to dict (fallback when Deal class unavailable).
+        
+        This is a fallback method used when the Deal class cannot be imported.
+        It returns a dictionary with the same structure as Deal.to_dict().
+        """
+        try:
+            # Extract deal date and convert format
+            deal_date = deal.get("dealDate")
+            if deal_date:
+                try:
+                    if "T" in deal_date:
+                        date_obj = datetime.fromisoformat(deal_date.replace("Z", "+00:00"))
+                        deal_date = date_obj.strftime("%d/%m/%Y")
+                    elif len(deal_date) == 10:
+                        date_obj = datetime.strptime(deal_date, "%Y-%m-%d")
+                        deal_date = date_obj.strftime("%d/%m/%Y")
+                    elif len(deal_date) == 7:
+                        date_obj = datetime.strptime(deal_date, "%Y-%m")
+                        deal_date = date_obj.strftime("01/%m/%Y")
+                except (ValueError, TypeError):
+                    pass
+            
+            # Extract address
+            address = deal.get("assetAddress") or deal.get("address") or ""
+            if settlement_name and address and settlement_name not in address:
+                address = f"{address}, {settlement_name}" if address else settlement_name
+            
+            # Extract and clean deal amount
+            deal_amount = deal.get("dealAmount")
+            if deal_amount:
+                try:
+                    if isinstance(deal_amount, str):
+                        deal_amount = deal_amount.replace("₪", "").replace(",", "").replace(" ", "").strip()
+                    deal_amount = float(deal_amount) if deal_amount else None
+                except (ValueError, TypeError):
+                    deal_amount = None
+            
+            # Extract area
+            area = deal.get("assetArea") or deal.get("area")
+            if area:
+                try:
+                    if isinstance(area, str):
+                        area = area.replace("מ²", "").replace("מ'", "").replace(",", "").strip()
+                    area = float(area) if area else None
+                except (ValueError, TypeError):
+                    area = None
+            
+            # Extract rooms and floor
+            rooms = str(deal.get("assetRoomNum") or deal.get("rooms")) if deal.get("assetRoomNum") or deal.get("rooms") else None
+            floor = str(deal.get("floorNo") or deal.get("floor")) if deal.get("floorNo") or deal.get("floor") else None
+            
+            # Extract parcel information
+            gush_num = deal.get("gushNum")
+            parcel_num = deal.get("parcelNum")
+            sub_parcel_num = deal.get("subParcelNum")
+            
+            return {
+                "address": address,
+                "deal_date": deal_date,
+                "deal_amount": deal_amount,
+                "rooms": rooms,
+                "floor": floor,
+                "asset_type": deal.get("propertyTypeDescription") or deal.get("assetType"),
+                "year_built": str(deal.get("yearBuilt")) if deal.get("yearBuilt") else None,
+                "area": area,
+                "neighborhood": deal.get("neighborhood") or settlement_name,
+                "parcel_block": str(gush_num) if gush_num else None,
+                "parcel_parcel": str(parcel_num) if parcel_num else None,
+                "parcel_sub_parcel": str(sub_parcel_num) if sub_parcel_num else None,
+                "raw": deal,
+            }
+            
+        except Exception as e:
+            logger.warning(f"Failed to convert GovMap deal to dict: {e}")
+            return None
 
     def _get_deal_details(
         self,
@@ -644,7 +825,7 @@ class GovMapClient:
 
 if __name__ == "__main__":
     api_client = GovMapClient()
-    result = api_client.autocomplete("רוזוב 14 תל אביב")
+    result = api_client.autocomplete("הברוש 33 מבשרת ציון")
     catalog = api_client.get_layers_catalog().get('catalog', [])
     if result.get("results"):
         first = result["results"][0]

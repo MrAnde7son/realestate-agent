@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { MessageCircle, X, Send, Loader2, Trash2 } from "lucide-react"
+import { MessageCircle, X, Send, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
@@ -13,10 +13,13 @@ interface Message {
   role: "user" | "assistant"
   content: string
   timestamp: Date
+  feedback?: "positive" | "negative" | null
+  messageId?: string
 }
 
 export function AgentChat() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -26,9 +29,15 @@ export function AgentChat() {
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { user } = useAuth()
+  
+  // Generate unique ID for each message
+  const generateMessageId = () => {
+    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -85,7 +94,9 @@ export function AgentChat() {
       const assistantMessage: Message = {
         role: "assistant",
         content: data.response || "מצטער, לא הצלחתי לקבל תשובה.",
-        timestamp: new Date()
+        timestamp: new Date(),
+        messageId: generateMessageId(),
+        feedback: null
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -93,7 +104,9 @@ export function AgentChat() {
       const errorMessage: Message = {
         role: "assistant",
         content: `שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        messageId: generateMessageId(),
+        feedback: null
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
@@ -118,6 +131,51 @@ export function AgentChat() {
     ])
   }
 
+  const handleCopyMessage = async (content: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedIndex(index)
+      setTimeout(() => setCopiedIndex(null), 2000)
+    } catch (error) {
+      console.error("Failed to copy message:", error)
+    }
+  }
+
+  const handleFeedback = async (messageIndex: number, feedback: "positive" | "negative") => {
+    const message = messages[messageIndex]
+    if (!message || message.role !== "assistant" || !message.messageId) return
+
+    // Optimistically update UI
+    setMessages((prev) =>
+      prev.map((msg, idx) =>
+        idx === messageIndex ? { ...msg, feedback } : msg
+      )
+    )
+
+    try {
+      await fetch("/api/agent/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message_id: message.messageId,
+          feedback,
+          message_content: message.content,
+          user_message: messageIndex > 0 ? messages[messageIndex - 1]?.content : null
+        })
+      })
+    } catch (error) {
+      console.error("Failed to submit feedback:", error)
+      // Revert on error
+      setMessages((prev) =>
+        prev.map((msg, idx) =>
+          idx === messageIndex ? { ...msg, feedback: null } : msg
+        )
+      )
+    }
+  }
+
   if (!user) {
     return null
   }
@@ -138,11 +196,32 @@ export function AgentChat() {
 
       {/* Chat window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[calc(100vw-3rem)] sm:w-96 h-[600px] flex flex-col shadow-2xl rounded-lg border bg-background overflow-hidden">
+        <div
+          className={cn(
+            "fixed z-50 flex flex-col shadow-2xl rounded-lg border bg-background overflow-hidden transition-all",
+            isFullscreen
+              ? "inset-4 rounded-lg"
+              : "bottom-6 right-6 w-[calc(100vw-3rem)] sm:w-96 h-[600px]"
+          )}
+        >
           <Card className="flex flex-col h-full border-0 shadow-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b">
               <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className="h-8 w-8"
+                  aria-label={isFullscreen ? "צמצם" : "הרחב למסך מלא"}
+                  title={isFullscreen ? "צמצם" : "הרחב למסך מלא"}
+                >
+                  {isFullscreen ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
+                </Button>
                 {messages.length > 1 && (
                   <Button
                     variant="ghost"
@@ -179,13 +258,63 @@ export function AgentChat() {
                     >
                       <div
                         className={cn(
-                          "max-w-[80%] rounded-lg px-4 py-2 text-sm",
+                          "max-w-[80%] rounded-lg px-4 py-2 text-sm relative group",
                           message.role === "user"
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted text-muted-foreground"
                         )}
                       >
                         <p className="whitespace-pre-wrap">{message.content}</p>
+                        {message.role === "assistant" && (
+                          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleCopyMessage(message.content, index)}
+                              className="h-6 w-6"
+                              aria-label="העתק הודעה"
+                              title="העתק הודעה"
+                            >
+                              {copiedIndex === index ? (
+                                <Check className="h-3 w-3 text-green-600" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleFeedback(index, "positive")}
+                              className={cn(
+                                "h-6 w-6",
+                                message.feedback === "positive" && "bg-green-100 dark:bg-green-900"
+                              )}
+                              aria-label="תגובה חיובית"
+                              title="תגובה חיובית"
+                            >
+                              <ThumbsUp className={cn(
+                                "h-3 w-3",
+                                message.feedback === "positive" && "text-green-600 fill-green-600"
+                              )} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleFeedback(index, "negative")}
+                              className={cn(
+                                "h-6 w-6",
+                                message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
+                              )}
+                              aria-label="תגובה שלילית"
+                              title="תגובה שלילית"
+                            >
+                              <ThumbsDown className={cn(
+                                "h-3 w-3",
+                                message.feedback === "negative" && "text-red-600 fill-red-600"
+                              )} />
+                            </Button>
+                          </div>
+                        )}
                         <p className="text-xs opacity-70 mt-1">
                           {message.timestamp.toLocaleTimeString("he-IL", {
                             hour: "2-digit",

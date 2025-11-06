@@ -4898,3 +4898,95 @@ def agent_chat(request):
             {"error": f"Failed to get agent response: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@extend_schema(
+    summary="Agent Feedback",
+    description="Submit feedback for agent responses",
+    tags=["Agent"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'message_id': {'type': 'string', 'description': 'Unique message identifier'},
+                'feedback': {'type': 'string', 'enum': ['positive', 'negative'], 'description': 'Feedback type'},
+                'message_content': {'type': 'string', 'description': 'The assistant message content'},
+                'user_message': {'type': 'string', 'description': 'The user message that prompted this response'}
+            },
+            'required': ['message_id', 'feedback']
+        }
+    },
+    responses={
+        200: {
+            'description': 'Feedback submitted successfully',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'message': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_feedback(request):
+    """Submit feedback for agent responses."""
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        message_id = data.get("message_id")
+        feedback = data.get("feedback")
+        message_content = data.get("message_content", "")
+        user_message = data.get("user_message")
+        
+        if not message_id:
+            return Response(
+                {"error": "message_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if feedback not in ["positive", "negative"]:
+            return Response(
+                {"error": "feedback must be 'positive' or 'negative'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Log feedback for analytics/improvement
+        logger.info(
+            f"Agent feedback: user={request.user.id}, message_id={message_id}, "
+            f"feedback={feedback}, content_length={len(message_content) if message_content else 0}"
+        )
+        
+        # Track feedback in analytics
+        try:
+            track(
+                "agent_feedback",
+                user=request.user,
+                metadata={
+                    "message_id": message_id,
+                    "feedback": feedback,
+                    "message_length": len(message_content) if message_content else 0,
+                    "has_user_message": bool(user_message)
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track agent feedback: {e}")
+        
+        return Response({
+            "success": True,
+            "message": "Feedback submitted successfully"
+        })
+        
+    except json.JSONDecodeError:
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.exception("Error in agent feedback: %s", e)
+        return Response(
+            {"error": f"Failed to submit feedback: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

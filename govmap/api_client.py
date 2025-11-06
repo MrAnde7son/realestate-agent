@@ -825,7 +825,7 @@ class GovMapClient:
 
 if __name__ == "__main__":
     api_client = GovMapClient()
-    result = api_client.autocomplete("רוזוב 14 תל אביב")
+    result = api_client.autocomplete("הברוש 33 מבשרת ציון")
     catalog = api_client.get_layers_catalog().get('catalog', [])
     if result.get("results"):
         first = result["results"][0]

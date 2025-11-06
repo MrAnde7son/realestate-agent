@@ -4415,7 +4415,7 @@ useDedupedEffect(() => {
                   </div>
                   <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold">
-                      {marketAnalysis?.min_price_per_sqm !== null && marketAnalysis?.max_price_per_sqm !== null
+                      {!!marketAnalysis?.min_price_per_sqm && !!marketAnalysis?.max_price_per_sqm
                         ? `${formatCurrency(marketAnalysis?.min_price_per_sqm)} - ${formatCurrency(marketAnalysis?.max_price_per_sqm)}`
                         : '—'}
                     </div>

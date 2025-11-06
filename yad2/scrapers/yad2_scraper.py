@@ -168,17 +168,17 @@ class Yad2Scraper:
 
                 result = payload.get("data", {})
                 for marker in result.get("markers", []):
-                    listing = self._convert_map_marker(marker, marker_type="yad2", listing_type=current_listing_type)
+                    listing = self._convert_map_marker(marker, listing_type=current_listing_type, marker_type="yad2")
                     if listing:
                         listings.append(listing)
 
                 for marker in result.get("yad1Markers", []):
-                    listing = self._convert_map_marker(marker, marker_type="yad1", listing_type=current_listing_type)
+                    listing = self._convert_map_marker(marker, listing_type=current_listing_type, marker_type="yad1")
                     if listing:
                         listings.append(listing)
 
                 for marker in result.get("agencyPromotions", []):
-                    listing = self._convert_map_marker(marker, marker_type="yad2", listing_type=current_listing_type)
+                    listing = self._convert_map_marker(marker, listing_type=current_listing_type, marker_type="yad2")
                     if listing:
                         listings.append(listing)
 
@@ -636,7 +636,7 @@ class Yad2Scraper:
             logger.error("Error fetching latest deals: {}".format(e))
             return []
 
-    def _convert_map_marker(self, marker: Dict[str, Any], marker_type: str = "yad2", listing_type: ListingType = ListingType.RENT) -> Optional[RealEstateListing]:
+    def _convert_map_marker(self, marker: Dict[str, Any], listing_type: ListingType = ListingType.RENT, marker_type: str = "yad2") -> Optional[RealEstateListing]:
         """Convert a map marker response entry into a :class:`RealEstateListing`."""
 
         if not marker:

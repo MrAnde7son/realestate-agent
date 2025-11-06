@@ -1604,14 +1604,7 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         if normalized_listing_type == 'commercial':
             return True
 
-        meta = listing_data.get('meta')
-        if isinstance(meta, dict):
-            raw_meta = meta.get('raw')
-            _, normalized_raw_listing_type = _extract_listing_type(raw_meta)
-            if normalized_raw_listing_type == 'commercial':
-                return True
-
-        return False
+        return listing_data.pop('ad_type', '') == 'commercial'
 
     def _extract_street_and_number(address: str) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -1722,18 +1715,6 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
 
     update_fields = set()
 
-    is_commercial_listing = any(
-        _is_listing_commercial(listing) for listing in normalized_listings if isinstance(listing, dict)
-    )
-
-    if getattr(asset, 'is_commercial', None) is not None:
-        if asset.is_commercial != is_commercial_listing:
-            asset.is_commercial = is_commercial_listing
-            update_fields.add('is_commercial')
-    else:
-        asset.is_commercial = is_commercial_listing
-        update_fields.add('is_commercial')
-
     # Try to find exact address match first
     if asset.normalized_address:
         asset_address = asset.normalized_address.lower()
@@ -1750,6 +1731,12 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
             if _matches_street_and_number(asset_address, listing_address):
                 best_listing = listing
                 break
+    
+    # Update is_commercial based on primary listing only
+    if best_listing:
+        is_commercial_listing = _is_listing_commercial(best_listing)
+        asset.is_commercial = is_commercial_listing
+        update_fields.add('is_commercial')
     
     if not best_listing:
         if update_fields:

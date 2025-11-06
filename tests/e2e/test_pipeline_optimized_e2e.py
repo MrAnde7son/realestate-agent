@@ -290,6 +290,21 @@ class StubMavatCollector:
         return list(self.plans)
 
 
+class StubMadlanCollector:
+    def __init__(self, listings: List[Any] | None = None):
+        self.listings = list(listings or [])
+        self.calls: List[Any] = []
+
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append({
+            "street": getattr(location, "street", None),
+            "house_number": getattr(location, "house_number", None),
+            "city": getattr(location, "city", None),
+        })
+        return list(self.listings)
+
+
 def _build_pipeline(session: FakeSession, listings: List[FakeListing]):
     govmap_payload = {
         "x": 180000,
@@ -323,6 +338,7 @@ def _build_pipeline(session: FakeSession, listings: List[FakeListing]):
         db=None,
         db_session=session,
         yad2=StubYad2Collector(listings),
+        madlan=StubMadlanCollector([]),
         gis=StubGISCollector(gis_payload),
         gov=StubGovCollector(gov_payload),
         govmap=StubGovMapCollector(govmap_payload),

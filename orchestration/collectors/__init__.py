@@ -5,6 +5,7 @@ from .gis_collector import GISCollector
 from .handasa_collector import HandasaCollector
 from .gov_collector import GovCollector
 from .govmap_collector import GovMapCollector
+from .madlan_collector import MadlanCollector
 from .mavat_collector import MavatCollector
 from .rami_collector import RamiCollector
 from .yad2_collector import Yad2Collector
@@ -16,6 +17,7 @@ __all__ = [
     'HandasaCollector',
     'GovCollector',
     'GovMapCollector',
+    'MadlanCollector',
     'MavatCollector',
     'RamiCollector',
 ]

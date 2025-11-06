@@ -1,0 +1,2 @@
+"""Madlan MCP server package."""
+

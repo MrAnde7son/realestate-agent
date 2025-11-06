@@ -6,6 +6,7 @@ This client provides methods to interact with the Madlan GraphQL API,
 including address autocomplete and property listing retrieval.
 """
 
+from enum import Enum
 import logging
 import re
 from typing import Dict, List, Optional, Any
@@ -13,13 +14,17 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from madlan.parser import parse_listing_response
+from madlan.parser import parse_poi_to_listing
 from yad2.core.models import RealEstateListing
 
 logger = logging.getLogger(__name__)
 
 # Default API endpoint
 DEFAULT_API_URL = "https://www.madlan.co.il/api2"
+
+class DealType(Enum):
+    UNIT_BUY = "unitBuy"
+    UNIT_RENT = "unitRent"
 
 # Default completion types for address autocomplete
 DEFAULT_COMPLETION_TYPES = [
@@ -839,7 +844,7 @@ class MadlanAPIClient:
     def fetch_listings(
         self,
         location_doc_id: Optional[str] = None,
-        deal_type: str = "unitBuy",
+        deal_type: DealType = DealType.UNIT_BUY,
         tile_ranges: Optional[List[Dict[str, int]]] = None,
         sort: Optional[List[Dict[str, Any]]] = None,
         price_range: Optional[List[Optional[int]]] = None,
@@ -868,7 +873,7 @@ class MadlanAPIClient:
         is_commercial_real_estate: bool = False,
         search_context: str = "marketplace",
         abtests: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+    ) -> List[RealEstateListing]:
         """
         Fetch real estate listings (POIs - Points of Interest) from Madlan.
 
@@ -934,7 +939,7 @@ class MadlanAPIClient:
         """
         # Build variables dictionary
         variables: Dict[str, Any] = {
-            "dealType": deal_type,
+            "dealType": deal_type.value,
             "noFee": no_fee,
             "priceDrop": price_drop,
             "underPriceEstimation": under_price_estimation,
@@ -1073,7 +1078,12 @@ class MadlanAPIClient:
                 f"(totalNearby: {search_result.get('totalNearby', 0)})"
             )
 
-            return search_result
+            listings = []
+            for poi_item in search_result.get("poi", []):
+                listing = parse_poi_to_listing(poi_item)
+                if listing:
+                    listings.append(listing)
+            return listings
 
         except MadlanAPIError:
             raise
@@ -1081,110 +1091,9 @@ class MadlanAPIClient:
             logger.error(f"Failed to fetch listings: {e}")
             raise MadlanAPIError(f"Failed to fetch listings: {e}")
 
-    def fetch_listings_parsed(
-        self,
-        location_doc_id: Optional[str] = None,
-        deal_type: str = "unitBuy",
-        tile_ranges: Optional[List[Dict[str, int]]] = None,
-        sort: Optional[List[Dict[str, Any]]] = None,
-        price_range: Optional[List[Optional[int]]] = None,
-        rooms_range: Optional[List[Optional[float]]] = None,
-        area_range: Optional[List[Optional[int]]] = None,
-        floor_range: Optional[List[Optional[int]]] = None,
-        baths_range: Optional[List[Optional[float]]] = None,
-        building_class: Optional[List[str]] = None,
-        general_condition: Optional[List[str]] = None,
-        seller_type: Optional[List[str]] = None,
-        amenities: Optional[Dict[str, Any]] = None,
-        commercial_amenities: Optional[Dict[str, Any]] = None,
-        quality_class: Optional[List[str]] = None,
-        ppm_range: Optional[List[Optional[int]]] = None,
-        monthly_tax_range: Optional[List[Optional[int]]] = None,
-        number_of_employees_range: Optional[List[Optional[float]]] = None,
-        poi_types: Optional[List[str]] = None,
-        limit: int = 50,
-        offset: int = 0,
-        cursor: Optional[Dict[str, Any]] = None,
-        no_fee: bool = False,
-        price_drop: bool = False,
-        under_price_estimation: bool = False,
-        discounted_projects: bool = False,
-        only_immediate: bool = False,
-        is_commercial_real_estate: bool = False,
-        search_context: str = "marketplace",
-        abtests: Optional[Dict[str, str]] = None,
-    ) -> List[RealEstateListing]:
-        """
-        Fetch real estate listings and parse them to RealEstateListing objects.
-
-        This is a convenience method that calls fetch_listings and automatically
-        parses the response to RealEstateListing objects.
-
-        Args:
-            All arguments are the same as fetch_listings().
-
-        Returns:
-            List of RealEstateListing objects
-
-        Raises:
-            MadlanAPIError: If the request fails
-
-        Example:
-            >>> client = MadlanAPIClient()
-            >>> listings = client.fetch_listings_parsed(
-            ...     location_doc_id="רוזוב-14-תל-אביב-יפו-ישראל",
-            ...     deal_type="unitBuy",
-            ...     price_range=[1000000, 5000000],
-            ...     limit=20
-            ... )
-            >>> for listing in listings:
-            ...     print(f"{listing.address} - {listing.price} NIS")
-        """
-        response = self.fetch_listings(
-            location_doc_id=location_doc_id,
-            deal_type=deal_type,
-            tile_ranges=tile_ranges,
-            sort=sort,
-            price_range=price_range,
-            rooms_range=rooms_range,
-            area_range=area_range,
-            floor_range=floor_range,
-            baths_range=baths_range,
-            building_class=building_class,
-            general_condition=general_condition,
-            seller_type=seller_type,
-            amenities=amenities,
-            commercial_amenities=commercial_amenities,
-            quality_class=quality_class,
-            ppm_range=ppm_range,
-            monthly_tax_range=monthly_tax_range,
-            number_of_employees_range=number_of_employees_range,
-            poi_types=poi_types,
-            limit=limit,
-            offset=offset,
-            cursor=cursor,
-            no_fee=no_fee,
-            price_drop=price_drop,
-            under_price_estimation=under_price_estimation,
-            discounted_projects=discounted_projects,
-            only_immediate=only_immediate,
-            is_commercial_real_estate=is_commercial_real_estate,
-            search_context=search_context,
-            abtests=abtests,
-        )
-
-        # Build full response structure for parser
-        full_response = {
-            "searchPoiV2": response,
-        }
-
-        return parse_listing_response(full_response)
-
-
 if __name__ == "__main__":
     client = MadlanAPIClient()
-    addresses = client.get_addresses("רוזוב 14 תל")
-    print(addresses)
+    addresses = client.get_addresses("רמת החייל")
     if addresses:
         first_address = addresses[0]
         doc_id = first_address.get("docId")
@@ -1192,10 +1101,8 @@ if __name__ == "__main__":
             try:
                 listings = client.fetch_listings(
                     location_doc_id=doc_id,
-                    deal_type="unitBuy",
                     limit=10,
                 )
                 print(listings)
             except MadlanAPIError as e:
-                print(f"Error: {e}")
-                print("Tip: You may need to manually set the token using client.set_user_token()")
+              pass

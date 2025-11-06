@@ -6,46 +6,11 @@ Parses Madlan API responses and converts them to RealEstateListing objects.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+from typing import Dict, Optional, Any
 
 from yad2.core.models import RealEstateListing
 
 logger = logging.getLogger(__name__)
-
-
-def parse_listing_response(response: Dict[str, Any]) -> List[RealEstateListing]:
-    """
-    Parse a Madlan searchPoiV2 response and convert to RealEstateListing objects.
-
-    Args:
-        response: The full API response dictionary containing searchPoiV2
-
-    Returns:
-        List of RealEstateListing objects
-    """
-    if not isinstance(response, dict):
-        logger.warning(f"Invalid response type: {type(response)}")
-        return []
-
-    search_result = response.get("searchPoiV2", {})
-    poi_list = search_result.get("poi", [])
-
-    if not isinstance(poi_list, list):
-        logger.warning(f"Invalid poi list type: {type(poi_list)}")
-        return []
-
-    listings = []
-    for poi_item in poi_list:
-        try:
-            listing = parse_poi_to_listing(poi_item)
-            if listing:
-                listings.append(listing)
-        except Exception as e:
-            logger.error(f"Failed to parse POI item: {e}")
-            continue
-
-    return listings
 
 
 def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing]:
@@ -130,11 +95,11 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         # Extract listing type from dealType
         deal_type = poi.get("dealType", "")
         if deal_type == "unitBuy":
-            listing.listing_type = "buy"
+            listing.listing_type = "sale"
         elif deal_type == "unitRent":
             listing.listing_type = "rent"
         else:
-            listing.listing_type = deal_type or "buy"
+            listing.listing_type = deal_type
 
         # Extract date posted
         last_updated = poi.get("lastUpdated")
@@ -153,11 +118,7 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
             listing.date_posted = first_time_seen
 
         # Extract URL
-        url = poi.get("url")
-        if url:
-            if not url.startswith("http"):
-                url = f"https://www.madlan.co.il{url}"
-            listing.url = url
+        listing.url = f"https://www.madlan.co.il/listings/{listing.listing_id}"
 
         # Extract images
         images = poi.get("images", [])
@@ -167,12 +128,10 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
                 if isinstance(img, dict):
                     image_url = img.get("imageUrl") or img.get("path")
                     if image_url:
-                        if not image_url.startswith("http"):
-                            image_url = f"https://www.madlan.co.il{image_url}"
+                        image_url = f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{image_url}"
                         image_urls.append(image_url)
                 elif isinstance(img, str):
-                    if not img.startswith("http"):
-                        img = f"https://www.madlan.co.il{img}"
+                    img = f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{img}"
                     image_urls.append(img)
             listing.images = image_urls
 
@@ -181,9 +140,26 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
         if virtual_tours:
             listing.meta["virtual_tours"] = virtual_tours
 
-        # Extract contact information
+        # Extract contact information and determine seller type
         poc = poi.get("poc", {})
-        if poc and poc.get("type") == "agent":
+        poc_type = poc.get("type") if poc else None
+        
+        # Determine ad_type based on madlan's structure (different from yad2)
+        # Commercial listings are identified by poi_type or isCommercial field
+        ad_type_raw = None
+        if poi_type == "commercialbulletin":
+            ad_type_raw = "commercial"
+        elif poi.get("isCommercial", False):
+            ad_type_raw = "commercial"
+        elif poc_type:
+            # For non-commercial listings, use poc.type (agent or private)
+            ad_type_raw = poc_type
+        
+        ad_type = ad_type_raw.lower() if isinstance(ad_type_raw, str) else None
+        
+        seller_type: Optional[str] = None
+        if poc_type == "agent":
+            seller_type = "broker"
             contact_info = {
                 "type": "agent",
                 "officeId": poc.get("officeId"),
@@ -195,12 +171,33 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
                     if not image_url.startswith("http"):
                         image_url = f"https://www.madlan.co.il{image_url}"
                     contact_info["imageUrl"] = image_url
+                    # Store agency info in features (similar to yad2)
+                    listing.features["agency"] = {
+                        "imageUrl": image_url,
+                    }
 
             exclusivity = poc.get("exclusivity", {})
             if exclusivity:
                 contact_info["exclusive"] = exclusivity.get("exclusive")
 
             listing.contact_info = contact_info
+        elif ad_type in {"private"}:
+            seller_type = "private"
+        elif ad_type in {"agent", "broker"}:
+            seller_type = "broker"
+        else:
+            seller_type = ad_type
+        
+        if seller_type:
+            listing.features["seller_type"] = seller_type
+            listing.meta["seller_type"] = seller_type
+        
+        # Set ad_type (matching yad2_scraper behavior - use raw value)
+        if ad_type_raw:
+            listing.ad_type = ad_type_raw
+            listing.meta["ad_type"] = ad_type_raw
+        
+
 
         # Extract tags and insights
         tags = poi.get("tags", {})

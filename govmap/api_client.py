@@ -825,14 +825,13 @@ class GovMapClient:
 
 if __name__ == "__main__":
     api_client = GovMapClient()
-    result = api_client.autocomplete("הברוש 33 מבשרת ציון")
-    catalog = api_client.get_layers_catalog().get('catalog', [])
+    result = api_client.autocomplete("הירקון 319 תל אביב")
     if result.get("results"):
         first = result["results"][0]
         coords = api_client.extract_coordinates_from_shapes(first)
         if coords:
             x, y = coords
-            # entities = api_client.entities_by_point(x, y, radius=1000.0)
+            # entities = api_client.entities_by_point(x, y, radius=1000.0, layer_ids=[214047])
             # print(entities)
             deals = api_client.get_deals_by_location(x, y)
             print(deals)

@@ -14,7 +14,7 @@ from db.models import Listing as DBListing, SourceRecord, Transaction
 from yad2.scrapers.yad2_scraper import RealEstateListing
 
 # collector imports
-from orchestration.collectors import Yad2Collector, GISCollector, GovCollector, GovMapCollector, RamiCollector, MavatCollector, HandasaCollector
+from orchestration.collectors import Yad2Collector, MadlanCollector, GISCollector, GovCollector, GovMapCollector, RamiCollector, MavatCollector, HandasaCollector
 from orchestration.location import LocationQuery, ensure_location_query
 from orchestration.pipeline import auto_expand_related_assets, create_asset_snapshot, update_asset_with_collected_data
 from orchestration.pipeline.listings import _build_listing_snapshot, _normalize_listings
@@ -109,6 +109,7 @@ class DataPipeline:
     # be overridden via environment variables if needed.
     TIMEOUTS = {
         "yad2": float(os.getenv("YAD2_TIMEOUT", "120")),
+        "madlan": float(os.getenv("MADLAN_TIMEOUT", "120")),
         "gis": float(os.getenv("GIS_TIMEOUT", "120")),
         "gov": float(os.getenv("GOV_TIMEOUT", "120")),
         "govmap": float(os.getenv("GOVMAP_TIMEOUT", "120")),
@@ -118,6 +119,7 @@ class DataPipeline:
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
+        "madlan": int(os.getenv("MADLAN_RETRIES", "0")),
         "gis": int(os.getenv("GIS_RETRIES", "0")),
         "gov": int(os.getenv("GOV_RETRIES", "0")),
         "govmap": int(os.getenv("GOVMAP_RETRIES", "0")),
@@ -131,6 +133,7 @@ class DataPipeline:
         db: Optional[SQLAlchemyDatabase] = None,
         db_session: Optional["Session"] = None,
         yad2: Optional[Yad2Collector] = None,
+        madlan: Optional[MadlanCollector] = None,
         gis: Optional[GISCollector] = None,
         gov: Optional[GovCollector] = None,
         govmap: Optional[GovMapCollector] = None,
@@ -159,6 +162,7 @@ class DataPipeline:
             self.db = SQLAlchemyDatabase()
 
         self.yad2 = yad2 or Yad2Collector()
+        self.madlan = madlan or MadlanCollector()
         self.gis = gis or GISCollector()
         self.gov = gov or GovCollector()
         self.govmap = govmap or GovMapCollector()
@@ -695,10 +699,32 @@ class DataPipeline:
                 logger.error(f"❌ Yad2 collection failed: {e}")
                 listings = []
             
+            # Search Madlan for listings
+            madlan_listings = []
+            try:
+                logger.info("🏠 Searching Madlan for listings...")            
+                madlan_listings = self._collect_with_observability(
+                    "madlan",
+                    self.madlan.collect,
+                    location,
+                    timeout=self.TIMEOUTS.get("madlan"),
+                    retries=self.RETRIES.get("madlan", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="madlan")
+                logger.info(f"📊 Found {len(madlan_listings)} Madlan listings")
+            except Exception as e:
+                track("collector_fail", source="madlan", error_code=str(e))
+                logger.error(f"❌ Madlan collection failed: {e}")
+                madlan_listings = []
+            
+            # Combine listings from both sources
+            all_listings = listings + madlan_listings
+            
             try:
                 # Process listings if any exist
-                for i, listing in enumerate(listings, 1):
-                    logger.info(f"🏠 Processing listing {i}/{len(listings)}: {listing.title}")
+                for i, listing in enumerate(all_listings, 1):
+                    logger.info(f"🏠 Processing listing {i}/{len(all_listings)}: {listing.title}")
                     # Store listing in DB and add to return list
                     db_listing = self._store_listing(session, listing)
                     results.append(listing)
@@ -758,8 +784,8 @@ class DataPipeline:
                             pending_notifications.append((notifier, listing_snapshot))
                 
                 # If no listings, still add collected data to results
-                if not listings:
-                    logger.info("📊 No Yad2 listings found, but adding collected data to results")
+                if not all_listings:
+                    logger.info("📊 No listings found, but adding collected data to results")
                     
                     # Add GovMap autocomplete data to results
                     if govmap_data.get("api_data", {}).get("autocomplete"):
@@ -795,7 +821,7 @@ class DataPipeline:
 
                 _dispatch_notifications(pending_notifications)
 
-                listing_payloads = _normalize_listings(listings)
+                listing_payloads = _normalize_listings(all_listings)
 
                 # Update Asset model with collected data
                 if asset_id:
@@ -815,6 +841,7 @@ class DataPipeline:
                         y_itm,
                         lon_wgs84,
                         lat_wgs84,
+                        subparcel=str(subparcel) if subparcel else None,
                     )
 
                     # Create snapshot for alert evaluation
@@ -859,6 +886,6 @@ class DataPipeline:
                 execution_time = time.perf_counter() - start_time
                 logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
                 logger.info(
-                    f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
+                    f"📊 Processed {len(all_listings)} listings ({len(listings)} Yad2, {len(madlan_listings)} Madlan) with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
 
             return results

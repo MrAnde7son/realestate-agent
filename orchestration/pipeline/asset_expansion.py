@@ -102,7 +102,7 @@ def auto_expand_related_assets(
         return []
 
     datasets: List[Tuple[str, Any]] = [
-        ("yad2_listing", listings or []),
+        ("listings", listings or []),  # Includes both Yad2 and Madlan listings
         ("govmap", govmap_data or {}),
         ("gis", gis_data or {}),
         ("gov_decisive", (gov_data or {}).get("decisive", [])),
@@ -663,6 +663,7 @@ def _link_existing_data_to_asset(
         y_itm=y_itm,
         lon_wgs84=lon_wgs84,
         lat_wgs84=lat_wgs84,
+        subparcel=subparcel if subparcel else None,
     )
 
     asset.__class__.objects.filter(id=asset.id).update(

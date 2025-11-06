@@ -74,7 +74,7 @@ def _extract_listing_type(listing_data: Any) -> Tuple[Optional[str], Optional[st
     return None, None
 
 
-def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
+def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None) -> None:
     """Update the Asset with collected enrichment data.
 
     Improvements:
@@ -119,6 +119,8 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             asset.block = block
         if parcel:
             asset.parcel = parcel
+        if subparcel:
+            asset.subparcel = subparcel
         
         # Helper function to check if coordinates are valid (within Israel bounds)
         def is_valid_israel_coords(lat, lon):
@@ -330,20 +332,21 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             asset.meta['mavat_plans'] = mavat_plans
             _process_mavat_plans(asset, mavat_plans)
 
-    # Yad2 listings -------------------------------------------------------------------
+    # Yad2 and Madlan listings ---------------------------------------------------------
     normalized_listings = []
     with asset_update_phase("normalize_listings", asset_id):
         normalized_listings = _normalize_listings(listings or [])
         if listings and not normalized_listings:
-            logger.debug("All listings dropped while normalizing Yad2 data for asset %s", asset_id)
+            logger.debug("All listings dropped while normalizing listing data for asset %s", asset_id)
         if normalized_listings:
-            asset.meta['yad2_listings'] = normalized_listings
+            # Store all listings (both Yad2 and Madlan) in meta
+            asset.meta['yad2_listings'] = normalized_listings  # Keep key for backward compatibility
             
-            # Populate asset fields from Yad2 listings
+            # Populate asset fields from listings (Yad2 preferred, Madlan as fallback)
             _populate_asset_fields_from_listings(asset, normalized_listings)
             
-            prices = [l.get('price') for l in normalized_listings if l.get('price')]
-            areas = [l.get('area') for l in normalized_listings if l.get('area')]
+            prices = [listing.get('price') for listing in normalized_listings if listing.get('price')]
+            areas = [listing.get('area') for listing in normalized_listings if listing.get('area')]
             market_data = asset.meta.setdefault('market_data', {})
             if prices:
                 market_data.update({
@@ -408,7 +411,7 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             logger.info(f"Asset {asset_id}: Skipping planning and legal analysis (not Tel Aviv)")
             _calculate_planning_legal_analysis(asset, {}, gov_data)
 
-    logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
+    logger.info("Updated asset %s with block=%s, parcel=%s, subparcel=%s", asset_id, block, parcel, subparcel)
 
 
 def create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
@@ -447,11 +450,14 @@ def create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
         # Add data from results
         for result in results:
             if isinstance(result, dict):
-                if result.get('source') == 'yad2':
-                    # Extract Yad2 data
-                    yad2_data = result.get('data', {})
-                    if hasattr(yad2_data, 'listing_id'):
-                        payload['listing_id'] = yad2_data.listing_id
+                source = result.get('source')
+                if source in ('yad2', 'madlan'):
+                    # Extract listing data from Yad2 or Madlan
+                    listing_data = result.get('data', {})
+                    if hasattr(listing_data, 'listing_id'):
+                        payload['listing_id'] = listing_data.listing_id
+                    elif isinstance(listing_data, dict) and listing_data.get('listing_id'):
+                        payload['listing_id'] = listing_data.get('listing_id')
                 elif result.get('source') == 'transactions':
                     # Extract transaction data
                     payload['gov_transactions'] = result.get('data', [])
@@ -1273,6 +1279,27 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
     from core.models import RealEstateTransaction, SourceRecord
     from django.db import IntegrityError
 
+    def _detect_listing_source(listing_data: Dict[str, Any]) -> str:
+        """Detect listing source (yad2 or madlan) from listing data."""
+        if not isinstance(listing_data, dict):
+            return 'yad2'  # default
+        
+        url = listing_data.get('url', '')
+        if isinstance(url, str):
+            if 'madlan.co.il' in url.lower():
+                return 'madlan'
+            elif 'yad2.co.il' in url.lower():
+                return 'yad2'
+        
+        # Check meta for source
+        meta = listing_data.get('meta', {})
+        if isinstance(meta, dict):
+            source = meta.get('source')
+            if source in ('yad2', 'madlan'):
+                return source
+        
+        return 'yad2'  # default fallback
+
     def _safe_source_record_create(source: str, external_id: str, defaults: dict):
         """Create a SourceRecord guarding against UNIQUE(source, external_id) conflicts.
 
@@ -1311,7 +1338,7 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
 
     normalized_listings = _normalize_listings(listings or [])
 
-    # Create SourceRecord for Yad2 listings
+    # Create SourceRecord for Yad2 and Madlan listings
     if listings and not normalized_listings:
         logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
 
@@ -1319,8 +1346,11 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
         for listing in normalized_listings:
             listing_id = listing.get('listing_id')
             if listing_id:
+                # Detect source from listing data
+                listing_source = _detect_listing_source(listing)
+                
                 _safe_source_record_create(
-                    source='yad2',
+                    source=listing_source,
                     external_id=str(listing_id),
                     defaults={
                         'title': listing.get('title', ''),
@@ -1361,7 +1391,7 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                     }
                     try:
                         listing_obj, created_listing = DjangoListing.objects.get_or_create(
-                            source='yad2',
+                            source=listing_source,
                             external_id=str(listing_id),
                             defaults=listing_defaults,
                         )
@@ -1544,14 +1574,65 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                 _ensure_transaction_link(transaction_obj, asset)
 
 def _populate_asset_fields_from_listings(asset, normalized_listings):
-    """Populate asset fields from Yad2 listings data.
+    """Populate asset fields from Yad2 and Madlan listings data.
     
     This function extracts the most relevant listing data to populate
     the asset's own fields (price, area, price_per_sqm, etc.) rather than
     just storing market analysis data.
+    
+    Priority: Yad2 listings are preferred, with Madlan as fallback.
     """
     if not normalized_listings:
         return
+    
+    def _is_yad2_listing(listing_data):
+        """Check if a listing is from Yad2 based on URL or meta."""
+        if not isinstance(listing_data, dict):
+            return False
+        
+        url = listing_data.get('url', '')
+        if isinstance(url, str) and 'yad2.co.il' in url.lower():
+            return True
+        
+        # Check meta for source
+        meta = listing_data.get('meta', {})
+        if isinstance(meta, dict):
+            source = meta.get('source')
+            if source == 'yad2':
+                return True
+        
+        return False
+    
+    def _is_madlan_listing(listing_data):
+        """Check if a listing is from Madlan based on URL or meta."""
+        if not isinstance(listing_data, dict):
+            return False
+        
+        url = listing_data.get('url', '')
+        if isinstance(url, str) and 'madlan.co.il' in url.lower():
+            return True
+        
+        # Check meta for source
+        meta = listing_data.get('meta', {})
+        if isinstance(meta, dict):
+            source = meta.get('source')
+            if source == 'madlan':
+                return True
+        
+        return False
+    
+    # Separate listings by source
+    yad2_listings = [listing for listing in normalized_listings if _is_yad2_listing(listing)]
+    madlan_listings = [listing for listing in normalized_listings if _is_madlan_listing(listing)]
+    
+    # Log separation for debugging
+    if yad2_listings or madlan_listings:
+        logger.debug(
+            '[ASSET_FIELDS] Separated listings: %d Yad2, %d Madlan for asset %s',
+            len(yad2_listings),
+            len(madlan_listings),
+            asset.id
+        )
     
     def _extract_listing_neighborhood(listing_data):
         """Extract neighborhood text from a normalized listing dictionary."""
@@ -1604,7 +1685,7 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         if normalized_listing_type == 'commercial':
             return True
 
-        return listing_data.pop('ad_type', '') == 'commercial'
+        return listing_data.get('ad_type', '') == 'commercial'
 
     def _extract_street_and_number(address: str) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -1710,27 +1791,65 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         return True
 
     # Find the best listing to use as the primary source
-    # Priority: exact address match > exact street+number match
+    # Priority: Yad2 listings first, then Madlan as fallback
+    # Within each source: exact address match > exact street+number match
     best_listing = None
+    listing_source = None
 
     update_fields = set()
 
-    # Try to find exact address match first
-    if asset.normalized_address:
+    def _find_best_listing(listings_to_search, source_name):
+        """Find the best matching listing from a list of listings."""
+        if not asset.normalized_address or not listings_to_search:
+            return None
+        
         asset_address = asset.normalized_address.lower()
         
-        for listing in normalized_listings:
+        for listing in listings_to_search:
             listing_address = listing.get('address', '').lower()
             
             # Check for exact match with full address
             if asset_address == listing_address:
-                best_listing = listing
-                break
+                logger.debug(
+                    '[ASSET_FIELDS] Found exact address match in %s listings for asset %s',
+                    source_name,
+                    asset.id
+                )
+                return listing
             
             # Check for exact street + number match (e.g., "ארלוזורוב 59")
             if _matches_street_and_number(asset_address, listing_address):
-                best_listing = listing
-                break
+                logger.debug(
+                    '[ASSET_FIELDS] Found street+number match in %s listings for asset %s',
+                    source_name,
+                    asset.id
+                )
+                return listing
+        
+        return None
+    
+    # Try Yad2 listings first
+    best_listing = _find_best_listing(yad2_listings, 'Yad2')
+    if best_listing:
+        listing_source = 'yad2'
+    else:
+        # Fallback to Madlan listings
+        best_listing = _find_best_listing(madlan_listings, 'Madlan')
+        if best_listing:
+            listing_source = 'madlan'
+            logger.info(
+                '[ASSET_FIELDS] Using Madlan listing as fallback for asset %s (no Yad2 match found)',
+                asset.id
+            )
+        else:
+            # Final fallback: check all normalized listings if no source-specific match
+            best_listing = _find_best_listing(normalized_listings, 'all')
+            if best_listing:
+                listing_source = 'unknown'
+                logger.info(
+                    '[ASSET_FIELDS] Using unclassified listing for asset %s (no Yad2/Madlan match found)',
+                    asset.id
+                )
     
     # Update is_commercial based on primary listing only
     if best_listing:
@@ -1789,7 +1908,9 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     )
     if listing_net_area and not asset.area:
         # Track source and URL for area data (also sets the asset.area field)
-        asset.set_property('area', listing_net_area, source='Yad2', url=best_listing.get('url', 'https://www.yad2.co.il/'))
+        source_name = 'Yad2' if listing_source == 'yad2' else 'Madlan'
+        default_url = 'https://www.yad2.co.il/' if listing_source == 'yad2' else 'https://www.madlan.co.il/'
+        asset.set_property('area', listing_net_area, source=source_name, url=best_listing.get('url', default_url))
         update_fields.add('area')
         update_fields.add('meta')
         logger.debug('[ASSET_FIELDS] Set area from listing size: %s', asset.area)
@@ -1801,7 +1922,9 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     )
     if listing_total_area and not asset.total_area:
         # Track source and URL for total_area data (also sets the asset.total_area field)
-        asset.set_property('total_area', listing_total_area, source='Yad2', url=best_listing.get('url', 'https://www.yad2.co.il/'))
+        source_name = 'Yad2' if listing_source == 'yad2' else 'Madlan'
+        default_url = 'https://www.yad2.co.il/' if listing_source == 'yad2' else 'https://www.madlan.co.il/'
+        asset.set_property('total_area', listing_total_area, source=source_name, url=best_listing.get('url', default_url))
         update_fields.add('total_area')
         update_fields.add('meta')
         logger.debug('[ASSET_FIELDS] Set total_area from listing total_size: %s', asset.total_area)
@@ -1901,8 +2024,11 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     populated_fields = set(update_fields)
     populated_fields.add('meta')
 
+    # Use the determined source (yad2 or madlan), default to yad2 for backward compatibility
+    final_source = listing_source or 'yad2'
+    
     primary_listing_source = {
-        'source': 'yad2',
+        'source': final_source,
         'listing_id': best_listing.get('listing_id'),
         'address': best_listing.get('address'),
         'url': best_listing.get('url'),
@@ -1946,7 +2072,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
         # --- Calculate Price Per Square Meter (PPM) from both sources ---
         ppm_data = []
         
-        # From Yad2 listings
+        # From Yad2 and Madlan listings
         if listing_dicts:
             for listing in listing_dicts:
                 price = listing.get('price')
@@ -1956,11 +2082,28 @@ def _calculate_market_metrics(asset, listings, gov_data):
                     if normalized_listing_type == 'rent':
                         continue
                     ppm = price / area
+                    
+                    # Determine source from URL or meta
+                    url = listing.get('url', '')
+                    source = 'yad2'  # default
+                    if isinstance(url, str):
+                        if 'madlan.co.il' in url.lower():
+                            source = 'madlan'
+                        elif 'yad2.co.il' in url.lower():
+                            source = 'yad2'
+                    
+                    # Check meta for source
+                    meta = listing.get('meta', {})
+                    if isinstance(meta, dict):
+                        meta_source = meta.get('source')
+                        if meta_source in ('yad2', 'madlan'):
+                            source = meta_source
+                    
                     ppm_data.append({
                         'ppm': ppm,
                         'price': price,
                         'area': area,
-                        'source': 'yad2',
+                        'source': source,
                         'address': listing.get('address', ''),
                         'rooms': listing.get('rooms'),
                         'floor': listing.get('floor')
@@ -2018,7 +2161,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
             # Enhanced confidence calculation
             # Weight transactions higher than listings (transactions are actual sales)
             transaction_count = len([d for d in ppm_data if d['source'] == 'nadlan'])
-            listing_count = len([d for d in ppm_data if d['source'] == 'yad2'])
+            yad2_listing_count = len([d for d in ppm_data if d['source'] == 'yad2'])
+            madlan_listing_count = len([d for d in ppm_data if d['source'] == 'madlan'])
+            listing_count = yad2_listing_count + madlan_listing_count
             
             # Base confidence: 15% per transaction, 10% per listing, max 100%
             confidence = min(100, (transaction_count * 15) + (listing_count * 10))
@@ -2027,6 +2172,8 @@ def _calculate_market_metrics(asset, listings, gov_data):
             # Store source breakdown
             metrics['ppmSources'] = {
                 'transactions': transaction_count,
+                'yad2_listings': yad2_listing_count,
+                'madlan_listings': madlan_listing_count,
                 'listings': listing_count,
                 'total': len(ppm_data)
             }

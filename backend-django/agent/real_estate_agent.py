@@ -18,7 +18,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # LangChain imports
-from langchain_core.tools import BaseTool, tool
+from langchain_core.tools import BaseTool, StructuredTool
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -167,8 +167,7 @@ class RealEstateAgent:
         
         # Wrap MCP functions as LangChain tools
         # Assets tools
-        @tool
-        async def list_assets_tool(
+        async def list_assets_tool_func(
             city: Optional[str] = None,
             max_price: Optional[int] = None,
             min_price: Optional[int] = None,
@@ -182,29 +181,39 @@ class RealEstateAgent:
                     data = result.get("data", {})
                     if isinstance(data, dict) and "results" in data:
                         assets = data["results"]
-                        return f"Found {len(assets)} assets:\n" + "\n".join([
-                            f"- Asset {a.get('id')}: {a.get('address', 'N/A')} - {a.get('price', 'N/A')} NIS"
+                        return f"נמצאו {len(assets)} נכסים:\n" + "\n".join([
+                            f"- נכס {a.get('id')}: {a.get('address', 'לא זמין')} - {a.get('price', 'לא זמין')} ש\"ח"
                             for a in assets[:10]
                         ])
                     return str(data)
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def get_asset_tool(asset_id: int, include_documents: bool = False) -> str:
+        list_assets_tool = StructuredTool.from_function(
+            func=list_assets_tool_func,
+            name="list_assets_tool",
+            description="חיפוש נכסים עם אפשרויות סינון. השתמש בכלי זה כדי לחפש נכסים. מקבל עברית ואנגלית."
+        )
+        
+        async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
             """Get detailed information for a specific asset by ID."""
             try:
                 result = await get_asset(ctx, asset_id, include_documents)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
-                    return f"Asset {asset_id}:\n" + str(data)
+                    return f"נכס {asset_id}:\n" + str(data)
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def create_asset_tool(
+        get_asset_tool = StructuredTool.from_function(
+            func=get_asset_tool_func,
+            name="get_asset_tool",
+            description="קבלת פרטים מפורטים על נכס ספציפי לפי מזהה. מקבל עברית ואנגלית."
+        )
+        
+        async def create_asset_tool_func(
             address: Optional[str] = None,
             city: Optional[str] = None,
             street: Optional[str] = None,
@@ -215,36 +224,51 @@ class RealEstateAgent:
                 result = await create_asset(ctx, None, address, city, street, number)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
-                    return f"Asset created successfully: {data}"
+                    return f"נכס נוצר בהצלחה: {data}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def get_asset_transactions_tool(asset_id: int) -> str:
+        create_asset_tool = StructuredTool.from_function(
+            func=create_asset_tool_func,
+            name="create_asset_tool",
+            description="יצירת נכס חדש. יש לספק פרטי כתובת. מקבל עברית ואנגלית."
+        )
+        
+        async def get_asset_transactions_tool_func(asset_id: int) -> str:
             """Get transaction history for an asset."""
             try:
                 result = await get_asset_transactions(ctx, asset_id)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Transactions for asset {asset_id}: {result.get('data', {})}"
+                    return f"עסקאות עבור נכס {asset_id}: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def get_asset_appraisal_tool(asset_id: int) -> str:
+        get_asset_transactions_tool = StructuredTool.from_function(
+            func=get_asset_transactions_tool_func,
+            name="get_asset_transactions_tool",
+            description="קבלת היסטוריית עסקאות של נכס."
+        )
+        
+        async def get_asset_appraisal_tool_func(asset_id: int) -> str:
             """Get appraisal analysis for an asset including comparable sales."""
             try:
                 result = await get_asset_appraisal(ctx, asset_id)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Appraisal for asset {asset_id}: {result.get('data', {})}"
+                    return f"הערכת שווי עבור נכס {asset_id}: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
+        
+        get_asset_appraisal_tool = StructuredTool.from_function(
+            func=get_asset_appraisal_tool_func,
+            name="get_asset_appraisal_tool",
+            description="קבלת ניתוח הערכת שווי של נכס כולל מכירות דומות."
+        )
         
         # Deal tools
-        @tool
-        async def list_deals_tool(
+        async def list_deals_tool_func(
             stage: Optional[str] = None,
             asset_id: Optional[int] = None,
         ) -> str:
@@ -254,14 +278,19 @@ class RealEstateAgent:
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
                     if isinstance(data, list):
-                        return f"Found {len(data)} deals: {data}"
+                        return f"נמצאו {len(data)} עסקאות: {data}"
                     return str(data)
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def create_deal_tool(
+        list_deals_tool = StructuredTool.from_function(
+            func=list_deals_tool_func,
+            name="list_deals_tool",
+            description="רשימת כל העסקאות, עם אפשרות סינון לפי שלב או נכס. מקבל עברית ואנגלית."
+        )
+        
+        async def create_deal_tool_func(
             asset_id: int,
             stage: Optional[str] = "discovery",
         ) -> str:
@@ -269,25 +298,35 @@ class RealEstateAgent:
             try:
                 result = await create_deal(ctx, asset_id, stage)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Deal created: {result.get('data', {})}"
+                    return f"עסקה נוצרה: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def get_offer_tool(offer_id: int) -> str:
+        create_deal_tool = StructuredTool.from_function(
+            func=create_deal_tool_func,
+            name="create_deal_tool",
+            description="יצירת עסקה חדשה עבור נכס."
+        )
+        
+        async def get_offer_tool_func(offer_id: int) -> str:
             """Get offer details including financial information."""
             try:
                 result = await get_offer(ctx, offer_id)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Offer {offer_id}: {result.get('data', {})}"
+                    return f"הצעה {offer_id}: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
+        
+        get_offer_tool = StructuredTool.from_function(
+            func=get_offer_tool_func,
+            name="get_offer_tool",
+            description="קבלת פרטי הצעה כולל מידע פיננסי."
+        )
         
         # Expense calculation tools
-        @tool
-        async def estimate_build_cost_tool(
+        async def estimate_build_cost_tool_func(
             area_m2: float,
             scope: Optional[List[str]] = None,
             region: Optional[str] = None,
@@ -297,25 +336,35 @@ class RealEstateAgent:
             try:
                 result = await estimate_build_cost(ctx, area_m2, scope, region, quality)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Cost estimate: {result.get('data', {})}"
+                    return f"הערכת עלות: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def get_cost_options_tool() -> str:
+        estimate_build_cost_tool = StructuredTool.from_function(
+            func=estimate_build_cost_tool_func,
+            name="estimate_build_cost_tool",
+            description="הערכת עלויות בנייה במטר רבוע."
+        )
+        
+        async def get_cost_options_tool_func() -> str:
             """Get available options for cost estimation (regions, qualities, scopes)."""
             try:
                 result = await get_cost_options(ctx)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Cost options: {result.get('data', {})}"
+                    return f"אפשרויות עלות: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
+        
+        get_cost_options_tool = StructuredTool.from_function(
+            func=get_cost_options_tool_func,
+            name="get_cost_options_tool",
+            description="קבלת אפשרויות זמינות להערכת עלויות (אזורים, איכויות, היקפים)."
+        )
         
         # Mortgage tools
-        @tool
-        async def analyze_mortgage_tool(
+        async def analyze_mortgage_tool_func(
             property_price: float,
             savings_total: float,
             annual_rate_pct: Optional[float] = None,
@@ -325,28 +374,38 @@ class RealEstateAgent:
             try:
                 result = await analyze_mortgage(ctx, property_price, savings_total, annual_rate_pct, term_years)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Mortgage analysis: {result.get('data', {})}"
+                    return f"ניתוח משכנתא: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
+        
+        analyze_mortgage_tool = StructuredTool.from_function(
+            func=analyze_mortgage_tool_func,
+            name="analyze_mortgage_tool",
+            description="ניתוח יכולת משכנתא ותרחישי תשלום."
+        )
         
         # CRM tools
-        @tool
-        async def list_contacts_tool() -> str:
+        async def list_contacts_tool_func() -> str:
             """List all CRM contacts."""
             try:
                 result = await list_contacts(ctx)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
                     if isinstance(data, list):
-                        return f"Found {len(data)} contacts: {data}"
+                        return f"נמצאו {len(data)} אנשי קשר: {data}"
                     return str(data)
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def create_contact_tool(
+        list_contacts_tool = StructuredTool.from_function(
+            func=list_contacts_tool_func,
+            name="list_contacts_tool",
+            description="רשימת כל אנשי הקשר ב-CRM."
+        )
+        
+        async def create_contact_tool_func(
             name: str,
             email: Optional[str] = None,
             phone: Optional[str] = None,
@@ -355,49 +414,70 @@ class RealEstateAgent:
             try:
                 result = await create_contact(ctx, name, email, phone)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Contact created: {result.get('data', {})}"
+                    return f"איש קשר נוצר: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def list_leads_tool(status: Optional[str] = None) -> str:
+        create_contact_tool = StructuredTool.from_function(
+            func=create_contact_tool_func,
+            name="create_contact_tool",
+            description="יצירת איש קשר חדש ב-CRM."
+        )
+        
+        async def list_leads_tool_func(status: Optional[str] = None) -> str:
             """List all leads, optionally filtered by status."""
             try:
                 result = await list_leads(ctx, status)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
                     if isinstance(data, list):
-                        return f"Found {len(data)} leads: {data}"
+                        return f"נמצאו {len(data)} לידים: {data}"
                     return str(data)
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def create_lead_tool(contact_id: int, asset_id: int) -> str:
+        list_leads_tool = StructuredTool.from_function(
+            func=list_leads_tool_func,
+            name="list_leads_tool",
+            description="רשימת כל הלידים, עם אפשרות סינון לפי סטטוס."
+        )
+        
+        async def create_lead_tool_func(contact_id: int, asset_id: int) -> str:
             """Create a new lead linking a contact to an asset."""
             try:
                 result = await create_lead(ctx, contact_id, asset_id)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"Lead created: {result.get('data', {})}"
+                    return f"ליד נוצר: {result.get('data', {})}"
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
         
-        @tool
-        async def list_tasks_tool(status: Optional[str] = None) -> str:
+        create_lead_tool = StructuredTool.from_function(
+            func=create_lead_tool_func,
+            name="create_lead_tool",
+            description="יצירת ליד חדש המקשר איש קשר לנכס."
+        )
+        
+        async def list_tasks_tool_func(status: Optional[str] = None) -> str:
             """List all CRM tasks, optionally filtered by status."""
             try:
                 result = await list_tasks(ctx, None, None, status)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
                     if isinstance(data, list):
-                        return f"Found {len(data)} tasks: {data}"
+                        return f"נמצאו {len(data)} משימות: {data}"
                     return str(data)
                 return str(result)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"שגיאה: {str(e)}"
+        
+        list_tasks_tool = StructuredTool.from_function(
+            func=list_tasks_tool_func,
+            name="list_tasks_tool",
+            description="רשימת כל המשימות ב-CRM, עם אפשרות סינון לפי סטטוס."
+        )
         
         return [
             list_assets_tool,
@@ -420,22 +500,26 @@ class RealEstateAgent:
     
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the agent executor with system prompt."""
-        system_prompt = """You are a helpful real estate agent AI assistant. You help users with:
+        system_prompt = """אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
 
-1. **Property Search & Analysis**: Search for properties, get property details, view transactions, permits, plans, and appraisals
-2. **Deal Management**: Create and manage deals, view negotiations and offers
-3. **Expense Calculations**: Estimate construction costs and get cost options
-4. **Mortgage Analysis**: Analyze mortgage affordability and payment scenarios
-5. **CRM Management**: Manage contacts, leads, and tasks
+1. **חיפוש וניתוח נכסים**: חיפוש נכסים, קבלת פרטי נכסים, צפייה בעסקאות, היתרים, תוכניות והערכות שווי
+2. **ניהול עסקאות**: יצירה וניהול עסקאות, צפייה במשא ומתן והצעות
+3. **חישובי הוצאות**: הערכת עלויות בנייה ואפשרויות עלויות
+4. **ניתוח משכנתא**: ניתוח יכולת משכנתא ותרחישי תשלום
+5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות
 
-When users ask questions:
-- Use the appropriate tools to fetch real data
-- Provide clear, helpful explanations
-- Format numbers and prices in a readable way
-- If you don't have enough information, ask clarifying questions
-- Always verify asset IDs and other identifiers before using them
+כאשר משתמשים שואלים שאלות:
+- השתמש בכלים המתאימים כדי לאחזר נתונים אמיתיים
+- תן הסברים ברורים ומועילים
+- ערוך מספרים ומחירים בצורה קריאה
+- אם אין לך מספיק מידע, שאל שאלות הבהרה
+- תמיד בדוק מזהה נכסים ומזהים אחרים לפני השימוש בהם
 
-Be professional, friendly, and thorough in your responses."""
+**שפה**: אתה עובד בעיקר בעברית. תגיב בעברית למשתמשים שמדברים עברית. 
+תמיד השתמש בעברית כשאתה מתקשר עם המשתמש, אלא אם כן הוא מבקש במפורש שפה אחרת.
+כשאתה מציג נתונים, ערוך אותם בצורה קריאה בעברית עם פורמט נכון למספרים ומחירים.
+
+היה מקצועי, ידידותי ומקיף בתגובות שלך."""
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),

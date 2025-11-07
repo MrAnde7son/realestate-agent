@@ -966,16 +966,47 @@ class RealEstateAgent:
             while True:
                 # Check if agent task is done
                 if agent_task.done():
-                    # Agent finished, drain remaining events
-                    while not callback.chunk_queue.empty():
-                        try:
-                            event = callback.chunk_queue.get_nowait()
-                            if event and event.get("type") != "finished":
-                                if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
-                                    event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
-                                yield event
-                        except Exception:
-                            break
+                    # Check if task raised an exception
+                    if agent_task.exception():
+                        exception = agent_task.exception()
+                        logger.exception("Agent task raised exception: %s", exception)
+                        # Send error event if not already sent
+                        error_sent = False
+                        while not callback.chunk_queue.empty():
+                            try:
+                                event = callback.chunk_queue.get_nowait()
+                                if event and event.get("type") == "error":
+                                    error_sent = True
+                                    yield event
+                                elif event and event.get("type") != "finished":
+                                    if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
+                                        event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
+                                    yield event
+                            except Exception:
+                                break
+                        # If no error event was found in queue, send one
+                        if not error_sent:
+                            error_str = str(exception)
+                            if "429" in error_str or "rate_limit" in error_str.lower():
+                                error_msg = "הגעת למגבלת השימוש ב-API. אנא נסה שוב מאוחר יותר."
+                            elif "401" in error_str or "invalid_api_key" in error_str.lower():
+                                error_msg = "שגיאת אימות: מפתח API לא תקף או חסר."
+                            elif "timeout" in error_str.lower():
+                                error_msg = "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+                            else:
+                                error_msg = f"שגיאה בביצוע הסוכן: {error_str[:200]}"
+                            yield {"type": "error", "error": error_msg}
+                    else:
+                        # Agent finished successfully, drain remaining events
+                        while not callback.chunk_queue.empty():
+                            try:
+                                event = callback.chunk_queue.get_nowait()
+                                if event and event.get("type") != "finished":
+                                    if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
+                                        event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
+                                    yield event
+                            except Exception:
+                                break
                     break
                 
                 # Check timeout

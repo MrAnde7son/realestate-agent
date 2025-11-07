@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2, Sparkles, ArrowRight, Edit, RotateCw, FileText } from "lucide-react"
+import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2, Sparkles, ArrowRight, Edit, RotateCw, FileText, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import ReactMarkdown from "react-markdown"
@@ -30,6 +30,7 @@ interface Message {
   suggestions?: string[]
   tool_calls?: ToolCall[]
   sources?: Array<{ title: string; url?: string; description?: string }>
+  isError?: boolean
 }
 
 interface Suggestion {
@@ -572,11 +573,12 @@ export function AgentChat({
                   const errorContent = data.error || "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר."
                   setMessages((prev) => prev.map((msg) => 
                     msg.messageId === assistantMessageId
-                      ? { ...msg, content: errorContent }
+                      ? { ...msg, content: errorContent, isError: true }
                       : msg
                   ))
                   setLastAssistantText(errorContent)
                   setIsLoading(false)
+                  setCurrentToolCalls([]) // Clear tool calls on error
                   break
               }
             } catch (error) {
@@ -593,7 +595,8 @@ export function AgentChat({
         content: error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.",
         timestamp: new Date(),
         messageId: generateMessageId(),
-        feedback: null
+        feedback: null,
+        isError: true
       }
       setMessages((prev) => [...prev, errorMessage])
       setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
@@ -779,7 +782,8 @@ export function AgentChat({
             content: error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.",
             timestamp: new Date(),
             messageId: generateMessageId(),
-            feedback: null
+            feedback: null,
+            isError: true
           }
           setMessages((prev) => [...prev, errorMessage])
           setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
@@ -871,7 +875,8 @@ export function AgentChat({
         content: error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.",
         timestamp: new Date(),
         messageId: generateMessageId(),
-        feedback: null
+        feedback: null,
+        isError: true
       }
       setMessages((prev) => [...prev, errorMessage])
       setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
@@ -1022,6 +1027,8 @@ export function AgentChat({
                         "max-w-[80%] rounded-xl px-4 py-3 text-sm relative group shadow-sm",
                         message.role === "user"
                           ? "bg-brand-teal text-white rounded-br-sm"
+                          : message.isError
+                          ? "bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200 border-2 border-red-500 rounded-bl-sm"
                           : "bg-muted text-foreground border border-border/60 rounded-bl-sm"
                       )}
                     >
@@ -1071,8 +1078,16 @@ export function AgentChat({
                         <>
                           {message.role === "assistant" ? (
                             <>
+                              {/* Error indicator */}
+                              {message.isError && (
+                                <div className="mb-3 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 font-medium">
+                                  <AlertCircle className="h-4 w-4 shrink-0" />
+                                  <span>שגיאה</span>
+                                </div>
+                              )}
+                              
                               {/* Loading indicator for streaming response */}
-                              {isLoading && actualIndex === messages.length - 1 && (
+                              {isLoading && actualIndex === messages.length - 1 && !message.isError && (
                                 <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
                                   <Loader2 className="h-4 w-4 animate-spin text-brand-teal shrink-0" />
                                   <span>מכין תשובה...</span>
@@ -1084,7 +1099,7 @@ export function AgentChat({
                                 const toolCallsToShow = actualIndex === messages.length - 1 && currentToolCalls.length > 0
                                   ? currentToolCalls
                                   : (message.tool_calls || [])
-                                return toolCallsToShow.length > 0 && (
+                                return toolCallsToShow.length > 0 && !message.isError && (
                                   <div className="mb-3 pb-3">
                                     <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
                                     <div className="space-y-1.5">

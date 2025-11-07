@@ -659,20 +659,23 @@ def user_settings(request):
     """Retrieve or update user settings."""
     user = request.user
     if request.method == "GET":
-        return Response(
-            {
-                "language": getattr(user, "language", ""),
-                "timezone": getattr(user, "timezone", ""),
-                "currency": getattr(user, "currency", ""),
-                "date_format": getattr(user, "date_format", ""),
-                "notify_email": getattr(user, "notify_email", False),
-                "notify_whatsapp": getattr(user, "notify_whatsapp", False),
-                "notify_urgent": getattr(user, "notify_urgent", False),
-                "notification_time": getattr(user, "notification_time", ""),
-                "report_sections": getattr(user, "report_sections", [])
-                or DEFAULT_REPORT_SECTIONS,
-            }
-        )
+        response_data = {
+            "language": getattr(user, "language", ""),
+            "timezone": getattr(user, "timezone", ""),
+            "currency": getattr(user, "currency", ""),
+            "date_format": getattr(user, "date_format", ""),
+            "notify_email": getattr(user, "notify_email", False),
+            "notify_whatsapp": getattr(user, "notify_whatsapp", False),
+            "notify_urgent": getattr(user, "notify_urgent", False),
+            "notification_time": getattr(user, "notification_time", ""),
+            "report_sections": getattr(user, "report_sections", []) or DEFAULT_REPORT_SECTIONS,
+            # LLM settings - indicate if keys are set but never return the actual keys
+            "llm_provider_preference": getattr(user, "llm_provider_preference", None),
+            "has_openai_key": bool(getattr(user, "openai_api_key", None)),
+            "has_gemini_key": bool(getattr(user, "gemini_api_key", None)),
+            "has_groq_key": bool(getattr(user, "groq_api_key", None)),
+        }
+        return Response(response_data)
 
     if request.method == "PUT":
         data = parse_json(request)
@@ -681,6 +684,7 @@ def user_settings(request):
                 {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Standard settings fields
         for field in [
             "language",
             "timezone",
@@ -694,6 +698,55 @@ def user_settings(request):
         ]:
             if field in data:
                 setattr(user, field, data[field])
+        
+        # LLM API key fields - allow setting but validate
+        if "openai_api_key" in data:
+            key = data["openai_api_key"]
+            if key:  # Allow clearing by setting to empty string
+                if not isinstance(key, str) or len(key.strip()) < 10:
+                    return Response(
+                        {"error": "Invalid OpenAI API key format"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                user.openai_api_key = key.strip()
+            else:
+                user.openai_api_key = None
+        
+        if "gemini_api_key" in data:
+            key = data["gemini_api_key"]
+            if key:
+                if not isinstance(key, str) or len(key.strip()) < 10:
+                    return Response(
+                        {"error": "Invalid Gemini API key format"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                user.gemini_api_key = key.strip()
+            else:
+                user.gemini_api_key = None
+        
+        if "groq_api_key" in data:
+            key = data["groq_api_key"]
+            if key:
+                if not isinstance(key, str) or len(key.strip()) < 10:
+                    return Response(
+                        {"error": "Invalid Groq API key format"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                user.groq_api_key = key.strip()
+            else:
+                user.groq_api_key = None
+        
+        # LLM provider preference
+        if "llm_provider_preference" in data:
+            preference = data["llm_provider_preference"]
+            if preference in ["openai", "gemini", "groq", None, ""]:
+                user.llm_provider_preference = preference if preference else None
+            else:
+                return Response(
+                    {"error": "Invalid LLM provider preference"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         user.save()
 
         return Response(
@@ -707,6 +760,10 @@ def user_settings(request):
                 "notify_urgent": user.notify_urgent,
                 "notification_time": user.notification_time,
                 "report_sections": user.report_sections,
+                "llm_provider_preference": getattr(user, "llm_provider_preference", None),
+                "has_openai_key": bool(getattr(user, "openai_api_key", None)),
+                "has_gemini_key": bool(getattr(user, "gemini_api_key", None)),
+                "has_groq_key": bool(getattr(user, "groq_api_key", None)),
             }
         )
 
@@ -4872,69 +4929,114 @@ def agent_chat(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get API token for agent
+        # Get or create API token for the authenticated user
         api_token = None
         try:
             from .models import APIToken
-            # Try to get or create an API token for the user
+            # Try to get an active token for the user
             api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
-            if api_token_obj:
-                api_token = api_token_obj.key
-        except Exception:
-            pass
+            if api_token_obj and api_token_obj.is_valid():
+                api_token = api_token_obj.token
+            else:
+                # Create a new token automatically for the agent
+                token_value = APIToken.generate_token()
+                api_token_obj = APIToken.objects.create(
+                    user=request.user,
+                    name="Agent API Token (Auto-generated)",
+                    token=token_value,
+                )
+                api_token = api_token_obj.token
+                logger.info("Auto-created API token for user %s", request.user.email)
+        except Exception as e:
+            logger.warning("Failed to get/create API token for user %s: %s", request.user.email, e)
+            # Continue without token - agent will need to handle this
         
-        # Initialize agent
-        def has_valid_api_key(provider: str) -> bool:
+        # Helper function to get API key - checks user's keys first, then environment
+        def get_api_key_for_provider(provider: str, user=None) -> Optional[str]:
+            """Get API key for provider, checking user's keys first, then environment."""
             if provider == "groq":
-                key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+                if user and hasattr(user, 'groq_api_key') and user.groq_api_key:
+                    key = user.groq_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
             elif provider == "gemini":
-                key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                if user and hasattr(user, 'gemini_api_key') and user.gemini_api_key:
+                    key = user.gemini_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
                        getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
             elif provider == "openai":
-                key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
-            else:
-                return False
-            return bool(key and key.strip())
+                if user and hasattr(user, 'openai_api_key') and user.openai_api_key:
+                    key = user.openai_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            return None
         
-        llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+        def has_valid_api_key(provider: str, user=None) -> bool:
+            """Check if valid API key exists for provider."""
+            key = get_api_key_for_provider(provider, user)
+            return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
+        
+        # Determine LLM provider - check user preference first
+        llm_provider = None
+        user = request.user
+        
+        # Check user's preference
+        if user and hasattr(user, 'llm_provider_preference') and user.llm_provider_preference:
+            if has_valid_api_key(user.llm_provider_preference, user):
+                llm_provider = user.llm_provider_preference
+        
+        # If no user preference or no valid key, check environment
         if not llm_provider:
-            llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+            llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+            if not llm_provider:
+                llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
         
-        if llm_provider and not has_valid_api_key(llm_provider):
-            logger.warning(f"LLM provider '{llm_provider}' selected but no valid API key found. Auto-detecting provider...")
-            llm_provider = None
-        
+        # Auto-detect if still no provider
         if not llm_provider:
-            groq_key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
-            gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
-                         getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
-            openai_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
-            
-            if groq_key and groq_key.strip():
+            if has_valid_api_key("groq", user):
                 llm_provider = "groq"
-            elif gemini_key and gemini_key.strip():
+            elif has_valid_api_key("gemini", user):
                 llm_provider = "gemini"
-            elif openai_key and openai_key.strip():
+            elif has_valid_api_key("openai", user):
                 llm_provider = "openai"
             else:
-                # Default fallback
-                llm_provider = "openai"
+                return Response(
+                    {
+                        "error": "No valid API key found. Please set an API key in user settings or environment variables: "
+                                "OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
-        # Final validation - ensure we have a valid API key for the selected provider
-        if not has_valid_api_key(llm_provider):
+        # Validate we have a valid key for the selected provider
+        if not has_valid_api_key(llm_provider, user):
             return Response(
                 {
                     "error": f"No valid API key found for provider '{llm_provider}'. "
-                            f"Please set {llm_provider.upper()}_API_KEY environment variable or in Django settings."
+                            f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Get the API key to pass to agent
+        api_key = get_api_key_for_provider(llm_provider, user)
+        
+        # Log which key source is being used
+        key_source = "user" if (user and hasattr(user, f'{llm_provider}_api_key') and getattr(user, f'{llm_provider}_api_key')) else "environment"
+        key_preview = f"{api_key[:10]}...{api_key[-4:]}" if api_key and len(api_key) > 14 else (api_key[:10] + "..." if api_key else "None")
+        logger.info("Initializing agent (non-stream) - Provider: %s, Key source: %s, Key preview: %s, User: %s", 
+                   llm_provider, key_source, key_preview, user.email if user else "None")
         
         agent = RealEstateAgent(
             llm_provider=llm_provider,
             api_token=api_token,
             api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
-            temperature=0.3
+            temperature=0.3,
+            user_api_key=api_key  # Pass user's API key to agent
         )
         
         # Convert chat history format if needed
@@ -4990,62 +5092,127 @@ def agent_chat_stream(request):
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Message is required'})}\n\n"
             return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
         
-        # Get API token for agent
+        # Get or create API token for the authenticated user
         api_token = None
         try:
             from .models import APIToken
+            # Try to get an active token for the user
             api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
-            if api_token_obj:
-                api_token = api_token_obj.key
-        except Exception:
-            pass
+            if api_token_obj and api_token_obj.is_valid():
+                api_token = api_token_obj.token
+            else:
+                # Create a new token automatically for the agent
+                token_value = APIToken.generate_token()
+                api_token_obj = APIToken.objects.create(
+                    user=request.user,
+                    name="Agent API Token (Auto-generated)",
+                    token=token_value,
+                )
+                api_token = api_token_obj.token
+                logger.info("Auto-created API token for user %s", request.user.email)
+        except Exception as e:
+            logger.warning("Failed to get/create API token for user %s: %s", request.user.email, e)
+            # Continue without token - agent will need to handle this
         
-        # Initialize agent (same logic as agent_chat)
-        def has_valid_api_key(provider: str) -> bool:
+        # Helper function to get API key - checks user's keys first, then environment
+        def get_api_key_for_provider(provider: str, user=None) -> Optional[str]:
+            """Get API key for provider, checking user's keys first, then environment."""
             if provider == "groq":
-                key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+                # Check user's key first
+                if user and hasattr(user, 'groq_api_key') and user.groq_api_key:
+                    key = user.groq_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                # Fall back to environment
+                return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
             elif provider == "gemini":
-                key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                # Check user's key first
+                if user and hasattr(user, 'gemini_api_key') and user.gemini_api_key:
+                    key = user.gemini_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                # Fall back to environment
+                return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
                        getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
             elif provider == "openai":
-                key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
-            else:
-                return False
-            return bool(key and key.strip())
+                # Check user's key first
+                if user and hasattr(user, 'openai_api_key') and user.openai_api_key:
+                    key = user.openai_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                # Fall back to environment
+                return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            return None
         
-        llm_provider = os.getenv("AGENT_LLM_PROVIDER")
-        if not llm_provider:
-            llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+        def has_valid_api_key(provider: str, user=None) -> bool:
+            """Check if valid API key exists for provider."""
+            key = get_api_key_for_provider(provider, user)
+            return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
         
+        # Determine LLM provider - check user preference first
+        llm_provider = None
+        user = request.user
+        
+        # Check user's preference
+        if user and hasattr(user, 'llm_provider_preference') and user.llm_provider_preference:
+            if has_valid_api_key(user.llm_provider_preference, user):
+                llm_provider = user.llm_provider_preference
+        
+        # If no user preference or no valid key, check environment
         if not llm_provider:
-            # Auto-detect provider based on available API keys
-            groq_key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
-            gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
-                         getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
-            openai_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
-            
-            if groq_key and groq_key.strip():
+            llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+            if not llm_provider:
+                llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+        
+        # Auto-detect if still no provider
+        if not llm_provider:
+            # Check user's keys first, then environment
+            if has_valid_api_key("groq", user):
                 llm_provider = "groq"
-            elif gemini_key and gemini_key.strip():
+            elif has_valid_api_key("gemini", user):
                 llm_provider = "gemini"
-            elif openai_key and openai_key.strip():
+            elif has_valid_api_key("openai", user):
                 llm_provider = "openai"
             else:
-                llm_provider = "openai"
+                # No valid key found
+                def error_generator():
+                    error_msg = ("לא נמצא מפתח API תקף. אנא הגדר מפתח API בהגדרות המשתמש או במשתני הסביבה: "
+                               "OPENAI_API_KEY, GEMINI_API_KEY, או GROQ_API_KEY")
+                    yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+                return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
         
-        if not has_valid_api_key(llm_provider):
+        # Validate we have a valid key for the selected provider
+        if not has_valid_api_key(llm_provider, user):
             def error_generator():
-                error_msg = (f"No valid API key found for provider '{llm_provider}'. "
-                           f"Please set {llm_provider.upper()}_API_KEY environment variable.")
+                error_msg = (f"מפתח API לא תקף עבור ספק '{llm_provider}'. "
+                           f"אנא הגדר מפתח תקף בהגדרות המשתמש או במשתנה {llm_provider.upper()}_API_KEY.")
                 yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
             return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
         
-        agent = RealEstateAgent(
-            llm_provider=llm_provider,
-            api_token=api_token,
-            api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
-            temperature=0.3
-        )
+        # Get the API key to pass to agent
+        api_key = get_api_key_for_provider(llm_provider, user)
+        
+        # Log which key source is being used
+        key_source = "user" if (user and hasattr(user, f'{llm_provider}_api_key') and getattr(user, f'{llm_provider}_api_key')) else "environment"
+        key_preview = f"{api_key[:10]}...{api_key[-4:]}" if api_key and len(api_key) > 14 else (api_key[:10] + "..." if api_key else "None")
+        logger.info("Initializing agent - Provider: %s, Key source: %s, Key preview: %s, User: %s", 
+                   llm_provider, key_source, key_preview, user.email if user else "None")
+        
+        try:
+            agent = RealEstateAgent(
+                llm_provider=llm_provider,
+                api_token=api_token,
+                api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+                temperature=0.3,
+                user_api_key=api_key  # Pass user's API key to agent
+            )
+        except ValueError as e:
+            # Catch API key errors during agent initialization
+            error_exception = e  # Capture exception for use in generator
+            def error_generator():
+                error_msg = f"שגיאה באתחול הסוכן: {str(error_exception)}"
+                yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
         
         # Convert chat history format if needed
         formatted_history = []
@@ -5233,7 +5400,7 @@ def agent_recommendations(request):
         # Try to personalize based on user's assets
         try:
             from .models import Asset
-            user_assets = Asset.objects.filter(user=user).order_by('-created_at')[:5]
+            user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
             
             if user_assets.exists():
                 # User has assets - provide asset-specific recommendations

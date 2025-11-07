@@ -54,6 +54,19 @@ class User(AbstractUser):
     notify_urgent = models.BooleanField(default=True)
     notification_time = models.CharField(max_length=5, default="09:00")
     report_sections = models.JSONField(default=list)
+    
+    # LLM API keys (stored encrypted in production - TODO: implement encryption)
+    # These allow users to use their own API keys for the agent
+    openai_api_key = models.TextField(blank=True, null=True, help_text="User's OpenAI API key")
+    gemini_api_key = models.TextField(blank=True, null=True, help_text="User's Gemini/Google API key")
+    groq_api_key = models.TextField(blank=True, null=True, help_text="User's Groq API key")
+    llm_provider_preference = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        choices=[("openai", "OpenAI"), ("gemini", "Gemini"), ("groq", "Groq")],
+        help_text="User's preferred LLM provider for the agent"
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

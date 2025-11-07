@@ -283,6 +283,7 @@ class RealEstateAgent:
         api_token: Optional[str] = None,
         api_url: Optional[str] = None,
         temperature: float = 0.3,
+        user_api_key: Optional[str] = None,
     ):
         """Initialize the Real Estate Agent.
         
@@ -291,17 +292,22 @@ class RealEstateAgent:
             api_token: Optional API token for authenticated requests
             api_url: Optional API base URL (defaults to env var or localhost)
             temperature: LLM temperature setting
+            user_api_key: Optional user's API key for LLM (overrides environment variables)
         """
-        self.api_token = api_token or os.getenv("REALESTATE_API_TOKEN")
+        self.api_token = api_token  # Use provided token (should be from authenticated user)
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
+        self.user_api_key = user_api_key  # Store user's API key
         
         # Set environment variables for MCP tools
+        # Always use the provided api_token (from authenticated user) - don't fall back to env
         if self.api_token:
             os.environ["REALESTATE_API_TOKEN"] = self.api_token
+        else:
+            logger.warning("No API token provided to agent - MCP tools may not work properly")
         os.environ["REALESTATE_API_URL"] = self.api_url
         
         # Initialize LLM
-        self.llm = self._create_llm(llm_provider, temperature)
+        self.llm = self._create_llm(llm_provider, temperature, user_api_key)
         
         # Create tools
         self.tools = self._create_tools()
@@ -309,50 +315,80 @@ class RealEstateAgent:
         # Create agent
         self.agent_executor = self._create_agent_executor()
     
-    def _create_llm(self, provider: str, temperature: float):
+    def _create_llm(self, provider: str, temperature: float, user_api_key: Optional[str] = None):
         """Create LLM instance based on provider."""
-        # Helper to get API key from env or Django settings
-        def get_api_key(env_var_name: str, settings_attr: str = None) -> Optional[str]:
+        # Helper to get API key from user key first, then env or Django settings
+        def get_api_key(env_var_name: str, settings_attr: str = None) -> tuple[Optional[str], str]:
+            """Return (key, source) tuple where source indicates where key came from."""
+            # Use user's API key if provided
+            if user_api_key:
+                return user_api_key.strip(), "user"
+            # Fall back to environment variable
             key = os.getenv(env_var_name)
             if key:
-                return key
+                return key.strip(), "environment"
             # Try Django settings if available
             try:
                 from django.conf import settings
                 if settings_attr:
-                    return getattr(settings, settings_attr, None)
+                    key = getattr(settings, settings_attr, None)
+                    if key:
+                        return key.strip(), "django_settings"
             except ImportError:
                 pass
-            return None
+            return None, "none"
         
         if provider == "openai":
-            api_key = get_api_key("OPENAI_API_KEY", "OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY environment variable is required")
+            api_key, key_source = get_api_key("OPENAI_API_KEY", "OPENAI_API_KEY")
+            if not api_key or not api_key.strip():
+                logger.error("OPENAI_API_KEY is missing or empty (source: %s)", key_source)
+                raise ValueError("OPENAI_API_KEY is required and must not be empty")
+            if len(api_key.strip()) < 10:
+                logger.warning("OPENAI_API_KEY appears to be too short (likely invalid) - length: %d, source: %s", 
+                             len(api_key.strip()), key_source)
+            # Log key info (first 10 chars + last 4 chars for debugging, but not full key)
+            key_preview = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else api_key[:10] + "..."
+            logger.info("Using OpenAI LLM - Model: %s, Key source: %s, Key preview: %s", 
+                       os.getenv("OPENAI_MODEL", "gpt-4o-mini"), key_source, key_preview)
             return ChatOpenAI(
                 model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                 temperature=temperature,
-                api_key=api_key,
+                api_key=api_key.strip(),  # Ensure no leading/trailing whitespace
+                streaming=True,  # Enable streaming for callbacks
             )
         elif provider == "gemini":
-            api_key = get_api_key("GEMINI_API_KEY", "GEMINI_API_KEY") or get_api_key("GOOGLE_API_KEY", "GOOGLE_API_KEY")
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required")
+            api_key1, source1 = get_api_key("GEMINI_API_KEY", "GEMINI_API_KEY")
+            api_key2, source2 = get_api_key("GOOGLE_API_KEY", "GOOGLE_API_KEY")
+            api_key = api_key1 or api_key2
+            key_source = source1 if api_key1 else source2
+            if not api_key or not api_key.strip():
+                logger.error("GEMINI_API_KEY/GOOGLE_API_KEY is missing or empty (checked: GEMINI=%s, GOOGLE=%s)", 
+                           source1, source2)
+                raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is required and must not be empty")
+            key_preview = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else api_key[:10] + "..."
+            logger.info("Using Gemini LLM - Model: %s, Key source: %s, Key preview: %s", 
+                       os.getenv("GEMINI_MODEL", "gemini-2.0-flash"), key_source, key_preview)
             return ChatGoogleGenerativeAI(
                 model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
                 temperature=temperature,
-                google_api_key=api_key,
+                google_api_key=api_key.strip(),  # Ensure no leading/trailing whitespace
+                streaming=True,  # Enable streaming for callbacks
             )
         elif provider == "groq":
-            api_key = get_api_key("GROQ_API_KEY", "GROQ_API_KEY")
-            if not api_key:
-                raise ValueError("GROQ_API_KEY environment variable is required")
+            api_key, key_source = get_api_key("GROQ_API_KEY", "GROQ_API_KEY")
+            if not api_key or not api_key.strip():
+                logger.error("GROQ_API_KEY is missing or empty (source: %s)", key_source)
+                raise ValueError("GROQ_API_KEY is required and must not be empty")
+            key_preview = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else api_key[:10] + "..."
+            logger.info("Using Groq LLM - Model: %s, Key source: %s, Key preview: %s", 
+                       os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile"), key_source, key_preview)
             # Groq uses OpenAI-compatible API
             return ChatOpenAI(
                 model=os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile"),
                 temperature=temperature,
-                api_key=api_key,
+                api_key=api_key.strip(),  # Ensure no leading/trailing whitespace
                 base_url="https://api.groq.com/openai/v1",
+                streaming=True,  # Enable streaming for callbacks
             )
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
@@ -799,9 +835,10 @@ class RealEstateAgent:
         return AgentExecutor(
             agent=agent,
             tools=self.tools,
-            verbose=True,
+            verbose=False,  # Disable verbose to reduce noise - use logger instead
             handle_parsing_errors=True,
             max_iterations=10,
+            return_intermediate_steps=False,  # Don't return intermediate steps in output
         )
     
     async def chat(self, message: str, chat_history: Optional[List] = None, track_tool_calls: bool = True) -> Dict[str, Any]:
@@ -863,18 +900,58 @@ class RealEstateAgent:
         # Run agent execution in background task
         async def run_agent():
             try:
-                async for _ in self.agent_executor.astream(
-                    {"input": message, "chat_history": history},
-                    config={"callbacks": [callback]}
-                ):
-                    pass  # Just consume the stream
+                logger.info("Starting agent execution for message: %s", message[:100])
+                # Stream agent execution with timeout
+                # AgentExecutor.astream yields intermediate steps, not final output
+                # The callback handler will receive LLM tokens via on_llm_new_token
+                async def stream_with_timeout():
+                    async for chunk in self.agent_executor.astream(
+                        {"input": message, "chat_history": history},
+                        config={"callbacks": [callback]}
+                    ):
+                        # Log chunks for debugging (astream yields intermediate agent steps)
+                        logger.debug("Agent step received: %s", str(chunk)[:200])
+                        # The actual LLM output is handled by the callback's on_llm_new_token
+                        # But we can also check for final output in chunks
+                        if isinstance(chunk, dict):
+                            # Some agent executors yield final output as "output" key
+                            if "output" in chunk:
+                                output = chunk["output"]
+                                if isinstance(output, str) and output:
+                                    # If we get final output, ensure it's sent
+                                    if output not in callback.complete_response:
+                                        callback.on_llm_new_token(output)
+                
+                await asyncio.wait_for(stream_with_timeout(), timeout=300.0)  # 5 minute timeout
+                logger.info("Agent execution completed successfully")
                 callback.mark_finished()
-            except Exception as e:
+            except asyncio.TimeoutError:
+                logger.error("Agent execution timed out after 5 minutes")
                 try:
-                    callback.chunk_queue.put_nowait({"type": "error", "error": str(e)})
+                    error_msg = "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+                    callback.chunk_queue.put_nowait({"type": "error", "error": error_msg})
                 except Exception:
                     pass
                 callback.mark_finished()
+            except Exception as e:
+                logger.exception("Error in agent execution: %s", e)
+                try:
+                    # Handle specific error types with user-friendly messages
+                    error_str = str(e)
+                    if "401" in error_str or "invalid_api_key" in error_str.lower() or "AuthenticationError" in str(type(e)):
+                        error_msg = ("שגיאת אימות: מפתח API לא תקף או חסר. "
+                                   "אנא ודא שמפתח ה-API מוגדר נכון במשתני הסביבה.")
+                    elif "429" in error_str or "rate_limit" in error_str.lower():
+                        error_msg = "הגעת למגבלת השימוש ב-API. אנא נסה שוב מאוחר יותר."
+                    elif "timeout" in error_str.lower():
+                        error_msg = "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+                    else:
+                        error_msg = f"שגיאה בביצוע הסוכן: {error_str[:200]}"
+                    callback.chunk_queue.put_nowait({"type": "error", "error": error_msg})
+                except Exception:
+                    pass
+                finally:
+                    callback.mark_finished()
         
         # Start agent execution
         agent_task = asyncio.create_task(run_agent())

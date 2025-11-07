@@ -1,10 +1,12 @@
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from core import views as core_views
 from notifications.views import resend_webhook
+from api_mcp.views import MCPAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    re_path(r'^mcp/?$', MCPAPIView.as_view(), name='api-mcp'),
     path('api/', include('core.urls')),
     path('api/crm/', include('crm.urls')),
     path('api/imports/', include('imports.urls')),

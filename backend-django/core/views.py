@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Any
 from pathlib import Path
 
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 from django.conf import settings
@@ -4953,6 +4953,139 @@ def agent_chat(request):
             {"error": user_message},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_chat_stream(request):
+    """Stream chat responses from the AI real estate agent using Server-Sent Events."""
+    import json
+    
+    try:
+        if RealEstateAgent is None:
+            error_msg = "Agent not available. Please install langchain dependencies."
+            if _agent_import_error:
+                error_msg += f" Import error: {_agent_import_error}"
+            def error_generator():
+                yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        data = json.loads(request.body.decode("utf-8"))
+        message = data.get("message")
+        chat_history = data.get("chat_history", [])
+        
+        if not message:
+            def error_generator():
+                yield f"data: {json.dumps({'type': 'error', 'error': 'Message is required'})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        # Get API token for agent
+        api_token = None
+        try:
+            from .models import APIToken
+            api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
+            if api_token_obj:
+                api_token = api_token_obj.key
+        except Exception:
+            pass
+        
+        # Initialize agent (same logic as agent_chat)
+        def has_valid_api_key(provider: str) -> bool:
+            if provider == "groq":
+                key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            elif provider == "gemini":
+                key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                       getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+            elif provider == "openai":
+                key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            else:
+                return False
+            return bool(key and key.strip())
+        
+        llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+        if not llm_provider:
+            llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+        
+        if not llm_provider:
+            # Auto-detect provider based on available API keys
+            groq_key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                         getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+            openai_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            
+            if groq_key and groq_key.strip():
+                llm_provider = "groq"
+            elif gemini_key and gemini_key.strip():
+                llm_provider = "gemini"
+            elif openai_key and openai_key.strip():
+                llm_provider = "openai"
+            else:
+                llm_provider = "openai"
+        
+        if not has_valid_api_key(llm_provider):
+            def error_generator():
+                error_msg = (f"No valid API key found for provider '{llm_provider}'. "
+                           f"Please set {llm_provider.upper()}_API_KEY environment variable.")
+                yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        agent = RealEstateAgent(
+            llm_provider=llm_provider,
+            api_token=api_token,
+            api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+            temperature=0.3
+        )
+        
+        # Convert chat history format if needed
+        formatted_history = []
+        for msg in chat_history:
+            if isinstance(msg, dict):
+                formatted_history.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
+        
+        # Stream response from agent
+        async def stream_generator():
+            try:
+                async for event in agent.chat_stream(message, formatted_history):
+                    yield f"data: {json.dumps(event)}\n\n"
+            except Exception as e:
+                logger.exception("Error in agent chat stream: %s", e)
+                user_message = get_user_friendly_error_message(e)
+                yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
+        
+        # Convert async generator to sync generator for Django
+        def sync_stream_generator():
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                async_gen = stream_generator()
+                while True:
+                    try:
+                        chunk = loop.run_until_complete(async_gen.__anext__())
+                        yield chunk
+                    except StopAsyncIteration:
+                        break
+            finally:
+                loop.close()
+        
+        response = StreamingHttpResponse(sync_stream_generator(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+        return response
+        
+    except json.JSONDecodeError:
+        def error_generator():
+            yield f"data: {json.dumps({'type': 'error', 'error': 'Invalid JSON'})}\n\n"
+        return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+    except Exception as e:
+        logger.exception("Error in agent chat stream: %s", e)
+        def error_generator():
+            user_message = get_user_friendly_error_message(e)
+            yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
+        return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
 
 
 @extend_schema(

@@ -427,16 +427,33 @@ export function AgentChat({
     setIsLoading(true)
     setCurrentToolCalls([]) // Reset tool calls for new request
 
-    try {
-      // Prepare chat history (exclude the welcome message)
-      const chatHistory = messages
-        .slice(1) // Skip welcome message
-        .map((msg) => ({
-          role: msg.role,
-          content: msg.content
-        }))
+    // Prepare chat history (exclude the welcome message)
+    const chatHistory = messages
+      .slice(1) // Skip welcome message
+      .map((msg) => ({
+        role: msg.role,
+        content: msg.content
+      }))
 
-      const response = await fetch("/api/agent/chat", {
+    // Create assistant message placeholder that will be updated as we stream
+    const assistantMessageId = generateMessageId()
+    const assistantMessage: Message = {
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      messageId: assistantMessageId,
+      feedback: null,
+      suggestions: [],
+      tool_calls: [],
+      sources: []
+    }
+
+    setMessages((prev) => [...prev, assistantMessage])
+    setLastAssistantText("")
+
+    try {
+      // Use fetch with ReadableStream for SSE streaming (EventSource doesn't support POST)
+      const response = await fetch("/api/agent/chat/stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -452,33 +469,132 @@ export function AgentChat({
         throw new Error(errorData.error || "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
       }
 
-      const data = await response.json()
-      
-      // Update tool calls state to show completed status
-      if (data.tool_calls && data.tool_calls.length > 0) {
-        setCurrentToolCalls(data.tool_calls)
-      }
-      
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.response || "מצטער, לא הצלחתי לקבל תשובה.",
-        timestamp: new Date(),
-        messageId: generateMessageId(),
-        feedback: null,
-        suggestions: data.suggestions || [],
-        tool_calls: data.tool_calls || [],
-        sources: data.sources || []
+      if (!response.body) {
+        throw new Error("No response body")
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
-      setLastAssistantText(data.response || "מצטער, לא הצלחתי לקבל תשובה.")
-      
-      // Set suggestions for the new message
-      if (data.suggestions && data.suggestions.length > 0) {
-        setSuggestions(data.suggestions.map((text: string) => ({ text, selected: false })))
-      } else {
-        setSuggestions([])
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let accumulatedContent = ""
+      let finalToolCalls: any[] = []
+      let finalSuggestions: string[] = []
+
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) {
+          break
+        }
+
+        // Decode chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true })
+        
+        // Process complete SSE messages (format: "data: {...}\n\n")
+        // Split by double newline to get complete messages
+        const messages = buffer.split("\n\n")
+        buffer = messages.pop() || "" // Keep incomplete message in buffer
+
+        for (const message of messages) {
+          const lines = message.split("\n")
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const jsonStr = line.slice(6) // Remove "data: " prefix
+                const data = JSON.parse(jsonStr)
+              
+              switch (data.type) {
+                case 'chunk':
+                  // Append chunk to accumulated content
+                  accumulatedContent += data.content || ""
+                  setLastAssistantText(accumulatedContent)
+                  // Update the assistant message in place
+                  setMessages((prev) => prev.map((msg) => 
+                    msg.messageId === assistantMessageId
+                      ? { ...msg, content: accumulatedContent }
+                      : msg
+                  ))
+                  break
+                  
+                case 'tool_call_start':
+                  // Add tool call to current tool calls
+                  setCurrentToolCalls((prev) => [...prev, {
+                    tool: data.tool,
+                    tool_hebrew: data.tool_hebrew || data.tool,
+                    status: "running",
+                    input: data.input
+                  }])
+                  break
+                  
+                case 'tool_call_end':
+                  // Update tool call status
+                  setCurrentToolCalls((prev) => prev.map((tc) => 
+                    tc.tool === data.tool
+                      ? { ...tc, status: "completed", output: data.output }
+                      : tc
+                  ))
+                  break
+                  
+                case 'tool_call_error':
+                  // Update tool call with error
+                  setCurrentToolCalls((prev) => prev.map((tc) => 
+                    tc.tool === data.tool
+                      ? { ...tc, status: "error", output: data.error }
+                      : tc
+                  ))
+                  break
+                  
+                case 'complete':
+                  // Final response received
+                  accumulatedContent = data.response || accumulatedContent
+                  finalToolCalls = data.tool_calls || []
+                  
+                  // Update final message
+                  setMessages((prev) => prev.map((msg) => 
+                    msg.messageId === assistantMessageId
+                      ? { 
+                          ...msg, 
+                          content: accumulatedContent,
+                          tool_calls: finalToolCalls,
+                          suggestions: finalSuggestions
+                        }
+                      : msg
+                  ))
+                  setLastAssistantText(accumulatedContent)
+                  
+                  // Update tool calls state
+                  setCurrentToolCalls(finalToolCalls)
+                  
+                  // Set suggestions if available
+                  if (finalSuggestions.length > 0) {
+                    setSuggestions(finalSuggestions.map((text: string) => ({ text, selected: false })))
+                  } else {
+                    setSuggestions([])
+                  }
+                  
+                  setIsLoading(false)
+                  break
+                  
+                case 'error':
+                  // Error occurred
+                  const errorContent = data.error || "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר."
+                  setMessages((prev) => prev.map((msg) => 
+                    msg.messageId === assistantMessageId
+                      ? { ...msg, content: errorContent }
+                      : msg
+                  ))
+                  setLastAssistantText(errorContent)
+                  setIsLoading(false)
+                  break
+              }
+            } catch (error) {
+              console.error("Error parsing SSE event:", error)
+            }
+            }
+          }
+        }
       }
+
     } catch (error) {
       const errorMessage: Message = {
         role: "assistant",
@@ -489,9 +605,8 @@ export function AgentChat({
       }
       setMessages((prev) => [...prev, errorMessage])
       setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
-    } finally {
       setIsLoading(false)
-      setCurrentToolCalls([]) // Clear tool calls after loading completes
+      setCurrentToolCalls([])
     }
   }
 
@@ -897,41 +1012,11 @@ export function AgentChat({
                   </div>
                 )}
                 
-                {/* Show tool calls during loading */}
-                {isLoading && currentToolCalls.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <AIIcon className="shrink-0 mt-1" />
-                    <div className="max-w-[80%] rounded-xl px-4 py-3 bg-muted text-foreground border border-border/60 rounded-bl-sm shadow-sm">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
-                        {currentToolCalls.map((toolCall, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-sm">
-                            {toolCall.status === "running" ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-brand-teal" />
-                            ) : toolCall.status === "completed" ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <X className="h-3 w-3 text-red-600" />
-                            )}
-                            <span className={cn(
-                              toolCall.status === "running" && "text-brand-teal",
-                              toolCall.status === "completed" && "text-green-600",
-                              toolCall.status === "error" && "text-red-600"
-                            )}>
-                              {toolCall.tool_hebrew || toolCall.tool}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
                 {messages.length > 1 && messages.slice(1).map((message, idx) => {
                   const actualIndex = idx + 1 // Account for skipped welcome message
                   return (
                   <div
-                    key={actualIndex}
+                    key={message.messageId || `msg-${actualIndex}`}
                     className={cn(
                       "flex items-start gap-2",
                       message.role === "user" ? "justify-end" : "justify-start"
@@ -993,14 +1078,44 @@ export function AgentChat({
                       ) : (
                         <>
                           {message.role === "assistant" ? (
-                            <div className="markdown-content">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={markdownComponents}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
+                            <>
+                              {/* Show current tool calls if this is the streaming message and we're loading */}
+                              {isLoading && actualIndex === messages.length - 1 && currentToolCalls.length > 0 && (
+                                <div className="mb-3 pb-3 border-b border-border/40">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
+                                  <div className="space-y-1.5">
+                                    {currentToolCalls.map((toolCall, idx) => (
+                                      <div key={idx} className="flex items-center gap-2 text-xs">
+                                        {toolCall.status === "running" ? (
+                                          <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
+                                        ) : toolCall.status === "completed" ? (
+                                          <Check className="h-3 w-3 text-green-600 shrink-0" />
+                                        ) : (
+                                          <X className="h-3 w-3 text-red-600 shrink-0" />
+                                        )}
+                                        <span className={cn(
+                                          "text-muted-foreground",
+                                          toolCall.status === "running" && "text-brand-teal",
+                                          toolCall.status === "completed" && "text-green-600",
+                                          toolCall.status === "error" && "text-red-600"
+                                        )}>
+                                          {toolCall.tool_hebrew || toolCall.tool}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="markdown-content">
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={markdownComponents}
+                                >
+                                  {message.content || (isLoading && actualIndex === messages.length - 1 && currentToolCalls.length === 0 ? "מנתח נתונים, אנא המתן..." : "")}
+                                </ReactMarkdown>
+                              </div>
+                            </>
                           ) : (
                             <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                           )}
@@ -1202,17 +1317,6 @@ export function AgentChat({
                   </div>
                 )}
 
-                {isLoading && (
-                  <div className="flex items-start gap-2 justify-start">
-                    <AIIcon className="shrink-0 mt-1" />
-                    <div className="bg-muted border border-border/60 rounded-xl rounded-bl-sm px-4 py-3 shadow-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">מנתח נתונים, אנא המתן...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 <div ref={messagesEndRef} />
               </div>
               <div className="border-t bg-background/80 backdrop-blur-sm p-4">

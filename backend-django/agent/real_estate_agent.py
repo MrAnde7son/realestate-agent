@@ -10,6 +10,8 @@ using the MCP server tools for assets, deals, expenses, mortgage calculations, a
 import os
 import sys
 import importlib.util
+import asyncio
+import threading
 from typing import List, Optional, Dict, Any
 
 # Add project root to path
@@ -150,6 +152,100 @@ class ToolCallTracker(BaseCallbackHandler):
         return self.tool_calls.copy()
 
 
+class StreamingCallbackHandler(BaseCallbackHandler):
+    """Callback handler for streaming LLM responses and tracking tool calls."""
+    
+    def __init__(self):
+        self.tool_calls = []
+        self.current_tool_call = None
+        self.chunk_queue = asyncio.Queue()
+        self.complete_response = ""
+        self._finished = False
+    
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        """Called when a new token is generated."""
+        self.complete_response += token
+        # Put token in queue for async consumption
+        try:
+            self.chunk_queue.put_nowait({"type": "chunk", "content": token})
+        except asyncio.QueueFull:
+            pass  # Queue is full, skip this chunk
+    
+    def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
+        """Called when a tool starts running."""
+        tool_name = serialized.get("name", "unknown_tool")
+        self.current_tool_call = {
+            "tool": tool_name,
+            "input": input_str,
+            "status": "running",
+            "output": None
+        }
+        self.tool_calls.append(self.current_tool_call)
+        try:
+            self.chunk_queue.put_nowait({
+                "type": "tool_call_start",
+                "tool": tool_name,
+                "input": input_str[:100]
+            })
+        except asyncio.QueueFull:
+            pass
+    
+    def on_tool_end(self, output: str, **kwargs: Any) -> None:
+        """Called when a tool finishes running."""
+        if self.current_tool_call:
+            self.current_tool_call["status"] = "completed"
+            self.current_tool_call["output"] = output[:200]  # Truncate long outputs
+            tool_name = self.current_tool_call["tool"]
+            self.current_tool_call = None
+            try:
+                self.chunk_queue.put_nowait({
+                    "type": "tool_call_end",
+                    "tool": tool_name,
+                    "output": output[:200]
+                })
+            except asyncio.QueueFull:
+                pass
+    
+    def on_tool_error(self, error: Exception, **kwargs: Any) -> None:
+        """Called when a tool encounters an error."""
+        if self.current_tool_call:
+            self.current_tool_call["status"] = "error"
+            self.current_tool_call["output"] = f"Error: {str(error)}"
+            tool_name = self.current_tool_call["tool"]
+            self.current_tool_call = None
+            try:
+                self.chunk_queue.put_nowait({
+                    "type": "tool_call_error",
+                    "tool": tool_name,
+                    "error": str(error)
+                })
+            except asyncio.QueueFull:
+                pass
+    
+    def get_tool_calls(self) -> List[Dict[str, Any]]:
+        """Get all tracked tool calls."""
+        return self.tool_calls.copy()
+    
+    def get_complete_response(self) -> str:
+        """Get complete response."""
+        return self.complete_response
+    
+    def mark_finished(self):
+        """Mark streaming as finished."""
+        self._finished = True
+        try:
+            self.chunk_queue.put_nowait({"type": "finished"})
+        except asyncio.QueueFull:
+            pass
+    
+    async def get_next_event(self, timeout: float = 0.1):
+        """Get next event from queue."""
+        try:
+            return await asyncio.wait_for(self.chunk_queue.get(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+
+
 def translate_tool_name(tool_name: str) -> str:
     """Translate tool name to Hebrew."""
     translations = {
@@ -265,6 +361,45 @@ class RealEstateAgent:
         
         ctx = MockContext()
         
+        # Helper function to wrap async tool functions for LangChain
+        def wrap_async_tool(async_func):
+            """Wrap an async function to be used with LangChain tools."""
+            def sync_wrapper(*args, **kwargs):
+                """Synchronous wrapper that runs the async function."""
+                try:
+                    # Try to get the current event loop
+                    loop = asyncio.get_running_loop()
+                    # If we're in an async context, we need to run in a thread
+                    import concurrent.futures
+                    
+                    # Create a new event loop in a thread
+                    result = None
+                    exception = None
+                    
+                    def run_in_thread():
+                        nonlocal result, exception
+                        try:
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                result = new_loop.run_until_complete(async_func(*args, **kwargs))
+                            finally:
+                                new_loop.close()
+                        except Exception as e:
+                            exception = e
+                    
+                    thread = threading.Thread(target=run_in_thread)
+                    thread.start()
+                    thread.join()
+                    
+                    if exception:
+                        raise exception
+                    return result
+                except RuntimeError:
+                    # No running loop, we can create one
+                    return asyncio.run(async_func(*args, **kwargs))
+            return sync_wrapper
+        
         # Wrap MCP functions as LangChain tools
         # Assets tools
         async def list_assets_tool_func(
@@ -291,7 +426,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         list_assets_tool = StructuredTool.from_function(
-            func=list_assets_tool_func,
+            func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
             description="חיפוש נכסים עם אפשרויות סינון. השתמש בכלי זה כדי לחפש נכסים. מקבל עברית ואנגלית."
         )
@@ -308,7 +443,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         get_asset_tool = StructuredTool.from_function(
-            func=get_asset_tool_func,
+            func=wrap_async_tool(get_asset_tool_func),
             name="get_asset_tool",
             description="קבלת פרטים מפורטים על נכס ספציפי לפי מזהה. מקבל עברית ואנגלית."
         )
@@ -330,7 +465,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         create_asset_tool = StructuredTool.from_function(
-            func=create_asset_tool_func,
+            func=wrap_async_tool(create_asset_tool_func),
             name="create_asset_tool",
             description="יצירת נכס חדש. יש לספק פרטי כתובת. מקבל עברית ואנגלית."
         )
@@ -346,7 +481,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         get_asset_transactions_tool = StructuredTool.from_function(
-            func=get_asset_transactions_tool_func,
+            func=wrap_async_tool(get_asset_transactions_tool_func),
             name="get_asset_transactions_tool",
             description="קבלת היסטוריית עסקאות של נכס."
         )
@@ -362,7 +497,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         get_asset_appraisal_tool = StructuredTool.from_function(
-            func=get_asset_appraisal_tool_func,
+            func=wrap_async_tool(get_asset_appraisal_tool_func),
             name="get_asset_appraisal_tool",
             description="קבלת ניתוח הערכת שווי של נכס כולל מכירות דומות."
         )
@@ -385,7 +520,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         list_deals_tool = StructuredTool.from_function(
-            func=list_deals_tool_func,
+            func=wrap_async_tool(list_deals_tool_func),
             name="list_deals_tool",
             description="רשימת כל העסקאות, עם אפשרות סינון לפי שלב או נכס. מקבל עברית ואנגלית."
         )
@@ -404,7 +539,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         create_deal_tool = StructuredTool.from_function(
-            func=create_deal_tool_func,
+            func=wrap_async_tool(create_deal_tool_func),
             name="create_deal_tool",
             description="יצירת עסקה חדשה עבור נכס."
         )
@@ -420,7 +555,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         get_offer_tool = StructuredTool.from_function(
-            func=get_offer_tool_func,
+            func=wrap_async_tool(get_offer_tool_func),
             name="get_offer_tool",
             description="קבלת פרטי הצעה כולל מידע פיננסי."
         )
@@ -442,7 +577,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         estimate_build_cost_tool = StructuredTool.from_function(
-            func=estimate_build_cost_tool_func,
+            func=wrap_async_tool(estimate_build_cost_tool_func),
             name="estimate_build_cost_tool",
             description="הערכת עלויות בנייה במטר רבוע."
         )
@@ -458,7 +593,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         get_cost_options_tool = StructuredTool.from_function(
-            func=get_cost_options_tool_func,
+            func=wrap_async_tool(get_cost_options_tool_func),
             name="get_cost_options_tool",
             description="קבלת אפשרויות זמינות להערכת עלויות (אזורים, איכויות, היקפים)."
         )
@@ -480,7 +615,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         analyze_mortgage_tool = StructuredTool.from_function(
-            func=analyze_mortgage_tool_func,
+            func=wrap_async_tool(analyze_mortgage_tool_func),
             name="analyze_mortgage_tool",
             description="ניתוח יכולת משכנתא ותרחישי תשלום."
         )
@@ -500,7 +635,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         list_contacts_tool = StructuredTool.from_function(
-            func=list_contacts_tool_func,
+            func=wrap_async_tool(list_contacts_tool_func),
             name="list_contacts_tool",
             description="רשימת כל אנשי הקשר ב-CRM."
         )
@@ -520,7 +655,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         create_contact_tool = StructuredTool.from_function(
-            func=create_contact_tool_func,
+            func=wrap_async_tool(create_contact_tool_func),
             name="create_contact_tool",
             description="יצירת איש קשר חדש ב-CRM."
         )
@@ -539,7 +674,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         list_leads_tool = StructuredTool.from_function(
-            func=list_leads_tool_func,
+            func=wrap_async_tool(list_leads_tool_func),
             name="list_leads_tool",
             description="רשימת כל הלידים, עם אפשרות סינון לפי סטטוס."
         )
@@ -555,7 +690,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         create_lead_tool = StructuredTool.from_function(
-            func=create_lead_tool_func,
+            func=wrap_async_tool(create_lead_tool_func),
             name="create_lead_tool",
             description="יצירת ליד חדש המקשר איש קשר לנכס."
         )
@@ -574,7 +709,7 @@ class RealEstateAgent:
                 return f"שגיאה: {str(e)}"
         
         list_tasks_tool = StructuredTool.from_function(
-            func=list_tasks_tool_func,
+            func=wrap_async_tool(list_tasks_tool_func),
             name="list_tasks_tool",
             description="רשימת כל המשימות ב-CRM, עם אפשרות סינון לפי סטטוס."
         )
@@ -673,6 +808,84 @@ class RealEstateAgent:
                 "response": result["output"],
                 "tool_calls": []
             }
+    
+    async def chat_stream(self, message: str, chat_history: Optional[List] = None):
+        """Stream chat responses from the agent.
+        
+        Args:
+            message: User message
+            chat_history: Optional chat history (list of messages)
+        
+        Yields:
+            Dictionary events with 'type' and data:
+            - {'type': 'tool_call_start', 'tool': str, 'tool_hebrew': str, 'input': str}
+            - {'type': 'tool_call_end', 'tool': str, 'tool_hebrew': str, 'output': str}
+            - {'type': 'tool_call_error', 'tool': str, 'tool_hebrew': str, 'error': str}
+            - {'type': 'chunk', 'content': str}
+            - {'type': 'complete', 'response': str, 'tool_calls': list}
+            - {'type': 'error', 'error': str}
+        """
+        history = chat_history or []
+        callback = StreamingCallbackHandler()
+        
+        # Run agent execution in background task
+        async def run_agent():
+            try:
+                async for _ in self.agent_executor.astream(
+                    {"input": message, "chat_history": history},
+                    config={"callbacks": [callback]}
+                ):
+                    pass  # Just consume the stream
+                callback.mark_finished()
+            except Exception as e:
+                try:
+                    callback.chunk_queue.put_nowait({"type": "error", "error": str(e)})
+                except:
+                    pass
+                callback.mark_finished()
+        
+        # Start agent execution
+        agent_task = asyncio.create_task(run_agent())
+        
+        try:
+            # Stream events from callback queue
+            while not callback._finished or not callback.chunk_queue.empty():
+                event = await callback.get_next_event(timeout=0.1)
+                if event:
+                    if event.get("type") == "finished":
+                        break
+                    # Add Hebrew translation for tool events
+                    if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
+                        event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
+                    yield event
+            
+            # Wait for agent to finish
+            await agent_task
+            
+            # Get final tool calls and translate
+            tool_calls = callback.get_tool_calls()
+            for tool_call in tool_calls:
+                tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+            
+            # Send completion event
+            yield {
+                "type": "complete",
+                "response": callback.get_complete_response(),
+                "tool_calls": tool_calls
+            }
+        except Exception as e:
+            yield {
+                "type": "error",
+                "error": str(e)
+            }
+        finally:
+            # Ensure agent task is cancelled if still running
+            if not agent_task.done():
+                agent_task.cancel()
+                try:
+                    await agent_task
+                except asyncio.CancelledError:
+                    pass
     
     def run(self, message: str) -> str:
         """Synchronous version of chat (for CLI usage).

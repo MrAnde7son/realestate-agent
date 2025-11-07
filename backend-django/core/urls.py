@@ -68,6 +68,7 @@ urlpatterns = [
     path('support/bug', vs.support_bug),
     path('support/consultation', vs.support_consultation),
     path('agent/chat', views.agent_chat, name='agent_chat'),
+    path('agent/chat/stream', views.agent_chat_stream, name='agent_chat_stream'),
     path('agent/feedback', views.agent_feedback, name='agent_feedback'),
 
     # Asset enrichment endpoints

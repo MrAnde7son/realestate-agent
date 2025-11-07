@@ -70,6 +70,7 @@ urlpatterns = [
     path('agent/chat', views.agent_chat, name='agent_chat'),
     path('agent/chat/stream', views.agent_chat_stream, name='agent_chat_stream'),
     path('agent/feedback', views.agent_feedback, name='agent_feedback'),
+    path('agent/recommendations', views.agent_recommendations, name='agent_recommendations'),
 
     # Asset enrichment endpoints
     path('assets/', include(asset_urlpatterns)),

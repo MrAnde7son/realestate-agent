@@ -12,58 +12,24 @@ import sys
 import importlib.util
 import asyncio
 import threading
+import time
+import logging
 from typing import List, Optional, Dict, Any
 
-# Add project root to path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+logger = logging.getLogger(__name__)
 
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-# Import agent components - try multiple import paths for compatibility
-try:
-    # Standard LangChain 0.3+ imports
-    from langchain.agents import AgentExecutor, create_openai_tools_agent
-    from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-except ImportError:
-    try:
-        # Try alternative import structure
-        from langchain.agents.agent import AgentExecutor
-        from langchain.agents import create_openai_tools_agent
-        from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-    except ImportError:
-        try:
-            # Try with langchain_core prompts
-            from langchain.agents import AgentExecutor, create_openai_tools_agent
-            from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-        except ImportError:
-            # Last resort: check if modules exist and import manually
-            import langchain.agents as agents_mod
-            import langchain.prompts as prompts_mod
-            
-            AgentExecutor = getattr(agents_mod, 'AgentExecutor', None)
-            create_openai_tools_agent = getattr(agents_mod, 'create_openai_tools_agent', None)
-            ChatPromptTemplate = getattr(prompts_mod, 'ChatPromptTemplate', None)
-            MessagesPlaceholder = getattr(prompts_mod, 'MessagesPlaceholder', None)
-            
-            if not AgentExecutor or not create_openai_tools_agent:
-                # Try langchain_core for prompts
-                try:
-                    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-                except ImportError:
-                    pass
-            
-            if not all([AgentExecutor, create_openai_tools_agent, ChatPromptTemplate, MessagesPlaceholder]):
-                raise ImportError(
-                    "Could not import required LangChain components.\n"
-                    "Please install: pip install langchain>=0.3.0 langchain-openai langchain-core\n"
-                    "Or run: pip install -r backend-django/requirements-langchain.txt"
-                )
+# Add project root to path (after imports to satisfy linter)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Import MCP server functions dynamically
 _agent_import_error = None
@@ -915,18 +881,69 @@ class RealEstateAgent:
         
         try:
             # Stream events from callback queue
-            while not callback._finished or not callback.chunk_queue.empty():
+            max_wait_time = 300  # Maximum 5 minutes total wait time
+            start_time = time.time()
+            consecutive_timeouts = 0
+            max_consecutive_timeouts = 50  # Stop after 5 seconds of no events (50 * 0.1s)
+            
+            while True:
+                # Check if agent task is done
+                if agent_task.done():
+                    # Agent finished, drain remaining events
+                    while not callback.chunk_queue.empty():
+                        try:
+                            event = callback.chunk_queue.get_nowait()
+                            if event and event.get("type") != "finished":
+                                if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
+                                    event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
+                                yield event
+                        except Exception:
+                            break
+                    break
+                
+                # Check timeout
+                elapsed = time.time() - start_time
+                if elapsed > max_wait_time:
+                    logger.warning("Agent chat stream timeout after %s seconds", max_wait_time)
+                    yield {
+                        "type": "error",
+                        "error": "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+                    }
+                    break
+                
+                # Get next event
                 event = await callback.get_next_event(timeout=0.1)
                 if event:
+                    consecutive_timeouts = 0  # Reset timeout counter
                     if event.get("type") == "finished":
                         break
                     # Add Hebrew translation for tool events
                     if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
                         event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
                     yield event
+                else:
+                    # No event received (timeout)
+                    consecutive_timeouts += 1
+                    if consecutive_timeouts >= max_consecutive_timeouts:
+                        # Check if agent is still running
+                        if agent_task.done():
+                            break
+                        # If agent is still running but no events, log warning and continue
+                        logger.warning("No events received for %s seconds, but agent still running", 
+                                     consecutive_timeouts * 0.1)
+                        consecutive_timeouts = 0  # Reset to allow more time
             
-            # Wait for agent to finish
-            await agent_task
+            # Wait for agent to finish (with timeout)
+            try:
+                await asyncio.wait_for(agent_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("Agent task did not finish within timeout")
+                # Send error event
+                yield {
+                    "type": "error",
+                    "error": "הסוכן לא סיים את המשימה בזמן. ייתכן שהתהליך תקוע."
+                }
+                return
             
             # Get final tool calls and translate
             tool_calls = callback.get_tool_calls()

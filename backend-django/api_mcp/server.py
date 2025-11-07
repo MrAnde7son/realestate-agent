@@ -62,6 +62,7 @@ Usage Examples:
 5. Create deal: create_deal(asset_id=123, stage="discovery")
 """
 
+import logging
 import os
 import sys
 from typing import Optional, Dict, Any, List
@@ -80,12 +81,14 @@ mcp = FastMCP("RealEstateAPI", dependencies=["requests"])
 _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
 
+logger = logging.getLogger(__name__)
 
 def _get_api_base_url() -> str:
     """Get the API base URL from environment or default."""
     global _api_base_url
     if _api_base_url is None:
         _api_base_url = os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
+    logger.info(f"API base URL: {_api_base_url}")
     return _api_base_url
 
 

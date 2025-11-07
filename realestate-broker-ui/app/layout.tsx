@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 {children}
                 <Toaster />
                 <ConfirmationDialog />
-                <AgentChat />
+                <AgentChat fetchRecommendationsFromAPI={true} />
               </ConfirmProvider>
             </AnalyticsProvider>
           </AuthProvider>

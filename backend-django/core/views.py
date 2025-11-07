@@ -52,12 +52,13 @@ except ImportError:  # pragma: no cover - blacklist app not installed
 
 # Import OpenAI exceptions for error handling
 try:
-    from openai import RateLimitError, APIError, APIConnectionError, APITimeoutError
+    from openai import RateLimitError, APIError, APIConnectionError, APITimeoutError, AuthenticationError
 except ImportError:
     RateLimitError = None
     APIError = None
     APIConnectionError = None
     APITimeoutError = None
+    AuthenticationError = None
 from drf_spectacular.utils import extend_schema
 
 import logging
@@ -4762,6 +4763,12 @@ def get_user_friendly_error_message(exception: Exception) -> str:
     """
     error_str = str(exception).lower()
     
+    # Handle authentication errors first (invalid API key)
+    if AuthenticationError and isinstance(exception, AuthenticationError):
+        if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+            return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
+        return "שגיאה באימות. אנא נסה שוב מאוחר יותר."
+    
     # Handle OpenAI/Groq rate limit errors
     if RateLimitError and isinstance(exception, RateLimitError):
         if "rate limit" in error_str or "429" in error_str:
@@ -4781,6 +4788,8 @@ def get_user_friendly_error_message(exception: Exception) -> str:
             return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
         if "quota" in error_str or "limit" in error_str:
             return "המגבלה היומית הושגה. אנא נסה שוב מחר."
+        if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+            return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
         return "שגיאה בשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
     
     # Check error message content for common patterns
@@ -4792,6 +4801,8 @@ def get_user_friendly_error_message(exception: Exception) -> str:
         return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
     if "connection" in error_str or "network" in error_str:
         return "בעיית חיבור. אנא בדוק את החיבור לאינטרנט ונסה שוב."
+    if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+        return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
     
     # Generic fallback message
     return "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר."
@@ -5082,8 +5093,9 @@ def agent_chat_stream(request):
         return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
     except Exception as e:
         logger.exception("Error in agent chat stream: %s", e)
+        error_exception = e  # Capture exception for use in generator
         def error_generator():
-            user_message = get_user_friendly_error_message(e)
+            user_message = get_user_friendly_error_message(error_exception)
             yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
         return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
 
@@ -5178,3 +5190,97 @@ def agent_feedback(request):
             {"error": f"Failed to submit feedback: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@extend_schema(
+    summary="Agent Recommendations",
+    description="Get recommended questions for the AI chat interface",
+    tags=["Agent"],
+    responses={
+        200: {
+            'description': 'Recommended questions',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'recommendations': {
+                                'type': 'array',
+                                'items': {'type': 'string'},
+                                'description': 'List of recommended questions in Hebrew'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def agent_recommendations(request):
+    """Get recommended questions for the AI chat interface.
+    
+    Returns personalized recommendations based on user's assets and activity,
+    or default recommendations if no personalization is available.
+    """
+    try:
+        user = request.user
+        
+        # Base recommendations - always include these
+        recommendations = []
+        
+        # Try to personalize based on user's assets
+        try:
+            from .models import Asset
+            user_assets = Asset.objects.filter(user=user).order_by('-created_at')[:5]
+            
+            if user_assets.exists():
+                # User has assets - provide asset-specific recommendations
+                recommendations = [
+                    "מה השווי של הנכסים שלי?",
+                    "איזה סיכונים יש בנכסים שלי?",
+                    "מה הפוטנציאל של הנכסים שלי?",
+                    "מצא לי נכסים דומים לנכסים שלי",
+                    "מה ההיסטוריה של העסקאות באזורים של הנכסים שלי?"
+                ]
+            else:
+                # User has no assets - provide general recommendations
+                recommendations = [
+                    "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+                    "מה הפוטנציאל של הנכס הזה?",
+                    "איזה סיכונים יש בנכס הזה?",
+                    "מה ההיסטוריה של העסקאות באזור?",
+                    "מה השווי של הנכס הזה?"
+                ]
+        except Exception as e:
+            logger.warning(f"Error personalizing recommendations: {e}")
+            # Fallback to defaults if personalization fails
+            recommendations = [
+                "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+                "מה הפוטנציאל של הנכס הזה?",
+                "איזה סיכונים יש בנכס הזה?"
+            ]
+        
+        # Ensure we always return at least some recommendations
+        if not recommendations:
+            recommendations = [
+                "מה השווי של הנכס הזה?",
+                "מה ההיסטוריה של העסקאות באזור?",
+                "איזה סיכונים יש בנכס הזה?"
+            ]
+        
+        return Response({
+            "recommendations": recommendations
+        })
+        
+    except Exception as e:
+        logger.exception("Error in agent recommendations: %s", e)
+        # Return defaults even on error
+        return Response({
+            "recommendations": [
+                "מה השווי של הנכס הזה?",
+                "מה ההיסטוריה של העסקאות באזור?",
+                "איזה סיכונים יש בנכס הזה?"
+            ]
+        })

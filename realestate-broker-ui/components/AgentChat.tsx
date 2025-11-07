@@ -1,31 +1,3 @@
-/**
- * AgentChat Component
- * 
- * A chat interface for interacting with the AI real estate agent.
- * 
- * @example
- * // Basic usage with defaults
- * <AgentChat />
- * 
- * @example
- * // With custom recommendations
- * <AgentChat 
- *   recommendedQuestions={[
- *     "מה השווי של הנכס?",
- *     "מה ההיסטוריה של העסקאות?"
- *   ]}
- * />
- * 
- * @example
- * // With API-based recommendations
- * <AgentChat 
- *   fetchRecommendationsFromAPI={true}
- *   emptyStatePrompt="שאל כל שאלה"
- * />
- * 
- * To enable API-based recommendations, create an API route at:
- * /api/agent/recommendations that returns: { recommendations: string[] }
- */
 
 "use client"
 
@@ -64,14 +36,6 @@ interface Suggestion {
   text: string
   selected?: boolean
 }
-
-// Default recommended questions - can be overridden via props or API
-// To customize globally, modify this constant
-const DEFAULT_RECOMMENDED_QUESTIONS = [
-  "מה השווי של הנכס הזה?",
-  "מה ההיסטוריה של העסקאות באזור?",
-  "איזה סיכונים יש בנכס הזה?"
-]
 
 interface AgentChatProps {
   /** Custom recommended questions to show in empty state. If not provided, will use defaults or fetch from API */
@@ -190,7 +154,7 @@ export function AgentChat({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [recommendedQuestionsState, setRecommendedQuestionsState] = useState<string[]>(
-    recommendedQuestions || DEFAULT_RECOMMENDED_QUESTIONS
+    recommendedQuestions ?? []
   )
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const [lastAssistantText, setLastAssistantText] = useState("")
@@ -388,14 +352,20 @@ export function AgentChat({
         
         if (response.ok) {
           const data = await response.json()
+          console.log("Recommendations API response:", data)
           if (data.recommendations && Array.isArray(data.recommendations)) {
+            console.log("Setting recommendations from API:", data.recommendations)
             setRecommendedQuestionsState(data.recommendations)
+          } else {
+            console.warn("Recommendations API returned invalid data format:", data)
           }
+        } else {
+          // Response not OK - log the error (API should always return 200, so this is unexpected)
+          const errorText = await response.text()
+          console.error(`Recommendations API returned ${response.status}:`, errorText)
         }
       } catch (error) {
         console.error("Failed to fetch recommendations:", error)
-        // Fallback to defaults on error
-        setRecommendedQuestionsState(DEFAULT_RECOMMENDED_QUESTIONS)
       } finally {
         setIsLoadingRecommendations(false)
       }
@@ -542,6 +512,7 @@ export function AgentChat({
                   
                 case 'tool_call_error':
                   // Update tool call with error
+                  console.log('Tool call error received:', data.tool, data.error)
                   setCurrentToolCalls((prev) => prev.map((tc) => 
                     tc.tool === data.tool
                       ? { ...tc, status: "error", output: data.error }
@@ -557,7 +528,8 @@ export function AgentChat({
                   console.log('Complete event received:', {
                     responseLength: accumulatedContent.length,
                     toolCallsCount: finalToolCalls.length,
-                    toolCalls: finalToolCalls
+                    toolCalls: finalToolCalls,
+                    toolCallsWithStatus: finalToolCalls.map((tc: any) => ({ tool: tc.tool, status: tc.status }))
                   })
                   
                   // Update final message
@@ -574,10 +546,11 @@ export function AgentChat({
                   setLastAssistantText(accumulatedContent)
                   
                   // Update tool calls state - ensure format matches what we expect
+                  // Preserve error status - don't default to "completed" if status exists
                   const formattedToolCalls = finalToolCalls.map((tc: any) => ({
                     tool: tc.tool || tc.name,
                     tool_hebrew: tc.tool_hebrew || tc.tool || tc.name,
-                    status: tc.status || "completed",
+                    status: tc.status || "completed", // Only default if status is truly missing
                     input: tc.input,
                     output: tc.output
                   }))
@@ -1112,24 +1085,24 @@ export function AgentChat({
                                   ? currentToolCalls
                                   : (message.tool_calls || [])
                                 return toolCallsToShow.length > 0 && (
-                                  <div className="mb-3 pb-3 border-b border-border/40">
+                                  <div className="mb-3 pb-3">
                                     <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
                                     <div className="space-y-1.5">
                                       {toolCallsToShow.map((toolCall, idx) => (
                                         <div key={`${toolCall.tool || idx}-${idx}`} className="flex items-center gap-2 text-xs">
                                           {toolCall.status === "running" ? (
                                             <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
-                                          ) : toolCall.status === "completed" ? (
-                                            <Check className="h-3 w-3 text-green-600 shrink-0" />
                                           ) : toolCall.status === "error" ? (
                                             <X className="h-3 w-3 text-red-600 shrink-0" />
-                                          ) : (
+                                          ) : toolCall.status === "completed" ? (
                                             <Check className="h-3 w-3 text-green-600 shrink-0" />
+                                          ) : (
+                                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
                                           )}
                                           <span className={cn(
                                             "text-muted-foreground",
                                             toolCall.status === "running" && "text-brand-teal font-medium",
-                                            (toolCall.status === "completed" || !toolCall.status) && "text-green-600",
+                                            toolCall.status === "completed" && "text-green-600",
                                             toolCall.status === "error" && "text-red-600"
                                           )}>
                                             {toolCall.tool_hebrew || toolCall.tool}
@@ -1182,33 +1155,6 @@ export function AgentChat({
                                         {source.description}
                                       </p>
                                     )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Show tool calls for assistant messages */}
-                          {message.role === "assistant" && message.tool_calls && message.tool_calls.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-border/40">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">פעולות שבוצעו:</p>
-                              <div className="space-y-1.5">
-                                {message.tool_calls.map((toolCall, toolIdx) => (
-                                  <div key={toolIdx} className="flex items-center gap-2 text-xs">
-                                    {toolCall.status === "completed" ? (
-                                      <Check className="h-3 w-3 text-green-600 shrink-0" />
-                                    ) : toolCall.status === "error" ? (
-                                      <X className="h-3 w-3 text-red-600 shrink-0" />
-                                    ) : (
-                                      <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
-                                    )}
-                                    <span className={cn(
-                                      "text-muted-foreground",
-                                      toolCall.status === "completed" && "text-green-600",
-                                      toolCall.status === "error" && "text-red-600"
-                                    )}>
-                                      {toolCall.tool_hebrew || toolCall.tool}
-                                    </span>
                                   </div>
                                 ))}
                               </div>

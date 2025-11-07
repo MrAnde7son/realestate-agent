@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,11 +36,7 @@ export default function APITokensSection() {
   const [copiedTokenId, setCopiedTokenId] = useState<number | null>(null)
   const [visibleTokens, setVisibleTokens] = useState<Set<number>>(new Set())
 
-  useEffect(() => {
-    loadTokens()
-  }, [])
-
-  const loadTokens = async () => {
+  const loadTokens = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.get<{ tokens: APIToken[] }>('/api/api-tokens')
@@ -56,7 +52,11 @@ export default function APITokensSection() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    loadTokens()
+  }, [loadTokens])
 
   const handleCreateToken = async () => {
     if (!newTokenName.trim()) {

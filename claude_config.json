@@ -2,28 +2,28 @@
     "mcpServers": {
       "yad2-real-estate": {
         "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
-        "args": ["-m", "yad2.mcp.server"],
+        "args": ["-m", "yad2.mcp_server"],
         "env": {
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }
       },
       "data-gov": {
         "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
-        "args": ["-m", "gov.mcp.server"],
+        "args": ["-m", "gov.mcp_server"],
         "env": {
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }
       },
       "tel-aviv-gis": {
         "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
-        "args": ["-m", "gis.mcp.server"],
+        "args": ["-m", "gis.mcp_server"],
         "env": {
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }
       },
       "mavat": {
         "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
-        "args": ["-m", "mavat.mcp.server"],
+        "args": ["-m", "mavat.mcp_server"],
         "env": {
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }

@@ -66,9 +66,16 @@ except ImportError:
                 )
 
 # Import MCP server functions dynamically
+_agent_import_error = None
 try:
-    mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp", "server.py")
+    mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "api_mcp", "server.py")
+    if not os.path.exists(mcp_server_path):
+        raise ImportError(f"MCP server file not found at {mcp_server_path}")
+    
     spec = importlib.util.spec_from_file_location("mcp_server", mcp_server_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load MCP server from {mcp_server_path}")
+    
     mcp_server = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mcp_server)
     
@@ -92,10 +99,12 @@ try:
 except Exception as e:
     # MCP server not available - create stub functions
     import warnings
+    _agent_import_error = str(e)
     warnings.warn(f"MCP server not available: {e}. Agent will have limited functionality.")
     
     async def _stub_func(*args, **kwargs):
-        return {"success": False, "error": "MCP server not available. Please install fastmcp and mcp packages."}
+        error_msg = f"MCP server not available. Error: {_agent_import_error}. Please ensure fastmcp is installed: pip install fastmcp"
+        return {"success": False, "error": error_msg}
     
     list_assets = _stub_func
     get_asset = _stub_func
@@ -364,40 +373,23 @@ class RealEstateAgent:
         # Helper function to wrap async tool functions for LangChain
         def wrap_async_tool(async_func):
             """Wrap an async function to be used with LangChain tools."""
+            import functools
+            
+            @functools.wraps(async_func)
             def sync_wrapper(*args, **kwargs):
                 """Synchronous wrapper that runs the async function."""
+                # Check if we're in an async context
                 try:
-                    # Try to get the current event loop
                     loop = asyncio.get_running_loop()
-                    # If we're in an async context, we need to run in a thread
+                    # We're in an async context - need to run in a separate thread
                     import concurrent.futures
-                    
-                    # Create a new event loop in a thread
-                    result = None
-                    exception = None
-                    
-                    def run_in_thread():
-                        nonlocal result, exception
-                        try:
-                            new_loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(new_loop)
-                            try:
-                                result = new_loop.run_until_complete(async_func(*args, **kwargs))
-                            finally:
-                                new_loop.close()
-                        except Exception as e:
-                            exception = e
-                    
-                    thread = threading.Thread(target=run_in_thread)
-                    thread.start()
-                    thread.join()
-                    
-                    if exception:
-                        raise exception
-                    return result
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, async_func(*args, **kwargs))
+                        return future.result(timeout=300)  # 5 minute timeout
                 except RuntimeError:
-                    # No running loop, we can create one
+                    # No running loop - we can use asyncio.run directly
                     return asyncio.run(async_func(*args, **kwargs))
+            
             return sync_wrapper
         
         # Wrap MCP functions as LangChain tools
@@ -409,7 +401,17 @@ class RealEstateAgent:
             rooms: Optional[int] = None,
             page: Optional[int] = None,
         ) -> str:
-            """List all assets with optional filtering. Use this to search for properties."""
+            """List all assets with optional filtering. Use this to search for properties.
+            
+            Parameters:
+            - city: City name (e.g., 'תל אביב', 'ירושלים') - REQUIRED for location-based searches
+            - max_price: Maximum price in shekels (e.g., 4000000 for 4 million)
+            - min_price: Minimum price in shekels
+            - rooms: Number of rooms
+            - page: Page number for pagination (default: 1)
+            
+            Example: list_assets_tool(city='תל אביב', max_price=4000000)
+            """
             try:
                 result = await list_assets(ctx, city, max_price, min_price, rooms, page)
                 if isinstance(result, dict) and result.get("success"):
@@ -428,7 +430,18 @@ class RealEstateAgent:
         list_assets_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
-            description="חיפוש נכסים עם אפשרויות סינון. השתמש בכלי זה כדי לחפש נכסים. מקבל עברית ואנגלית."
+            description="""חיפוש נכסים עם אפשרויות סינון. 
+            
+            פרמטרים:
+            - city: שם העיר (לדוגמה: 'תל אביב', 'ירושלים') - חובה לחיפוש לפי מיקום
+            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 4000000 עבור 4 מיליון)
+            - min_price: מחיר מינימלי בשקלים
+            - rooms: מספר חדרים
+            - page: מספר עמוד (ברירת מחדל: 1)
+            
+            דוגמה: list_assets_tool(city='תל אביב', max_price=4000000)
+            
+            חשוב: השתמש בפרמטר 'city' לחיפוש לפי מיקום, לא 'location' או 'lang'."""
         )
         
         async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
@@ -840,7 +853,7 @@ class RealEstateAgent:
             except Exception as e:
                 try:
                     callback.chunk_queue.put_nowait({"type": "error", "error": str(e)})
-                except:
+                except Exception:
                     pass
                 callback.mark_finished()
         

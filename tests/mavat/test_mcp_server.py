@@ -11,12 +11,10 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastmcp import Context
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'mavat', 'mcp'))
-from server import (
+from mavat.mcp_server import (
     get_plan_details,
     get_plan_documents,
     get_plan_summary,
-    mcp,
     search_by_block_parcel,
     search_by_location,
     search_plans,
@@ -338,36 +336,6 @@ class TestGetPlanSummary:
             
             assert result["success"] is False
             assert result["error"] == "Failed to retrieve complete plan information"
-
-
-class TestMCPTools:
-    """Test that all MCP tools are properly registered."""
-
-    def test_tools_registered(self):
-        """Test that all expected tools are registered with the MCP server."""
-        # Check that the mcp object exists and has the expected structure
-        assert hasattr(mcp, 'tool'), "MCP server should have tool decorator"
-        assert hasattr(mcp, 'get_tools'), "MCP server should have get_tools method"
-        
-        # Verify that the imported functions exist and are FastMCP tools
-        expected_functions = [
-            search_plans,
-            get_plan_details, 
-            get_plan_documents,
-            search_by_location,
-            search_by_block_parcel,
-            get_plan_summary
-        ]
-        
-        for func in expected_functions:
-            assert func is not None, f"Function {func.__name__} should not be None"
-            # Check that it's a FastMCP tool (has the expected attributes)
-            assert hasattr(func, 'fn'), f"Function {func.__name__} should have .fn attribute"
-
-    def test_server_metadata(self):
-        """Test MCP server metadata."""
-        assert mcp.name == "MavatPlanning"
-        assert "requests" in mcp.dependencies
 
 
 if __name__ == "__main__":

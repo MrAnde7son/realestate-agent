@@ -272,10 +272,10 @@ Copy-Item -Force .\claude_config.json "$env:APPDATA\Claude\claude_desktop_config
 
 **Individual Servers:**
 ```bash
-python -m yad2.mcp.server      # Real estate scraping (port 8001)
-python -m gis.mcp.server       # Tel Aviv GIS (port 8002)
-python -m gov.mcp.server       # Government data (port 8003)
-python -m mavat.mcp.server     # National planning portal (port 8004)
+python -m yad2.mcp_server      # Real estate scraping (port 8001)
+python -m gis.mcp_server       # Tel Aviv GIS (port 8002)
+python -m gov.mcp_server       # Government data (port 8003)
+python -m mavat.mcp_server     # National planning portal (port 8004)
 ```
 
 ### 5️⃣ Quick Examples
@@ -501,7 +501,7 @@ print(summary)
 
 The platform provides **5 specialized MCP servers** with **25+ tools** for comprehensive real estate intelligence through natural language queries.
 
-### 🏠 Yad2 Real Estate Server (`python -m yad2.mcp.server`)
+### 🏠 Yad2 Real Estate Server (`python -m yad2.mcp_server`)
 
 **Core Tools:**
 - **`search_real_estate`** — Search with natural language (supports all 58+ Yad2 parameters)
@@ -529,7 +529,7 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - *"Find planning documents for Block 6638 Percel 96"*
 - *"Download blueprints for plan תמ״א 38 in Tel Aviv"*
 
-### 🗺️ Tel Aviv GIS Server (`python -m gis.mcp.server`)
+### 🗺️ Tel Aviv GIS Server (`python -m gis.mcp_server`)
 
 **Spatial Analysis Tools:**
 - **`geocode_address`** — Address to coordinates (EPSG:2039)
@@ -549,7 +549,7 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - *"Find building permits within 50m of Dizengoff 50"*
 - *"What's the land use classification for coordinates 184320, 668548?"*
 
-### 🏛️ Government Data Server (`python -m gov.mcp.server`)
+### 🏛️ Government Data Server (`python -m gov.mcp_server`)
 
 **Data Access Tools:**
 - **`package_search/show`** — Search government datasets (data.gov.il)
@@ -564,7 +564,7 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - *"Get decisive appraisal decisions for block 6638 plot 96"*
 - *"Search government datasets about housing prices"*
 
-### 🏛️ MAVAT Planning Portal Server (`python -m mavat.mcp.server`)
+### 🏛️ MAVAT Planning Portal Server (`python -m mavat.mcp_server`)
 
 **Planning Tools:**
 - **`search_plans`** — Search for planning documents by various criteria
@@ -589,10 +589,10 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 
 **Individual Servers:**
 ```bash
-python -m yad2.mcp.server     # Real estate scraping
-python -m gis.mcp.server      # Tel Aviv GIS data
-python -m gov.mcp.server      # Government datasets
-python -m mavat.mcp.server    # National planning portal
+python -m yad2.mcp_server     # Real estate scraping
+python -m gis.mcp_server       # Tel Aviv GIS data
+python -m gov.mcp_server       # Government datasets
+python -m mavat.mcp_server     # National planning portal
 ```
 
 **Configure your LLM** to connect to the servers and use natural language queries:
@@ -784,7 +784,7 @@ The codebase is organized into logical modules:
 ### Entry Points
 
 - Run Demo: `python -m yad2.examples.demo`
-- Start MCP server: `python -m yad2.mcp.server`
+- Start MCP server: `python -m yad2.mcp_server `
 - Run tests: `python -m yad2.tests.test_core`
 - Interactive CLI: `python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"`
 
@@ -828,9 +828,9 @@ If MCP servers won't start:
 2. **Verify Python path**: Ensure project root is accessible
 3. **Test individual servers**:
    ```bash
-   python -c "from yad2.mcp.server import mcp; print('Yad2 OK')"
-   python -c "from gov.mcp.server import mcp; print('GOV OK')"
-   python -c "from gis.mcp.server import mcp; print('GIS OK')"
+   python -c "from yad2.mcp_server  import mcp; print('Yad2 OK')"
+   python -c "from gov.mcp_server  import mcp; print('GOV OK')"
+   python -c "from gis.mcp_server  import mcp; print('GIS OK')"
    ```
 4. **Check ports**: Ensure no conflicts on default MCP ports
 

@@ -138,6 +138,51 @@ export function AgentChat({
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
+  // Format timestamp for display
+  const formatTimestamp = (date: Date) => {
+    const now = new Date()
+    const messageDate = new Date(date)
+    const diffInSeconds = Math.floor((now.getTime() - messageDate.getTime()) / 1000)
+    
+    // If less than a minute ago
+    if (diffInSeconds < 60) {
+      return "עכשיו"
+    }
+    
+    // If less than an hour ago
+    if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `לפני ${minutes} דקות`
+    }
+    
+    // If today
+    if (now.toDateString() === messageDate.toDateString()) {
+      return messageDate.toLocaleTimeString("he-IL", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    }
+    
+    // If yesterday
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (yesterday.toDateString() === messageDate.toDateString()) {
+      return `אתמול ${messageDate.toLocaleTimeString("he-IL", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })}`
+    }
+    
+    // Otherwise, show full date and time
+    return messageDate.toLocaleString("he-IL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    })
+  }
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -532,56 +577,68 @@ export function AgentChat({
                         </div>
                       )}
                       
-                      {message.role === "assistant" && (
-                        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCopyMessage(message.content, actualIndex)}
-                            className="h-6 w-6 hover:bg-muted"
-                            aria-label="העתק הודעה"
-                            title="העתק הודעה"
-                          >
-                            {copiedIndex === actualIndex ? (
-                              <Check className="h-3 w-3 text-brand-teal" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-muted-foreground" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleFeedback(actualIndex, "positive")}
-                            className={cn(
-                              "h-6 w-6 hover:bg-muted",
-                              message.feedback === "positive" && "bg-success text-success-foreground"
-                            )}
-                            aria-label="תגובה חיובית"
-                            title="תגובה חיובית"
-                          >
-                            <ThumbsUp className={cn(
-                              "h-3 w-3",
-                              message.feedback === "positive" ? "text-teal-600 fill-teal-600" : "text-muted-foreground"
-                            )} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleFeedback(actualIndex, "negative")}
-                            className={cn(
-                              "h-6 w-6 hover:bg-muted",
-                              message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
-                            )}
-                            aria-label="תגובה שלילית"
-                            title="תגובה שלילית"
-                          >
-                            <ThumbsDown className={cn(
-                              "h-3 w-3",
-                              message.feedback === "negative" ? "text-red-600 fill-red-600" : "text-muted-foreground"
-                            )} />
-                          </Button>
+                      {/* Timestamp and Action Buttons */}
+                      <div className="flex items-center justify-between mt-2 gap-2">
+                        {/* Timestamp */}
+                        <div className={cn(
+                          "text-xs opacity-70",
+                          message.role === "user" ? "text-white/80" : "text-muted-foreground"
+                        )}>
+                          {formatTimestamp(message.timestamp)}
                         </div>
-                      )}
+                        
+                        {/* Action Buttons */}
+                        {message.role === "assistant" && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleCopyMessage(message.content, actualIndex)}
+                              className="h-6 w-6 hover:bg-muted"
+                              aria-label="העתק הודעה"
+                              title="העתק הודעה"
+                            >
+                              {copiedIndex === actualIndex ? (
+                                <Check className="h-3 w-3 text-brand-teal" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleFeedback(actualIndex, "positive")}
+                              className={cn(
+                                "h-6 w-6 hover:bg-muted",
+                                message.feedback === "positive" && "bg-success text-success-foreground"
+                              )}
+                              aria-label="תגובה חיובית"
+                              title="תגובה חיובית"
+                            >
+                              <ThumbsUp className={cn(
+                                "h-3 w-3",
+                                message.feedback === "positive" ? "text-teal-600 fill-teal-600" : "text-muted-foreground"
+                              )} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleFeedback(actualIndex, "negative")}
+                              className={cn(
+                                "h-6 w-6 hover:bg-muted",
+                                message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
+                              )}
+                              aria-label="תגובה שלילית"
+                              title="תגובה שלילית"
+                            >
+                              <ThumbsDown className={cn(
+                                "h-3 w-3",
+                                message.feedback === "negative" ? "text-red-600 fill-red-600" : "text-muted-foreground"
+                              )} />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   )

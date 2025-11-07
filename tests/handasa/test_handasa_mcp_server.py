@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from handasa import mcp_server as server
+from handasa import mcp_server
 
 
 class DummyContext:

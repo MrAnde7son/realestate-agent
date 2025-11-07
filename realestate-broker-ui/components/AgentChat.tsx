@@ -217,7 +217,7 @@ export function AgentChat({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to get response")
+        throw new Error(errorData.error || "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
       }
 
       const data = await response.json()
@@ -241,7 +241,7 @@ export function AgentChat({
     } catch (error) {
       const errorMessage: Message = {
         role: "assistant",
-        content: `שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
+        content: error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.",
         timestamp: new Date(),
         messageId: generateMessageId(),
         feedback: null

@@ -5,6 +5,41 @@ import { z } from 'zod'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
+/**
+ * Sanitize error messages to prevent exposing backend details to users
+ */
+function sanitizeErrorMessage(error: string): string {
+  const errorLower = error.toLowerCase()
+  
+  // Rate limit errors
+  if (errorLower.includes('rate limit') || errorLower.includes('429') || errorLower.includes('tokens per day')) {
+    return 'השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות.'
+  }
+  
+  // Quota errors
+  if (errorLower.includes('quota') || errorLower.includes('limit reached')) {
+    return 'המגבלה היומית הושגה. אנא נסה שוב מחר.'
+  }
+  
+  // Timeout errors
+  if (errorLower.includes('timeout')) {
+    return 'הבקשה ארכה יותר מדי זמן. אנא נסה שוב.'
+  }
+  
+  // Connection errors
+  if (errorLower.includes('connection') || errorLower.includes('network')) {
+    return 'בעיית חיבור. אנא בדוק את החיבור לאינטרנט ונסה שוב.'
+  }
+  
+  // If error already looks user-friendly (contains Hebrew), return as-is
+  if (/[\u0590-\u05FF]/.test(error)) {
+    return error
+  }
+  
+  // Generic fallback
+  return 'אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.'
+}
+
 const chatRequestSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   chat_history: z.array(z.object({
@@ -50,8 +85,9 @@ export async function POST(req: Request) {
     
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Failed to get agent response' }))
+      const sanitizedError = sanitizeErrorMessage(errorData.error || 'Failed to get agent response')
       return NextResponse.json(
-        { error: errorData.error || 'Failed to get agent response' },
+        { error: sanitizedError },
         { status: res.status }
       )
     }
@@ -69,7 +105,7 @@ export async function POST(req: Request) {
     
     console.error('Error in agent chat API:', error)
     return NextResponse.json(
-      { error: 'Failed to process chat request' },
+      { error: sanitizeErrorMessage('Failed to process chat request') },
       { status: 500 }
     )
   }

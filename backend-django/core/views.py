@@ -48,8 +48,16 @@ try:
         OutstandingToken,
     )
 except ImportError:  # pragma: no cover - blacklist app not installed
-    BlacklistedToken = None
-    OutstandingToken = None
+    pass
+
+# Import OpenAI exceptions for error handling
+try:
+    from openai import RateLimitError, APIError, APIConnectionError, APITimeoutError
+except ImportError:
+    RateLimitError = None
+    APIError = None
+    APIConnectionError = None
+    APITimeoutError = None
 from drf_spectacular.utils import extend_schema
 
 import logging
@@ -4747,6 +4755,48 @@ def dashboard_market_data(request):
         return Response({"error": "Failed to fetch market data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def get_user_friendly_error_message(exception: Exception) -> str:
+    """
+    Convert backend exceptions to user-friendly error messages.
+    Prevents exposing internal error details to users.
+    """
+    error_str = str(exception).lower()
+    
+    # Handle OpenAI/Groq rate limit errors
+    if RateLimitError and isinstance(exception, RateLimitError):
+        if "rate limit" in error_str or "429" in error_str:
+            return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+    
+    # Handle API connection errors
+    if APIConnectionError and isinstance(exception, APIConnectionError):
+        return "בעיית חיבור לשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
+    
+    # Handle API timeout errors
+    if APITimeoutError and isinstance(exception, APITimeoutError):
+        return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+    
+    # Handle general API errors
+    if APIError and isinstance(exception, APIError):
+        if "rate limit" in error_str or "429" in error_str:
+            return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+        if "quota" in error_str or "limit" in error_str:
+            return "המגבלה היומית הושגה. אנא נסה שוב מחר."
+        return "שגיאה בשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
+    
+    # Check error message content for common patterns
+    if "rate limit" in error_str or "429" in error_str:
+        return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+    if "quota" in error_str or "tokens per day" in error_str:
+        return "המגבלה היומית הושגה. אנא נסה שוב מחר."
+    if "timeout" in error_str:
+        return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+    if "connection" in error_str or "network" in error_str:
+        return "בעיית חיבור. אנא בדוק את החיבור לאינטרנט ונסה שוב."
+    
+    # Generic fallback message
+    return "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר."
+
+
 @extend_schema(
     summary="Agent Chat",
     description="Chat with the AI real estate agent",
@@ -4894,8 +4944,10 @@ def agent_chat(request):
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.exception("Error in agent chat: %s", e)
+        # Get user-friendly error message
+        user_message = get_user_friendly_error_message(e)
         return Response(
-            {"error": f"Failed to get agent response: {str(e)}"},
+            {"error": user_message},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

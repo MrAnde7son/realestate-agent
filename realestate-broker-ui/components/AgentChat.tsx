@@ -418,9 +418,14 @@ export function AgentChat({
         >
           <Card className="flex flex-col h-full border-0 shadow-none bg-transparent">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 pt-4 px-4 bg-background/80 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <AIIcon />
-                <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <AIIcon />
+                  <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
+                </div>
+                <p className="text-xs text-muted-foreground mr-12">
+                  העוזר עלול לטעות - אנא בדקו את המידע
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Button

@@ -80,22 +80,32 @@ try:
     spec.loader.exec_module(mcp_server)
     
     # Import functions from MCP server
-    list_assets = mcp_server.list_assets
-    get_asset = mcp_server.get_asset
-    create_asset = mcp_server.create_asset
-    get_asset_transactions = mcp_server.get_asset_transactions
-    get_asset_appraisal = mcp_server.get_asset_appraisal
-    list_deals = mcp_server.list_deals
-    create_deal = mcp_server.create_deal
-    get_offer = mcp_server.get_offer
-    estimate_build_cost = mcp_server.estimate_build_cost
-    get_cost_options = mcp_server.get_cost_options
-    analyze_mortgage = mcp_server.analyze_mortgage
-    list_contacts = mcp_server.list_contacts
-    create_contact = mcp_server.create_contact
-    list_leads = mcp_server.list_leads
-    create_lead = mcp_server.create_lead
-    list_tasks = mcp_server.list_tasks
+    # FastMCP decorates functions as FunctionTool objects, so we need to access the underlying function
+    # Use .fn attribute to get the actual async function
+    def get_underlying_func(tool_obj):
+        """Extract the underlying async function from a FastMCP FunctionTool."""
+        if hasattr(tool_obj, 'fn') and callable(tool_obj.fn):
+            return tool_obj.fn
+        else:
+            # Fallback: return as-is (shouldn't happen)
+            return tool_obj
+    
+    list_assets = get_underlying_func(mcp_server.list_assets)
+    get_asset = get_underlying_func(mcp_server.get_asset)
+    create_asset = get_underlying_func(mcp_server.create_asset)
+    get_asset_transactions = get_underlying_func(mcp_server.get_asset_transactions)
+    get_asset_appraisal = get_underlying_func(mcp_server.get_asset_appraisal)
+    list_deals = get_underlying_func(mcp_server.list_deals)
+    create_deal = get_underlying_func(mcp_server.create_deal)
+    get_offer = get_underlying_func(mcp_server.get_offer)
+    estimate_build_cost = get_underlying_func(mcp_server.estimate_build_cost)
+    get_cost_options = get_underlying_func(mcp_server.get_cost_options)
+    analyze_mortgage = get_underlying_func(mcp_server.analyze_mortgage)
+    list_contacts = get_underlying_func(mcp_server.list_contacts)
+    create_contact = get_underlying_func(mcp_server.create_contact)
+    list_leads = get_underlying_func(mcp_server.list_leads)
+    create_lead = get_underlying_func(mcp_server.create_lead)
+    list_tasks = get_underlying_func(mcp_server.list_tasks)
 except Exception as e:
     # MCP server not available - create stub functions
     import warnings
@@ -167,7 +177,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     def __init__(self):
         self.tool_calls = []
         self.current_tool_call = None
-        self.chunk_queue = asyncio.Queue()
+        self.chunk_queue = asyncio.Queue(maxsize=1000)  # Increased queue size
         self.complete_response = ""
         self._finished = False
     
@@ -190,30 +200,50 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             "output": None
         }
         self.tool_calls.append(self.current_tool_call)
+        # Emit tool call start event - handle queue full gracefully
         try:
             self.chunk_queue.put_nowait({
                 "type": "tool_call_start",
                 "tool": tool_name,
-                "input": input_str[:100]
+                "input": str(input_str)[:100] if input_str else ""
             })
         except asyncio.QueueFull:
-            pass
+            # If queue is full, try to make space by removing old chunks
+            try:
+                # Remove one old chunk to make space
+                self.chunk_queue.get_nowait()
+                self.chunk_queue.put_nowait({
+                    "type": "tool_call_start",
+                    "tool": tool_name,
+                    "input": str(input_str)[:100] if input_str else ""
+                })
+            except Exception:
+                pass  # If still can't add, skip this event
     
     def on_tool_end(self, output: str, **kwargs: Any) -> None:
         """Called when a tool finishes running."""
         if self.current_tool_call:
             self.current_tool_call["status"] = "completed"
-            self.current_tool_call["output"] = output[:200]  # Truncate long outputs
+            self.current_tool_call["output"] = str(output)[:200] if output else ""  # Truncate long outputs
             tool_name = self.current_tool_call["tool"]
             self.current_tool_call = None
             try:
                 self.chunk_queue.put_nowait({
                     "type": "tool_call_end",
                     "tool": tool_name,
-                    "output": output[:200]
+                    "output": str(output)[:200] if output else ""
                 })
             except asyncio.QueueFull:
-                pass
+                # Try to make space
+                try:
+                    self.chunk_queue.get_nowait()
+                    self.chunk_queue.put_nowait({
+                        "type": "tool_call_end",
+                        "tool": tool_name,
+                        "output": str(output)[:200] if output else ""
+                    })
+                except:
+                    pass
     
     def on_tool_error(self, error: Exception, **kwargs: Any) -> None:
         """Called when a tool encounters an error."""
@@ -380,12 +410,35 @@ class RealEstateAgent:
                 """Synchronous wrapper that runs the async function."""
                 # Check if we're in an async context
                 try:
+                    # Try to get the running loop
                     loop = asyncio.get_running_loop()
-                    # We're in an async context - need to run in a separate thread
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, async_func(*args, **kwargs))
-                        return future.result(timeout=300)  # 5 minute timeout
+                    # We're in an async context - need to run in a separate thread with its own loop
+                    result = None
+                    exception = None
+                    
+                    def run_in_new_loop():
+                        nonlocal result, exception
+                        try:
+                            # Create a new event loop in this thread
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                result = new_loop.run_until_complete(async_func(*args, **kwargs))
+                            finally:
+                                new_loop.close()
+                        except Exception as e:
+                            exception = e
+                    
+                    thread = threading.Thread(target=run_in_new_loop, daemon=True)
+                    thread.start()
+                    thread.join(timeout=300)  # 5 minute timeout
+                    
+                    if thread.is_alive():
+                        raise TimeoutError("Tool execution timed out")
+                    
+                    if exception:
+                        raise exception
+                    return result
                 except RuntimeError:
                     # No running loop - we can use asyncio.run directly
                     return asyncio.run(async_func(*args, **kwargs))

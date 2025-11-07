@@ -518,12 +518,17 @@ export function AgentChat({
                   
                 case 'tool_call_start':
                   // Add tool call to current tool calls
-                  setCurrentToolCalls((prev) => [...prev, {
-                    tool: data.tool,
-                    tool_hebrew: data.tool_hebrew || data.tool,
-                    status: "running",
-                    input: data.input
-                  }])
+                  console.log('Tool call start:', data.tool, data.tool_hebrew)
+                  setCurrentToolCalls((prev) => {
+                    const updated: ToolCall[] = [...prev, {
+                      tool: data.tool,
+                      tool_hebrew: data.tool_hebrew || data.tool,
+                      status: "running" as const,
+                      input: data.input
+                    }]
+                    console.log('Updated tool calls:', updated)
+                    return updated
+                  })
                   break
                   
                 case 'tool_call_end':
@@ -549,6 +554,12 @@ export function AgentChat({
                   accumulatedContent = data.response || accumulatedContent
                   finalToolCalls = data.tool_calls || []
                   
+                  console.log('Complete event received:', {
+                    responseLength: accumulatedContent.length,
+                    toolCallsCount: finalToolCalls.length,
+                    toolCalls: finalToolCalls
+                  })
+                  
                   // Update final message
                   setMessages((prev) => prev.map((msg) => 
                     msg.messageId === assistantMessageId
@@ -562,8 +573,16 @@ export function AgentChat({
                   ))
                   setLastAssistantText(accumulatedContent)
                   
-                  // Update tool calls state
-                  setCurrentToolCalls(finalToolCalls)
+                  // Update tool calls state - ensure format matches what we expect
+                  const formattedToolCalls = finalToolCalls.map((tc: any) => ({
+                    tool: tc.tool || tc.name,
+                    tool_hebrew: tc.tool_hebrew || tc.tool || tc.name,
+                    status: tc.status || "completed",
+                    input: tc.input,
+                    output: tc.output
+                  }))
+                  setCurrentToolCalls(formattedToolCalls)
+                  console.log('Formatted tool calls:', formattedToolCalls)
                   
                   // Set suggestions if available
                   if (finalSuggestions.length > 0) {
@@ -1079,33 +1098,48 @@ export function AgentChat({
                         <>
                           {message.role === "assistant" ? (
                             <>
-                              {/* Show current tool calls if this is the streaming message and we're loading */}
-                              {isLoading && actualIndex === messages.length - 1 && currentToolCalls.length > 0 && (
-                                <div className="mb-3 pb-3 border-b border-border/40">
-                                  <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
-                                  <div className="space-y-1.5">
-                                    {currentToolCalls.map((toolCall, idx) => (
-                                      <div key={idx} className="flex items-center gap-2 text-xs">
-                                        {toolCall.status === "running" ? (
-                                          <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
-                                        ) : toolCall.status === "completed" ? (
-                                          <Check className="h-3 w-3 text-green-600 shrink-0" />
-                                        ) : (
-                                          <X className="h-3 w-3 text-red-600 shrink-0" />
-                                        )}
-                                        <span className={cn(
-                                          "text-muted-foreground",
-                                          toolCall.status === "running" && "text-brand-teal",
-                                          toolCall.status === "completed" && "text-green-600",
-                                          toolCall.status === "error" && "text-red-600"
-                                        )}>
-                                          {toolCall.tool_hebrew || toolCall.tool}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
+                              {/* Loading indicator for streaming response */}
+                              {isLoading && actualIndex === messages.length - 1 && (
+                                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin text-brand-teal shrink-0" />
+                                  <span>מכין תשובה...</span>
                                 </div>
                               )}
+                              
+                              {/* Show tool calls - check both currentToolCalls (for streaming) and message.tool_calls (for completed) */}
+                              {(() => {
+                                const toolCallsToShow = actualIndex === messages.length - 1 && currentToolCalls.length > 0
+                                  ? currentToolCalls
+                                  : (message.tool_calls || [])
+                                return toolCallsToShow.length > 0 && (
+                                  <div className="mb-3 pb-3 border-b border-border/40">
+                                    <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
+                                    <div className="space-y-1.5">
+                                      {toolCallsToShow.map((toolCall, idx) => (
+                                        <div key={`${toolCall.tool || idx}-${idx}`} className="flex items-center gap-2 text-xs">
+                                          {toolCall.status === "running" ? (
+                                            <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
+                                          ) : toolCall.status === "completed" ? (
+                                            <Check className="h-3 w-3 text-green-600 shrink-0" />
+                                          ) : toolCall.status === "error" ? (
+                                            <X className="h-3 w-3 text-red-600 shrink-0" />
+                                          ) : (
+                                            <Check className="h-3 w-3 text-green-600 shrink-0" />
+                                          )}
+                                          <span className={cn(
+                                            "text-muted-foreground",
+                                            toolCall.status === "running" && "text-brand-teal font-medium",
+                                            (toolCall.status === "completed" || !toolCall.status) && "text-green-600",
+                                            toolCall.status === "error" && "text-red-600"
+                                          )}>
+                                            {toolCall.tool_hebrew || toolCall.tool}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              })()}
                               
                               <div className="markdown-content">
                                 <ReactMarkdown

@@ -24,6 +24,9 @@ RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt
 # Copy the full repository so Django can import shared modules
 COPY . /app
 
+# Ensure the entrypoint script is executable
+RUN chmod +x /app/backend-django/entrypoint.sh
+
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
@@ -35,6 +38,9 @@ WORKDIR /app/backend-django
 
 # Expose port
 EXPOSE 8000
+
+# Use an entrypoint that applies migrations before starting the app
+ENTRYPOINT ["/app/backend-django/entrypoint.sh"]
 
 # Launch gunicorn directly for the backend-only image
 CMD ["gunicorn", "broker_backend.wsgi:application", "--bind", "0.0.0.0:8000"]

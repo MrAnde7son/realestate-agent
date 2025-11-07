@@ -1,3 +1,32 @@
+/**
+ * AgentChat Component
+ * 
+ * A chat interface for interacting with the AI real estate agent.
+ * 
+ * @example
+ * // Basic usage with defaults
+ * <AgentChat />
+ * 
+ * @example
+ * // With custom recommendations
+ * <AgentChat 
+ *   recommendedQuestions={[
+ *     "מה השווי של הנכס?",
+ *     "מה ההיסטוריה של העסקאות?"
+ *   ]}
+ * />
+ * 
+ * @example
+ * // With API-based recommendations
+ * <AgentChat 
+ *   fetchRecommendationsFromAPI={true}
+ *   emptyStatePrompt="שאל כל שאלה"
+ * />
+ * 
+ * To enable API-based recommendations, create an API route at:
+ * /api/agent/recommendations that returns: { recommendations: string[] }
+ */
+
 "use client"
 
 import * as React from "react"
@@ -5,7 +34,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { MessageCircle, X, Send, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2 } from "lucide-react"
+import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2, Sparkles, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
@@ -15,9 +44,64 @@ interface Message {
   timestamp: Date
   feedback?: "positive" | "negative" | null
   messageId?: string
+  suggestions?: string[]
 }
 
-export function AgentChat() {
+interface Suggestion {
+  text: string
+  selected?: boolean
+}
+
+// Default recommended questions - can be overridden via props or API
+// To customize globally, modify this constant
+const DEFAULT_RECOMMENDED_QUESTIONS = [
+  "מה השווי של הנכס הזה?",
+  "מה ההיסטוריה של העסקאות באזור?",
+  "איזה סיכונים יש בנכס הזה?"
+]
+
+interface AgentChatProps {
+  /** Custom recommended questions to show in empty state. If not provided, will use defaults or fetch from API */
+  recommendedQuestions?: string[]
+  /** Whether to fetch recommendations from API. Defaults to false */
+  fetchRecommendationsFromAPI?: boolean
+  /** Custom prompt text for empty state */
+  emptyStatePrompt?: string
+}
+
+// AI Icon Component with Teal Gradient
+const AIIcon = ({ className, size = "default" }: { className?: string; size?: "default" | "large" }) => {
+  const iconSize = size === "large" ? "w-16 h-16" : "w-10 h-10"
+  const sparkleSize = size === "large" ? "w-8 h-8" : "w-5 h-5"
+  
+  return (
+    <div className={cn("relative flex items-center justify-center", className, iconSize)}>
+      <div 
+        className={cn("relative rounded-full shadow-lg flex items-center justify-center", iconSize)}
+        style={{
+          background: 'linear-gradient(to bottom right, var(--brand-teal), var(--brand-teal-light), var(--brand-teal-dark))'
+        }}
+      >
+        <Sparkles className={cn("text-white", sparkleSize)} />
+        {size === "large" && (
+          <Sparkles className="absolute top-1 right-1 w-3 h-3 text-white opacity-60" />
+        )}
+        <div 
+          className="absolute inset-0 rounded-full opacity-75 animate-pulse"
+          style={{
+            background: 'linear-gradient(to bottom right, var(--brand-teal), var(--brand-teal-light), var(--brand-teal-dark))'
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+export function AgentChat({ 
+  recommendedQuestions,
+  fetchRecommendationsFromAPI = false,
+  emptyStatePrompt = "שאל כל שאלה על הנכסים שלך"
+}: AgentChatProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
@@ -30,6 +114,11 @@ export function AgentChat() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [recommendedQuestionsState, setRecommendedQuestionsState] = useState<string[]>(
+    recommendedQuestions || DEFAULT_RECOMMENDED_QUESTIONS
+  )
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { user } = useAuth()
@@ -51,6 +140,47 @@ export function AgentChat() {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
     }
   }, [input])
+
+  // Fetch recommendations from API if enabled
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!fetchRecommendationsFromAPI || !user || recommendedQuestions) return
+      
+      setIsLoadingRecommendations(true)
+      try {
+        const response = await fetch("/api/agent/recommendations", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.recommendations && Array.isArray(data.recommendations)) {
+            setRecommendedQuestionsState(data.recommendations)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch recommendations:", error)
+        // Fallback to defaults on error
+        setRecommendedQuestionsState(DEFAULT_RECOMMENDED_QUESTIONS)
+      } finally {
+        setIsLoadingRecommendations(false)
+      }
+    }
+
+    if (isOpen && messages.length === 1) {
+      fetchRecommendations()
+    }
+  }, [isOpen, fetchRecommendationsFromAPI, user, recommendedQuestions])
+
+  // Update recommended questions when prop changes
+  useEffect(() => {
+    if (recommendedQuestions) {
+      setRecommendedQuestionsState(recommendedQuestions)
+    }
+  }, [recommendedQuestions])
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !user) return
@@ -96,10 +226,18 @@ export function AgentChat() {
         content: data.response || "מצטער, לא הצלחתי לקבל תשובה.",
         timestamp: new Date(),
         messageId: generateMessageId(),
-        feedback: null
+        feedback: null,
+        suggestions: data.suggestions || []
       }
 
       setMessages((prev) => [...prev, assistantMessage])
+      
+      // Set suggestions for the new message
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions.map((text: string) => ({ text, selected: false })))
+      } else {
+        setSuggestions([])
+      }
     } catch (error) {
       const errorMessage: Message = {
         role: "assistant",
@@ -176,6 +314,13 @@ export function AgentChat() {
     }
   }
 
+  const handleSuggestionSend = (suggestionText: string) => {
+    setInput(suggestionText)
+    setTimeout(() => {
+      handleSend()
+    }, 100)
+  }
+
   if (!user) {
     return null
   }
@@ -186,11 +331,14 @@ export function AgentChat() {
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all"
+          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+          style={{
+            background: 'linear-gradient(to bottom right, var(--brand-teal), var(--brand-teal-dark))'
+          }}
           size="icon"
           aria-label="פתח עוזר בינה מלאכותית"
         >
-          <MessageCircle className="h-6 w-6" />
+          <MessageCircle className="h-6 w-6 text-white" />
         </Button>
       )}
 
@@ -198,15 +346,18 @@ export function AgentChat() {
       {isOpen && (
         <div
           className={cn(
-            "fixed z-50 flex flex-col shadow-2xl rounded-lg border bg-background overflow-hidden transition-all",
+            "fixed z-50 flex flex-col shadow-2xl rounded-xl bg-gradient-to-b from-background to-muted/20 overflow-hidden transition-all backdrop-blur-sm",
             isFullscreen
-              ? "inset-4 rounded-lg"
+              ? "inset-4 rounded-xl"
               : "bottom-6 right-6 w-[calc(100vw-3rem)] sm:w-96 h-[600px]"
           )}
         >
-          <Card className="flex flex-col h-full border-0 shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b">
-              <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
+          <Card className="flex flex-col h-full border-0 shadow-none bg-transparent">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 pt-4 px-4 bg-background/80 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <AIIcon />
+                <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -245,118 +396,185 @@ export function AgentChat() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-4">
-                  {messages.map((message, index) => (
+            <CardContent className="flex-1 flex flex-col p-0 overflow-hidden bg-gradient-to-b from-background via-background to-muted/10">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Empty state with recommendations */}
+                {messages.length === 1 && !isLoading && (
+                  <div className="flex flex-col items-center justify-center h-full -mt-8">
+                    {/* Central AI Icon */}
+                    <div className="mb-6">
+                      <AIIcon size="large" />
+                    </div>
+                    
+                    {/* Prompt Text */}
+                    <p className="text-foreground text-base font-medium mb-6 text-center">
+                      {emptyStatePrompt}
+                    </p>
+                    
+                    {/* Recommendation Buttons - Right aligned, stacked vertically */}
+                    {isLoadingRecommendations ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">טוען המלצות...</span>
+                      </div>
+                    ) : recommendedQuestionsState.length > 0 ? (
+                      <div className="w-full max-w-md flex flex-col items-end gap-3 px-4">
+                        {recommendedQuestionsState.map((question, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleSuggestionSend(question)}
+                            className="w-full max-w-sm px-4 py-3 rounded-lg text-sm font-medium bg-muted text-foreground border border-border hover:bg-muted/80 hover:border-brand-teal/50 transition-all shadow-sm text-right"
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                
+                {messages.length > 1 && messages.slice(1).map((message, idx) => {
+                  const actualIndex = idx + 1 // Account for skipped welcome message
+                  return (
+                  <div
+                    key={actualIndex}
+                    className={cn(
+                      "flex items-start gap-2",
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    )}
+                  >
+                    {message.role === "assistant" && (
+                      <AIIcon className="shrink-0 mt-1" />
+                    )}
                     <div
-                      key={index}
                       className={cn(
-                        "flex",
-                        message.role === "user" ? "justify-end" : "justify-start"
+                        "max-w-[80%] rounded-xl px-4 py-3 text-sm relative group shadow-sm",
+                        message.role === "user"
+                          ? "bg-brand-teal text-white rounded-br-sm"
+                          : "bg-muted text-foreground border border-border/60 rounded-bl-sm"
                       )}
                     >
-                      <div
+                      <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      {message.role === "assistant" && (
+                        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyMessage(message.content, actualIndex)}
+                            className="h-6 w-6 hover:bg-muted"
+                            aria-label="העתק הודעה"
+                            title="העתק הודעה"
+                          >
+                            {copiedIndex === actualIndex ? (
+                              <Check className="h-3 w-3 text-brand-teal" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleFeedback(actualIndex, "positive")}
+                            className={cn(
+                              "h-6 w-6 hover:bg-muted",
+                              message.feedback === "positive" && "bg-success text-success-foreground"
+                            )}
+                            aria-label="תגובה חיובית"
+                            title="תגובה חיובית"
+                          >
+                            <ThumbsUp className={cn(
+                              "h-3 w-3",
+                              message.feedback === "positive" ? "text-teal-600 fill-teal-600" : "text-muted-foreground"
+                            )} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleFeedback(actualIndex, "negative")}
+                            className={cn(
+                              "h-6 w-6 hover:bg-muted",
+                              message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
+                            )}
+                            aria-label="תגובה שלילית"
+                            title="תגובה שלילית"
+                          >
+                            <ThumbsDown className={cn(
+                              "h-3 w-3",
+                              message.feedback === "negative" ? "text-red-600 fill-red-600" : "text-muted-foreground"
+                            )} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  )
+                })}
+                
+                {/* Suggestions after AI response */}
+                {suggestions.length > 0 && messages.length > 1 && (
+                  <div className="flex flex-col items-end gap-3 px-2">
+                    {suggestions.map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSuggestionSend(suggestion.text)}
                         className={cn(
-                          "max-w-[80%] rounded-lg px-4 py-2 text-sm relative group",
-                          message.role === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
+                          "w-full max-w-sm px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-right shadow-sm",
+                          suggestion.selected
+                            ? "text-white shadow-md"
+                            : "bg-muted text-foreground border border-border hover:bg-muted/80 hover:border-brand-teal/50"
                         )}
+                        style={suggestion.selected ? {
+                          background: 'linear-gradient(to bottom right, var(--brand-teal), var(--brand-teal-light), var(--brand-teal-dark))'
+                        } : undefined}
                       >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        {message.role === "assistant" && (
-                          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleCopyMessage(message.content, index)}
-                              className="h-6 w-6"
-                              aria-label="העתק הודעה"
-                              title="העתק הודעה"
-                            >
-                              {copiedIndex === index ? (
-                                <Check className="h-3 w-3 text-green-600" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleFeedback(index, "positive")}
-                              className={cn(
-                                "h-6 w-6",
-                                message.feedback === "positive" && "bg-green-100 dark:bg-green-900"
-                              )}
-                              aria-label="תגובה חיובית"
-                              title="תגובה חיובית"
-                            >
-                              <ThumbsUp className={cn(
-                                "h-3 w-3",
-                                message.feedback === "positive" && "text-green-600 fill-green-600"
-                              )} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleFeedback(index, "negative")}
-                              className={cn(
-                                "h-6 w-6",
-                                message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
-                              )}
-                              aria-label="תגובה שלילית"
-                              title="תגובה שלילית"
-                            >
-                              <ThumbsDown className={cn(
-                                "h-3 w-3",
-                                message.feedback === "negative" && "text-red-600 fill-red-600"
-                              )} />
-                            </Button>
-                          </div>
-                        )}
-                        <p className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString("he-IL", {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-muted text-muted-foreground rounded-lg px-4 py-2">
+                        {suggestion.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {isLoading && (
+                  <div className="flex items-start gap-2 justify-start">
+                    <AIIcon className="shrink-0 mt-1" />
+                    <div className="bg-muted border border-border/60 rounded-xl rounded-bl-sm px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">מנתח נתונים, אנא המתן...</span>
                       </div>
                     </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
               </div>
-              <div className="border-t p-3">
-                <div className="flex gap-2">
-                  <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="הקלד הודעה..."
-                    className="min-h-[44px] max-h-[120px] resize-none"
-                    dir="rtl"
-                    disabled={isLoading}
-                  />
+              <div className="border-t bg-background/80 backdrop-blur-sm p-4">
+                
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="שאל, כתוב או חפש משהו..."
+                      className="min-h-[44px] max-h-[120px] resize-none rounded-xl border-border bg-background pr-12"
+                      dir="rtl"
+                      disabled={isLoading}
+                    />
+                  </div>
                   <Button
                     onClick={handleSend}
                     disabled={!input.trim() || isLoading}
                     size="icon"
-                    className="h-[44px] w-[44px] shrink-0"
+                    className="h-[44px] w-[44px] shrink-0 rounded-full shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                    style={{
+                      background: 'linear-gradient(to bottom right, var(--brand-teal), var(--brand-teal-dark))'
+                    }}
                     aria-label="שלח"
                   >
                     {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <ArrowRight className="h-4 w-4 text-white" />
                     )}
                   </Button>
                 </div>

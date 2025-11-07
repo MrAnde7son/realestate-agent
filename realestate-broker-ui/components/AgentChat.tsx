@@ -166,6 +166,7 @@ export function AgentChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
   const { user } = useAuth()
+  const messageCount = messages.length
   
   // Markdown components configuration
   const markdownComponents: Components = {
@@ -372,10 +373,10 @@ export function AgentChat({
       }
     }
 
-    if (isOpen && messages.length === 1) {
+    if (isOpen && messageCount === 1) {
       fetchRecommendations()
     }
-  }, [isOpen, fetchRecommendationsFromAPI, user, recommendedQuestions])
+  }, [isOpen, messageCount, fetchRecommendationsFromAPI, user, recommendedQuestions])
 
   // Update recommended questions when prop changes
   useEffect(() => {

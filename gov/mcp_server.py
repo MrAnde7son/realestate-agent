@@ -1,12 +1,12 @@
-# server.py
+# mcp_server.py
 import asyncio
 from typing import Any, Dict, List, Optional
 
 from fastmcp import Context, FastMCP
 
-from ..decisive import DecisiveAppraisalClient
-from ..nadlan import NadlanDealsScraper
-from ..rami.rami_client import RamiClient
+from gov.decisive import DecisiveAppraisalClient
+from gov.nadlan import NadlanDealsScraper
+from gov.rami.rami_client import RamiClient
 
 # Create an MCP server
 mcp = FastMCP("DataGovIL", dependencies=["requests", "pandas"])

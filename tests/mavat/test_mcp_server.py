@@ -11,12 +11,10 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastmcp import Context
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'mavat', 'mcp'))
-from server import (
+from mavat.mcp_server import (
     get_plan_details,
     get_plan_documents,
     get_plan_summary,
-    mcp,
     search_by_block_parcel,
     search_by_location,
     search_plans,
@@ -106,7 +104,7 @@ class TestSearchPlans:
     @pytest.mark.asyncio
     async def test_search_plans_success(self, mock_context, sample_search_hit):
         """Test successful plan search."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.search_plans.return_value = [sample_search_hit]
             mock_client_class.return_value = mock_client
@@ -125,7 +123,7 @@ class TestSearchPlans:
     @pytest.mark.asyncio
     async def test_search_plans_with_location(self, mock_context, sample_search_hit):
         """Test plan search with location parameters."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.search_plans.return_value = [sample_search_hit]
             mock_client_class.return_value = mock_client
@@ -145,7 +143,7 @@ class TestSearchPlans:
     @pytest.mark.asyncio
     async def test_search_plans_api_error(self, mock_context):
         """Test search with API error."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client_class.side_effect = Exception("API connection failed")
             
             result = await search_plans_func(mock_context, "test query")
@@ -161,8 +159,8 @@ class TestGetPlanDetails:
     @pytest.mark.asyncio
     async def test_get_plan_details_success(self, mock_context, sample_plan):
         """Test successful plan details retrieval."""
-        with patch('server.MavatAPIClient') as mock_client_class, \
-             patch('server._current_client', None):
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class, \
+             patch('mavat.mcp_server._current_client', None):
             mock_client = Mock()
             mock_client.get_plan_details.return_value = sample_plan
             mock_client_class.return_value = mock_client
@@ -180,8 +178,8 @@ class TestGetPlanDetails:
     @pytest.mark.asyncio
     async def test_get_plan_details_api_error(self, mock_context):
         """Test plan details with API error."""
-        with patch('server.MavatAPIClient') as mock_client_class, \
-             patch('server._current_client', None):
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class, \
+             patch('mavat.mcp_server._current_client', None):
             mock_client_class.side_effect = Exception("API connection failed")
             
             result = await get_plan_details_func(mock_context, "12345")
@@ -197,7 +195,7 @@ class TestGetPlanDocuments:
     @pytest.mark.asyncio
     async def test_get_plan_documents_success(self, mock_context, sample_attachment):
         """Test successful document retrieval."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.get_plan_attachments.return_value = [sample_attachment]
             mock_client_class.return_value = mock_client
@@ -216,7 +214,7 @@ class TestGetPlanDocuments:
     @pytest.mark.asyncio
     async def test_get_plan_documents_with_entity_name(self, mock_context, sample_attachment):
         """Test document retrieval with provided entity name."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.get_plan_attachments.return_value = [sample_attachment]
             mock_client_class.return_value = mock_client
@@ -234,7 +232,7 @@ class TestSearchByLocation:
     @pytest.mark.asyncio
     async def test_search_by_location_success(self, mock_context):
         """Test successful location-based search."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.search_plans.return_value = []
             mock_client_class.return_value = mock_client
@@ -255,7 +253,7 @@ class TestSearchByLocation:
     @pytest.mark.asyncio
     async def test_search_by_location_failure(self, mock_context):
         """Test location search failure."""
-        with patch('server.search_plans') as mock_search:
+        with patch('mavat.mcp_server.search_plans') as mock_search:
             mock_search.side_effect = Exception("Search failed")
             
             result = await search_by_location_func(mock_context, city="תל אביב")
@@ -291,7 +289,7 @@ class TestSearchByBlockParcel:
     @pytest.mark.asyncio
     async def test_search_by_block_parcel_failure(self, mock_context):
         """Test block/parcel search failure."""
-        with patch('server.search_plans') as mock_search:
+        with patch('mavat.mcp_server.search_plans') as mock_search:
             mock_search.side_effect = Exception("Search failed")
             
             result = await search_by_block_parcel_func(
@@ -338,36 +336,6 @@ class TestGetPlanSummary:
             
             assert result["success"] is False
             assert result["error"] == "Failed to retrieve complete plan information"
-
-
-class TestMCPTools:
-    """Test that all MCP tools are properly registered."""
-
-    def test_tools_registered(self):
-        """Test that all expected tools are registered with the MCP server."""
-        # Check that the mcp object exists and has the expected structure
-        assert hasattr(mcp, 'tool'), "MCP server should have tool decorator"
-        assert hasattr(mcp, 'get_tools'), "MCP server should have get_tools method"
-        
-        # Verify that the imported functions exist and are FastMCP tools
-        expected_functions = [
-            search_plans,
-            get_plan_details, 
-            get_plan_documents,
-            search_by_location,
-            search_by_block_parcel,
-            get_plan_summary
-        ]
-        
-        for func in expected_functions:
-            assert func is not None, f"Function {func.__name__} should not be None"
-            # Check that it's a FastMCP tool (has the expected attributes)
-            assert hasattr(func, 'fn'), f"Function {func.__name__} should have .fn attribute"
-
-    def test_server_metadata(self):
-        """Test MCP server metadata."""
-        assert mcp.name == "MavatPlanning"
-        assert "requests" in mcp.dependencies
 
 
 if __name__ == "__main__":

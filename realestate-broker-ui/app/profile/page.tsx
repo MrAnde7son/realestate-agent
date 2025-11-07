@@ -12,12 +12,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Mail, Phone, MapPin, Building, Shield, Key, Star, Save, Edit, Eye, EyeOff } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Mail, Phone, Building, Shield, Key, Star, Save, Edit, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { getRoleDescription, getRoleLabel } from '@/lib/role-constants'
-import { ProfileUpdateData, ChangePasswordData } from '@/lib/auth'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import APITokensSection from '@/components/profile/api-tokens-section'
 
 const profileSchema = z.object({
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
@@ -620,6 +620,11 @@ export default function ProfilePage() {
                   </Button>
                 </div>
               </CardContent>
+            </Card>
+
+            {/* API Tokens Section */}
+            <Card className="mt-6">
+              <APITokensSection />
             </Card>
           </div>
         </div>

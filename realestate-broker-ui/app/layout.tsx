@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { AnalyticsProvider } from '@/components/analytics-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { AgentChat } from '@/components/AgentChat'
 import { Analytics } from '@vercel/analytics/react'   
 import { SpeedInsights } from '@vercel/speed-insights/next' 
 import { ConfirmProvider } from '@/hooks/use-confirm'
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 {children}
                 <Toaster />
                 <ConfirmationDialog />
+                <AgentChat fetchRecommendationsFromAPI={true} />
               </ConfirmProvider>
             </AnalyticsProvider>
           </AuthProvider>

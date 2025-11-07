@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Any
 from pathlib import Path
 
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 from django.conf import settings
@@ -48,8 +48,17 @@ try:
         OutstandingToken,
     )
 except ImportError:  # pragma: no cover - blacklist app not installed
-    BlacklistedToken = None
-    OutstandingToken = None
+    pass
+
+# Import OpenAI exceptions for error handling
+try:
+    from openai import RateLimitError, APIError, APIConnectionError, APITimeoutError, AuthenticationError
+except ImportError:
+    RateLimitError = None
+    APIError = None
+    APIConnectionError = None
+    APITimeoutError = None
+    AuthenticationError = None
 from drf_spectacular.utils import extend_schema
 
 import logging
@@ -85,6 +94,41 @@ from .serializers import (
 )
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
+
+# Import agent
+RealEstateAgent = None
+_agent_import_error = None
+
+try:
+    # Try importing as a package from the Django project root
+    from agent.real_estate_agent import RealEstateAgent
+except ImportError as e:
+    _agent_import_error = str(e)
+    # Try alternative import path - direct file import
+    try:
+        import sys
+        import os
+        # Get the backend-django directory
+        backend_django_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        if backend_django_path not in sys.path:
+            sys.path.insert(0, backend_django_path)
+        from agent.real_estate_agent import RealEstateAgent
+        _agent_import_error = None
+    except ImportError as e2:
+        _agent_import_error = f"{str(e)}; {str(e2)}"
+        # Last resort: try importing the file directly
+        try:
+            import importlib.util
+            agent_file = os.path.join(os.path.dirname(__file__), "..", "agent", "real_estate_agent.py")
+            spec = importlib.util.spec_from_file_location("real_estate_agent", agent_file)
+            if spec and spec.loader:
+                agent_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(agent_module)
+                RealEstateAgent = getattr(agent_module, "RealEstateAgent", None)
+                if RealEstateAgent:
+                    _agent_import_error = None
+        except Exception as e3:
+            _agent_import_error = f"{_agent_import_error}; {str(e3)}"
 
 # Tenacity retry errors
 try:
@@ -615,20 +659,23 @@ def user_settings(request):
     """Retrieve or update user settings."""
     user = request.user
     if request.method == "GET":
-        return Response(
-            {
-                "language": getattr(user, "language", ""),
-                "timezone": getattr(user, "timezone", ""),
-                "currency": getattr(user, "currency", ""),
-                "date_format": getattr(user, "date_format", ""),
-                "notify_email": getattr(user, "notify_email", False),
-                "notify_whatsapp": getattr(user, "notify_whatsapp", False),
-                "notify_urgent": getattr(user, "notify_urgent", False),
-                "notification_time": getattr(user, "notification_time", ""),
-                "report_sections": getattr(user, "report_sections", [])
-                or DEFAULT_REPORT_SECTIONS,
-            }
-        )
+        response_data = {
+            "language": getattr(user, "language", ""),
+            "timezone": getattr(user, "timezone", ""),
+            "currency": getattr(user, "currency", ""),
+            "date_format": getattr(user, "date_format", ""),
+            "notify_email": getattr(user, "notify_email", False),
+            "notify_whatsapp": getattr(user, "notify_whatsapp", False),
+            "notify_urgent": getattr(user, "notify_urgent", False),
+            "notification_time": getattr(user, "notification_time", ""),
+            "report_sections": getattr(user, "report_sections", []) or DEFAULT_REPORT_SECTIONS,
+            # LLM settings - indicate if keys are set but never return the actual keys
+            "llm_provider_preference": getattr(user, "llm_provider_preference", None),
+            "has_openai_key": bool(getattr(user, "openai_api_key", None)),
+            "has_gemini_key": bool(getattr(user, "gemini_api_key", None)),
+            "has_groq_key": bool(getattr(user, "groq_api_key", None)),
+        }
+        return Response(response_data)
 
     if request.method == "PUT":
         data = parse_json(request)
@@ -637,6 +684,7 @@ def user_settings(request):
                 {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Standard settings fields
         for field in [
             "language",
             "timezone",
@@ -650,6 +698,55 @@ def user_settings(request):
         ]:
             if field in data:
                 setattr(user, field, data[field])
+        
+        # LLM API key fields - allow setting but validate
+        if "openai_api_key" in data:
+            key = data["openai_api_key"]
+            if key:  # Allow clearing by setting to empty string
+                if not isinstance(key, str) or len(key.strip()) < 10:
+                    return Response(
+                        {"error": "Invalid OpenAI API key format"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                user.openai_api_key = key.strip()
+            else:
+                user.openai_api_key = None
+        
+        if "gemini_api_key" in data:
+            key = data["gemini_api_key"]
+            if key:
+                if not isinstance(key, str) or len(key.strip()) < 10:
+                    return Response(
+                        {"error": "Invalid Gemini API key format"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                user.gemini_api_key = key.strip()
+            else:
+                user.gemini_api_key = None
+        
+        if "groq_api_key" in data:
+            key = data["groq_api_key"]
+            if key:
+                if not isinstance(key, str) or len(key.strip()) < 10:
+                    return Response(
+                        {"error": "Invalid Groq API key format"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                user.groq_api_key = key.strip()
+            else:
+                user.groq_api_key = None
+        
+        # LLM provider preference
+        if "llm_provider_preference" in data:
+            preference = data["llm_provider_preference"]
+            if preference in ["openai", "gemini", "groq", None, ""]:
+                user.llm_provider_preference = preference if preference else None
+            else:
+                return Response(
+                    {"error": "Invalid LLM provider preference"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         user.save()
 
         return Response(
@@ -663,6 +760,10 @@ def user_settings(request):
                 "notify_urgent": user.notify_urgent,
                 "notification_time": user.notification_time,
                 "report_sections": user.report_sections,
+                "llm_provider_preference": getattr(user, "llm_provider_preference", None),
+                "has_openai_key": bool(getattr(user, "openai_api_key", None)),
+                "has_gemini_key": bool(getattr(user, "gemini_api_key", None)),
+                "has_groq_key": bool(getattr(user, "groq_api_key", None)),
             }
         )
 
@@ -4710,3 +4811,643 @@ def dashboard_market_data(request):
     except Exception as e:
         logger.error(f"Error fetching dashboard market data: {e}")
         return Response({"error": "Failed to fetch market data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def get_user_friendly_error_message(exception: Exception) -> str:
+    """
+    Convert backend exceptions to user-friendly error messages.
+    Prevents exposing internal error details to users.
+    """
+    error_str = str(exception).lower()
+    
+    # Handle authentication errors first (invalid API key)
+    if AuthenticationError and isinstance(exception, AuthenticationError):
+        if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+            return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
+        return "שגיאה באימות. אנא נסה שוב מאוחר יותר."
+    
+    # Handle OpenAI/Groq rate limit errors
+    if RateLimitError and isinstance(exception, RateLimitError):
+        if "rate limit" in error_str or "429" in error_str:
+            return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+    
+    # Handle API connection errors
+    if APIConnectionError and isinstance(exception, APIConnectionError):
+        return "בעיית חיבור לשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
+    
+    # Handle API timeout errors
+    if APITimeoutError and isinstance(exception, APITimeoutError):
+        return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+    
+    # Handle general API errors
+    if APIError and isinstance(exception, APIError):
+        if "rate limit" in error_str or "429" in error_str:
+            return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+        if "quota" in error_str or "limit" in error_str:
+            return "המגבלה היומית הושגה. אנא נסה שוב מחר."
+        if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+            return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
+        return "שגיאה בשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
+    
+    # Check error message content for common patterns
+    if "rate limit" in error_str or "429" in error_str:
+        return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+    if "quota" in error_str or "tokens per day" in error_str:
+        return "המגבלה היומית הושגה. אנא נסה שוב מחר."
+    if "timeout" in error_str:
+        return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+    if "connection" in error_str or "network" in error_str:
+        return "בעיית חיבור. אנא בדוק את החיבור לאינטרנט ונסה שוב."
+    if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+        return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
+    
+    # Generic fallback message
+    return "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר."
+
+
+@extend_schema(
+    summary="Agent Chat",
+    description="Chat with the AI real estate agent",
+    tags=["Agent"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'message': {'type': 'string', 'description': 'User message'},
+                'chat_history': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'role': {'type': 'string'},
+                            'content': {'type': 'string'}
+                        }
+                    },
+                    'description': 'Optional chat history'
+                }
+            },
+            'required': ['message']
+        }
+    },
+    responses={
+        200: {
+            'description': 'Agent response',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_chat(request):
+    """Chat with the AI real estate agent."""
+    try:
+        if RealEstateAgent is None:
+            error_msg = "Agent not available. Please install langchain dependencies."
+            if _agent_import_error:
+                error_msg += f" Import error: {_agent_import_error}"
+            return Response(
+                {"error": error_msg},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
+        data = json.loads(request.body.decode("utf-8"))
+        message = data.get("message")
+        chat_history = data.get("chat_history", [])
+        
+        if not message:
+            return Response(
+                {"error": "Message is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get or create API token for the authenticated user
+        api_token = None
+        try:
+            from .models import APIToken
+            # Try to get an active token for the user
+            api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
+            if api_token_obj and api_token_obj.is_valid():
+                api_token = api_token_obj.token
+            else:
+                # Create a new token automatically for the agent
+                token_value = APIToken.generate_token()
+                api_token_obj = APIToken.objects.create(
+                    user=request.user,
+                    name="Agent API Token (Auto-generated)",
+                    token=token_value,
+                )
+                api_token = api_token_obj.token
+                logger.info("Auto-created API token for user %s", request.user.email)
+        except Exception as e:
+            logger.warning("Failed to get/create API token for user %s: %s", request.user.email, e)
+            # Continue without token - agent will need to handle this
+        
+        # Helper function to get API key - checks user's keys first, then environment
+        def get_api_key_for_provider(provider: str, user=None) -> Optional[str]:
+            """Get API key for provider, checking user's keys first, then environment."""
+            if provider == "groq":
+                if user and hasattr(user, 'groq_api_key') and user.groq_api_key:
+                    key = user.groq_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            elif provider == "gemini":
+                if user and hasattr(user, 'gemini_api_key') and user.gemini_api_key:
+                    key = user.gemini_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                       getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+            elif provider == "openai":
+                if user and hasattr(user, 'openai_api_key') and user.openai_api_key:
+                    key = user.openai_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            return None
+        
+        def has_valid_api_key(provider: str, user=None) -> bool:
+            """Check if valid API key exists for provider."""
+            key = get_api_key_for_provider(provider, user)
+            return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
+        
+        # Determine LLM provider - check user preference first
+        llm_provider = None
+        user = request.user
+        
+        # Check user's preference
+        if user and hasattr(user, 'llm_provider_preference') and user.llm_provider_preference:
+            if has_valid_api_key(user.llm_provider_preference, user):
+                llm_provider = user.llm_provider_preference
+        
+        # If no user preference or no valid key, check environment
+        if not llm_provider:
+            llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+            if not llm_provider:
+                llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+        
+        # Auto-detect if still no provider
+        if not llm_provider:
+            if has_valid_api_key("groq", user):
+                llm_provider = "groq"
+            elif has_valid_api_key("gemini", user):
+                llm_provider = "gemini"
+            elif has_valid_api_key("openai", user):
+                llm_provider = "openai"
+            else:
+                return Response(
+                    {
+                        "error": "No valid API key found. Please set an API key in user settings or environment variables: "
+                                "OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate we have a valid key for the selected provider
+        if not has_valid_api_key(llm_provider, user):
+            return Response(
+                {
+                    "error": f"No valid API key found for provider '{llm_provider}'. "
+                            f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the API key to pass to agent
+        api_key = get_api_key_for_provider(llm_provider, user)
+        
+        # Log which key source is being used
+        key_source = "user" if (user and hasattr(user, f'{llm_provider}_api_key') and getattr(user, f'{llm_provider}_api_key')) else "environment"
+        key_preview = f"{api_key[:10]}...{api_key[-4:]}" if api_key and len(api_key) > 14 else (api_key[:10] + "..." if api_key else "None")
+        logger.info("Initializing agent (non-stream) - Provider: %s, Key source: %s, Key preview: %s, User: %s", 
+                   llm_provider, key_source, key_preview, user.email if user else "None")
+        
+        agent = RealEstateAgent(
+            llm_provider=llm_provider,
+            api_token=api_token,
+            api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+            temperature=0.3,
+            user_api_key=api_key  # Pass user's API key to agent
+        )
+        
+        # Convert chat history format if needed
+        formatted_history = []
+        for msg in chat_history:
+            if isinstance(msg, dict):
+                formatted_history.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
+        
+        # Get response from agent (with tool calls tracking)
+        result = async_to_sync(agent.chat)(message, formatted_history, track_tool_calls=True)
+        
+        return Response({
+            "response": result.get("response", ""),
+            "tool_calls": result.get("tool_calls", [])
+        })
+        
+    except json.JSONDecodeError:
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.exception("Error in agent chat: %s", e)
+        # Get user-friendly error message
+        user_message = get_user_friendly_error_message(e)
+        return Response(
+            {"error": user_message},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_chat_stream(request):
+    """Stream chat responses from the AI real estate agent using Server-Sent Events."""
+    import json
+    
+    try:
+        if RealEstateAgent is None:
+            error_msg = "Agent not available. Please install langchain dependencies."
+            if _agent_import_error:
+                error_msg += f" Import error: {_agent_import_error}"
+            def error_generator():
+                yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        data = json.loads(request.body.decode("utf-8"))
+        message = data.get("message")
+        chat_history = data.get("chat_history", [])
+        
+        if not message:
+            def error_generator():
+                yield f"data: {json.dumps({'type': 'error', 'error': 'Message is required'})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        # Get or create API token for the authenticated user
+        api_token = None
+        try:
+            from .models import APIToken
+            # Try to get an active token for the user
+            api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
+            if api_token_obj and api_token_obj.is_valid():
+                api_token = api_token_obj.token
+            else:
+                # Create a new token automatically for the agent
+                token_value = APIToken.generate_token()
+                api_token_obj = APIToken.objects.create(
+                    user=request.user,
+                    name="Agent API Token (Auto-generated)",
+                    token=token_value,
+                )
+                api_token = api_token_obj.token
+                logger.info("Auto-created API token for user %s", request.user.email)
+        except Exception as e:
+            logger.warning("Failed to get/create API token for user %s: %s", request.user.email, e)
+            # Continue without token - agent will need to handle this
+        
+        # Helper function to get API key - checks user's keys first, then environment
+        def get_api_key_for_provider(provider: str, user=None) -> Optional[str]:
+            """Get API key for provider, checking user's keys first, then environment."""
+            if provider == "groq":
+                # Check user's key first
+                if user and hasattr(user, 'groq_api_key') and user.groq_api_key:
+                    key = user.groq_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                # Fall back to environment
+                return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            elif provider == "gemini":
+                # Check user's key first
+                if user and hasattr(user, 'gemini_api_key') and user.gemini_api_key:
+                    key = user.gemini_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                # Fall back to environment
+                return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
+                       getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+            elif provider == "openai":
+                # Check user's key first
+                if user and hasattr(user, 'openai_api_key') and user.openai_api_key:
+                    key = user.openai_api_key.strip()
+                    if len(key) > 10:
+                        return key
+                # Fall back to environment
+                return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            return None
+        
+        def has_valid_api_key(provider: str, user=None) -> bool:
+            """Check if valid API key exists for provider."""
+            key = get_api_key_for_provider(provider, user)
+            return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
+        
+        # Determine LLM provider - check user preference first
+        llm_provider = None
+        user = request.user
+        
+        # Check user's preference
+        if user and hasattr(user, 'llm_provider_preference') and user.llm_provider_preference:
+            if has_valid_api_key(user.llm_provider_preference, user):
+                llm_provider = user.llm_provider_preference
+        
+        # If no user preference or no valid key, check environment
+        if not llm_provider:
+            llm_provider = os.getenv("AGENT_LLM_PROVIDER")
+            if not llm_provider:
+                llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+        
+        # Auto-detect if still no provider
+        if not llm_provider:
+            # Check user's keys first, then environment
+            if has_valid_api_key("groq", user):
+                llm_provider = "groq"
+            elif has_valid_api_key("gemini", user):
+                llm_provider = "gemini"
+            elif has_valid_api_key("openai", user):
+                llm_provider = "openai"
+            else:
+                # No valid key found
+                def error_generator():
+                    error_msg = ("לא נמצא מפתח API תקף. אנא הגדר מפתח API בהגדרות המשתמש או במשתני הסביבה: "
+                               "OPENAI_API_KEY, GEMINI_API_KEY, או GROQ_API_KEY")
+                    yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+                return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        # Validate we have a valid key for the selected provider
+        if not has_valid_api_key(llm_provider, user):
+            def error_generator():
+                error_msg = (f"מפתח API לא תקף עבור ספק '{llm_provider}'. "
+                           f"אנא הגדר מפתח תקף בהגדרות המשתמש או במשתנה {llm_provider.upper()}_API_KEY.")
+                yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        # Get the API key to pass to agent
+        api_key = get_api_key_for_provider(llm_provider, user)
+        
+        # Log which key source is being used
+        key_source = "user" if (user and hasattr(user, f'{llm_provider}_api_key') and getattr(user, f'{llm_provider}_api_key')) else "environment"
+        key_preview = f"{api_key[:10]}...{api_key[-4:]}" if api_key and len(api_key) > 14 else (api_key[:10] + "..." if api_key else "None")
+        logger.info("Initializing agent - Provider: %s, Key source: %s, Key preview: %s, User: %s", 
+                   llm_provider, key_source, key_preview, user.email if user else "None")
+        
+        try:
+            agent = RealEstateAgent(
+                llm_provider=llm_provider,
+                api_token=api_token,
+                api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+                temperature=0.3,
+                user_api_key=api_key  # Pass user's API key to agent
+            )
+        except ValueError as e:
+            # Catch API key errors during agent initialization
+            error_exception = e  # Capture exception for use in generator
+            def error_generator():
+                error_msg = f"שגיאה באתחול הסוכן: {str(error_exception)}"
+                yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        # Convert chat history format if needed
+        formatted_history = []
+        for msg in chat_history:
+            if isinstance(msg, dict):
+                formatted_history.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
+        
+        # Stream response from agent
+        async def stream_generator():
+            try:
+                async for event in agent.chat_stream(message, formatted_history):
+                    yield f"data: {json.dumps(event)}\n\n"
+            except Exception as e:
+                logger.exception("Error in agent chat stream: %s", e)
+                user_message = get_user_friendly_error_message(e)
+                yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
+        
+        # Convert async generator to sync generator for Django
+        def sync_stream_generator():
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                async_gen = stream_generator()
+                while True:
+                    try:
+                        chunk = loop.run_until_complete(async_gen.__anext__())
+                        yield chunk
+                    except StopAsyncIteration:
+                        break
+            finally:
+                loop.close()
+        
+        response = StreamingHttpResponse(sync_stream_generator(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+        return response
+        
+    except json.JSONDecodeError:
+        def error_generator():
+            yield f"data: {json.dumps({'type': 'error', 'error': 'Invalid JSON'})}\n\n"
+        return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+    except Exception as e:
+        logger.exception("Error in agent chat stream: %s", e)
+        error_exception = e  # Capture exception for use in generator
+        def error_generator():
+            user_message = get_user_friendly_error_message(error_exception)
+            yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
+        return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+
+
+@extend_schema(
+    summary="Agent Feedback",
+    description="Submit feedback for agent responses",
+    tags=["Agent"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'message_id': {'type': 'string', 'description': 'Unique message identifier'},
+                'feedback': {'type': 'string', 'enum': ['positive', 'negative'], 'description': 'Feedback type'},
+                'message_content': {'type': 'string', 'description': 'The assistant message content'},
+                'user_message': {'type': 'string', 'description': 'The user message that prompted this response'}
+            },
+            'required': ['message_id', 'feedback']
+        }
+    },
+    responses={
+        200: {
+            'description': 'Feedback submitted successfully',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'message': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def agent_feedback(request):
+    """Submit feedback for agent responses."""
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        message_id = data.get("message_id")
+        feedback = data.get("feedback")
+        message_content = data.get("message_content", "")
+        user_message = data.get("user_message")
+        
+        if not message_id:
+            return Response(
+                {"error": "message_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if feedback not in ["positive", "negative"]:
+            return Response(
+                {"error": "feedback must be 'positive' or 'negative'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Log feedback for analytics/improvement
+        logger.info(
+            f"Agent feedback: user={request.user.id}, message_id={message_id}, "
+            f"feedback={feedback}, content_length={len(message_content) if message_content else 0}"
+        )
+        
+        # Track feedback in analytics
+        try:
+            track(
+                "agent_feedback",
+                user=request.user,
+                metadata={
+                    "message_id": message_id,
+                    "feedback": feedback,
+                    "message_length": len(message_content) if message_content else 0,
+                    "has_user_message": bool(user_message)
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track agent feedback: {e}")
+        
+        return Response({
+            "success": True,
+            "message": "Feedback submitted successfully"
+        })
+        
+    except json.JSONDecodeError:
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.exception("Error in agent feedback: %s", e)
+        return Response(
+            {"error": f"Failed to submit feedback: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@extend_schema(
+    summary="Agent Recommendations",
+    description="Get recommended questions for the AI chat interface",
+    tags=["Agent"],
+    responses={
+        200: {
+            'description': 'Recommended questions',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'recommendations': {
+                                'type': 'array',
+                                'items': {'type': 'string'},
+                                'description': 'List of recommended questions in Hebrew'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def agent_recommendations(request):
+    """Get recommended questions for the AI chat interface.
+    
+    Returns personalized recommendations based on user's assets and activity,
+    or default recommendations if no personalization is available.
+    """
+    try:
+        user = request.user
+        
+        # Base recommendations - always include these
+        recommendations = []
+        
+        # Try to personalize based on user's assets
+        try:
+            from .models import Asset
+            user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
+            
+            if user_assets.exists():
+                # User has assets - provide asset-specific recommendations
+                recommendations = [
+                    "מה השווי של הנכסים שלי?",
+                    "איזה סיכונים יש בנכסים שלי?",
+                    "מה הפוטנציאל של הנכסים שלי?",
+                    "מצא לי נכסים דומים לנכסים שלי",
+                    "מה ההיסטוריה של העסקאות באזורים של הנכסים שלי?"
+                ]
+            else:
+                # User has no assets - provide general recommendations
+                recommendations = [
+                    "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+                    "מה הפוטנציאל של הנכס הזה?",
+                    "איזה סיכונים יש בנכס הזה?",
+                    "מה ההיסטוריה של העסקאות באזור?",
+                    "מה השווי של הנכס הזה?"
+                ]
+        except Exception as e:
+            logger.warning(f"Error personalizing recommendations: {e}")
+            # Fallback to defaults if personalization fails
+            recommendations = [
+                "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+                "מה הפוטנציאל של הנכס הזה?",
+                "איזה סיכונים יש בנכס הזה?"
+            ]
+        
+        # Ensure we always return at least some recommendations
+        if not recommendations:
+            recommendations = [
+                "מה השווי של הנכס הזה?",
+                "מה ההיסטוריה של העסקאות באזור?",
+                "איזה סיכונים יש בנכס הזה?"
+            ]
+        
+        return Response({
+            "recommendations": recommendations
+        })
+        
+    except Exception as e:
+        logger.exception("Error in agent recommendations: %s", e)
+        # Return defaults even on error
+        return Response({
+            "recommendations": [
+                "מה השווי של הנכס הזה?",
+                "מה ההיסטוריה של העסקאות באזור?",
+                "איזה סיכונים יש בנכס הזה?"
+            ]
+        })

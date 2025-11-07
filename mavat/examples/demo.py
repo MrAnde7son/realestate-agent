@@ -17,10 +17,9 @@ import sys
 # Add the mavat package to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from mcp.server import (
+from mcp_server import (
     get_plan_details,
     get_plan_documents,
-    get_plan_gis_layers,
     search_plans,
 )
 
@@ -95,24 +94,6 @@ async def demo_get_plan_documents():
         print(f"Failed to get documents: {result.get('error')}")
 
 
-async def demo_get_plan_gis_layers():
-    """Demonstrate GIS layers retrieval."""
-    print("\n=== Demo: Get Plan GIS Layers ===")
-    
-    context = MockContext()
-    
-    # Get GIS layers for a specific plan
-    plan_id = "12345"
-    result = await get_plan_gis_layers(context, plan_id)
-    
-    if result.get("success"):
-        print(f"Found {result['layers_count']} GIS layers:")
-        for layer in result['layers'][:3]:  # Show first 3
-            print(f"  - {layer.get('name', 'Unknown layer')}")
-    else:
-        print(f"Failed to get GIS layers: {result.get('error')}")
-
-
 async def main():
     """Run all demos."""
     print("Mavat MCP Server Demo")
@@ -122,7 +103,6 @@ async def main():
         await demo_search_plans()
         await demo_get_plan_details()
         await demo_get_plan_documents()
-        await demo_get_plan_gis_layers()
         
     except Exception as e:
         print(f"Demo failed with error: {e}")

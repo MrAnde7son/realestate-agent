@@ -3,7 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from handasa.mcp import server
+from handasa import mcp_server
+
+# Convenience alias matching production usage patterns
+server = mcp_server
 
 
 class DummyContext:

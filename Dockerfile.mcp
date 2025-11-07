@@ -35,4 +35,4 @@ USER app
 EXPOSE 8001
 
 # Default command (will be overridden by docker-compose)
-CMD ["python", "-m", "yad2.mcp.server"]
+CMD ["python", "-m", "yad2.mcp_server"]

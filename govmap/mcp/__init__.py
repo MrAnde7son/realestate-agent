@@ -1,3 +1,0 @@
-"""
-GovMap MCP server module.
-"""

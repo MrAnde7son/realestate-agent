@@ -34,13 +34,14 @@ from typing import Optional
 
 from fastmcp import Context, FastMCP
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from yad2.core import Yad2ParameterReference, Yad2SearchParameters
 from yad2.core.utils import DataUtils
 from yad2.scrapers import Yad2Scraper
+from yad2.utils.property_types import PropertyTypeUtils
 
 # Create an MCP server
 mcp = FastMCP("Yad2RealEstate", dependencies=["requests", "beautifulsoup4", "lxml", "pandas"]) 
@@ -106,7 +107,6 @@ async def search_real_estate(
 
     # Convert Hebrew property type names to codes if needed
     if 'property' in params and params['property']:
-        from ..utils.property_types import PropertyTypeUtils
         property_value = params['property']
         
         # If it's a string (Hebrew name), try to convert to code
@@ -234,7 +234,6 @@ async def build_search_url(
 
     # Convert Hebrew property type names to codes if needed
     if 'property' in params and params['property']:
-        from ..utils.property_types import PropertyTypeUtils
         property_value = params['property']
         
         # If it's a string (Hebrew name), try to convert to code
@@ -316,7 +315,6 @@ async def get_all_property_types(ctx: Context):
         # Add English translations for each
         enhanced_types = {}
         for code, hebrew_name in property_types.items():
-            from ..utils.property_types import PropertyTypeUtils
             english_name = PropertyTypeUtils.translate_to_english(hebrew_name)
             enhanced_types[code] = {
                 "hebrew": hebrew_name,

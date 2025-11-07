@@ -19,7 +19,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import MCP server functions (only the ones that actually exist)
-from yad2.mcp.server import (
+from yad2.mcp_server import (
     build_search_url,
     get_all_property_types,
     get_search_parameters_reference,
@@ -80,7 +80,7 @@ class TestLocationServices:
     @pytest.mark.asyncio
     async def test_search_locations(self, mock_ctx):
         """Test location search."""
-        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
             mock_scraper = Mock()
             mock_scraper.fetch_location_data.return_value = {
                 "cities": ["רמת גן", "רמת השרון"],
@@ -159,7 +159,7 @@ class TestSearchFunctionality:
     @pytest.mark.asyncio
     async def test_search_real_estate(self, mock_ctx):
         """Test real estate search."""
-        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
             mock_scraper = Mock()
             mock_scraper.get_search_summary.return_value = {
                 "search_url": "https://www.yad2.co.il/realestate/forsale?property=5&city=5000",
@@ -216,7 +216,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_property_search_workflow(self, mock_ctx):
         """Test a complete property search workflow."""
-        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
             mock_scraper = Mock()
             mock_scraper.get_property_types.return_value = {
                 1: "דירה",
@@ -270,7 +270,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_location_workflow(self, mock_ctx):
         """Test a complete location workflow."""
-        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
             mock_scraper = Mock()
             mock_scraper.fetch_location_data.return_value = {
                 "cities": ["רמת גן", "רמת השרון"],

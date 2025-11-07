@@ -34,9 +34,12 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2, Sparkles, ArrowRight } from "lucide-react"
+import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2, Sparkles, ArrowRight, Edit, RotateCw, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import type { Components } from "react-markdown"
 
 interface ToolCall {
   tool: string
@@ -54,6 +57,7 @@ interface Message {
   messageId?: string
   suggestions?: string[]
   tool_calls?: ToolCall[]
+  sources?: Array<{ title: string; url?: string; description?: string }>
 }
 
 interface Suggestion {
@@ -106,6 +110,66 @@ const AIIcon = ({ className, size = "default" }: { className?: string; size?: "d
   )
 }
 
+// Code Block Component with Copy Button
+const CodeBlock = ({ 
+  children, 
+  className 
+}: { 
+  children?: React.ReactNode
+  className?: string 
+}) => {
+  const [copied, setCopied] = useState(false)
+  const codeRef = useRef<HTMLPreElement>(null)
+
+  const handleCopy = async () => {
+    if (!codeRef.current) return
+    
+    const codeText = codeRef.current.textContent || ""
+    try {
+      await navigator.clipboard.writeText(codeText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error("Failed to copy code:", error)
+    }
+  }
+
+  const match = /language-(\w+)/.exec(className || "")
+  const language = match ? match[1] : ""
+
+  return (
+    <div className="relative group my-4">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border rounded-t-lg">
+        {language && (
+          <span className="text-xs text-muted-foreground font-mono">{language}</span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleCopy}
+          className="h-6 w-6 ml-auto"
+          aria-label="העתק קוד"
+        >
+          {copied ? (
+            <Check className="h-3 w-3 text-green-600" />
+          ) : (
+            <Copy className="h-3 w-3 text-muted-foreground" />
+          )}
+        </Button>
+      </div>
+      <pre
+        ref={codeRef}
+        className={cn(
+          "overflow-x-auto p-4 bg-muted rounded-b-lg text-sm font-mono",
+          className
+        )}
+      >
+        <code className={className}>{children}</code>
+      </pre>
+    </div>
+  )
+}
+
 export function AgentChat({ 
   recommendedQuestions,
   fetchRecommendationsFromAPI = false,
@@ -130,10 +194,102 @@ export function AgentChat({
   )
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const [lastAssistantText, setLastAssistantText] = useState("")
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null)
+  const [editingContent, setEditingContent] = useState("")
+  const [showSources, setShowSources] = useState<{ [key: number]: boolean }>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
   const { user } = useAuth()
+  
+  // Markdown components configuration
+  const markdownComponents: Components = {
+    code: ({ className, children, ...props }) => {
+      const isInline = !className || !className.includes("language-")
+      if (isInline) {
+        return (
+          <code className="px-1.5 py-0.5 bg-muted/70 rounded text-sm font-mono" {...props}>
+            {children}
+          </code>
+        )
+      }
+      return (
+        <CodeBlock className={className} {...props}>
+          {children}
+        </CodeBlock>
+      )
+    },
+    pre: ({ children }) => {
+      return <>{children}</>
+    },
+    p: ({ children }) => {
+      return <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+    },
+    ul: ({ children }) => {
+      return <ul className="list-disc list-inside mb-2 space-y-1 mr-4">{children}</ul>
+    },
+    ol: ({ children }) => {
+      return <ol className="list-decimal list-inside mb-2 space-y-1 mr-4">{children}</ol>
+    },
+    li: ({ children }) => {
+      return <li className="leading-relaxed">{children}</li>
+    },
+    a: ({ href, children }) => {
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-brand-teal hover:underline"
+        >
+          {children}
+        </a>
+      )
+    },
+    h1: ({ children }) => {
+      return <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">{children}</h1>
+    },
+    h2: ({ children }) => {
+      return <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0">{children}</h2>
+    },
+    h3: ({ children }) => {
+      return <h3 className="text-base font-semibold mb-2 mt-2 first:mt-0">{children}</h3>
+    },
+    blockquote: ({ children }) => {
+      return (
+        <blockquote className="border-r-4 border-brand-teal/50 pr-4 py-2 my-2 bg-muted/30 italic">
+          {children}
+        </blockquote>
+      )
+    },
+    hr: () => {
+      return <hr className="my-4 border-border" />
+    },
+    table: ({ children }) => {
+      return (
+        <div className="overflow-x-auto my-4">
+          <table className="min-w-full border-collapse border border-border">
+            {children}
+          </table>
+        </div>
+      )
+    },
+    thead: ({ children }) => {
+      return <thead className="bg-muted">{children}</thead>
+    },
+    tbody: ({ children }) => {
+      return <tbody>{children}</tbody>
+    },
+    tr: ({ children }) => {
+      return <tr className="border-b border-border">{children}</tr>
+    },
+    th: ({ children }) => {
+      return <th className="border border-border px-4 py-2 text-right font-semibold">{children}</th>
+    },
+    td: ({ children }) => {
+      return <td className="border border-border px-4 py-2 text-right">{children}</td>
+    },
+  }
   
   // Generate unique ID for each message
   const generateMessageId = () => {
@@ -310,7 +466,8 @@ export function AgentChat({
         messageId: generateMessageId(),
         feedback: null,
         suggestions: data.suggestions || [],
-        tool_calls: data.tool_calls || []
+        tool_calls: data.tool_calls || [],
+        sources: data.sources || []
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -407,8 +564,221 @@ export function AgentChat({
     }, 100)
   }
 
-  if (!user) {
-    return null
+  const handleEditMessage = (messageIndex: number) => {
+    const message = messages[messageIndex]
+    if (!message || message.role !== "user") return
+    
+    setEditingMessageIndex(messageIndex)
+    setEditingContent(message.content)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessageIndex(null)
+    setEditingContent("")
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingContent.trim() || editingMessageIndex === null || isLoading || !user) return
+    
+    const messageIndex = editingMessageIndex
+    const editedContent = editingContent.trim()
+    
+    // Update the message content
+    setMessages((prev) => {
+      const updated = prev.map((msg, idx) =>
+        idx === messageIndex ? { ...msg, content: editedContent } : msg
+      )
+      
+      // Remove the assistant response that followed this user message (if exists)
+      const nextMessageIndex = messageIndex + 1
+      if (nextMessageIndex < updated.length && updated[nextMessageIndex].role === "assistant") {
+        return updated.filter((_, idx) => idx !== nextMessageIndex)
+      }
+      return updated
+    })
+    
+    // Reset editing state immediately
+    setEditingMessageIndex(null)
+    setEditingContent("")
+    
+    // Prepare updated chat history for API call
+    setMessages((prev) => {
+      const updatedMessages = prev.map((msg, idx) =>
+        idx === messageIndex ? { ...msg, content: editedContent } : msg
+      )
+      const nextMessageIndex = messageIndex + 1
+      const finalMessages = nextMessageIndex < updatedMessages.length && updatedMessages[nextMessageIndex].role === "assistant"
+        ? updatedMessages.filter((_, idx) => idx !== nextMessageIndex)
+        : updatedMessages
+      
+      // Send the request with updated chat history
+      setIsLoading(true)
+      setCurrentToolCalls([])
+      
+      const chatHistory = finalMessages
+        .slice(1) // Skip welcome message
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      
+      fetch("/api/agent/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: editedContent,
+          chat_history: chatHistory
+        })
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
+          }
+          return response.json()
+        })
+        .then((data) => {
+          // Update tool calls state to show completed status
+          if (data.tool_calls && data.tool_calls.length > 0) {
+            setCurrentToolCalls(data.tool_calls)
+          }
+          
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: data.response || "מצטער, לא הצלחתי לקבל תשובה.",
+            timestamp: new Date(),
+            messageId: generateMessageId(),
+            feedback: null,
+            suggestions: data.suggestions || [],
+            tool_calls: data.tool_calls || [],
+            sources: data.sources || []
+          }
+          
+          setMessages((prev) => [...prev, assistantMessage])
+          setLastAssistantText(data.response || "מצטער, לא הצלחתי לקבל תשובה.")
+          
+          // Set suggestions for the new message
+          if (data.suggestions && data.suggestions.length > 0) {
+            setSuggestions(data.suggestions.map((text: string) => ({ text, selected: false })))
+          } else {
+            setSuggestions([])
+          }
+        })
+        .catch((error) => {
+          const errorMessage: Message = {
+            role: "assistant",
+            content: error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.",
+            timestamp: new Date(),
+            messageId: generateMessageId(),
+            feedback: null
+          }
+          setMessages((prev) => [...prev, errorMessage])
+          setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
+        })
+        .finally(() => {
+          setIsLoading(false)
+          setCurrentToolCalls([])
+        })
+      
+      return finalMessages
+    })
+  }
+
+  const handleRegenerate = async (assistantMessageIndex: number) => {
+    if (isLoading || !user) return
+    
+    // Find the user message that precedes this assistant message
+    let userMessageIndex = assistantMessageIndex - 1
+    while (userMessageIndex >= 0 && messages[userMessageIndex].role !== "user") {
+      userMessageIndex--
+    }
+    
+    if (userMessageIndex < 0) return
+    
+    const userMessage = messages[userMessageIndex]
+    
+    // Remove the assistant response
+    const updatedMessages = messages.filter((_, idx) => idx !== assistantMessageIndex)
+    setMessages(updatedMessages)
+    
+    // Send the request immediately
+    setIsLoading(true)
+    setCurrentToolCalls([])
+    
+    const chatHistory = updatedMessages
+      .slice(1) // Skip welcome message
+      .map((msg) => ({
+        role: msg.role,
+        content: msg.content
+      }))
+    
+    try {
+      const response = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: userMessage.content,
+          chat_history: chatHistory
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
+      }
+
+      const data = await response.json()
+      
+      // Update tool calls state to show completed status
+      if (data.tool_calls && data.tool_calls.length > 0) {
+        setCurrentToolCalls(data.tool_calls)
+      }
+      
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: data.response || "מצטער, לא הצלחתי לקבל תשובה.",
+        timestamp: new Date(),
+        messageId: generateMessageId(),
+        feedback: null,
+        suggestions: data.suggestions || [],
+        tool_calls: data.tool_calls || [],
+        sources: data.sources || []
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+      setLastAssistantText(data.response || "מצטער, לא הצלחתי לקבל תשובה.")
+      
+      // Set suggestions for the new message
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions.map((text: string) => ({ text, selected: false })))
+      } else {
+        setSuggestions([])
+      }
+    } catch (error) {
+      const errorMessage: Message = {
+        role: "assistant",
+        content: error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.",
+        timestamp: new Date(),
+        messageId: generateMessageId(),
+        feedback: null
+      }
+      setMessages((prev) => [...prev, errorMessage])
+      setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
+    } finally {
+      setIsLoading(false)
+      setCurrentToolCalls([])
+    }
+  }
+
+  const toggleSources = (messageIndex: number) => {
+    setShowSources((prev) => ({
+      ...prev,
+      [messageIndex]: !prev[messageIndex]
+    }))
   }
 
   return (
@@ -578,97 +948,232 @@ export function AgentChat({
                           : "bg-muted text-foreground border border-border/60 rounded-bl-sm"
                       )}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                      
-                      {/* Show tool calls for assistant messages */}
-                      {message.role === "assistant" && message.tool_calls && message.tool_calls.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-border/40">
-                          <p className="text-xs font-medium text-muted-foreground mb-2">פעולות שבוצעו:</p>
-                          <div className="space-y-1.5">
-                            {message.tool_calls.map((toolCall, toolIdx) => (
-                              <div key={toolIdx} className="flex items-center gap-2 text-xs">
-                                {toolCall.status === "completed" ? (
-                                  <Check className="h-3 w-3 text-green-600 shrink-0" />
-                                ) : toolCall.status === "error" ? (
-                                  <X className="h-3 w-3 text-red-600 shrink-0" />
-                                ) : (
-                                  <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
-                                )}
-                                <span className={cn(
-                                  "text-muted-foreground",
-                                  toolCall.status === "completed" && "text-green-600",
-                                  toolCall.status === "error" && "text-red-600"
-                                )}>
-                                  {toolCall.tool_hebrew || toolCall.tool}
-                                </span>
+                      {/* Editing UI for user messages */}
+                      {message.role === "user" && editingMessageIndex === actualIndex ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            className={cn(
+                              "min-h-[60px] resize-none text-sm bg-white/10 border-white/20 text-white placeholder:text-white/60",
+                              "focus:bg-white/15 focus:border-white/30"
+                            )}
+                            dir="rtl"
+                            placeholder="ערוך את ההודעה..."
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault()
+                                handleSaveEdit()
+                              }
+                              if (e.key === "Escape") {
+                                handleCancelEdit()
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleCancelEdit}
+                              className="h-7 text-xs text-white/80 hover:text-white hover:bg-white/20"
+                            >
+                              ביטול
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveEdit}
+                              disabled={!editingContent.trim()}
+                              className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white disabled:opacity-50"
+                            >
+                              שמור ושלח
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {message.role === "assistant" ? (
+                            <div className="markdown-content">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={markdownComponents}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                          )}
+                          
+                          {/* Show sources for assistant messages */}
+                          {message.role === "assistant" && message.sources && message.sources.length > 0 && showSources[actualIndex] && (
+                            <div className="mt-3 pt-3 border-t border-border/40">
+                              <p className="text-xs font-medium text-muted-foreground mb-2">מקורות:</p>
+                              <div className="space-y-2">
+                                {message.sources.map((source, sourceIdx) => (
+                                  <div key={sourceIdx} className="text-xs">
+                                    {source.url ? (
+                                      <a
+                                        href={source.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-brand-teal hover:underline flex items-center gap-1"
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                        {source.title || source.url}
+                                      </a>
+                                    ) : (
+                                      <div className="text-muted-foreground flex items-center gap-1">
+                                        <FileText className="h-3 w-3" />
+                                        {source.title}
+                                      </div>
+                                    )}
+                                    {source.description && (
+                                      <p className="text-muted-foreground/80 mt-1 mr-4 text-xs">
+                                        {source.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Timestamp and Action Buttons */}
-                      <div className="flex items-center justify-between mt-2 gap-2">
-                        {/* Timestamp */}
-                        <div className={cn(
-                          "text-xs opacity-70",
-                          message.role === "user" ? "text-white/80" : "text-muted-foreground"
-                        )}>
-                          {formatTimestamp(message.timestamp)}
-                        </div>
-                        
-                        {/* Action Buttons */}
-                        {message.role === "assistant" && (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleCopyMessage(message.content, actualIndex)}
-                              className="h-6 w-6 hover:bg-muted"
-                              aria-label="העתק הודעה"
-                              title="העתק הודעה"
-                            >
-                              {copiedIndex === actualIndex ? (
-                                <Check className="h-3 w-3 text-brand-teal" />
+                            </div>
+                          )}
+                          
+                          {/* Show tool calls for assistant messages */}
+                          {message.role === "assistant" && message.tool_calls && message.tool_calls.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-border/40">
+                              <p className="text-xs font-medium text-muted-foreground mb-2">פעולות שבוצעו:</p>
+                              <div className="space-y-1.5">
+                                {message.tool_calls.map((toolCall, toolIdx) => (
+                                  <div key={toolIdx} className="flex items-center gap-2 text-xs">
+                                    {toolCall.status === "completed" ? (
+                                      <Check className="h-3 w-3 text-green-600 shrink-0" />
+                                    ) : toolCall.status === "error" ? (
+                                      <X className="h-3 w-3 text-red-600 shrink-0" />
+                                    ) : (
+                                      <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
+                                    )}
+                                    <span className={cn(
+                                      "text-muted-foreground",
+                                      toolCall.status === "completed" && "text-green-600",
+                                      toolCall.status === "error" && "text-red-600"
+                                    )}>
+                                      {toolCall.tool_hebrew || toolCall.tool}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Timestamp and Action Buttons */}
+                          <div className="flex items-center justify-between mt-2 gap-2">
+                            {/* Timestamp */}
+                            <div className={cn(
+                              "text-xs opacity-70",
+                              message.role === "user" ? "text-white/80" : "text-muted-foreground"
+                            )}>
+                              {formatTimestamp(message.timestamp)}
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-1">
+                              {message.role === "user" ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEditMessage(actualIndex)}
+                                    className="h-6 w-6 hover:bg-white/20 text-white/80 hover:text-white"
+                                    aria-label="ערוך ושלח מחדש"
+                                    title="ערוך ושלח מחדש"
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                </>
                               ) : (
-                                <Copy className="h-3 w-3 text-muted-foreground" />
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRegenerate(actualIndex)}
+                                    className="h-6 w-6 hover:bg-muted"
+                                    aria-label="צור מחדש"
+                                    title="צור מחדש"
+                                    disabled={isLoading}
+                                  >
+                                    <RotateCw className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
+                                  {message.sources && message.sources.length > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => toggleSources(actualIndex)}
+                                      className={cn(
+                                        "h-6 w-6 hover:bg-muted",
+                                        showSources[actualIndex] && "bg-muted"
+                                      )}
+                                      aria-label="הצג מקורות"
+                                      title="הצג מקורות"
+                                    >
+                                      <FileText className={cn(
+                                        "h-3 w-3",
+                                        showSources[actualIndex] ? "text-brand-teal" : "text-muted-foreground"
+                                      )} />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleCopyMessage(message.content, actualIndex)}
+                                    className="h-6 w-6 hover:bg-muted"
+                                    aria-label="העתק הודעה"
+                                    title="העתק הודעה"
+                                  >
+                                    {copiedIndex === actualIndex ? (
+                                      <Check className="h-3 w-3 text-brand-teal" />
+                                    ) : (
+                                      <Copy className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleFeedback(actualIndex, "positive")}
+                                    className={cn(
+                                      "h-6 w-6 hover:bg-muted",
+                                      message.feedback === "positive" && "bg-success text-success-foreground"
+                                    )}
+                                    aria-label="תגובה חיובית"
+                                    title="תגובה חיובית"
+                                  >
+                                    <ThumbsUp className={cn(
+                                      "h-3 w-3",
+                                      message.feedback === "positive" ? "text-teal-600 fill-teal-600" : "text-muted-foreground"
+                                    )} />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleFeedback(actualIndex, "negative")}
+                                    className={cn(
+                                      "h-6 w-6 hover:bg-muted",
+                                      message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
+                                    )}
+                                    aria-label="תגובה שלילית"
+                                    title="תגובה שלילית"
+                                  >
+                                    <ThumbsDown className={cn(
+                                      "h-3 w-3",
+                                      message.feedback === "negative" ? "text-red-600 fill-red-600" : "text-muted-foreground"
+                                    )} />
+                                  </Button>
+                                </>
                               )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleFeedback(actualIndex, "positive")}
-                              className={cn(
-                                "h-6 w-6 hover:bg-muted",
-                                message.feedback === "positive" && "bg-success text-success-foreground"
-                              )}
-                              aria-label="תגובה חיובית"
-                              title="תגובה חיובית"
-                            >
-                              <ThumbsUp className={cn(
-                                "h-3 w-3",
-                                message.feedback === "positive" ? "text-teal-600 fill-teal-600" : "text-muted-foreground"
-                              )} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleFeedback(actualIndex, "negative")}
-                              className={cn(
-                                "h-6 w-6 hover:bg-muted",
-                                message.feedback === "negative" && "bg-red-100 dark:bg-red-900"
-                              )}
-                              aria-label="תגובה שלילית"
-                              title="תגובה שלילית"
-                            >
-                              <ThumbsDown className={cn(
-                                "h-3 w-3",
-                                message.feedback === "negative" ? "text-red-600 fill-red-600" : "text-muted-foreground"
-                              )} />
-                            </Button>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   )

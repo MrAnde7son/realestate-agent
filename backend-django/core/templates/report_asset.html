@@ -93,6 +93,11 @@
     .list{ margin: 0; padding: 0 5mm 0 0; }
     .list li{ margin: 2mm 0; }
 
+    table { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 10pt; }
+    th, td { padding: 3px 6px; border-bottom: 1px solid var(--divider); text-align: right; }
+    th { color: var(--muted); font-weight: 600; background: #f1f5f9; }
+    tbody tr:last-child td { border-bottom: none; }
+
     .badge{
       background: var(--brand); color: var(--brand-ink);
       padding: 2px 8px; border-radius: 6px; font-size: 10pt;
@@ -133,6 +138,7 @@
         <span class="chip">מחיר: ₪{{ listing.price|intcomma }}</span>
         <span class="chip">שטח: {{ listing.netSqm }} מ"ר</span>
         <span class="chip">מחיר למ"ר: ₪{{ listing.pricePerSqm|intcomma }}</span>
+      </div>
     </div>
   </header>
 
@@ -201,6 +207,38 @@
     </section>
     {% endif %}
 
+    {% if 'permits' in sections %}
+    <section class="card">
+      <h2>היתרים מרכזיים</h2>
+      {% if permits %}
+      <table>
+        <thead>
+          <tr>
+            <th>כותרת</th>
+            <th>שלב</th>
+            <th>סטטוס</th>
+            <th>תאריך אישור</th>
+            <th>תוקף</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for permit in permits %}
+          <tr>
+            <td>{{ permit.title }}</td>
+            <td>{{ permit.stage|default:"—" }}</td>
+            <td>{{ permit.status|default:"—" }}</td>
+            <td>{{ permit.approval_date|default:"—" }}</td>
+            <td>{{ permit.expiry_date|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="muted">אין היתרים זמינים</div>
+      {% endif %}
+    </section>
+    {% endif %}
+
     <!-- Right column -->
     {% if 'plans' in sections %}
     <section class="card">
@@ -227,6 +265,102 @@
           <div class="v">₪{{ rights_value_k }} אלף</div>
         </div>
       </div>
+    </section>
+    {% endif %}
+
+    {% if 'comparables' in sections %}
+    <section class="card">
+      <h2>עיסקאות השוואה</h2>
+      {% with stats=comparables_stats %}
+      <div class="kv">
+        <div>
+          <div class="k">מחיר ממוצע</div>
+          <div class="v">{% if stats.avg_price %}₪{{ stats.avg_price|intcomma }}{% else %}—{% endif %}</div>
+        </div>
+        <div>
+          <div class="k">מחיר חציוני</div>
+          <div class="v">{% if stats.median_price %}₪{{ stats.median_price|intcomma }}{% else %}—{% endif %}</div>
+        </div>
+        <div>
+          <div class="k">מחיר למ"ר ממוצע</div>
+          <div class="v">{% if stats.avg_price_per_sqm %}₪{{ stats.avg_price_per_sqm|intcomma }}{% else %}—{% endif %}</div>
+        </div>
+        <div>
+          <div class="k">מספר עסקאות</div>
+          <div class="v">{{ stats.count|default:"—" }}</div>
+        </div>
+      </div>
+      {% endwith %}
+      {% if comparables_items %}
+      <table>
+        <thead>
+          <tr>
+            <th>תאריך</th>
+            <th>מחיר</th>
+            <th>שטח (מ"ר)</th>
+            <th>מחיר למ"ר</th>
+            <th>כתובת</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for deal in comparables_items %}
+          <tr>
+            <td>{{ deal.date|default:"—" }}</td>
+            <td>{% if deal.price %}₪{{ deal.price|intcomma }}{% else %}—{% endif %}</td>
+            <td>{% if deal.area %}{{ deal.area }}{% else %}—{% endif %}</td>
+            <td>{% if deal.price_per_sqm %}₪{{ deal.price_per_sqm|intcomma }}{% else %}—{% endif %}</td>
+            <td>{{ deal.address|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="muted">אין עסקאות להשוואה</div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if 'mortgage' in sections %}
+    <section class="card">
+      <h2>תרחיש משכנתא</h2>
+      {% if mortgage %}
+      <div class="kv">
+        <div>
+          <div class="k">מחיר הנכס</div>
+          <div class="v">₪{{ mortgage.price|intcomma }}</div>
+        </div>
+        <div>
+          <div class="k">הון עצמי</div>
+          <div class="v">₪{{ mortgage.equity|intcomma }}</div>
+        </div>
+        <div>
+          <div class="k">הלוואה נדרשת</div>
+          <div class="v">₪{{ mortgage.loan_amount|intcomma }}</div>
+        </div>
+        <div>
+          <div class="k">יחס מימון (LTV)</div>
+          <div class="v">{% if mortgage.ltv %}{{ mortgage.ltv }}%{% else %}—{% endif %}</div>
+        </div>
+        <div>
+          <div class="k">החזר חודשי משוער</div>
+          <div class="v">₪{{ mortgage.monthly_payment|intcomma }}</div>
+        </div>
+        <div>
+          <div class="k">תקופה</div>
+          <div class="v">{{ mortgage.term_years }} שנים @ {{ mortgage.annual_rate }}%</div>
+        </div>
+        <div>
+          <div class="k">כיסוי שכירות</div>
+          <div class="v">{% if mortgage.rent_coverage %}{{ mortgage.rent_coverage }}% מהחזר{% else %}—{% endif %}</div>
+        </div>
+        <div>
+          <div class="k">פער מזומן לרכישה</div>
+          <div class="v">₪{{ mortgage.cash_gap|intcomma }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="muted">לא ניתן לחשב תרחיש משכנתא ללא מחיר נכס</div>
+      {% endif %}
     </section>
     {% endif %}
 

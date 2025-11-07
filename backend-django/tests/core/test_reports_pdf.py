@@ -2,12 +2,15 @@ import os
 import json
 import shutil
 import tempfile
+from datetime import date
 
 from django.test import TestCase, RequestFactory
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 from PyPDF2 import PdfReader
 
 from core import views
-from core.models import Report, Asset
+from core.models import Report, Asset, Document, RealEstateTransaction
 from core.constants import DEFAULT_REPORT_SECTIONS, SECTION_TITLES_HE
 
 class HebrewPDFGenerationTest(TestCase):
@@ -15,6 +18,13 @@ class HebrewPDFGenerationTest(TestCase):
         self.factory = RequestFactory()
         self.tmpdir = tempfile.mkdtemp(prefix="reports_test_")
         views.report_service.reports_dir = self.tmpdir
+
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="agent",
+            email="agent@example.com",
+            password="pass1234",
+        )
 
         # Insert a mock asset into the database so the endpoint can fetch real
         # data instead of relying solely on in-memory mocks.
@@ -67,6 +77,46 @@ class HebrewPDFGenerationTest(TestCase):
             },
         )
 
+        # Supporting data for permits section
+        Document.objects.create(
+            asset=self.asset,
+            user=self.user,
+            title="היתר בנייה 123",
+            document_type="permit",
+            status="approved",
+            filename="permit-123.pdf",
+            file_path="/tmp/permit-123.pdf",
+            file_size=1024,
+            mime_type="application/pdf",
+            document_date=date(2023, 7, 1),
+            external_id="PER-123",
+            meta={
+                'stage': 'היתר בתוקף',
+                'permission_date': '2023-07-01',
+                'expiry_date': '2024-07-01',
+            },
+        )
+
+        # Supporting data for comparables section
+        RealEstateTransaction.objects.create(
+            asset=self.asset,
+            deal_id="TX-1",
+            date=timezone.now(),
+            price=2800000,
+            rooms=4,
+            area=90,
+            address="הרצל 121, תל אביב",
+        )
+        RealEstateTransaction.objects.create(
+            asset=self.asset,
+            deal_id="TX-2",
+            date=timezone.now(),
+            price=2950000,
+            rooms=5,
+            area=100,
+            address="הרצל 130, תל אביב",
+        )
+
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
@@ -92,8 +142,14 @@ class HebrewPDFGenerationTest(TestCase):
             "תוכניות וזכויות בנייה",
             "מידע סביבתי וסיכונים",
             "מסמכים וזיהוי איש קשר",
+            "היתרים מרכזיים",
+            "עיסקאות השוואה",
+            "תרחיש משכנתא",
         ]:
             self.assertIn(title, text)
+        self.assertIn("01.07.2023", text)
+        self.assertIn("07.11.2025", text)
+        self.assertIn("₪11089", text)
         # Ensure custom sections only include requested content
         req = self.factory.post(
             "/api/reports",

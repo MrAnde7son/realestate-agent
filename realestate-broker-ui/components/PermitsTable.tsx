@@ -770,7 +770,7 @@ export default function PermitsTable({
 
   return (
     <div
-      className="rounded-xl border border-border bg-card overflow-x-auto rtl"
+      className="surface-panel overflow-x-auto rtl"
       dir="rtl"
       aria-busy={loading}
     >

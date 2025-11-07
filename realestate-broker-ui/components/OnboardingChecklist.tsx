@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { BadgeCheck, Circle, ChevronDown, ChevronUp } from 'lucide-react'
 import { OnboardingState, getCompletionPct, isOnboardingComplete } from '@/onboarding/selectors'
+import { cn } from '@/lib/utils'
 
 const steps = [
   // { key: 'connectPayment', label: 'חיבור תשלום', href: '/billing' },
@@ -61,19 +62,21 @@ export default function OnboardingChecklist({ state }: Props) {
               <li key={step.key}>
                 <Link
                   href={step.href}
-                  className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:py-2.5 ${
+                  className={cn(
+                    'group flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:py-2.5 shadow-sm',
                     completed
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 line-through dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
-                      : 'border-border bg-background text-foreground hover:border-primary/40 hover:bg-primary/5'
-                  }`}
+                      ? 'bg-emerald-50 text-emerald-700 line-through dark:bg-emerald-950/40 dark:text-emerald-300 shadow-[0_16px_32px_-24px_rgba(16,185,129,0.75)]'
+                      : 'bg-background text-foreground hover:bg-primary/5 hover:shadow-md'
+                  )}
                 >
                   <span className="flex items-center gap-3">
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-full transition-all shadow-inner',
                         completed
-                          ? 'border-emerald-500 bg-emerald-500 text-white'
-                          : 'border-muted-foreground/40 text-muted-foreground'
-                      }`}
+                          ? 'bg-emerald-500 text-white shadow-[0_6px_14px_-6px_rgba(16,185,129,0.6)]'
+                          : 'bg-muted text-muted-foreground shadow-[inset_0_1px_2px_rgba(15,23,42,0.08)]'
+                      )}
                       aria-hidden="true"
                     >
                       {completed ? (

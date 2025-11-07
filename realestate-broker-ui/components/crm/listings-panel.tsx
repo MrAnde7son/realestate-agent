@@ -632,7 +632,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="rounded-xl border border-border bg-card overflow-x-auto">
+          <div className="surface-panel overflow-x-auto">
             <TableToolbar
               searchValue={searchTerm}
               onSearchChange={handleSearchChange}

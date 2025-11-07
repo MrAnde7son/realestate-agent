@@ -157,7 +157,7 @@ const FilterSection = ({
   }
 
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/40">
+    <div className="surface-panel-muted">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}

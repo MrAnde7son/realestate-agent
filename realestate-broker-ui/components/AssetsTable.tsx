@@ -1736,7 +1736,7 @@ export default function AssetsTable({
   if (!mounted) {
     return (
       <div className="block">
-        <div className="rounded-xl border border-border/50 bg-card overflow-x-auto shadow-md">
+        <div className="surface-panel overflow-x-auto">
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
           </div>
@@ -1748,7 +1748,7 @@ export default function AssetsTable({
   return (
     <>
       <div className="block w-full max-w-full">
-        <div className="rounded-xl border border-border/50 bg-card overflow-x-auto w-full max-w-full shadow-md">
+        <div className="surface-panel overflow-x-auto w-full max-w-full">
           {/* Integrated Toolbar */}
           <TableToolbar
             searchValue={searchValue}

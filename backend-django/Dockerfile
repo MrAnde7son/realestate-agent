@@ -19,7 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements and install Python dependencies
 COPY backend-django/requirements.txt /tmp/backend-requirements.txt
+COPY backend-django/requirements-langchain.txt /tmp/backend-requirements-langchain.txt
 RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/backend-requirements-langchain.txt
 
 # Copy the full repository so Django can import shared modules
 COPY . /app

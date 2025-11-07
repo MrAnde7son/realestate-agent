@@ -8,8 +8,6 @@ Tests the MCP server functionality by importing and checking basic operations.
 import os
 import sys
 
-import tests.utils.test_utils  # This sets up the Python path
-
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:
@@ -18,7 +16,7 @@ if project_root not in sys.path:
 def test_import_mcp_server():
     """Test that the MCP server can be imported successfully."""
     try:
-        from gov.mcp.server import _get_client
+        from gov.mcp_server import _get_client
         print("✅ MCP server imported successfully")
         
         # Test client creation
@@ -33,7 +31,7 @@ def test_import_mcp_server():
 def test_mcp_tools():
     """Test that MCP tools are registered correctly."""
     try:
-        from gov.mcp.server import mcp
+        from gov.mcp_server import mcp
 
         # Check if mcp object has the expected attributes/methods
         if hasattr(mcp, 'tools') and callable(mcp.tools):
@@ -81,7 +79,7 @@ def test_mcp_tools():
 def test_tool_functions():
     """Test that MCP tool functions can be imported and exist."""
     try:
-        from gov.mcp.server import (
+        from gov.mcp_server import (
             download_multiple_plans_documents,
             download_plan_documents,
             get_document_types_info,
@@ -114,7 +112,7 @@ def test_tool_functions():
 def test_rami_client_integration():
     """Test that RamiClient can be imported and initialized."""
     try:
-        from gov.mcp.server import _get_client
+        from gov.mcp_server import _get_client
         from gov.rami.rami_client import RamiClient
 
         # Test client creation

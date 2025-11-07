@@ -4935,10 +4935,13 @@ def agent_chat(request):
                     "content": msg.get("content", "")
                 })
         
-        # Get response from agent
-        response = async_to_sync(agent.chat)(message, formatted_history)
+        # Get response from agent (with tool calls tracking)
+        result = async_to_sync(agent.chat)(message, formatted_history, track_tool_calls=True)
         
-        return Response({"response": response})
+        return Response({
+            "response": result.get("response", ""),
+            "tool_calls": result.get("tool_calls", [])
+        })
         
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)

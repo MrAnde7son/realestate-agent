@@ -5,7 +5,7 @@ Provides unified search functions with automatic parameter resolution
 
 import logging
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -124,7 +124,7 @@ class Yad2SearchHelper:
         """
         try:
             # Import here to avoid circular imports
-            from .mcp.server import search_locations
+            from yad2.mcp_server import search_locations
             
             result = search_locations(search_text=street_name)
             if not result.get('success'):
@@ -159,7 +159,7 @@ class Yad2SearchHelper:
         """
         try:
             # Import here to avoid circular imports
-            from .mcp.server import search_locations
+            from yad2.mcp_server import search_locations
             
             result = search_locations(search_text=city_name)
             if not result.get('success'):
@@ -218,7 +218,7 @@ class Yad2SearchHelper:
         """
         try:
             # Import here to avoid circular imports
-            from .mcp.server import search_real_estate
+            from yad2.mcp_server import search_real_estate
             
             logger.info(f"Starting smart search: {property_type} in {city}" + 
                        (f", {neighborhood}" if neighborhood else ""))
@@ -273,7 +273,7 @@ class Yad2SearchHelper:
         """
         try:
             # Import here to avoid circular imports
-            from .mcp.server import build_search_url
+            from yad2.mcp_server import build_search_url
             
             result = build_search_url(**params)
             return result.get('url', '')

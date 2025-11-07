@@ -10,7 +10,7 @@ using the MCP server tools for assets, deals, expenses, mortgage calculations, a
 import os
 import sys
 import importlib.util
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -19,6 +19,7 @@ if project_root not in sys.path:
 
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -110,6 +111,66 @@ except Exception as e:
     list_leads = _stub_func
     create_lead = _stub_func
     list_tasks = _stub_func
+
+
+class ToolCallTracker(BaseCallbackHandler):
+    """Callback handler to track tool calls during agent execution."""
+    
+    def __init__(self):
+        self.tool_calls = []
+        self.current_tool_call = None
+    
+    def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
+        """Called when a tool starts running."""
+        tool_name = serialized.get("name", "unknown_tool")
+        self.current_tool_call = {
+            "tool": tool_name,
+            "input": input_str,
+            "status": "running",
+            "output": None
+        }
+        self.tool_calls.append(self.current_tool_call)
+    
+    def on_tool_end(self, output: str, **kwargs: Any) -> None:
+        """Called when a tool finishes running."""
+        if self.current_tool_call:
+            self.current_tool_call["status"] = "completed"
+            self.current_tool_call["output"] = output[:200]  # Truncate long outputs
+            self.current_tool_call = None
+    
+    def on_tool_error(self, error: Exception, **kwargs: Any) -> None:
+        """Called when a tool encounters an error."""
+        if self.current_tool_call:
+            self.current_tool_call["status"] = "error"
+            self.current_tool_call["output"] = f"Error: {str(error)}"
+            self.current_tool_call = None
+    
+    def get_tool_calls(self) -> List[Dict[str, Any]]:
+        """Get all tracked tool calls."""
+        return self.tool_calls.copy()
+
+
+def translate_tool_name(tool_name: str) -> str:
+    """Translate tool name to Hebrew."""
+    translations = {
+        "list_assets_tool": "חיפוש נכסים",
+        "get_asset_tool": "קבלת פרטי נכס",
+        "create_asset_tool": "יצירת נכס",
+        "get_asset_transactions_tool": "קבלת היסטוריית עסקאות",
+        "get_asset_appraisal_tool": "קבלת הערכת שווי",
+        "list_deals_tool": "רשימת עסקאות",
+        "create_deal_tool": "יצירת עסקה",
+        "get_offer_tool": "קבלת פרטי הצעה",
+        "estimate_build_cost_tool": "הערכת עלות בנייה",
+        "get_cost_options_tool": "קבלת אפשרויות עלות",
+        "analyze_mortgage_tool": "ניתוח משכנתא",
+        "list_contacts_tool": "רשימת אנשי קשר",
+        "create_contact_tool": "יצירת איש קשר",
+        "list_leads_tool": "רשימת לידים",
+        "create_lead_tool": "יצירת ליד",
+        "list_tasks_tool": "רשימת משימות",
+    }
+    return translations.get(tool_name, tool_name.replace("_tool", "").replace("_", " "))
 
 
 class RealEstateAgent:
@@ -576,24 +637,42 @@ class RealEstateAgent:
             max_iterations=10,
         )
     
-    async def chat(self, message: str, chat_history: Optional[List] = None) -> str:
+    async def chat(self, message: str, chat_history: Optional[List] = None, track_tool_calls: bool = True) -> Dict[str, Any]:
         """Chat with the agent.
         
         Args:
             message: User message
             chat_history: Optional chat history (list of messages)
+            track_tool_calls: Whether to track tool calls
         
         Returns:
-            Agent response
+            Dictionary with 'response' and 'tool_calls' keys
         """
         history = chat_history or []
         
-        result = await self.agent_executor.ainvoke({
-            "input": message,
-            "chat_history": history,
-        })
-        
-        return result["output"]
+        if track_tool_calls:
+            callback = ToolCallTracker()
+            result = await self.agent_executor.ainvoke(
+                {"input": message, "chat_history": history},
+                config={"callbacks": [callback]}
+            )
+            tool_calls = callback.get_tool_calls()
+            # Translate tool names to Hebrew
+            for tool_call in tool_calls:
+                tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+            return {
+                "response": result["output"],
+                "tool_calls": tool_calls
+            }
+        else:
+            result = await self.agent_executor.ainvoke({
+                "input": message,
+                "chat_history": history,
+            })
+            return {
+                "response": result["output"],
+                "tool_calls": []
+            }
     
     def run(self, message: str) -> str:
         """Synchronous version of chat (for CLI usage).
@@ -602,10 +681,11 @@ class RealEstateAgent:
             message: User message
         
         Returns:
-            Agent response
+            Agent response string
         """
         import asyncio
-        return asyncio.run(self.chat(message))
+        result = asyncio.run(self.chat(message, track_tool_calls=False))
+        return result.get("response", "") if isinstance(result, dict) else result
 
 
 def main():

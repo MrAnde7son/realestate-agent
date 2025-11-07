@@ -19,7 +19,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import MCP server functions (only the ones that actually exist)
-from yad2.mcp.server import (
+from yad2.mcp_server import (
     build_search_url,
     get_all_property_types,
     get_search_parameters_reference,

@@ -29,7 +29,7 @@ Set the following environment variables:
 Run the server:
 
 ```bash
-python backend-django/mcp/server.py
+python backend-django/mcp_server.py
 ```
 
 Or use with an MCP client:

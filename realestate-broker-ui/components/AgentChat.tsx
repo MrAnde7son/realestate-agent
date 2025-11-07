@@ -38,6 +38,14 @@ import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, M
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
+interface ToolCall {
+  tool: string
+  tool_hebrew: string
+  input: string
+  status: "running" | "completed" | "error"
+  output?: string
+}
+
 interface Message {
   role: "user" | "assistant"
   content: string
@@ -45,6 +53,7 @@ interface Message {
   feedback?: "positive" | "negative" | null
   messageId?: string
   suggestions?: string[]
+  tool_calls?: ToolCall[]
 }
 
 interface Suggestion {
@@ -113,6 +122,7 @@ export function AgentChat({
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [currentToolCalls, setCurrentToolCalls] = useState<ToolCall[]>([])
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [recommendedQuestionsState, setRecommendedQuestionsState] = useState<string[]>(
@@ -194,6 +204,7 @@ export function AgentChat({
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setIsLoading(true)
+    setCurrentToolCalls([]) // Reset tool calls for new request
 
     try {
       // Prepare chat history (exclude the welcome message)
@@ -221,13 +232,20 @@ export function AgentChat({
       }
 
       const data = await response.json()
+      
+      // Update tool calls state to show completed status
+      if (data.tool_calls && data.tool_calls.length > 0) {
+        setCurrentToolCalls(data.tool_calls)
+      }
+      
       const assistantMessage: Message = {
         role: "assistant",
         content: data.response || "מצטער, לא הצלחתי לקבל תשובה.",
         timestamp: new Date(),
         messageId: generateMessageId(),
         feedback: null,
-        suggestions: data.suggestions || []
+        suggestions: data.suggestions || [],
+        tool_calls: data.tool_calls || []
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -249,6 +267,7 @@ export function AgentChat({
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
+      setCurrentToolCalls([]) // Clear tool calls after loading completes
     }
   }
 
@@ -433,6 +452,36 @@ export function AgentChat({
                   </div>
                 )}
                 
+                {/* Show tool calls during loading */}
+                {isLoading && currentToolCalls.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <AIIcon className="shrink-0 mt-1" />
+                    <div className="max-w-[80%] rounded-xl px-4 py-3 bg-muted text-foreground border border-border/60 rounded-bl-sm shadow-sm">
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">מבצע פעולות:</p>
+                        {currentToolCalls.map((toolCall, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            {toolCall.status === "running" ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-brand-teal" />
+                            ) : toolCall.status === "completed" ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <X className="h-3 w-3 text-red-600" />
+                            )}
+                            <span className={cn(
+                              toolCall.status === "running" && "text-brand-teal",
+                              toolCall.status === "completed" && "text-green-600",
+                              toolCall.status === "error" && "text-red-600"
+                            )}>
+                              {toolCall.tool_hebrew || toolCall.tool}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {messages.length > 1 && messages.slice(1).map((message, idx) => {
                   const actualIndex = idx + 1 // Account for skipped welcome message
                   return (
@@ -455,6 +504,34 @@ export function AgentChat({
                       )}
                     >
                       <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      
+                      {/* Show tool calls for assistant messages */}
+                      {message.role === "assistant" && message.tool_calls && message.tool_calls.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border/40">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">פעולות שבוצעו:</p>
+                          <div className="space-y-1.5">
+                            {message.tool_calls.map((toolCall, toolIdx) => (
+                              <div key={toolIdx} className="flex items-center gap-2 text-xs">
+                                {toolCall.status === "completed" ? (
+                                  <Check className="h-3 w-3 text-green-600 shrink-0" />
+                                ) : toolCall.status === "error" ? (
+                                  <X className="h-3 w-3 text-red-600 shrink-0" />
+                                ) : (
+                                  <Loader2 className="h-3 w-3 animate-spin text-brand-teal shrink-0" />
+                                )}
+                                <span className={cn(
+                                  "text-muted-foreground",
+                                  toolCall.status === "completed" && "text-green-600",
+                                  toolCall.status === "error" && "text-red-600"
+                                )}>
+                                  {toolCall.tool_hebrew || toolCall.tool}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       {message.role === "assistant" && (
                         <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button

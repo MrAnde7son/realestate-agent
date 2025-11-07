@@ -129,8 +129,10 @@ export function AgentChat({
     recommendedQuestions || DEFAULT_RECOMMENDED_QUESTIONS
   )
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
+  const [lastAssistantText, setLastAssistantText] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fabRef = useRef<HTMLButtonElement>(null)
   const { user } = useAuth()
   
   // Generate unique ID for each message
@@ -195,6 +197,24 @@ export function AgentChat({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
     }
   }, [input])
+
+  // Focus management: focus textarea when opening chat
+  useEffect(() => {
+    if (isOpen) {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+      })
+    }
+  }, [isOpen])
+
+  // Focus management: return focus to FAB when closing chat
+  useEffect(() => {
+    if (!isOpen && fabRef.current) {
+      requestAnimationFrame(() => {
+        fabRef.current?.focus()
+      })
+    }
+  }, [isOpen])
 
   // Fetch recommendations from API if enabled
   useEffect(() => {
@@ -294,6 +314,7 @@ export function AgentChat({
       }
 
       setMessages((prev) => [...prev, assistantMessage])
+      setLastAssistantText(data.response || "מצטער, לא הצלחתי לקבל תשובה.")
       
       // Set suggestions for the new message
       if (data.suggestions && data.suggestions.length > 0) {
@@ -310,6 +331,7 @@ export function AgentChat({
         feedback: null
       }
       setMessages((prev) => [...prev, errorMessage])
+      setLastAssistantText(error instanceof Error ? error.message : "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר.")
     } finally {
       setIsLoading(false)
       setCurrentToolCalls([]) // Clear tool calls after loading completes
@@ -394,6 +416,7 @@ export function AgentChat({
       {/* Floating button */}
       {!isOpen && (
         <Button
+          ref={fabRef}
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
           style={{
@@ -416,6 +439,8 @@ export function AgentChat({
               : "bottom-6 right-6 w-[calc(100vw-3rem)] sm:w-96 h-[600px]"
           )}
         >
+          {/* ARIA live region for screen readers */}
+          <div aria-live="polite" className="sr-only">{lastAssistantText}</div>
           <Card className="flex flex-col h-full border-0 shadow-none bg-transparent">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 pt-4 px-4 bg-background/80 backdrop-blur-sm">
               <div className="flex flex-col gap-1">

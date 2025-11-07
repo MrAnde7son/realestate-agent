@@ -104,7 +104,7 @@ class TestSearchPlans:
     @pytest.mark.asyncio
     async def test_search_plans_success(self, mock_context, sample_search_hit):
         """Test successful plan search."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.search_plans.return_value = [sample_search_hit]
             mock_client_class.return_value = mock_client
@@ -123,7 +123,7 @@ class TestSearchPlans:
     @pytest.mark.asyncio
     async def test_search_plans_with_location(self, mock_context, sample_search_hit):
         """Test plan search with location parameters."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.search_plans.return_value = [sample_search_hit]
             mock_client_class.return_value = mock_client
@@ -143,7 +143,7 @@ class TestSearchPlans:
     @pytest.mark.asyncio
     async def test_search_plans_api_error(self, mock_context):
         """Test search with API error."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client_class.side_effect = Exception("API connection failed")
             
             result = await search_plans_func(mock_context, "test query")
@@ -159,8 +159,8 @@ class TestGetPlanDetails:
     @pytest.mark.asyncio
     async def test_get_plan_details_success(self, mock_context, sample_plan):
         """Test successful plan details retrieval."""
-        with patch('server.MavatAPIClient') as mock_client_class, \
-             patch('server._current_client', None):
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class, \
+             patch('mavat.mcp_server._current_client', None):
             mock_client = Mock()
             mock_client.get_plan_details.return_value = sample_plan
             mock_client_class.return_value = mock_client
@@ -178,8 +178,8 @@ class TestGetPlanDetails:
     @pytest.mark.asyncio
     async def test_get_plan_details_api_error(self, mock_context):
         """Test plan details with API error."""
-        with patch('server.MavatAPIClient') as mock_client_class, \
-             patch('server._current_client', None):
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class, \
+             patch('mavat.mcp_server._current_client', None):
             mock_client_class.side_effect = Exception("API connection failed")
             
             result = await get_plan_details_func(mock_context, "12345")
@@ -195,7 +195,7 @@ class TestGetPlanDocuments:
     @pytest.mark.asyncio
     async def test_get_plan_documents_success(self, mock_context, sample_attachment):
         """Test successful document retrieval."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.get_plan_attachments.return_value = [sample_attachment]
             mock_client_class.return_value = mock_client
@@ -214,7 +214,7 @@ class TestGetPlanDocuments:
     @pytest.mark.asyncio
     async def test_get_plan_documents_with_entity_name(self, mock_context, sample_attachment):
         """Test document retrieval with provided entity name."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.get_plan_attachments.return_value = [sample_attachment]
             mock_client_class.return_value = mock_client
@@ -232,7 +232,7 @@ class TestSearchByLocation:
     @pytest.mark.asyncio
     async def test_search_by_location_success(self, mock_context):
         """Test successful location-based search."""
-        with patch('server.MavatAPIClient') as mock_client_class:
+        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
             mock_client = Mock()
             mock_client.search_plans.return_value = []
             mock_client_class.return_value = mock_client
@@ -253,7 +253,7 @@ class TestSearchByLocation:
     @pytest.mark.asyncio
     async def test_search_by_location_failure(self, mock_context):
         """Test location search failure."""
-        with patch('server.search_plans') as mock_search:
+        with patch('mavat.mcp_server.search_plans') as mock_search:
             mock_search.side_effect = Exception("Search failed")
             
             result = await search_by_location_func(mock_context, city="תל אביב")
@@ -289,7 +289,7 @@ class TestSearchByBlockParcel:
     @pytest.mark.asyncio
     async def test_search_by_block_parcel_failure(self, mock_context):
         """Test block/parcel search failure."""
-        with patch('server.search_plans') as mock_search:
+        with patch('mavat.mcp_server.search_plans') as mock_search:
             mock_search.side_effect = Exception("Search failed")
             
             result = await search_by_block_parcel_func(

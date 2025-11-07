@@ -5,6 +5,9 @@ import pytest
 
 from handasa import mcp_server
 
+# Convenience alias matching production usage patterns
+server = mcp_server
+
 
 class DummyContext:
     def __init__(self) -> None:

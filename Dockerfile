@@ -70,6 +70,7 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearm
 COPY requirements-production.txt /tmp/requirements-production.txt
 # Copy all referenced requirement files so nested -r directives resolve during install
 COPY backend-django/requirements.txt /tmp/backend-django/requirements.txt
+COPY backend-django/requirements-langchain.txt /tmp/backend-django/requirements-langchain.txt
 COPY db/requirements.txt /tmp/db/requirements.txt
 COPY orchestration/requirements.txt /tmp/orchestration/requirements.txt
 COPY gov/requirements.txt /tmp/gov/requirements.txt

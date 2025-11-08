@@ -379,6 +379,15 @@ def register_assets_tools():
         max_price: Optional[int | str] = None,
         min_price: Optional[int | str] = None,
         rooms: Optional[int | str] = None,
+        area_min: Optional[float | str] = None,
+        area_max: Optional[float | str] = None,
+        rent_price_min: Optional[int | str] = None,
+        rent_price_max: Optional[int | str] = None,
+        ad_type: Optional[str] = None,
+        type: Optional[str] = None,
+        rental_sale: Optional[str] = None,
+        status: Optional[str] = None,
+        zoning: Optional[str] = None,
         page: Optional[int | str] = None,
         page_size: Optional[int | str] = None,
         fields: Optional[List[str]] = None,
@@ -394,11 +403,30 @@ def register_assets_tools():
             except (TypeError, ValueError):
                 return None
         
+        def _to_float(value):
+            """Convert value to float, handling both float and string inputs."""
+            if value is None:
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+        
         params = {}
         if city:
             params["city"] = city
         if neighborhood:
             params["neighborhood"] = neighborhood
+        if type and type != "all":
+            params["type"] = type
+        if zoning and zoning != "all":
+            params["zoning"] = zoning
+        if status and status != "all":
+            params["status"] = status
+        if rental_sale and rental_sale != "all":
+            params["rentalSale"] = rental_sale
+        if ad_type and ad_type != "all":
+            params["adType"] = ad_type
         price_max_int = _to_int(max_price)
         if price_max_int is not None:
             params["priceMax"] = price_max_int
@@ -408,6 +436,18 @@ def register_assets_tools():
         rooms_int = _to_int(rooms)
         if rooms_int is not None:
             params["rooms"] = rooms_int
+        area_min_float = _to_float(area_min)
+        if area_min_float is not None:
+            params["areaMin"] = area_min_float
+        area_max_float = _to_float(area_max)
+        if area_max_float is not None:
+            params["areaMax"] = area_max_float
+        rent_price_min_int = _to_int(rent_price_min)
+        if rent_price_min_int is not None:
+            params["rentPriceMin"] = rent_price_min_int
+        rent_price_max_int = _to_int(rent_price_max)
+        if rent_price_max_int is not None:
+            params["rentPriceMax"] = rent_price_max_int
         page_int = _to_int(page)
         if page_int is not None:
             params["page"] = page_int

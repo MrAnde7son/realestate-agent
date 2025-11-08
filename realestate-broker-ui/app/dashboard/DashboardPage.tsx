@@ -65,6 +65,7 @@ import { TrendingUp, FileText, Bell, Building2 } from "lucide-react";
 import { selectOnboardingState, getCompletionPct, isOnboardingComplete } from "@/onboarding/selectors";
 import { ALERT_TYPE_LABELS } from "@/lib/alert-constants";
 import { api } from "@/lib/api-client";
+import { getUserFriendlyError } from "@/lib/error-utils";
 
 export default function HomePage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -206,7 +207,7 @@ export default function HomePage() {
           <div className="text-center py-12">
             <div className="bg-destructive/10 text-destructive p-4 rounded-lg max-w-md mx-auto">
               <p className="font-medium mb-2">שגיאה בטעינת נתונים</p>
-              <p className="text-sm">{error}</p>
+              <p className="text-sm">{getUserFriendlyError(error)}</p>
               <Button
                 onClick={() => window.location.reload()}
                 variant="outline"

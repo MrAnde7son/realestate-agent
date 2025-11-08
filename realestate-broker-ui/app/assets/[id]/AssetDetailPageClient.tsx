@@ -2367,36 +2367,69 @@ useDedupedEffect(() => {
     }
   }, [id, toast, router])
 
+  const tabContext: TabContextItem[] = React.useMemo(() => [
+    { value: 'analysis', label: 'ניתוח כללי' },
+    { value: 'listings', label: 'מודעות' },
+    { value: 'transactions', label: 'עיסקאות השוואה' },
+    { value: 'environment', label: 'סביבה' },
+    ...(canViewCrm ? [{ value: 'crm', label: 'לקוחות' }] : []),
+    { value: 'rights', label: 'זכויות' },
+    { value: 'permits', label: 'היתרים' },
+    { value: 'plans', label: 'תוכניות' },
+    { value: 'appraisals', label: 'שומות באיזור' },
+    { value: 'documents', label: 'מסמכים' },
+  ], [canViewCrm])
+
+  const currentTabLabel = React.useMemo(() => {
+    const currentTab = tabContext.find((tab) => tab.value === activeTab)
+    return currentTab?.label || 'ניתוח כללי'
+  }, [activeTab, tabContext])
+
+  const breadcrumbItems: PersistentBreadcrumbItemType[] = React.useMemo(() => {
+    const items: PersistentBreadcrumbItemType[] = [
+      { label: 'בית', href: '/', icon: Home },
+      { label: 'נכסים', href: '/assets', icon: Building },
+      { label: asset?.address || 'טוען...' },
+    ]
+    
+    // Add current tab to breadcrumb
+    if (activeTab) {
+      items.push({ label: currentTabLabel })
+    }
+    
+    return items
+  }, [asset?.address, activeTab, currentTabLabel])
+
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-6">
+        <div className="p-3 sm:p-6">
           <Breadcrumb className="mb-4">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                  <Home className="h-4 w-4" />
-                  בית
+            <BreadcrumbList className="flex-wrap">
+              <BreadcrumbItem className="max-w-[200px] sm:max-w-none">
+                <BreadcrumbLink href="/assets" className="flex items-center gap-1 truncate">
+                  <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="truncate text-xs sm:text-sm">בית</span>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                  <Building className="h-4 w-4" />
-                  נכסים
+              <BreadcrumbItem className="max-w-[200px] sm:max-w-none">
+                <BreadcrumbLink href="/assets" className="flex items-center gap-1 truncate">
+                  <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="truncate text-xs sm:text-sm">נכסים</span>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>טוען...</BreadcrumbPage>
+              <BreadcrumbItem className="max-w-[200px] sm:max-w-none">
+                <BreadcrumbPage className="truncate text-xs sm:text-sm">טוען...</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
           <div className="flex items-center gap-2 mb-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assets">
+            <Button variant="ghost" size="sm" asChild className="h-8 sm:h-9">
+              <Link href="/assets" className="flex items-center gap-1">
                 <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
+                <span className="hidden sm:inline">חזרה לרשימה</span>
               </Link>
             </Button>
           </div>
@@ -2409,16 +2442,16 @@ useDedupedEffect(() => {
   if (error || !asset) {
     return (
       <DashboardLayout>
-        <div className="p-6">
+        <div className="p-3 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assets">
+            <Button variant="ghost" size="sm" asChild className="h-8 sm:h-9">
+              <Link href="/assets" className="flex items-center gap-1">
                 <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
+                <span className="hidden sm:inline">חזרה לרשימה</span>
               </Link>
             </Button>
           </div>
-          <p>{error || 'לא הצלחנו לטעון את פרטי הנכס המבוקש.'}</p>
+          <p className="text-sm sm:text-base">{error || 'לא הצלחנו לטעון את פרטי הנכס המבוקש.'}</p>
         </div>
       </DashboardLayout>
     )
@@ -2750,25 +2783,6 @@ useDedupedEffect(() => {
     }
   }
 
-  const breadcrumbItems: PersistentBreadcrumbItemType[] = [
-    { label: 'בית', href: '/', icon: Home },
-    { label: 'נכסים', href: '/assets', icon: Building },
-    { label: asset.address },
-  ]
-
-  const tabContext: TabContextItem[] = [
-    { value: 'analysis', label: 'ניתוח כללי' },
-    { value: 'listings', label: 'מודעות' },
-    { value: 'transactions', label: 'עיסקאות השוואה' },
-    { value: 'environment', label: 'סביבה' },
-    ...(canViewCrm ? [{ value: 'crm', label: 'לקוחות' }] : []),
-    { value: 'rights', label: 'זכויות' },
-    { value: 'permits', label: 'היתרים' },
-    { value: 'plans', label: 'תוכניות' },
-    { value: 'appraisals', label: 'שומות באיזור' },
-    { value: 'documents', label: 'מסמכים' },
-  ]
-
   const handleTabChangeViaBreadcrumb = (value: string) => {
     setActiveTab(value)
     const url = new URL(window.location.href)
@@ -2778,25 +2792,24 @@ useDedupedEffect(() => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <PersistentBreadcrumb
-          items={breadcrumbItems}
-          showBackToAssets={true}
-          tabContext={{
-            currentTab: activeTab,
-            tabs: tabContext,
-            onTabChange: handleTabChangeViaBreadcrumb,
-          }}
-        />
+      <div className="space-y-6">
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="p-3 sm:p-6 pb-3 sm:pb-4">
+            <PersistentBreadcrumb
+              items={breadcrumbItems}
+              showBackToAssets={true}
+              tabContext={{
+                currentTab: activeTab,
+                tabs: tabContext,
+                onTabChange: handleTabChangeViaBreadcrumb,
+              }}
+            />
+          </div>
+        </div>
+        <div className="p-3 sm:p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assets">
-                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
-              </Link>
-            </Button>
             <div className="flex-1">
               <h1 className="text-3xl font-bold">{asset.address}</h1>
               <p className="text-muted-foreground">
@@ -4890,6 +4903,7 @@ useDedupedEffect(() => {
             </Card>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </DashboardLayout>
   )

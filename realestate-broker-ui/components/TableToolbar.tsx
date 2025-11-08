@@ -1791,6 +1791,21 @@ export default function TableToolbar({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAllFilters}
+                className={TOOLBAR_PILL_BUTTON_CLASSES}
+                aria-label="נקה את כל המסננים"
+              >
+                <span className="hidden sm:inline">נקה כל המסננים</span>
+                <span className="sm:hidden">נקה הכל</span>
+                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 ms-2 shrink-0" />
+              </Button>
+            )}
+
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES}>

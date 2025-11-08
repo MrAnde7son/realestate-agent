@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { ArrowLeft, Home, Building, ChevronDown } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, ChevronDown, X } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -50,8 +50,28 @@ export function PersistentBreadcrumb({
   tabContext,
   className,
 }: PersistentBreadcrumbProps) {
-  const pathname = usePathname()
   const router = useRouter()
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [isCollapsed, setIsCollapsed] = React.useState(false)
+
+  const showBreadcrumbs = React.useCallback(() => {
+    setIsCollapsed(false)
+    setTimeout(() => {
+      containerRef.current?.focus()
+    }, 0)
+  }, [])
+
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault()
+        showBreadcrumbs()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [showBreadcrumbs])
 
   const handleTabChange = (value: string) => {
     if (tabContext?.onTabChange) {
@@ -71,13 +91,49 @@ export function PersistentBreadcrumb({
 
   const currentTab = tabContext?.tabs.find((t) => t.value === tabContext.currentTab)
 
+  const wrapperClasses = React.useMemo(
+    () =>
+      cn(
+        "sticky top-0 z-40 mb-4",
+        className
+      ),
+    [className]
+  )
+
+  const containerClasses =
+    "flex items-center justify-between gap-4 rounded-md border bg-background/95 px-3 py-2 shadow-sm outline-none supports-[backdrop-filter]:bg-background/70 supports-[backdrop-filter]:backdrop-blur focus-visible:ring-2 focus-visible:ring-ring"
+
+  if (isCollapsed) {
+    return (
+      <div className={wrapperClasses}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={showBreadcrumbs}
+          className="flex items-center gap-2"
+          aria-label="הצג נתיב ניווט"
+        >
+          <ChevronDown className="h-4 w-4" />
+          הצג נתיב ניווט
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div className={cn("flex items-center justify-between gap-4 mb-4", className)}>
-      <Breadcrumb>
-        <BreadcrumbList>
-          {items.map((item, index) => {
-            const isLast = index === items.length - 1
-            const Icon = item.icon
+    <div className={wrapperClasses}>
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        role="region"
+        aria-label="נתיב ניווט"
+        className={containerClasses}
+      >
+        <Breadcrumb>
+          <BreadcrumbList>
+            {items.map((item, index) => {
+              const isLast = index === items.length - 1
+              const Icon = item.icon
 
             return (
               <React.Fragment key={index}>
@@ -139,8 +195,18 @@ export function PersistentBreadcrumb({
             </Link>
           </Button>
         )}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsCollapsed(true)}
+          aria-label="הסתר נתיב ניווט"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
     </div>
+  </div>
   )
 }
 

@@ -58,14 +58,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import { PersistentBreadcrumb, type PersistentBreadcrumbItemType } from '@/components/ui/persistent-breadcrumb'
 import {
   ArrowRightLeft,
@@ -83,7 +75,6 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
-  Home,
   Building,
   Briefcase,
   Trash2,
@@ -596,14 +587,12 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   const breadcrumbItems: PersistentBreadcrumbItemType[] = useMemo(() => {
     if (navigationSource === 'deals') {
       return [
-        { label: 'בית', href: '/', icon: Home },
         { label: 'עסקאות', href: '/deals', icon: Briefcase },
         { label: 'סביבת עסקה' },
       ]
     }
     // Default: from asset details
     return [
-      { label: 'בית', href: '/', icon: Home },
       { label: 'נכסים', href: '/assets', icon: Building },
       { label: DEAL_METADATA.address, href: `/assets/${assetId}` },
       { label: 'סביבת עסקה' },

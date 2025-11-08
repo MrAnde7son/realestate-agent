@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -2367,19 +2367,48 @@ useDedupedEffect(() => {
     }
   }, [id, toast, router])
 
+  const tabOptions: TabContextItem[] = useMemo(
+    () => [
+      { value: 'analysis', label: 'ניתוח כללי' },
+      { value: 'listings', label: 'מודעות' },
+      { value: 'transactions', label: 'עיסקאות השוואה' },
+      { value: 'environment', label: 'סביבה' },
+      ...(canViewCrm ? [{ value: 'crm', label: 'לקוחות' }] : []),
+      { value: 'rights', label: 'זכויות' },
+      { value: 'permits', label: 'היתרים' },
+      { value: 'plans', label: 'תוכניות' },
+      { value: 'appraisals', label: 'שומות באיזור' },
+      { value: 'documents', label: 'מסמכים' },
+    ],
+    [canViewCrm]
+  )
+
+  const activeTabLabel = useMemo(() => {
+    const current = tabOptions.find((tab) => tab.value === activeTab)
+    return current?.label ?? null
+  }, [tabOptions, activeTab])
+
+  const breadcrumbAssetLabel = asset?.address ?? '—'
+
+  const breadcrumbItems: PersistentBreadcrumbItemType[] = useMemo(() => {
+    const items: PersistentBreadcrumbItemType[] = [
+      { label: 'נכסים', href: '/assets', icon: Building },
+      { label: breadcrumbAssetLabel },
+    ]
+
+    if (activeTabLabel) {
+      items.push({ label: activeTabLabel })
+    }
+
+    return items
+  }, [breadcrumbAssetLabel, activeTabLabel])
+
   if (loading) {
     return (
       <DashboardLayout>
         <div className="p-6">
           <Breadcrumb className="mb-4">
             <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                  <Home className="h-4 w-4" />
-                  בית
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbLink href="/assets" className="flex items-center gap-1">
                   <Building className="h-4 w-4" />
@@ -2750,25 +2779,6 @@ useDedupedEffect(() => {
     }
   }
 
-  const breadcrumbItems: PersistentBreadcrumbItemType[] = [
-    { label: 'בית', href: '/', icon: Home },
-    { label: 'נכסים', href: '/assets', icon: Building },
-    { label: asset.address },
-  ]
-
-  const tabContext: TabContextItem[] = [
-    { value: 'analysis', label: 'ניתוח כללי' },
-    { value: 'listings', label: 'מודעות' },
-    { value: 'transactions', label: 'עיסקאות השוואה' },
-    { value: 'environment', label: 'סביבה' },
-    ...(canViewCrm ? [{ value: 'crm', label: 'לקוחות' }] : []),
-    { value: 'rights', label: 'זכויות' },
-    { value: 'permits', label: 'היתרים' },
-    { value: 'plans', label: 'תוכניות' },
-    { value: 'appraisals', label: 'שומות באיזור' },
-    { value: 'documents', label: 'מסמכים' },
-  ]
-
   const handleTabChangeViaBreadcrumb = (value: string) => {
     setActiveTab(value)
     const url = new URL(window.location.href)
@@ -2784,7 +2794,7 @@ useDedupedEffect(() => {
           showBackToAssets={true}
           tabContext={{
             currentTab: activeTab,
-            tabs: tabContext,
+            tabs: tabOptions,
             onTabChange: handleTabChangeViaBreadcrumb,
           }}
         />

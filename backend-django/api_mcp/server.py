@@ -58,6 +58,7 @@ Usage Examples:
 6. Create deal: create_deal(asset_id=123, stage="discovery")
 """
 
+import json
 import logging
 import os
 import sys
@@ -78,6 +79,188 @@ _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
 
 logger = logging.getLogger(__name__)
+
+
+def prune_json(obj: Any, max_chars: int = 15_000, list_limit: int = 20, str_limit: int = 300, depth: int = 0) -> Any:
+    """
+    Prune JSON objects to limit size before sending to model.
+    
+    Recursively limits:
+    - Lists to list_limit items
+    - Strings to str_limit characters
+    - Total JSON size to max_chars
+    - Deep nesting (max depth 3)
+    
+    Args:
+        obj: Object to prune
+        max_chars: Maximum total JSON string length (default: 15k)
+        list_limit: Maximum items per list (default: 20)
+        str_limit: Maximum characters per string (default: 300)
+        depth: Current nesting depth (internal use)
+        
+    Returns:
+        Pruned object
+    """
+    # Limit nesting depth to prevent deep recursion
+    if depth > 3:
+        return "..."
+    
+    def _prune(x: Any, d: int = 0) -> Any:
+        if isinstance(x, dict):
+            # Limit dict size at deeper levels
+            max_dict_items = 10 if d >= 2 else 50
+            items = list(x.items())[:max_dict_items]
+            return {k: _prune(v, d + 1) for k, v in items}
+        if isinstance(x, list):
+            # Aggressively limit lists
+            limited = x[:list_limit]
+            return [_prune(v, d + 1) for v in limited]
+        if isinstance(x, str):
+            # Truncate long strings
+            if len(x) <= str_limit:
+                return x
+            return x[:str_limit] + "…"
+        # Truncate very long numbers/other types
+        if isinstance(x, (int, float)) and abs(x) > 1e10:
+            return str(x)[:20] + "…"
+        return x
+    
+    pruned = _prune(obj, depth)
+    s = json.dumps(pruned, ensure_ascii=False)
+    
+    if len(s) <= max_chars:
+        return pruned
+    
+    # Second pass: shrink lists harder
+    pruned = prune_json(
+        pruned,
+        max_chars=max_chars,
+        list_limit=max(3, list_limit // 3),
+        str_limit=max(100, str_limit // 2),
+        depth=depth
+    )
+    
+    # Third pass if still too large: very aggressive
+    s = json.dumps(pruned, ensure_ascii=False)
+    if len(s) > max_chars:
+        return prune_json(
+            pruned,
+            max_chars=max_chars,
+            list_limit=5,
+            str_limit=50,
+            depth=depth
+        )
+    
+    return pruned
+
+
+def process_list_result(
+    raw: Dict[str, Any],
+    fields: Optional[List[str]] = None,
+    limit: int = 5,
+    compact: bool = True,
+) -> Dict[str, Any]:
+    """
+    Process list/collection API results with field projection, limiting, and compaction.
+    
+    Args:
+        raw: Raw API response with success/data structure
+        fields: Optional list of field names to keep (projection)
+        limit: Maximum number of items to return (default: 5)
+        compact: If True, drop bulky nested fields automatically
+        
+    Returns:
+        Processed response dict
+    """
+    if not raw.get("success"):
+        return raw
+    
+    data = raw.get("data", {})
+    
+    # Extract items from various response formats
+    # API returns "rows" for assets list, "results" for other endpoints, or direct list
+    items = data.get("rows") or data.get("results") or data.get("data") or []
+    if isinstance(data, list):
+        items = data
+    
+    if not isinstance(items, list):
+        # Not a list response, return as-is
+        return raw
+    
+    def project(item: Dict[str, Any], keep: List[str]) -> Dict[str, Any]:
+        """Project only specified fields from item."""
+        return {k: item.get(k) for k in keep if k in item}
+    
+    def compact_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        """Aggressively compact a single item."""
+        bulky = {
+            "documents",
+            "plans",
+            "appraisal",
+            "listings",
+            "history",
+            "raw_html",
+            "raw_text",
+            "transactions",
+            "permits",
+            "metadata",
+            "notes",
+            "interactions",
+            "description",
+            "content",
+            "body",
+            "html_content",
+            "text_content",
+            "raw_data",
+            "full_data",
+            "details",
+            "extended_info",
+            "additional_info",
+            "extra_data",
+            "related_items",
+            "children",
+            "subitems",
+            "attachments",
+            "files",
+            "images",
+            "photos",
+            "media",
+        }
+        
+        result = {}
+        for k, v in item.items():
+            if k in bulky:
+                continue
+            
+            # Skip very large nested structures
+            if isinstance(v, (dict, list)):
+                v_str = json.dumps(v, ensure_ascii=False)
+                if len(v_str) > 500:
+                    result[k] = f"[{type(v).__name__} with {len(v) if isinstance(v, list) else len(v)} items]"
+                    continue
+            
+            # Truncate very long strings even in non-bulky fields
+            if isinstance(v, str) and len(v) > 200:
+                result[k] = v[:200] + "…"
+                continue
+            
+            result[k] = v
+        
+        return result
+    
+    # Apply field projection if specified
+    if fields:
+        items = [project(x, fields) for x in items]
+    
+    # Apply compaction (drop bulky nested fields)
+    if compact:
+        items = [compact_item(x) for x in items]
+    
+    # Apply limit
+    items = items[:limit]
+    
+    return {"success": True, "data": items}
+
 
 def _get_api_base_url() -> str:
     """Get the API base URL from environment or default."""
@@ -150,7 +333,10 @@ def _make_request(
         if response.status_code == 204 or not response.content:
             return {"success": True, "data": None}
         
-        return {"success": True, "data": response.json()}
+        raw_data = response.json()
+        # Prune JSON before returning to model
+        pruned_data = prune_json(raw_data)
+        return {"success": True, "data": pruned_data}
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
         error_msg = str(e)
@@ -184,27 +370,68 @@ def register_assets_tools():
     async def list_assets(
         ctx: Context,
         city: Optional[str] = None,
-        max_price: Optional[int] = None,
-        min_price: Optional[int] = None,
-        rooms: Optional[int] = None,
-        page: Optional[int] = None,
-        page_size: Optional[int] = None,
+        max_price: Optional[int | str] = None,
+        min_price: Optional[int | str] = None,
+        rooms: Optional[int | str] = None,
+        page: Optional[int | str] = None,
+        page_size: Optional[int | str] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
+        def _to_int(value):
+            """Convert value to int, handling both int and string inputs."""
+            if value is None:
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+        
         params = {}
         if city:
             params["city"] = city
-        if max_price:
-            params["max_price"] = max_price
-        if min_price:
-            params["min_price"] = min_price
-        if rooms:
-            params["rooms"] = rooms
-        if page:
-            params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        price_max_int = _to_int(max_price)
+        if price_max_int is not None:
+            params["priceMax"] = price_max_int
+        price_min_int = _to_int(min_price)
+        if price_min_int is not None:
+            params["priceMin"] = price_min_int
+        rooms_int = _to_int(rooms)
+        if rooms_int is not None:
+            params["rooms"] = rooms_int
+        page_int = _to_int(page)
+        if page_int is not None:
+            params["page"] = page_int
+        # Clamp page_size to limit and max 50
+        page_size_int = _to_int(page_size) if page_size is not None else None
+        final_limit = min(page_size_int or limit, 50)
+        # Send both limit and page_size for compatibility
+        params["limit"] = final_limit
+        params["page_size"] = final_limit
         
-        return _make_request(ctx, "GET", "/assets", params=params)
+        raw = _make_request(ctx, "GET", "/assets", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
+
+    @mcp.tool(description="Get available filter options (cities, types, neighborhoods, etc.) from the API.")
+    async def get_asset_filters(
+        ctx: Context,
+    ) -> Dict[str, Any]:
+        """Get available filter options including cities, property types, neighborhoods, etc.
+        
+        This is useful to get the exact city names available in the system.
+        For example, if you're looking for Tel Aviv properties, check the 'cities' list
+        to see the exact name format (e.g., 'תל אביב יפו', 'תל אביב-יפו', etc.)
+        """
+        # Make a request with page_size=1 to get filters without fetching many assets
+        params = {"page_size": 1}
+        raw = _make_request(ctx, "GET", "/assets", params=params)
+        
+        if raw.get("success") and isinstance(raw.get("data"), dict):
+            filters = raw.get("data", {}).get("filters", {})
+            return {"success": True, "filters": filters}
+        
+        return raw
 
     @mcp.tool(description="Get asset details.")
     async def get_asset(
@@ -216,7 +443,34 @@ def register_assets_tools():
         if include_documents:
             params["include_documents"] = "true"
         
-        return _make_request(ctx, "GET", f"/assets/{asset_id}", params=params)
+        raw = _make_request(ctx, "GET", f"/assets/{asset_id}", params=params)
+        
+        # If documents are not requested, strip them from response
+        if not include_documents and raw.get("success"):
+            data = raw.get("data", {})
+            if isinstance(data, dict):
+                # Aggressively strip bulky fields
+                bulky_fields = {
+                    "documents", "plans", "appraisal", "listings", "history",
+                    "raw_html", "raw_text", "transactions", "permits",
+                    "description", "content", "body", "html_content", "text_content",
+                    "raw_data", "full_data", "details", "extended_info",
+                    "attachments", "files", "images", "photos", "media",
+                }
+                data = {k: v for k, v in data.items() if k not in bulky_fields}
+                
+                # Truncate remaining long strings
+                for k, v in data.items():
+                    if isinstance(v, str) and len(v) > 200:
+                        data[k] = v[:200] + "…"
+                    elif isinstance(v, (dict, list)):
+                        v_str = json.dumps(v, ensure_ascii=False)
+                        if len(v_str) > 500:
+                            data[k] = f"[{type(v).__name__} with {len(v) if isinstance(v, list) else 'many'} items]"
+                
+                return {"success": True, "data": data}
+        
+        return raw
 
     @mcp.tool(description="Create asset.")
     async def create_asset(
@@ -262,6 +516,9 @@ def register_assets_tools():
         ctx: Context,
         asset_id: int,
         kind: str,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         """
         Get asset subresource data.
@@ -269,6 +526,9 @@ def register_assets_tools():
         Args:
             asset_id: The ID of the asset
             kind: Type of data to retrieve - one of: transactions, permits, plans, appraisal, listings, documents
+            fields: Optional list of field names to return
+            limit: Maximum number of items to return (default: 10)
+            compact: If True, drop bulky nested fields automatically
         
         Returns:
             Dictionary with success status and requested data
@@ -280,7 +540,39 @@ def register_assets_tools():
                 "error": f"Invalid kind '{kind}'. Must be one of: {', '.join(valid_kinds)}"
             }
         
-        return _make_request(ctx, "GET", f"/assets/{asset_id}/{kind}")
+        raw = _make_request(ctx, "GET", f"/assets/{asset_id}/{kind}")
+        
+        # Special handling for documents: return metadata + chunk ids only
+        if kind == "documents":
+            if not raw.get("success"):
+                return raw
+            
+            data = raw.get("data", {})
+            items = data.get("results") or data.get("data") or []
+            if isinstance(data, list):
+                items = data
+            
+            if isinstance(items, list):
+                # Return only metadata for documents, not full content
+                processed = []
+                for doc in items[:limit]:
+                    doc_meta = {
+                        "id": doc.get("id"),
+                        "title": doc.get("title"),
+                        "type": doc.get("type"),
+                        "created_at": doc.get("created_at"),
+                        "updated_at": doc.get("updated_at"),
+                        "size": doc.get("size"),
+                        "chunk_ids": doc.get("chunk_ids", []),
+                    }
+                    if fields:
+                        doc_meta = {k: v for k, v in doc_meta.items() if k in fields}
+                    processed.append(doc_meta)
+                
+                return {"success": True, "data": processed}
+        
+        # For other kinds, use standard list processing
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
 
 # ============================================================================
@@ -300,6 +592,9 @@ def register_deals_tools():
         search: Optional[str] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if stage:
@@ -314,10 +609,11 @@ def register_deals_tools():
             params["q"] = search
         if page:
             params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        # Clamp page_size to limit and max 20
+        params["page_size"] = min(page_size or limit, 20)
         
-        return _make_request(ctx, "GET", "/deal-workspace/deals", params=params)
+        raw = _make_request(ctx, "GET", "/deal-workspace/deals", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Get deal.")
     async def get_deal(
@@ -349,6 +645,9 @@ def register_deals_tools():
         ctx: Context,
         deal_id: Optional[int] = None,
         status: Optional[str] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if deal_id:
@@ -356,7 +655,8 @@ def register_deals_tools():
         if status:
             params["status"] = status
         
-        return _make_request(ctx, "GET", "/deal-workspace/negotiations", params=params)
+        raw = _make_request(ctx, "GET", "/deal-workspace/negotiations", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Get negotiation.")
     async def get_negotiation(
@@ -370,6 +670,9 @@ def register_deals_tools():
         ctx: Context,
         negotiation_id: Optional[int] = None,
         status: Optional[str] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if negotiation_id:
@@ -377,7 +680,8 @@ def register_deals_tools():
         if status:
             params["status"] = status
         
-        return _make_request(ctx, "GET", "/deal-workspace/offers", params=params)
+        raw = _make_request(ctx, "GET", "/deal-workspace/offers", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Get offer.")
     async def get_offer(
@@ -461,14 +765,18 @@ def register_crm_tools():
         ctx: Context,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if page:
             params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        # Clamp page_size to limit and max 20
+        params["page_size"] = min(page_size or limit, 20)
         
-        return _make_request(ctx, "GET", "/crm/contacts", params=params)
+        raw = _make_request(ctx, "GET", "/crm/contacts", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Get contact.")
     async def get_contact(
@@ -505,8 +813,12 @@ def register_crm_tools():
     async def search_contacts(
         ctx: Context,
         query: str,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
-        return _make_request(ctx, "GET", "/crm/contacts/search", params={"q": query})
+        raw = _make_request(ctx, "GET", "/crm/contacts/search", params={"q": query})
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="List leads.")
     async def list_leads(
@@ -516,6 +828,9 @@ def register_crm_tools():
         asset_id: Optional[int] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if status:
@@ -526,10 +841,11 @@ def register_crm_tools():
             params["asset_id"] = asset_id
         if page:
             params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        # Clamp page_size to limit and max 20
+        params["page_size"] = min(page_size or limit, 20)
         
-        return _make_request(ctx, "GET", "/crm/leads", params=params)
+        raw = _make_request(ctx, "GET", "/crm/leads", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Get lead.")
     async def get_lead(
@@ -581,6 +897,9 @@ def register_crm_tools():
         status: Optional[str] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if contact_id:
@@ -591,10 +910,11 @@ def register_crm_tools():
             params["status"] = status
         if page:
             params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        # Clamp page_size to limit and max 20
+        params["page_size"] = min(page_size or limit, 20)
         
-        return _make_request(ctx, "GET", "/crm/tasks", params=params)
+        raw = _make_request(ctx, "GET", "/crm/tasks", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Create task.")
     async def create_task(
@@ -636,6 +956,9 @@ def register_crm_tools():
         upcoming: Optional[bool] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if contact_id:
@@ -646,10 +969,11 @@ def register_crm_tools():
             params["upcoming"] = "true"
         if page:
             params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        # Clamp page_size to limit and max 20
+        params["page_size"] = min(page_size or limit, 20)
         
-        return _make_request(ctx, "GET", "/crm/meetings", params=params)
+        raw = _make_request(ctx, "GET", "/crm/meetings", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Create meeting.")
     async def create_meeting(
@@ -684,6 +1008,9 @@ def register_crm_tools():
         since: Optional[str] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
+        fields: Optional[List[str]] = None,
+        limit: int = 5,
+        compact: bool = True,
     ) -> Dict[str, Any]:
         params = {}
         if contact_id:
@@ -694,10 +1021,11 @@ def register_crm_tools():
             params["since"] = since
         if page:
             params["page"] = page
-        if page_size:
-            params["page_size"] = page_size
+        # Clamp page_size to limit and max 20
+        params["page_size"] = min(page_size or limit, 20)
         
-        return _make_request(ctx, "GET", "/crm/interactions", params=params)
+        raw = _make_request(ctx, "GET", "/crm/interactions", params=params)
+        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
     @mcp.tool(description="Create interaction.")
     async def create_interaction(

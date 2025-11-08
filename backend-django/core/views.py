@@ -1982,7 +1982,13 @@ def _apply_asset_filters(queryset, params, user):
 
     city = params.get("city")
     if city and city != "all":
-        queryset = queryset.filter(city__iexact=city)
+        # Handle city name variations (e.g., "תל אביב יפו", "תל אביב-יפו", "תל אביב יפו")
+        from .services.asset_deduplication import _get_city_variations
+        city_variations = _get_city_variations(city)
+        if city_variations:
+            queryset = queryset.filter(city__in=city_variations)
+        else:
+            queryset = queryset.filter(city__iexact=city)
 
     type_filter = params.get("type")
     if type_filter and type_filter != "all":
@@ -2439,7 +2445,7 @@ def _get_assets_list(request):
 
     page = _parse_positive_int(params.get("page"), 1)
     page_size = _parse_positive_int(
-        params.get("pageSize") or params.get("page_size"), DEFAULT_ASSET_PAGE_SIZE
+        params.get("pageSize") or params.get("page_size") or params.get("limit"), DEFAULT_ASSET_PAGE_SIZE
     )
     page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 

@@ -57,6 +57,7 @@ try:
             return tool_obj
     
     list_assets = get_underlying_func(mcp_server.list_assets)
+    get_asset_filters = get_underlying_func(mcp_server.get_asset_filters)
     get_asset = get_underlying_func(mcp_server.get_asset)
     create_asset = get_underlying_func(mcp_server.create_asset)
     get_asset_data = get_underlying_func(mcp_server.get_asset_data)
@@ -82,6 +83,7 @@ except Exception as e:
         return {"success": False, "error": error_msg}
     
     list_assets = _stub_func
+    get_asset_filters = _stub_func
     get_asset = _stub_func
     create_asset = _stub_func
     get_asset_data = _stub_func
@@ -384,6 +386,7 @@ def translate_tool_name(tool_name: str) -> str:
     """Translate tool name to Hebrew."""
     translations = {
         "list_assets_tool": "חיפוש נכסים",
+        "get_asset_filters_tool": "קבלת אפשרויות סינון",
         "get_asset_tool": "קבלת פרטי נכס",
         "create_asset_tool": "יצירת נכס",
         "get_asset_transactions_tool": "קבלת היסטוריית עסקאות",
@@ -607,17 +610,24 @@ class RealEstateAgent:
         ) -> str:
             """List all assets with optional filtering. Use this to search for properties.
             
+            IMPORTANT: Before searching, use get_asset_filters_tool() to get available city names.
+            The API may use different city name formats (e.g., 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
+            Use the exact city name from the filters.cities list for best results.
+            
             Parameters:
-            - city: City name (e.g., 'תל אביב', 'ירושלים') - REQUIRED for location-based searches
-            - max_price: Maximum price in shekels (e.g., 4000000 for 4 million)
+            - city: City name - MUST match one of the names in filters.cities from get_asset_filters_tool()
+                     Common formats: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', etc.
+            - max_price: Maximum price in shekels (e.g., 2000000 for 2 million)
             - min_price: Minimum price in shekels
             - rooms: Number of rooms
             - page: Page number for pagination (default: 1)
             
-            Example: list_assets_tool(city='תל אביב', max_price=4000000)
+            Example workflow:
+            1. First call: get_asset_filters_tool() to see available cities
+            2. Then call: list_assets_tool(city='תל אביב יפו', max_price=2000000)
             """
             try:
-                result = await list_assets(ctx, city, max_price, min_price, rooms, page)
+                result = await list_assets(ctx, city=city, max_price=max_price, min_price=min_price, rooms=rooms, page=page)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
                     if isinstance(data, dict) and "results" in data:
@@ -636,16 +646,63 @@ class RealEstateAgent:
             name="list_assets_tool",
             description="""חיפוש נכסים עם אפשרויות סינון. 
             
+            חשוב מאוד: לפני חיפוש, השתמש ב-get_asset_filters_tool() כדי לקבל את שמות הערים הזמינים.
+            ה-API עשוי להשתמש בפורמטים שונים של שמות ערים (לדוגמה: 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
+            השתמש בשם העיר המדויק מרשימת filters.cities לתוצאות הטובות ביותר.
+            
             פרמטרים:
-            - city: שם העיר (לדוגמה: 'תל אביב', 'ירושלים') - חובה לחיפוש לפי מיקום
-            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 4000000 עבור 4 מיליון)
+            - city: שם העיר - חייב להתאים לאחד השמות ב-filters.cities מ-get_asset_filters_tool()
+                     פורמטים נפוצים: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', וכו'
+            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 2000000 עבור 2 מיליון)
             - min_price: מחיר מינימלי בשקלים
             - rooms: מספר חדרים
             - page: מספר עמוד (ברירת מחדל: 1)
             
-            דוגמה: list_assets_tool(city='תל אביב', max_price=4000000)
+            דוגמה לשימוש:
+            1. קודם: get_asset_filters_tool() כדי לראות את הערים הזמינים
+            2. אחר כך: list_assets_tool(city='תל אביב יפו', max_price=2000000)"""
+        )
+        
+        async def get_asset_filters_tool_func() -> str:
+            """Get available filter options including cities, property types, neighborhoods, etc.
             
-            חשוב: השתמש בפרמטר 'city' לחיפוש לפי מיקום, לא 'location' או 'lang'."""
+            This is essential before searching for properties to ensure you use the correct city name format.
+            Returns a dictionary with available filter values including:
+            - cities: List of available city names (use exact name from this list)
+            - types: List of property types
+            - neighborhoods: List of neighborhoods
+            - And more...
+            """
+            try:
+                result = await get_asset_filters(ctx)
+                if isinstance(result, dict) and result.get("success"):
+                    filters = result.get("filters", {})
+                    cities = filters.get("cities", [])
+                    cities_str = ', '.join(cities[:20]) + ('...' if len(cities) > 20 else '')
+                    types_str = ', '.join(filters.get('types', [])[:10]) + ('...' if len(filters.get('types', [])) > 10 else '')
+                    neighborhoods_str = ', '.join(filters.get('neighborhoods', [])[:10]) + ('...' if len(filters.get('neighborhoods', [])) > 10 else '')
+                    return f"פילטרים זמינים:\n" + \
+                           f"ערים: {cities_str}\n" + \
+                           f"סוגי נכסים: {types_str}\n" + \
+                           f"שכונות: {neighborhoods_str}\n" + \
+                           "\nהשתמש בשם העיר המדויק מרשימת הערים לחיפוש."
+                return str(result)
+            except Exception as e:
+                return f"שגיאה: {str(e)}"
+        
+        get_asset_filters_tool = StructuredTool.from_function(
+            func=wrap_async_tool(get_asset_filters_tool_func),
+            name="get_asset_filters_tool",
+            description="""קבלת אפשרויות פילטר זמינות (ערים, סוגי נכסים, שכונות וכו').
+            
+            חשוב מאוד: השתמש בכלי זה לפני חיפוש נכסים כדי לוודא שאתה משתמש בפורמט הנכון של שם העיר.
+            מחזיר מילון עם ערכי פילטר זמינים כולל:
+            - cities: רשימת שמות ערים זמינים (השתמש בשם המדויק מרשימה זו)
+            - types: רשימת סוגי נכסים
+            - neighborhoods: רשימת שכונות
+            - ועוד...
+            
+            דוגמה: get_asset_filters_tool()"""
         )
         
         async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
@@ -933,6 +990,7 @@ class RealEstateAgent:
         
         tools_list = [
             list_assets_tool,
+            get_asset_filters_tool,
             get_asset_tool,
             create_asset_tool,
             get_asset_transactions_tool,

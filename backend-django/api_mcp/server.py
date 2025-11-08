@@ -13,7 +13,8 @@ ASSETS:
 - get_asset: Get detailed information for a specific asset
 - create_asset: Create a new asset
 - sync_asset: Trigger synchronization for an asset
-- get_asset_data: Get asset subresource (transactions/permits/plans/appraisal/listings/documents)
+- get_asset_data: Get asset sub-resource (transactions/permits/plans/appraisal/listings/documents)
+- generate_pdf_report: Generate a PDF report for an asset
 
 DEAL MANAGEMENT:
 - list_deals: List all deals
@@ -52,10 +53,11 @@ Usage Examples:
 1. List assets: list_assets(city="תל אביב", page=1)
 2. Get asset: get_asset(asset_id=123)
 3. Get asset transactions: get_asset_data(asset_id=123, kind="transactions")
-4. Analyze mortgage: analyze_mortgage(property_price=4500000, savings_total=900000)
-5. List contacts: list_contacts()
-6. Create deal: create_deal(asset_id=123, stage="discovery")
-7. Calculate deal expenses: calculate_deal_expenses(price=3000000, buyers=[{"sharePct": 100, "isFirstHome": True}], area=100)
+4. Generate PDF report: generate_pdf_report(asset_id=123, sections=["summary", "plans", "environment"])
+5. Analyze mortgage: analyze_mortgage(property_price=4500000, savings_total=900000)
+6. List contacts: list_contacts()
+7. Create deal: create_deal(asset_id=123, stage="discovery")
+8. Calculate deal expenses: calculate_deal_expenses(price=3000000, buyers=[{"sharePct": 100, "isFirstHome": True}], area=100)
 """
 
 import json
@@ -622,6 +624,40 @@ def register_assets_tools():
         # For other kinds, use standard list processing
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
+    @mcp.tool(description="Generate a PDF report for an asset.")
+    async def generate_pdf_report(
+        ctx: Context,
+        asset_id: int,
+        sections: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate a PDF report for a specific asset.
+        
+        Args:
+            asset_id: The ID of the asset to generate a report for
+            sections: Optional list of sections to include in the report.
+                     Available sections: summary, permits, plans, planning, environment, comparables, mortgage, appendix.
+                     If not provided, all default sections will be included.
+        
+        Returns:
+            Dictionary with success status and report information including:
+            - id: Report ID
+            - assetId: Asset ID
+            - address: Asset address
+            - filename: Generated PDF filename
+            - createdAt: Report creation timestamp
+            - status: Report status
+            - pages: Number of pages in the PDF
+            - fileSize: PDF file size in bytes
+            - sections: List of sections included in the report
+            - url: URL to download the PDF report
+        """
+        data = {"assetId": asset_id}
+        if sections:
+            data["sections"] = sections
+        
+        return _make_request(ctx, "POST", "/reports", data=data)
+
 
 # ============================================================================
 # DEAL MANAGEMENT TOOLS
@@ -1180,6 +1216,653 @@ def register_crm_tools():
 
 
 # ============================================================================
+# EXTERNAL MCP TOOLS REGISTRATION
+# ============================================================================
+
+def register_yad2_tools():
+    """Register Yad2 real estate search tools."""
+    try:
+        from yad2.mcp_server import (
+            search_real_estate as _yad2_search_real_estate,
+            build_search_url as _yad2_build_search_url,
+            get_search_parameters_reference as _yad2_get_search_parameters_reference,
+            get_all_property_types as _yad2_get_all_property_types,
+            search_locations as _yad2_search_locations,
+        )
+        
+        @mcp.tool(description="Search for real estate assets on Yad2 with optional filters.")
+        async def yad2_search_real_estate(
+            ctx: Context,
+            maxPrice: Optional[int | str] = None,
+            minPrice: Optional[int | str] = None,
+            topArea: Optional[int | str] = None,
+            area: Optional[int | str] = None,
+            city: Optional[int | str] = None,
+            neighborhood: Optional[int | str] = None,
+            property: Optional[str] = None,
+            rooms: Optional[str] = None,
+            minRooms: Optional[int | str] = None,
+            maxRooms: Optional[int | str] = None,
+            parking: Optional[int | str] = None,
+            elevator: Optional[int | str] = None,
+            balcony: Optional[int | str] = None,
+            renovated: Optional[int | str] = None,
+            max_pages: int | str = 3,
+        ):
+            return await _yad2_search_real_estate(
+                ctx, maxPrice, minPrice, topArea, area, city, neighborhood,
+                property, rooms, minRooms, maxRooms, parking, elevator,
+                balcony, renovated, max_pages
+            )
+        
+        @mcp.tool(description="Build a Yad2 search URL for the given parameters.")
+        async def yad2_build_search_url(
+            ctx: Context,
+            maxPrice: Optional[int | str] = None,
+            minPrice: Optional[int | str] = None,
+            topArea: Optional[int | str] = None,
+            area: Optional[int | str] = None,
+            city: Optional[int | str] = None,
+            neighborhood: Optional[int | str] = None,
+            property: Optional[str] = None,
+            rooms: Optional[str] = None,
+            minRooms: Optional[int | str] = None,
+            maxRooms: Optional[int | str] = None,
+            parking: Optional[int | str] = None,
+            elevator: Optional[int | str] = None,
+            balcony: Optional[int | str] = None,
+            renovated: Optional[int | str] = None,
+        ):
+            return await _yad2_build_search_url(
+                ctx, maxPrice, minPrice, topArea, area, city, neighborhood,
+                property, rooms, minRooms, maxRooms, parking, elevator,
+                balcony, renovated
+            )
+        
+        @mcp.tool(description="Get a comprehensive reference of available Yad2 search parameters.")
+        async def yad2_get_search_parameters_reference(ctx: Context):
+            return await _yad2_get_search_parameters_reference(ctx)
+        
+        @mcp.tool(description="Get all available Yad2 property type codes with Hebrew and English names.")
+        async def yad2_get_all_property_types(ctx: Context):
+            return await _yad2_get_all_property_types(ctx)
+        
+        @mcp.tool(description="Search for locations using Yad2's address autocomplete API.")
+        async def yad2_search_locations(ctx: Context, search_text: str):
+            return await _yad2_search_locations(ctx, search_text)
+        
+        logger.info("Yad2 tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register Yad2 tools: {e}")
+
+
+def register_mavat_tools():
+    """Register Mavat planning information tools."""
+    try:
+        from mavat.mcp_server import (
+            search_plans as _mavat_search_plans,
+            get_plan_details as _mavat_get_plan_details,
+            get_plan_documents as _mavat_get_plan_documents,
+            search_by_location as _mavat_search_by_location,
+            search_by_block_parcel as _mavat_search_by_block_parcel,
+            get_lookup_tables as _mavat_get_lookup_tables,
+            get_districts as _mavat_get_districts,
+            get_cities as _mavat_get_cities,
+            get_streets as _mavat_get_streets,
+            search_lookup as _mavat_search_lookup,
+            get_plan_summary as _mavat_get_plan_summary,
+        )
+        
+        @mcp.tool(description="Search for plans using various criteria.")
+        async def mavat_search_plans(
+            ctx: Context,
+            query: Optional[str] = None,
+            city: Optional[str] = None,
+            district: Optional[str] = None,
+            plan_area: Optional[str] = None,
+            street: Optional[str] = None,
+            block_number: Optional[str] = None,
+            parcel_number: Optional[str] = None,
+            status: Optional[str] = None,
+            limit: int = 20,
+            page: int = 1
+        ):
+            return await _mavat_search_plans(
+                ctx, query, city, district, plan_area, street,
+                block_number, parcel_number, status, limit, page
+            )
+        
+        @mcp.tool(description="Retrieve detailed information for a specific plan.")
+        async def mavat_get_plan_details(ctx: Context, plan_id: str):
+            return await _mavat_get_plan_details(ctx, plan_id)
+        
+        @mcp.tool(description="Get documents associated with a specific plan.")
+        async def mavat_get_plan_documents(ctx: Context, plan_id: str, entity_name: Optional[str] = None):
+            return await _mavat_get_plan_documents(ctx, plan_id, entity_name)
+        
+        @mcp.tool(description="Search for plans by location criteria.")
+        async def mavat_search_by_location(
+            ctx: Context,
+            city: str,
+            district: Optional[str] = None,
+            plan_area: Optional[str] = None,
+            street: Optional[str] = None,
+            limit: int = 20
+        ):
+            return await _mavat_search_by_location(ctx, city, district, plan_area, street, limit)
+        
+        @mcp.tool(description="Search for plans by block and parcel numbers.")
+        async def mavat_search_by_block_parcel(
+            ctx: Context,
+            block_number: str,
+            parcel_number: str,
+            limit: int = 20
+        ):
+            return await _mavat_search_by_block_parcel(ctx, block_number, parcel_number, limit)
+        
+        @mcp.tool(description="Get all available lookup tables for districts, cities, streets, etc.")
+        async def mavat_get_lookup_tables(ctx: Context, force_refresh: bool = False):
+            return await _mavat_get_lookup_tables(ctx, force_refresh)
+        
+        @mcp.tool(description="Get available districts.")
+        async def mavat_get_districts(ctx: Context, force_refresh: bool = False):
+            return await _mavat_get_districts(ctx, force_refresh)
+        
+        @mcp.tool(description="Get available cities.")
+        async def mavat_get_cities(ctx: Context, force_refresh: bool = False):
+            return await _mavat_get_cities(ctx, force_refresh)
+        
+        @mcp.tool(description="Get available streets.")
+        async def mavat_get_streets(ctx: Context, force_refresh: bool = False):
+            return await _mavat_get_streets(ctx, force_refresh)
+        
+        @mcp.tool(description="Search lookup tables by text.")
+        async def mavat_search_lookup(
+            ctx: Context,
+            search_text: str,
+            table_type: Optional[str] = None,
+            force_refresh: bool = False
+        ):
+            return await _mavat_search_lookup(ctx, search_text, table_type, force_refresh)
+        
+        @mcp.tool(description="Get a comprehensive summary of a plan including details and documents.")
+        async def mavat_get_plan_summary(ctx: Context, plan_id: str):
+            return await _mavat_get_plan_summary(ctx, plan_id)
+        
+        logger.info("Mavat tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register Mavat tools: {e}")
+
+
+def register_govmap_tools():
+    """Register GovMap tools."""
+    try:
+        from govmap.mcp_server import (
+            autocomplete as _govmap_autocomplete,
+            coordinate_conversion as _govmap_coordinate_conversion,
+            get_layers_catalog as _govmap_get_layers_catalog,
+            get_search_types as _govmap_get_search_types,
+            get_parcel_data as _govmap_get_parcel_data,
+            get_parcel_addresses as _govmap_get_parcel_addresses,
+            get_addresses_by_block_parcel as _govmap_get_addresses_by_block_parcel,
+            get_base_layers as _govmap_get_base_layers,
+            entities_by_point as _govmap_entities_by_point,
+        )
+        
+        @mcp.tool(description="GovMap public autocomplete (no token). Returns raw JSON buckets.")
+        async def govmap_autocomplete(ctx: Context, query: str, language: str = "he", max_results: int = 10):
+            return await _govmap_autocomplete(ctx, query, language, max_results)
+        
+        @mcp.tool(description="Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326).")
+        async def govmap_coordinate_conversion(
+            ctx: Context,
+            x: float,
+            y: float,
+            from_crs: str = "ITM",
+            to_crs: str = "WGS84"
+        ):
+            return await _govmap_coordinate_conversion(ctx, x, y, from_crs, to_crs)
+        
+        @mcp.tool(description="Get the layers catalog from GovMap.")
+        async def govmap_get_layers_catalog(ctx: Context, language: str = "he"):
+            return await _govmap_get_layers_catalog(ctx, language)
+        
+        @mcp.tool(description="Get search types from GovMap.")
+        async def govmap_get_search_types(ctx: Context, language: str = "he"):
+            return await _govmap_get_search_types(ctx, language)
+        
+        @mcp.tool(description="Get parcel data for specific coordinates (EPSG:2039).")
+        async def govmap_get_parcel_data(ctx: Context, x: float, y: float):
+            return await _govmap_get_parcel_data(ctx, x, y)
+        
+        @mcp.tool(description="Get detailed address information for a parcel using its objectid.")
+        async def govmap_get_parcel_addresses(ctx: Context, objectid: int):
+            return await _govmap_get_parcel_addresses(ctx, objectid)
+        
+        @mcp.tool(description="Get addresses for a given block and parcel using GovMap autocomplete API.")
+        async def govmap_get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str):
+            return await _govmap_get_addresses_by_block_parcel(ctx, block, parcel)
+        
+        @mcp.tool(description="Get base layers from GovMap API.")
+        async def govmap_get_base_layers(ctx: Context):
+            return await _govmap_get_base_layers(ctx)
+        
+        @mcp.tool(description="Get entities by point with specified layer IDs (EPSG:2039).")
+        async def govmap_entities_by_point(
+            ctx: Context,
+            x: float,
+            y: float,
+            layer_ids: List[Any],
+            tolerance_m: float = 30.0
+        ):
+            return await _govmap_entities_by_point(ctx, x, y, layer_ids, tolerance_m)
+        
+        logger.info("GovMap tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register GovMap tools: {e}")
+
+
+def register_gov_tools():
+    """Register Gov (DataGovIL) tools."""
+    try:
+        from gov.mcp_server import (
+            decisive_appraisal as _gov_decisive_appraisal,
+            fetch_nadlan_transactions as _gov_fetch_nadlan_transactions,
+            search_rami_plans as _gov_search_rami_plans,
+            download_rami_plan_documents as _gov_download_rami_plan_documents,
+            get_rami_document_types_info as _gov_get_rami_document_types_info,
+        )
+        
+        @mcp.tool(description="Fetch decisive appraisal decisions from gov.il.")
+        async def gov_decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_pages: int = 1):
+            return await _gov_decisive_appraisal(ctx, block, plot, max_pages)
+        
+        @mcp.tool(description="Fetch real estate transactions from nadlan.gov.il.")
+        async def gov_fetch_nadlan_transactions(
+            ctx: Context,
+            address: Optional[str] = None,
+            neighborhood_id: Optional[str] = None,
+            limit: int = 20,
+        ):
+            return await _gov_fetch_nadlan_transactions(ctx, address, neighborhood_id, limit)
+        
+        @mcp.tool(description="Search for planning documents using RAMI TabaSearch API.")
+        async def gov_search_rami_plans(
+            ctx: Context,
+            plan_number: str = "",
+            city: Optional[int] = None,
+            block: str = "",
+            parcel: str = "",
+            statuses: Optional[List[int]] = None,
+            plan_types: Optional[List[int]] = None,
+            from_status_date: Optional[str] = None,
+            to_status_date: Optional[str] = None,
+            plan_types_used: bool = False
+        ):
+            return await _gov_search_rami_plans(
+                ctx, plan_number, city, block, parcel, statuses,
+                plan_types, from_status_date, to_status_date, plan_types_used
+            )
+        
+        @mcp.tool(description="Download documents for a specific plan.")
+        async def gov_download_rami_plan_documents(
+            ctx: Context,
+            plan_id: int,
+            plan_number: str,
+            base_dir: str = "rami_plans",
+            doc_types: Optional[List[str]] = None,
+            overwrite: bool = False
+        ):
+            return await _gov_download_rami_plan_documents(
+                ctx, plan_id, plan_number, base_dir, doc_types, overwrite
+            )
+        
+        @mcp.tool(description="Get information about available document types.")
+        async def gov_get_rami_document_types_info(ctx: Context):
+            return await _gov_get_rami_document_types_info(ctx)
+        
+        logger.info("Gov (DataGovIL) tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register Gov tools: {e}")
+
+
+def register_madlan_tools():
+    """Register Madlan real estate search tools."""
+    try:
+        from madlan.mcp_server import (
+            get_addresses as _madlan_get_addresses,
+            search_real_estate as _madlan_search_real_estate,
+            fetch_listings as _madlan_fetch_listings,
+        )
+        
+        @mcp.tool(description="Autocomplete addresses and get address details from Madlan.")
+        async def madlan_get_addresses(
+            ctx: Context,
+            text: str,
+            completion_types: Optional[List[str]] = None,
+        ):
+            return await _madlan_get_addresses(ctx, text, completion_types)
+        
+        @mcp.tool(description="Search for real estate listings on Madlan with optional filters.")
+        async def madlan_search_real_estate(
+            ctx: Context,
+            location_doc_id: Optional[str] = None,
+            deal_type: str = "unitBuy",
+            price_range: Optional[List[Optional[int]]] = None,
+            rooms_range: Optional[List[Optional[float]]] = None,
+            area_range: Optional[List[Optional[int]]] = None,
+            floor_range: Optional[List[Optional[int]]] = None,
+            baths_range: Optional[List[Optional[float]]] = None,
+            building_class: Optional[List[str]] = None,
+            general_condition: Optional[List[str]] = None,
+            seller_type: Optional[List[str]] = None,
+            amenities: Optional[Dict[str, Any]] = None,
+            limit: int = 50,
+            offset: int = 0,
+            no_fee: bool = False,
+            price_drop: bool = False,
+            under_price_estimation: bool = False,
+            discounted_projects: bool = False,
+            only_immediate: bool = False,
+            is_commercial_real_estate: bool = False,
+        ):
+            return await _madlan_search_real_estate(
+                ctx, location_doc_id, deal_type, price_range, rooms_range,
+                area_range, floor_range, baths_range, building_class,
+                general_condition, seller_type, amenities, limit, offset,
+                no_fee, price_drop, under_price_estimation, discounted_projects,
+                only_immediate, is_commercial_real_estate
+            )
+        
+        @mcp.tool(description="Fetch real estate listings by location document ID.")
+        async def madlan_fetch_listings(
+            ctx: Context,
+            location_doc_id: str,
+            deal_type: str = "unitBuy",
+            price_range: Optional[List[Optional[int]]] = None,
+            rooms_range: Optional[List[Optional[float]]] = None,
+            limit: int = 50,
+        ):
+            return await _madlan_fetch_listings(ctx, location_doc_id, deal_type, price_range, rooms_range, limit)
+        
+        logger.info("Madlan tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register Madlan tools: {e}")
+
+
+def register_gis_tools():
+    """Register GIS (Tel Aviv) tools."""
+    try:
+        from gis.mcp_server import (
+            geocode_address as _gis_geocode_address,
+            get_building_permits as _gis_get_building_permits,
+            get_land_use_main as _gis_get_land_use_main,
+            get_land_use_detailed as _gis_get_land_use_detailed,
+            get_plans_local as _gis_get_plans_local,
+            get_plans_citywide as _gis_get_plans_citywide,
+            get_parcels as _gis_get_parcels,
+            get_blocks as _gis_get_blocks,
+            get_dangerous_buildings as _gis_get_dangerous_buildings,
+            get_noise_levels as _gis_get_noise_levels,
+            get_cell_antennas as _gis_get_cell_antennas,
+            get_green_areas as _gis_get_green_areas,
+            get_shelters as _gis_get_shelters,
+            get_building_privilege_page as _gis_get_building_privilege_page,
+            get_affordable_housing_projects as _gis_get_affordable_housing_projects,
+            get_bike_paths as _gis_get_bike_paths,
+            get_metro_stations as _gis_get_metro_stations,
+            get_metro_stations_red as _gis_get_metro_stations_red,
+            get_metro_stations_green as _gis_get_metro_stations_green,
+            get_metro_stations_purple as _gis_get_metro_stations_purple,
+            get_parking_lots as _gis_get_parking_lots,
+            get_parking_public as _gis_get_parking_public,
+            get_parking_private as _gis_get_parking_private,
+            get_soil_contamination as _gis_get_soil_contamination,
+            get_schools as _gis_get_schools,
+            get_schools_kindergartens as _gis_get_schools_kindergartens,
+            get_schools_only as _gis_get_schools_only,
+            get_green_amenities as _gis_get_green_amenities,
+            get_playgrounds as _gis_get_playgrounds,
+            get_dog_parks as _gis_get_dog_parks,
+            get_public_gardens as _gis_get_public_gardens,
+            get_medical_facilities as _gis_get_medical_facilities,
+            get_medical_centers as _gis_get_medical_centers,
+            get_health_funds as _gis_get_health_funds,
+            get_pharmacies as _gis_get_pharmacies,
+            get_community_facilities as _gis_get_community_facilities,
+            get_community_centers as _gis_get_community_centers,
+            get_youth_entrepreneurship_centers as _gis_get_youth_entrepreneurship_centers,
+            get_construction_sites as _gis_get_construction_sites,
+            get_tama38_key_areas as _gis_get_tama38_key_areas,
+            get_road_works as _gis_get_road_works,
+            get_road_works_only as _gis_get_road_works_only,
+            get_night_works_public as _gis_get_night_works_public,
+        )
+        
+        # Register all GIS tools with wrappers
+        @mcp.tool(description="Return (x,y) EPSG:2039 for a given street and house number.")
+        async def gis_geocode_address(ctx: Context, street: str, house_number: int, like: bool = True):
+            return await _gis_geocode_address(ctx, street, house_number, like)
+        
+        @mcp.tool(description="Search for building permits near a point (x,y) in meters. Optionally download PDFs.")
+        async def gis_get_building_permits(
+            ctx: Context,
+            x: float,
+            y: float,
+            radius: int = 30,
+            fields: Optional[List[str]] = None,
+            download_pdfs: bool = False,
+            save_dir: Optional[str] = "permits",
+        ):
+            return await _gis_get_building_permits(ctx, x, y, radius, fields, download_pdfs, save_dir)
+        
+        @mcp.tool(description="Get main land-use categories intersecting point (x,y).")
+        async def gis_get_land_use_main(ctx: Context, x: float, y: float):
+            return await _gis_get_land_use_main(ctx, x, y)
+        
+        @mcp.tool(description="Get detailed land-use categories intersecting point (x,y).")
+        async def gis_get_land_use_detailed(ctx: Context, x: float, y: float):
+            return await _gis_get_land_use_detailed(ctx, x, y)
+        
+        @mcp.tool(description="Get local/parcel-level plans intersecting point (x,y).")
+        async def gis_get_plans_local(ctx: Context, x: float, y: float):
+            return await _gis_get_plans_local(ctx, x, y)
+        
+        @mcp.tool(description="Get city-wide plans intersecting point (x,y).")
+        async def gis_get_plans_citywide(ctx: Context, x: float, y: float):
+            return await _gis_get_plans_citywide(ctx, x, y)
+        
+        @mcp.tool(description="Get parcels intersecting point (x,y).")
+        async def gis_get_parcels(ctx: Context, x: float, y: float):
+            return await _gis_get_parcels(ctx, x, y)
+        
+        @mcp.tool(description="Get blocks intersecting point (x,y).")
+        async def gis_get_blocks(ctx: Context, x: float, y: float):
+            return await _gis_get_blocks(ctx, x, y)
+        
+        @mcp.tool(description="Get dangerous buildings within a radius (meters) from point (x,y).")
+        async def gis_get_dangerous_buildings(ctx: Context, x: float, y: float, radius: int = 80):
+            return await _gis_get_dangerous_buildings(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get noise levels intersecting point (x,y).")
+        async def gis_get_noise_levels(ctx: Context, x: float, y: float):
+            return await _gis_get_noise_levels(ctx, x, y)
+        
+        @mcp.tool(description="Get existing and under-construction cell antennas near point (x,y).")
+        async def gis_get_cell_antennas(ctx: Context, x: float, y: float, radius: int = 120):
+            return await _gis_get_cell_antennas(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get green areas within a radius (meters) from point (x,y).")
+        async def gis_get_green_areas(ctx: Context, x: float, y: float, radius: int = 150):
+            return await _gis_get_green_areas(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get shelters within a radius (meters) from point (x,y).")
+        async def gis_get_shelters(ctx: Context, x: float, y: float, radius: int = 200):
+            return await _gis_get_shelters(ctx, x, y, radius)
+        
+        @mcp.tool(description="Download the building privilege (\"zchuyot\") page for a location.")
+        async def gis_get_building_privilege_page(
+            ctx: Context,
+            x: float,
+            y: float,
+            save_dir: Optional[str] = "privilege_pages"
+        ):
+            return await _gis_get_building_privilege_page(ctx, x, y, save_dir)
+        
+        @mcp.tool(description="Get affordable housing projects within a radius (meters) from point (x,y).")
+        async def gis_get_affordable_housing_projects(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_affordable_housing_projects(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get bicycle paths within a radius (meters) from point (x,y).")
+        async def gis_get_bike_paths(ctx: Context, x: float, y: float, radius: int = 300):
+            return await _gis_get_bike_paths(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get metro stations (all lines: Red, Green, Purple) within a radius (meters) from point (x,y).")
+        async def gis_get_metro_stations(ctx: Context, x: float, y: float, radius: int = 1000):
+            return await _gis_get_metro_stations(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get Red Line metro stations within a radius (meters) from point (x,y).")
+        async def gis_get_metro_stations_red(ctx: Context, x: float, y: float, radius: int = 1000):
+            return await _gis_get_metro_stations_red(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get Green Line metro stations within a radius (meters) from point (x,y).")
+        async def gis_get_metro_stations_green(ctx: Context, x: float, y: float, radius: int = 1000):
+            return await _gis_get_metro_stations_green(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get Purple Line metro stations within a radius (meters) from point (x,y).")
+        async def gis_get_metro_stations_purple(ctx: Context, x: float, y: float, radius: int = 1000):
+            return await _gis_get_metro_stations_purple(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get public and private parking lots within a radius (meters) from point (x,y).")
+        async def gis_get_parking_lots(ctx: Context, x: float, y: float, radius: int = 300):
+            return await _gis_get_parking_lots(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get public parking lots within a radius (meters) from point (x,y).")
+        async def gis_get_parking_public(ctx: Context, x: float, y: float, radius: int = 300):
+            return await _gis_get_parking_public(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get private parking lots within a radius (meters) from point (x,y).")
+        async def gis_get_parking_private(ctx: Context, x: float, y: float, radius: int = 300):
+            return await _gis_get_parking_private(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get soil contamination sites within a radius (meters) from point (x,y).")
+        async def gis_get_soil_contamination(ctx: Context, x: float, y: float, radius: int = 200):
+            return await _gis_get_soil_contamination(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get schools and kindergartens within a radius (meters) from point (x,y).")
+        async def gis_get_schools(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_schools(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get kindergartens within a radius (meters) from point (x,y).")
+        async def gis_get_schools_kindergartens(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_schools_kindergartens(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get schools (excluding kindergartens) within a radius (meters) from point (x,y).")
+        async def gis_get_schools_only(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_schools_only(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get green amenities (playgrounds, dog parks, public gardens) within a radius (meters) from point (x,y).")
+        async def gis_get_green_amenities(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_green_amenities(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get playgrounds within a radius (meters) from point (x,y).")
+        async def gis_get_playgrounds(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_playgrounds(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get dog parks within a radius (meters) from point (x,y).")
+        async def gis_get_dog_parks(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_dog_parks(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get public gardens within a radius (meters) from point (x,y).")
+        async def gis_get_public_gardens(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_public_gardens(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get medical facilities (medical centers, health funds, pharmacies) within a radius (meters) from point (x,y).")
+        async def gis_get_medical_facilities(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_medical_facilities(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get medical centers within a radius (meters) from point (x,y).")
+        async def gis_get_medical_centers(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_medical_centers(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get health fund clinics within a radius (meters) from point (x,y).")
+        async def gis_get_health_funds(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_health_funds(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get pharmacies within a radius (meters) from point (x,y).")
+        async def gis_get_pharmacies(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_pharmacies(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get community facilities (community centers, youth and entrepreneurship centers) within a radius (meters) from point (x,y).")
+        async def gis_get_community_facilities(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_community_facilities(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get community centers within a radius (meters) from point (x,y).")
+        async def gis_get_community_centers(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_community_centers(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get youth and entrepreneurship centers within a radius (meters) from point (x,y).")
+        async def gis_get_youth_entrepreneurship_centers(ctx: Context, x: float, y: float, radius: int = 400):
+            return await _gis_get_youth_entrepreneurship_centers(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get construction sites within a radius (meters) from point (x,y).")
+        async def gis_get_construction_sites(ctx: Context, x: float, y: float, radius: int = 300):
+            return await _gis_get_construction_sites(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get TAMA 38 policy key areas within a radius (meters) from point (x,y).")
+        async def gis_get_tama38_key_areas(ctx: Context, x: float, y: float, radius: int = 500):
+            return await _gis_get_tama38_key_areas(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get road works and night works in public space within a radius (meters) from point (x,y).")
+        async def gis_get_road_works(ctx: Context, x: float, y: float, radius: int = 200):
+            return await _gis_get_road_works(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get road works within a radius (meters) from point (x,y).")
+        async def gis_get_road_works_only(ctx: Context, x: float, y: float, radius: int = 200):
+            return await _gis_get_road_works_only(ctx, x, y, radius)
+        
+        @mcp.tool(description="Get night works in public space within a radius (meters) from point (x,y).")
+        async def gis_get_night_works_public(ctx: Context, x: float, y: float, radius: int = 200):
+            return await _gis_get_night_works_public(ctx, x, y, radius)
+        
+        logger.info("GIS (Tel Aviv) tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register GIS tools: {e}")
+
+
+def register_handasa_tools():
+    """Register Handasa tools."""
+    try:
+        from handasa.mcp_server import (
+            handasa_archive as _handasa_handasa_archive,
+            download_handasa_document as _handasa_download_handasa_document,
+        )
+        
+        @mcp.tool(description="Fetch the Handasa permit archive for a given block/parcel.")
+        async def handasa_archive(
+            ctx: Context,
+            block: str,
+            parcel: Optional[str] = None,
+            page_size: int = 50,
+        ):
+            return await _handasa_handasa_archive(ctx, block, parcel, page_size)
+        
+        @mcp.tool(description="Download a document from the Handasa portal.")
+        async def handasa_download_document(
+            ctx: Context,
+            unique_id: str,
+            save_to: Optional[str] = None,
+            overwrite: bool = False,
+            return_content: bool = False,
+        ):
+            return await _handasa_download_handasa_document(ctx, unique_id, save_to, overwrite, return_content)
+        
+        logger.info("Handasa tools registered successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to register Handasa tools: {e}")
+
+
+# ============================================================================
 # TOOL REGISTRATION
 # ============================================================================
 
@@ -1189,6 +1872,20 @@ register_deals_tools()
 register_cost_tools()
 register_mortgage_tools()
 register_crm_tools()
+
+# Register external MCP tools (optional - can be enabled via environment variable)
+# Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable all external tools
+if os.getenv("ENABLE_EXTERNAL_MCP_TOOLS", "false").lower() == "true":
+    register_yad2_tools()
+    register_mavat_tools()
+    register_govmap_tools()
+    register_gov_tools()
+    register_madlan_tools()
+    register_gis_tools()
+    register_handasa_tools()
+    logger.info("All external MCP tools registered")
+else:
+    logger.info("External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable.")
 
 
 if __name__ == "__main__":

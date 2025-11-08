@@ -14,5 +14,7 @@ describe('Badge component', () => {
     expect(screen.getByText('A')).toHaveClass('bg-success')
     rerender(<Badge variant="warning">B</Badge>)
     expect(screen.getByText('B')).toHaveClass('bg-warning')
+    rerender(<Badge variant="neutral">C</Badge>)
+    expect(screen.getByText('C')).toHaveClass('bg-neutral')
   })
 })

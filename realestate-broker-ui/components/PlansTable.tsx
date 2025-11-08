@@ -417,7 +417,7 @@ export default function PlansTable({
   const recordCount = manualPagination ? (totalCount ?? data.length) : filteredData.length;
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" aria-busy={loading}>
+    <div className="surface-panel overflow-x-auto rtl" aria-busy={loading}>
       <TableToolbar
         searchValue={searchValue}
         onSearchChange={(value) => {

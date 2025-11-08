@@ -322,9 +322,9 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
   return (
     <>
       <div className="hidden sm:block">
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="surface-panel overflow-hidden">
           {/* Table Actions Bar */}
-          <div className="p-3 border-b border-border bg-muted/30">
+          <div className="p-3 bg-muted/30 surface-section-divider">
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
               {/* Left side - Column selection */}
               <div className="flex items-center gap-2">

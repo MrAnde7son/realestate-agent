@@ -233,10 +233,12 @@ export function AgentChat({
     },
     table: ({ children }) => {
       return (
-        <div className="overflow-x-auto my-4">
-          <table className="min-w-full border-collapse border border-border">
-            {children}
-          </table>
+        <div className="my-4 surface-panel overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              {children}
+            </table>
+          </div>
         </div>
       )
     },
@@ -247,13 +249,15 @@ export function AgentChat({
       return <tbody>{children}</tbody>
     },
     tr: ({ children }) => {
-      return <tr className="border-b border-border">{children}</tr>
+      return <tr className="surface-section-divider last:shadow-none">{children}</tr>
     },
     th: ({ children }) => {
-      return <th className="border border-border px-4 py-2 text-right font-semibold">{children}</th>
+      return <th className="px-4 py-3 text-right font-semibold bg-muted/40">
+        {children}
+      </th>
     },
     td: ({ children }) => {
-      return <td className="border border-border px-4 py-2 text-right">{children}</td>
+      return <td className="px-4 py-2 text-right">{children}</td>
     },
   }
   
@@ -1000,7 +1004,7 @@ export function AgentChat({
                           <button
                             key={idx}
                             onClick={() => handleSuggestionSend(question)}
-                            className="w-full max-w-sm px-4 py-3 rounded-lg text-sm font-medium bg-muted text-foreground border border-border hover:bg-muted/80 hover:border-brand-teal/50 transition-all shadow-sm text-right"
+                            className="w-full max-w-sm px-4 py-3 rounded-lg text-sm font-medium bg-muted text-foreground shadow-sm transition-all hover:bg-muted/80 hover:shadow-md text-right"
                           >
                             {question}
                           </button>
@@ -1027,10 +1031,10 @@ export function AgentChat({
                       className={cn(
                         "max-w-[80%] rounded-xl px-4 py-3 text-sm relative group shadow-sm",
                         message.role === "user"
-                          ? "bg-brand-teal text-white rounded-br-sm"
+                          ? "bg-brand-teal text-white rounded-br-sm shadow-[0_10px_24px_-16px_rgba(18,179,166,0.75)]"
                           : message.isError
-                          ? "bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200 border-2 border-red-500 rounded-bl-sm"
-                          : "bg-muted text-foreground border border-border/60 rounded-bl-sm"
+                          ? "bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200 rounded-bl-sm shadow-[0_12px_28px_-18px_rgba(220,38,38,0.55)] ring-1 ring-red-500/30"
+                          : "bg-muted text-foreground rounded-bl-sm shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]"
                       )}
                     >
                       {/* Editing UI for user messages */}
@@ -1301,7 +1305,7 @@ export function AgentChat({
                           "w-full max-w-sm px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-right shadow-sm",
                           suggestion.selected
                             ? "text-white shadow-md"
-                            : "bg-muted text-foreground border border-border hover:bg-muted/80 hover:border-brand-teal/50"
+                            : "bg-muted text-foreground hover:bg-muted/80 hover:shadow-md"
                         )}
                         style={suggestion.selected ? {
                           background: 'linear-gradient(to bottom right, var(--brand-teal), var(--brand-teal-light), var(--brand-teal-dark))'
@@ -1315,7 +1319,7 @@ export function AgentChat({
 
                 <div ref={messagesEndRef} />
               </div>
-              <div className="border-t bg-background/80 backdrop-blur-sm p-4">
+              <div className="bg-background/80 backdrop-blur-sm p-4 surface-section-divider">
                 
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 relative">

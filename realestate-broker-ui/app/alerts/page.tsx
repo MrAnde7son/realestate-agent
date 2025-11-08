@@ -11,6 +11,7 @@ import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, Refresh
 import { ALERT_TYPE_LABELS } from '@/lib/alert-constants'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import { api } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 
 interface AlertEvent {
   id: number
@@ -75,6 +76,7 @@ interface AlertRule {
 }
 
 export default function AlertsPage() {
+  const { toast } = useToast()
   const [alertsData, setAlertsData] = useState<AlertEvent[]>([])
   const [alertRules, setAlertRules] = useState<AlertRule[]>([])
   const [assets, setAssets] = useState<any[]>([])
@@ -174,12 +176,25 @@ export default function AlertsPage() {
 
       if (response.ok) {
         setAlertRules(prev => prev.filter(rule => rule.id !== ruleId))
+        toast({
+          title: 'הצלחה',
+          description: 'כלל ההתראה נמחק בהצלחה',
+          variant: 'success',
+        })
       } else {
-        alert('שגיאה במחיקת כלל ההתראה')
+        toast({
+          title: 'שגיאה',
+          description: 'לא ניתן למחוק את כלל ההתראה',
+          variant: 'destructive',
+        })
       }
     } catch (err) {
       console.error('Error deleting alert rule:', err)
-      alert('שגיאה במחיקת כלל ההתראה')
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן למחוק את כלל ההתראה',
+        variant: 'destructive',
+      })
     }
   }
 

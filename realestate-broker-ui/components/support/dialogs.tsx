@@ -4,8 +4,10 @@ import { useState, FormEvent } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useToast } from '@/hooks/use-toast'
 
 export function ContactSupportDialog({ children }: { children: React.ReactNode }) {
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
 
@@ -24,13 +26,25 @@ export function ContactSupportDialog({ children }: { children: React.ReactNode }
         body: JSON.stringify(body),
       })
       if (res.ok) {
-        alert('!הבקשה נשלחה בהצלחה')
+        toast({
+          title: 'הצלחה',
+          description: 'הבקשה נשלחה בהצלחה',
+          variant: 'success',
+        })
         setOpen(false)
       } else {
-        alert('אירעה שגיאה, נסה שוב')
+        toast({
+          title: 'שגיאה',
+          description: 'אירעה שגיאה, נסה שוב',
+          variant: 'destructive',
+        })
       }
     } catch (e) {
-      alert('אירעה שגיאה, נסה שוב')
+      toast({
+        title: 'שגיאה',
+        description: 'אירעה שגיאה, נסה שוב',
+        variant: 'destructive',
+      })
     } finally {
       setPending(false)
     }
@@ -56,6 +70,7 @@ export function ContactSupportDialog({ children }: { children: React.ReactNode }
 }
 
 export function BugReportDialog({ children }: { children: React.ReactNode }) {
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
 
@@ -72,13 +87,25 @@ export function BugReportDialog({ children }: { children: React.ReactNode }) {
         body: form,
       })
       if (res.ok) {
-        alert('!הבקשה נשלחה בהצלחה')
+        toast({
+          title: 'הצלחה',
+          description: 'הבקשה נשלחה בהצלחה',
+          variant: 'success',
+        })
         setOpen(false)
       } else {
-        alert('אירעה שגיאה, נסה שוב')
+        toast({
+          title: 'שגיאה',
+          description: 'אירעה שגיאה, נסה שוב',
+          variant: 'destructive',
+        })
       }
     } catch (e) {
-      alert('אירעה שגיאה, נסה שוב')
+      toast({
+        title: 'שגיאה',
+        description: 'אירעה שגיאה, נסה שוב',
+        variant: 'destructive',
+      })
     } finally {
       setPending(false)
     }
@@ -105,6 +132,7 @@ export function BugReportDialog({ children }: { children: React.ReactNode }) {
 }
 
 export function ConsultationDialog({ children }: { children: React.ReactNode }) {
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
 
@@ -127,13 +155,25 @@ export function ConsultationDialog({ children }: { children: React.ReactNode }) 
         body: JSON.stringify(body),
       })
       if (res.ok) {
-        alert('!הבקשה נשלחה בהצלחה')
+        toast({
+          title: 'הצלחה',
+          description: 'הבקשה נשלחה בהצלחה',
+          variant: 'success',
+        })
         setOpen(false)
       } else {
-        alert('אירעה שגיאה, נסה שוב')
+        toast({
+          title: 'שגיאה',
+          description: 'אירעה שגיאה, נסה שוב',
+          variant: 'destructive',
+        })
       }
     } catch (e) {
-      alert('אירעה שגיאה, נסה שוב')
+      toast({
+        title: 'שגיאה',
+        description: 'אירעה שגיאה, נסה שוב',
+        variant: 'destructive',
+      })
     } finally {
       setPending(false)
     }

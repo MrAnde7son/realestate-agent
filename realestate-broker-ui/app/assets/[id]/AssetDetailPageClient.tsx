@@ -2244,6 +2244,12 @@ useDedupedEffect(() => {
       if (response.ok) {
         setSyncMessage(response.data?.message || 'סנכרון נתונים התחיל בהצלחה')
         
+        toast({
+          title: 'הצלחה',
+          description: 'סנכרון הנתונים התחיל בהצלחה',
+          variant: 'success',
+        })
+        
         // Refresh the asset data after a short delay to show updated status
         setTimeout(async () => {
           const assetResponse = await apiClient.get(`/api/assets/${id}`)
@@ -2257,11 +2263,21 @@ useDedupedEffect(() => {
       } else {
         setSyncMessage(response.error || 'שגיאה בסנכרון הנתונים')
         setTimeout(() => setSyncMessage(''), 5000)
+        toast({
+          title: 'שגיאה',
+          description: response.error || 'לא ניתן לסנכרן את הנתונים',
+          variant: 'destructive',
+        })
       }
     } catch (err) {
       console.error('Sync failed:', err)
       setSyncMessage('שגיאה בסנכרון הנתונים')
       setTimeout(() => setSyncMessage(''), 5000)
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לסנכרן את הנתונים',
+        variant: 'destructive',
+      })
     } finally {
       setSyncing(false)
     }

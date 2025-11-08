@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   ChevronDown,
   Building,
@@ -37,6 +36,10 @@ import Logo from "@/components/Logo";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { getRoleLabel } from "@/lib/role-constants";
+import {
+  getRouteMatchState,
+  usePersistentPathname,
+} from "@/lib/navigation-state";
 
 export const baseNavigation = [
   {
@@ -81,15 +84,11 @@ interface AppSidebarProps {
   isCollapsed?: boolean;
 }
 
-function isActive(href: string, path: string) {
-  return path === href || path.startsWith(href + "/");
-}
-
 export default function AppSidebar({
   className,
   isCollapsed = false,
 }: AppSidebarProps) {
-  const pathname = usePathname();
+  const activePath = usePersistentPathname();
   const { user, logout } = useAuth();
 
   const canAccessCrm = ["broker", "appraiser", "admin"].includes(user?.role || "");
@@ -156,7 +155,9 @@ export default function AppSidebar({
             {navigation.map((item) => {
               const Icon = item.icon;
 
-              const active = isActive(item.href, pathname);
+              const matchState = getRouteMatchState(item.href, activePath);
+              const isSelf = matchState === "self";
+              const isDescendant = matchState === "descendant";
 
               return (
                 <Tooltip.Root key={item.name}>
@@ -164,20 +165,43 @@ export default function AppSidebar({
                     <Link
                       href={item.href}
                       aria-label={isCollapsed ? item.name : undefined}
+                      aria-current={
+                        isSelf ? "page" : isDescendant ? "true" : undefined
+                      }
+                      data-active-state={matchState}
                       className={cn(
-                        "flex items-center rounded-lg text-sm transition-colors",
+                        "group relative flex items-center rounded-lg text-sm transition-colors",
                         isCollapsed
                           ? "justify-center px-2 py-3"
                           : "gap-2 px-2.5 py-2",
-                        active
-                          ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
-                          : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
+                        isSelf || isDescendant
+                          ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
+                          : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
+                        isSelf
+                          ? "font-semibold"
+                          : isDescendant
+                          ? "font-medium text-[var(--brand-teal)]/80"
+                          : undefined
                       )}
                     >
+                      <span
+                        aria-hidden="true"
+                        data-active-indicator
+                        className={cn(
+                          "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                          "ltr:right-1 rtl:left-1",
+                          isCollapsed ? "w-0.5" : "w-1",
+                          isSelf
+                            ? "opacity-100"
+                            : isDescendant
+                            ? "opacity-60"
+                            : "opacity-0"
+                        )}
+                      />
                       <Icon
                         className={cn(
                           isCollapsed ? "h-8 w-8" : "h-4 w-4",
-                          active && "text-primary"
+                          (isSelf || isDescendant) && "text-[var(--brand-teal)]"
                         )}
                       />
                       {!isCollapsed && <span>{item.name}</span>}

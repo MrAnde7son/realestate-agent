@@ -1832,6 +1832,9 @@ export default function TableToolbar({
                 <SheetContent className="w-full sm:w-80 max-w-[95vw]" side="right">
                   <SheetHeader>
                     <SheetTitle>אפשרויות סינון</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      תפריט סינון מתקדם עם אפשרויות למיקום, תקציב, מאפייני נכס, סטטוס ומקור
+                    </SheetDescription>
                   </SheetHeader>
                   <div className="space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
                     <div className="flex items-center justify-between rtl:flex-row-reverse">

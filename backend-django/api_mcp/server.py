@@ -172,16 +172,21 @@ def process_list_result(
     Returns:
         Processed response dict
     """
-    if not raw.get("success"):
-        return raw
+    # Handle case where raw is a list directly (shouldn't happen but defensive)
+    if isinstance(raw, list):
+        raw = {"success": True, "data": raw}
+    
+    if not isinstance(raw, dict) or not raw.get("success"):
+        return raw if isinstance(raw, dict) else {"success": True, "data": raw}
     
     data = raw.get("data", {})
     
     # Extract items from various response formats
     # API returns "rows" for assets list, "results" for other endpoints, or direct list
-    items = data.get("rows") or data.get("results") or data.get("data") or []
     if isinstance(data, list):
         items = data
+    else:
+        items = data.get("rows") or data.get("results") or data.get("data") or []
     
     if not isinstance(items, list):
         # Not a list response, return as-is

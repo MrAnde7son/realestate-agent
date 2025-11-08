@@ -1,17 +1,30 @@
 import os
 import time
 import logging
+from datetime import datetime, date
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from django.template.loader import render_to_string
+from django.db.models import (
+    Q,
+    Avg,
+    Min,
+    Max,
+    Case,
+    When,
+    Value,
+    FloatField,
+    ExpressionWrapper,
+    F,
+)
 from PyPDF2 import PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
 
-from .models import Asset, Report, SourceRecord
+from .models import Asset, Report, SourceRecord, Document, RealEstateTransaction
 from .listing_builder import build_listing
 from .constants import SECTION_TITLES_HE
 
@@ -53,6 +66,274 @@ class HebrewPDFGenerator:
         """Safely get a value from data with a default fallback."""
         value = data.get(key, default)
         return default if value is None else value
+
+    @staticmethod
+    def _first_non_empty(*values):
+        for value in values:
+            if value in (None, "", [], {}):
+                continue
+            if isinstance(value, str):
+                cleaned = value.strip()
+                if cleaned:
+                    return cleaned
+            else:
+                return value
+        return None
+
+    @staticmethod
+    def _format_date(value: Any) -> Optional[str]:
+        if value in (None, ""):
+            return None
+        if isinstance(value, (datetime, date)):
+            return value.strftime("%d.%m.%Y")
+        if isinstance(value, (int, float)):
+            return str(value)
+
+        text = str(value).strip()
+        if not text:
+            return None
+
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y", "%d.%m.%Y"):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                return parsed.strftime("%d.%m.%Y")
+            except ValueError:
+                continue
+        try:
+            parsed = datetime.fromisoformat(text)
+            return parsed.strftime("%d.%m.%Y")
+        except ValueError:
+            return text
+
+    def _collect_permits(
+        self, asset: Optional[Asset], limit: int = 6
+    ) -> List[Dict[str, Optional[str]]]:
+        if not asset:
+            return []
+
+        permits_qs = (
+            Document.objects.filter(
+                Q(asset=asset) | Q(assets=asset), document_type="permit"
+            )
+            .order_by("-document_date", "-uploaded_at")
+            .distinct()
+        )
+
+        permits: List[Dict[str, Optional[str]]] = []
+        for document in permits_qs[:limit]:
+            meta = document.meta or {}
+            title = self._first_non_empty(
+                document.title,
+                meta.get("title"),
+                meta.get("description"),
+                meta.get("document_type"),
+                document.external_id,
+            ) or "היתר ללא שם"
+            stage = self._first_non_empty(
+                meta.get("stage"),
+                meta.get("building_stage"),
+                meta.get("status"),
+            )
+            approval_date = self._format_date(
+                self._first_non_empty(
+                    meta.get("permission_date"),
+                    meta.get("document_date"),
+                    document.document_date,
+                )
+            )
+            expiry_date = self._format_date(
+                self._first_non_empty(
+                    meta.get("expiry_date"),
+                    meta.get("expiration_date"),
+                    meta.get("valid_until"),
+                )
+            )
+            status = self._first_non_empty(document.status, meta.get("status"))
+
+            permits.append(
+                {
+                    "title": title,
+                    "stage": stage,
+                    "status": status,
+                    "approval_date": approval_date,
+                    "expiry_date": expiry_date,
+                }
+            )
+        return permits
+
+    def _collect_transactions(
+        self, asset: Optional[Asset], limit: int = 6
+    ) -> Dict[str, Any]:
+        if not asset:
+            return {"items": [], "stats": {}}
+
+        filters = Q(asset=asset) | Q(assets=asset)
+        if asset.city:
+            city_name = asset.city.strip()
+            filters |= Q(asset__city=city_name) | Q(assets__city=city_name)
+            if asset.neighborhood:
+                neighborhood = asset.neighborhood.strip()
+                filters |= Q(asset__neighborhood=neighborhood) | Q(
+                    assets__neighborhood=neighborhood
+                )
+            if asset.street:
+                street = asset.street.strip()
+                filters |= Q(address__icontains=street)
+
+        transactions = (
+            RealEstateTransaction.objects.filter(filters)
+            .annotate(
+                price_per_sqm=Case(
+                    When(
+                        price__isnull=False,
+                        area__isnull=False,
+                        area__gt=0,
+                        then=ExpressionWrapper(
+                            F("price") * 1.0 / F("area"), output_field=FloatField()
+                        ),
+                    ),
+                    default=Value(None),
+                    output_field=FloatField(),
+                )
+            )
+            .order_by("-date", "-id")
+        )
+
+        stats: Dict[str, Optional[int]] = {}
+        if transactions.exists():
+            aggregates = transactions.aggregate(
+                avg_price=Avg("price"),
+                min_price=Min("price"),
+                max_price=Max("price"),
+                avg_ppsqm=Avg("price_per_sqm"),
+                min_ppsqm=Min("price_per_sqm"),
+                max_ppsqm=Max("price_per_sqm"),
+            )
+            prices = list(
+                transactions.filter(price__isnull=False)
+                .order_by("price")
+                .values_list("price", flat=True)
+            )
+
+            median_price = None
+            if prices:
+                mid = len(prices) // 2
+                if len(prices) % 2:
+                    median_price = prices[mid]
+                else:
+                    median_price = (prices[mid - 1] + prices[mid]) / 2
+
+            def _round(value):
+                if value is None:
+                    return None
+                try:
+                    return round(float(value))
+                except (TypeError, ValueError):
+                    return None
+
+            stats = {
+                "avg_price": _round(aggregates.get("avg_price")),
+                "min_price": _round(aggregates.get("min_price")),
+                "max_price": _round(aggregates.get("max_price")),
+                "median_price": _round(median_price),
+                "avg_price_per_sqm": _round(aggregates.get("avg_ppsqm")),
+                "min_price_per_sqm": _round(aggregates.get("min_ppsqm")),
+                "max_price_per_sqm": _round(aggregates.get("max_ppsqm")),
+                "count": len(prices),
+            }
+
+        items = []
+        for transaction in transactions[:limit]:
+            items.append(
+                {
+                    "date": self._format_date(
+                        transaction.date.date() if transaction.date else None
+                    ),
+                    "price": transaction.price,
+                    "area": transaction.area,
+                    "price_per_sqm": round(transaction.price_per_sqm)
+                    if transaction.price_per_sqm
+                    else None,
+                    "address": transaction.address,
+                }
+            )
+
+        return {"items": items, "stats": stats}
+
+    def _build_mortgage_summary(self, listing: Dict[str, Any]) -> Dict[str, Any]:
+        price = listing.get("price")
+        try:
+            price_value = float(price) if price is not None else 0.0
+        except (TypeError, ValueError):
+            price_value = 0.0
+
+        if price_value <= 0:
+            return {}
+
+        raw_equity = self._first_non_empty(
+            listing.get("buyerEquity"),
+            listing.get("equity"),
+            listing.get("downPayment"),
+            listing.get("savings"),
+        )
+        try:
+            equity_value = (
+                float(raw_equity) if raw_equity is not None else price_value * 0.3
+            )
+        except (TypeError, ValueError):
+            equity_value = price_value * 0.3
+
+        equity_value = max(0.0, min(equity_value, price_value))
+        max_loan_by_ltv = price_value * 0.7
+        required_loan = price_value - equity_value
+        loan_amount = min(max_loan_by_ltv, required_loan)
+        term_years = self.safe_get(listing, "mortgageTermYears", 25)
+        if not isinstance(term_years, (int, float)):
+            try:
+                term_years = float(term_years)
+            except (TypeError, ValueError):
+                term_years = 25
+        term_years = max(1, min(int(term_years), 35))
+        annual_rate = self.safe_get(listing, "mortgageRatePct", 4.5)
+        try:
+            annual_rate = float(annual_rate)
+        except (TypeError, ValueError):
+            annual_rate = 4.5
+
+        monthly_rate = (annual_rate / 100.0) / 12.0
+        months = term_years * 12
+        if loan_amount <= 0:
+            monthly_payment = 0.0
+        elif monthly_rate == 0:
+            monthly_payment = loan_amount / months
+        else:
+            monthly_payment = loan_amount * (
+                monthly_rate / (1 - (1 + monthly_rate) ** (-months))
+            )
+
+        rent_estimate = listing.get("rentEstimate") or 0
+        try:
+            rent_estimate = float(rent_estimate)
+        except (TypeError, ValueError):
+            rent_estimate = 0
+
+        rent_coverage = None
+        if monthly_payment and rent_estimate:
+            rent_coverage = round((rent_estimate / monthly_payment) * 100)
+
+        cash_gap = max(0.0, price_value - (equity_value + loan_amount))
+
+        return {
+            "price": round(price_value),
+            "equity": round(equity_value),
+            "loan_amount": round(loan_amount),
+            "ltv": round((loan_amount / price_value) * 100) if price_value else None,
+            "monthly_payment": round(monthly_payment) if monthly_payment else 0,
+            "term_years": term_years,
+            "annual_rate": annual_rate,
+            "rent_coverage": rent_coverage,
+            "cash_gap": round(cash_gap) if cash_gap else 0,
+        }
 
     def draw_hebrew_text(
         self, canvas_obj, text: str, x: int, y: int, font_size: int = 12
@@ -168,7 +449,7 @@ class HebrewPDFGenerator:
         start_time = time.time()
         try:
             listing = self.create_asset_listing(asset)
-            
+
             # Get planning metrics if available
             planning_metrics = None
             if asset and hasattr(asset, 'planning_metrics'):
@@ -176,7 +457,11 @@ class HebrewPDFGenerator:
                     planning_metrics = asset.planning_metrics
                 except:
                     planning_metrics = None
-            
+
+            permits = self._collect_permits(asset)
+            comparables = self._collect_transactions(asset)
+            mortgage_summary = self._build_mortgage_summary(listing)
+
             context = {
                 "listing": listing,
                 "font_path": Path(self.font_path).as_uri(),
@@ -202,6 +487,11 @@ class HebrewPDFGenerator:
                 ),
                 "sections": sections,
                 "planning_metrics": planning_metrics,
+                "permits": permits,
+                "comparables": comparables,
+                "comparables_items": comparables.get("items", []),
+                "comparables_stats": comparables.get("stats", {}),
+                "mortgage": mortgage_summary,
             }
 
             # Prepare context with absolute paths for static assets

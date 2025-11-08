@@ -59,8 +59,7 @@ try:
     list_assets = get_underlying_func(mcp_server.list_assets)
     get_asset = get_underlying_func(mcp_server.get_asset)
     create_asset = get_underlying_func(mcp_server.create_asset)
-    get_asset_transactions = get_underlying_func(mcp_server.get_asset_transactions)
-    get_asset_appraisal = get_underlying_func(mcp_server.get_asset_appraisal)
+    get_asset_data = get_underlying_func(mcp_server.get_asset_data)
     list_deals = get_underlying_func(mcp_server.list_deals)
     create_deal = get_underlying_func(mcp_server.create_deal)
     get_offer = get_underlying_func(mcp_server.get_offer)
@@ -85,8 +84,7 @@ except Exception as e:
     list_assets = _stub_func
     get_asset = _stub_func
     create_asset = _stub_func
-    get_asset_transactions = _stub_func
-    get_asset_appraisal = _stub_func
+    get_asset_data = _stub_func
     list_deals = _stub_func
     create_deal = _stub_func
     get_offer = _stub_func
@@ -692,7 +690,7 @@ class RealEstateAgent:
         async def get_asset_transactions_tool_func(asset_id: int) -> str:
             """Get transaction history for an asset."""
             try:
-                result = await get_asset_transactions(ctx, asset_id)
+                result = await get_asset_data(ctx, asset_id, "transactions")
                 if isinstance(result, dict) and result.get("success"):
                     return f"עסקאות עבור נכס {asset_id}: {result.get('data', {})}"
                 return str(result)
@@ -708,7 +706,7 @@ class RealEstateAgent:
         async def get_asset_appraisal_tool_func(asset_id: int) -> str:
             """Get appraisal analysis for an asset including comparable sales."""
             try:
-                result = await get_asset_appraisal(ctx, asset_id)
+                result = await get_asset_data(ctx, asset_id, "appraisal")
                 if isinstance(result, dict) and result.get("success"):
                     return f"הערכת שווי עבור נכס {asset_id}: {result.get('data', {})}"
                 return str(result)

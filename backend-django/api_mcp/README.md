@@ -35,26 +35,31 @@ python backend-django/mcp_server.py
 Or use with an MCP client:
 
 ```python
-from fastmcp import FastMCP
-from backend_django.mcp.server import mcp
+from backend_django.api_mcp.server import mcp, register_crm_tools
 
-# The server is already configured with all tools
+# Core tools (assets, deals, cost, mortgage) are registered by default
+# To register CRM tools on-demand:
+register_crm_tools()
 ```
+
+### Lazy Tool Registration
+
+Tools are organized by domain and can be registered on-demand to reduce context size:
+- `register_assets_tools()` - Asset management (registered by default)
+- `register_deals_tools()` - Deal management (registered by default)
+- `register_cost_tools()` - Cost estimation (registered by default)
+- `register_mortgage_tools()` - Mortgage analysis (registered by default)
+- `register_crm_tools()` - CRM functionality (register on-demand)
 
 ## Available Tools
 
-### Assets (10 tools)
+### Assets (5 tools)
 
 - `list_assets`: List all assets with filtering and pagination
 - `get_asset`: Get detailed information for a specific asset
 - `create_asset`: Create a new asset
 - `sync_asset`: Trigger synchronization for an asset
-- `get_asset_transactions`: Get transactions for an asset
-- `get_asset_permits`: Get permits for an asset
-- `get_asset_plans`: Get plans for an asset
-- `get_asset_appraisal`: Get appraisal analysis for an asset
-- `get_asset_listings`: Get listings for an asset
-- `get_asset_documents`: Get documents for an asset
+- `get_asset_data`: Get asset subresource (transactions/permits/plans/appraisal/listings/documents)
 
 ### Deal Expenses (8 tools)
 
@@ -135,6 +140,18 @@ result = await estimate_build_cost(
 
 ```python
 result = await get_cost_options(ctx=ctx)
+```
+
+### Get Asset Data
+
+```python
+# Get transactions
+result = await get_asset_data(ctx=ctx, asset_id=123, kind="transactions")
+
+# Get appraisal
+result = await get_asset_data(ctx=ctx, asset_id=123, kind="appraisal")
+
+# Valid kinds: transactions, permits, plans, appraisal, listings, documents
 ```
 
 ### Create a Deal

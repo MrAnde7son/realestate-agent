@@ -1161,7 +1161,7 @@ function DocsPanel({
                   onClick={() => onFilterChange(filter.key)}
                 >
                   {filter.label}
-                  <Badge size='sm' variant='outline' className='me-2 border-none bg-transparent text-muted-foreground'>
+                  <Badge size='sm' variant='neutral' className='me-2'>
                     {count}
                   </Badge>
                 </Button>

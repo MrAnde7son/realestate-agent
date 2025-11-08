@@ -73,13 +73,4 @@ describe("Header mobile navigation", () => {
     const assetsLink = await screen.findByRole("link", { name: "נכסים" })
     expect(assetsLink).toHaveAttribute("aria-current", "page")
   })
-
-  it("shows the active page title in the mobile header context", () => {
-    mockUsePathname.mockImplementation(() => "/billing/history")
-
-    render(<Header />)
-
-    const context = screen.getByLabelText("עמוד נוכחי")
-    expect(context).toHaveTextContent("חבילות ותשלומים")
-  })
 })

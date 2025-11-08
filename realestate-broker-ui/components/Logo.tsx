@@ -1,5 +1,6 @@
 
 import * as React from 'react';
+import { colorVar } from '@/lib/design-tokens';
 
 type Props = {
   variant?: 'symbol' | 'horizontal';
@@ -8,7 +9,7 @@ type Props = {
   title?: string;
 };
 
-export default function Logo({ variant='symbol', size=48, color='#12b3a6', title='נדל״נר' }: Props) {
+export default function Logo({ variant='symbol', size=48, color=colorVar('brandTeal'), title='נדל״נר' }: Props) {
   if (variant === 'horizontal') {
     const width = size * (1200/320);
     return (

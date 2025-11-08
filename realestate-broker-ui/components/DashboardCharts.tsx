@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
+import { chartColorPalette, hslColorVar } from '@/lib/design-tokens'
 import { BarChart3, MapPin, TrendingUp, Building } from 'lucide-react'
 import Link from 'next/link'
 
@@ -31,7 +32,7 @@ interface DashboardChartsProps {
   onProtectedAction: (action: string) => void
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+const CHART_COLORS = chartColorPalette()
 
 export default function DashboardCharts({
   marketData,
@@ -72,8 +73,8 @@ export default function DashboardCharts({
                   <Area
                     type="monotone"
                     dataKey="avgPrice"
-                    stroke="#8884d8"
-                    fill="#8884d8"
+                    stroke={hslColorVar('chart1')}
+                    fill={hslColorVar('chart1')}
                     fillOpacity={0.3}
                   />
                 </AreaChart>
@@ -128,13 +129,13 @@ export default function DashboardCharts({
                     labelLine={false}
                     label={({ type, percentage }) => `${type} ${percentage}%`}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill={hslColorVar('chart2')}
                     dataKey="count"
                   >
                     {propertyTypes.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
+                        fill={CHART_COLORS[index % CHART_COLORS.length]}
                       />
                     ))}
                   </Pie>
@@ -193,13 +194,13 @@ export default function DashboardCharts({
                 <Bar
                   yAxisId="left"
                   dataKey="transactions"
-                  fill="#8884d8"
+                  fill={hslColorVar('chart2')}
                   name="transactions"
                 />
                 <Bar
                   yAxisId="right"
                   dataKey="volume"
-                  fill="#82ca9d"
+                  fill={hslColorVar('chart3')}
                   name="volume"
                 />
               </BarChart>

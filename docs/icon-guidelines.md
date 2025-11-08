@@ -67,3 +67,5 @@ If you encounter a component that still references `@tabler/icons-react`:
 - Mention the migration in the component's changelog or PR description.
 
 Following these guidelines keeps the iconography consistent and avoids accidental reintroduction of Tabler icons.
+
+> **Automated enforcement**: The UI test suite includes a guard that fails if any `@tabler/icons-react` imports resurface in the codebase. Run `pnpm test` inside `realestate-broker-ui/` to verify compliance before opening a PR.

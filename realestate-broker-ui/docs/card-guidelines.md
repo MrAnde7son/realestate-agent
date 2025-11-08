@@ -8,9 +8,9 @@ hierarchy across the application.
 
 | Variant   | Visual treatment                               | Recommended usage                         |
 |-----------|-------------------------------------------------|-------------------------------------------|
-| `default` | Subtle shadow with a light border and blur.     | Dashboards, list containers, summaries.   |
-| `elevated`| Stronger shadow with a softer border treatment. | Featured widgets and highlighted assets.  |
-| `outlined`| Two-pixel border with no shadow.                | Nested cards and secondary groupings.     |
+| `default` | Subtle soft shadow for standard surfaces.       | Dashboards, list containers, summaries.   |
+| `elevated`| Stronger drop shadow for emphasis.              | Featured widgets and highlighted assets.  |
+| `outlined`| Inset hairline ring with no shadow.             | Nested cards and secondary groupings.     |
 
 Use the `variant` prop instead of custom `className` overrides for elevation. When additional
 interaction feedback is required (for example, clickable cards), pass the `interactive` prop to

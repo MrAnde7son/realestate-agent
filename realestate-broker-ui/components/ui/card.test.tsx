@@ -41,7 +41,8 @@ describe('Card component', () => {
 
     expect(screen.getByTestId('default')).toHaveClass('shadow-sm')
     expect(screen.getByTestId('elevated')).toHaveClass('shadow-lg')
-    expect(screen.getByTestId('outlined')).toHaveClass('border-2')
+    expect(screen.getByTestId('outlined')).toHaveClass('ring-1')
+    expect(screen.getByTestId('outlined')).toHaveClass('ring-inset')
     expect(screen.getByTestId('outlined')).toHaveClass('shadow-none')
   })
 

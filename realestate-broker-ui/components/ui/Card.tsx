@@ -3,18 +3,18 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const cardVariants = cva(
-  'relative flex flex-col rounded-xl border text-card-foreground transition-shadow duration-200',
+  'relative flex flex-col rounded-xl bg-card text-card-foreground transition-shadow duration-200',
   {
     variants: {
       variant: {
-        default: 'bg-card/95 border-border/60 shadow-sm backdrop-blur-sm',
-        elevated: 'bg-card border-border/40 shadow-lg backdrop-blur-sm',
-        outlined: 'bg-card/95 border-2 border-border shadow-none backdrop-blur-sm',
+        default: 'shadow-sm',
+        elevated: 'shadow-lg',
+        outlined: 'shadow-none ring-1 ring-inset ring-border/40',
       },
       interactive: {
         flat: '',
         interactive:
-          'hover:border-border/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       },
     },
     defaultVariants: {

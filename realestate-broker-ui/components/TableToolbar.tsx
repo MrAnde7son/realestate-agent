@@ -26,6 +26,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/Badge";
@@ -1818,7 +1819,7 @@ export default function TableToolbar({
 
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES} aria-label={hasActiveFilters ? `סינון - ${activeFilterCount} מסננים פעילים` : "פתח תפריט סינון"}>
+                <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES}>
                   <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
                   <span className="hidden sm:inline">סינון</span>
                   {hasActiveFilters && (
@@ -1974,7 +1975,6 @@ export default function TableToolbar({
               variant="outline"
               size="sm"
               className={TOOLBAR_PILL_BUTTON_CLASSES}
-              aria-label="הגדרות עמודות"
             >
               <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">עמודות</span>
@@ -2169,7 +2169,6 @@ export default function TableToolbar({
           onClick={onRefresh}
           disabled={loading}
           className={TOOLBAR_PILL_BUTTON_CLASSES}
-          aria-label="רענן נתונים"
         >
           <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           <span className="hidden sm:inline">רענן</span>
@@ -2181,7 +2180,6 @@ export default function TableToolbar({
             onClick={onAddNew}
             size="sm"
             className={TOOLBAR_PILL_BUTTON_CLASSES}
-            aria-label="הוסף נכס חדש"
           >
             <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
             <span className="hidden sm:inline">הוסף חדש</span>

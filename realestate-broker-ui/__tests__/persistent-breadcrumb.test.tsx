@@ -50,4 +50,35 @@ describe('PersistentBreadcrumb', () => {
     const regionAfterCtrl = await screen.findByRole('region', { name: 'נתיב ניווט' })
     await waitFor(() => expect(regionAfterCtrl).toHaveFocus())
   })
+
+  it('renders a borderless, mobile-first layout for controls', () => {
+    render(
+      <PersistentBreadcrumb
+        items={[...baseItems]}
+        showBackToAssets
+        tabContext={{
+          currentTab: 'documents',
+          tabs: [
+            { value: 'overview', label: 'סקירה' },
+            { value: 'documents', label: 'מסמכים' },
+          ],
+        }}
+      />
+    )
+
+    const region = screen.getByRole('region', { name: 'נתיב ניווט' })
+    expect(region).toHaveClass('flex-col')
+    expect(region.className).toContain('sm:flex-row')
+    expect(region.className).not.toMatch(/border/)
+
+    const collapseButton = screen.getByRole('button', { name: 'הסתר נתיב ניווט' })
+    const controlsContainer = collapseButton.parentElement
+    expect(controlsContainer).toBeTruthy()
+    expect(controlsContainer).toHaveClass('flex-wrap')
+    expect(controlsContainer?.className ?? '').toContain('sm:flex-nowrap')
+
+    const tabButton = screen.getByRole('button', { name: 'מסמכים' })
+    expect(tabButton.className).toContain('w-full')
+    expect(tabButton.className).toContain('sm:w-auto')
+  })
 })

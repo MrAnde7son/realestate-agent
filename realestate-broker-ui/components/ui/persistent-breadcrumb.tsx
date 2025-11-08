@@ -100,8 +100,10 @@ export function PersistentBreadcrumb({
     [className]
   )
 
-  const containerClasses =
-    "flex items-center justify-between gap-4 rounded-md border bg-background/95 px-3 py-2 shadow-sm outline-none supports-[backdrop-filter]:bg-background/70 supports-[backdrop-filter]:backdrop-blur focus-visible:ring-2 focus-visible:ring-ring"
+  const containerClasses = cn(
+    "flex w-full flex-col gap-3 rounded-xl bg-background/95 p-3 shadow-md outline-none supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between sm:p-4",
+    "lg:gap-4"
+  )
 
   if (isCollapsed) {
     return (
@@ -129,84 +131,93 @@ export function PersistentBreadcrumb({
         aria-label="נתיב ניווט"
         className={containerClasses}
       >
-        <Breadcrumb>
+        <Breadcrumb className="w-full">
           <BreadcrumbList>
             {items.map((item, index) => {
               const isLast = index === items.length - 1
               const Icon = item.icon
 
-            return (
-              <React.Fragment key={index}>
-                {index > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem>
-                  {isLast ? (
-                    <BreadcrumbPage className="flex items-center gap-1">
-                      {Icon && <Icon className="h-4 w-4" />}
-                      {item.label}
-                    </BreadcrumbPage>
-                  ) : item.href ? (
-                    <BreadcrumbLink href={item.href} className="flex items-center gap-1">
-                      {Icon && <Icon className="h-4 w-4" />}
-                      {item.label}
-                    </BreadcrumbLink>
-                  ) : (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      {Icon && <Icon className="h-4 w-4" />}
-                      {item.label}
-                    </span>
-                  )}
-                </BreadcrumbItem>
-              </React.Fragment>
-            )
-          })}
-        </BreadcrumbList>
-      </Breadcrumb>
+              return (
+                <React.Fragment key={index}>
+                  {index > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbItem>
+                    {isLast ? (
+                      <BreadcrumbPage className="flex items-center gap-1">
+                        {Icon && <Icon className="h-4 w-4" />}
+                        {item.label}
+                      </BreadcrumbPage>
+                    ) : item.href ? (
+                      <BreadcrumbLink href={item.href} className="flex items-center gap-1">
+                        {Icon && <Icon className="h-4 w-4" />}
+                        {item.label}
+                      </BreadcrumbLink>
+                    ) : (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        {Icon && <Icon className="h-4 w-4" />}
+                        {item.label}
+                      </span>
+                    )}
+                  </BreadcrumbItem>
+                </React.Fragment>
+              )
+            })}
+          </BreadcrumbList>
+        </Breadcrumb>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {tabContext && tabContext.tabs.length > 1 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                {currentTab?.label || "בחר קטגוריה"}
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {tabContext.tabs.map((tab) => (
-                <DropdownMenuItem
-                  key={tab.value}
-                  onClick={() => handleTabChange(tab.value)}
-                  className={cn(
-                    tab.value === tabContext.currentTab && "bg-accent"
-                  )}
+        <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+          {tabContext && tabContext.tabs.length > 1 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between gap-2 sm:w-auto sm:justify-center"
                 >
-                  {tab.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                  {currentTab?.label || "בחר קטגוריה"}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {tabContext.tabs.map((tab) => (
+                  <DropdownMenuItem
+                    key={tab.value}
+                    onClick={() => handleTabChange(tab.value)}
+                    className={cn(
+                      tab.value === tabContext.currentTab && "bg-accent"
+                    )}
+                  >
+                    {tab.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
-        {showBackToAssets && (
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/assets" className="flex items-center gap-1">
-              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-              חזרה לנכסים
-            </Link>
+          {showBackToAssets && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="w-full justify-center sm:w-auto"
+            >
+              <Link href="/assets" className="flex items-center gap-1">
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                חזרה לנכסים
+              </Link>
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(true)}
+            aria-label="הסתר נתיב ניווט"
+          >
+            <X className="h-4 w-4" />
           </Button>
-        )}
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(true)}
-          aria-label="הסתר נתיב ניווט"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        </div>
       </div>
     </div>
-  </div>
   )
 }
 

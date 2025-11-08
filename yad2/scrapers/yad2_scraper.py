@@ -215,11 +215,8 @@ class Yad2Scraper:
                             logger.info("Capping contact fetches at %s of %s tokens", limit, len(tokens))
 
                         for idx, token in enumerate(tokens_to_fetch, 1):
-                            try:
-                                contact_info = self.fetch_contact_info(token)
-                            except Exception as e:
-                                logger.error("Failed to fetch contact info for token %s; %s", token, e)
-                                contact_info = None
+                            contact_info = self.fetch_contact_info(token)
+                            # fetch_contact_info returns None on failure, which is fine
 
                             for listing_item in token_to_listings.get(token, []):
                                 listing_item.contact_info = contact_info
@@ -241,42 +238,64 @@ class Yad2Scraper:
                 response = self.session.get(url, timeout=30)
                 if response.status_code == 200:
                     # Check if response is empty before parsing JSON
-                    if not response.text or not response.text.strip():
-                        logger.warning("Empty response from contact API for token %s", token)
+                    response_text = response.text.strip() if response.text else ""
+                    if not response_text:
+                        logger.debug("Empty response from contact API for token %s (attempt %d/%d)", 
+                                   token, attempt + 1, self.contacts_retries)
                         last_exception = Exception("Empty response from API")
+                        continue
+
+                    # Check if response looks like HTML (common error page)
+                    if response_text.startswith('<') or response_text.lower().startswith('<!doctype'):
+                        logger.debug("Received HTML instead of JSON from contact API for token %s (attempt %d/%d)", 
+                                   token, attempt + 1, self.contacts_retries)
+                        last_exception = Exception("Received HTML instead of JSON")
                         continue
 
                     try:
                         payload = response.json()
                     except json.JSONDecodeError as e:
-                        logger.warning("Failed to parse JSON from contact API for token %s: %s. Response: %s", token, e, response.text[:200])
+                        logger.debug("Failed to parse JSON from contact API for token %s (attempt %d/%d): %s. Response preview: %s", 
+                                   token, attempt + 1, self.contacts_retries, e, response_text[:200])
                         last_exception = e
                         continue
 
                     result = payload.get("data")
+                    if not result:
+                        logger.debug("No data field in contact API response for token %s", token)
+                        return None
                     return Contact(**result)
                 if response.status_code == 429:
                     # Rate limited
-                    logger.warning("Rate limited from Yad2 contacts API")
+                    logger.debug("Rate limited from Yad2 contacts API for token %s (attempt %d/%d)", 
+                               token, attempt + 1, self.contacts_retries)
                     continue
                 if 500 <= response.status_code < 600:
                     # transient server errors
-                    logger.warning("%s from Yad2 contacts API", response.status_code)
+                    logger.debug("Server error %s from Yad2 contacts API for token %s (attempt %d/%d)", 
+                               response.status_code, token, attempt + 1, self.contacts_retries)
                     continue
                 # Other status codes considered non-retryable
-                raise Exception(f"Failed to fetch contact details: {response.status_code}")
+                logger.debug("Non-retryable status %s from contact API for token %s", response.status_code, token)
+                return None
             except requests.exceptions.RequestException as e:
                 last_exception = e
-                logger.warning("Network error fetching contact: %s", e)
+                logger.debug("Network error fetching contact for token %s (attempt %d/%d): %s", 
+                           token, attempt + 1, self.contacts_retries, e)
                 continue
             except json.JSONDecodeError as e:
                 last_exception = e
-                logger.warning("JSON decode error fetching contact: %s", e)
+                logger.debug("JSON decode error fetching contact for token %s (attempt %d/%d): %s", 
+                           token, attempt + 1, self.contacts_retries, e)
                 continue
         # Exhausted retries
         if last_exception:
-            raise Exception(f"Contact fetch failed after retries: {last_exception}")
-        raise Exception("Contact fetch failed after retries")
+            logger.warning("Contact fetch failed after %d retries for token %s: %s", 
+                         self.contacts_retries, token, last_exception)
+            return None
+        logger.warning("Contact fetch failed after %d retries for token %s: unknown error", 
+                     self.contacts_retries, token)
+        return None
 
 
     def fetch_project_autocomplete(self, phrase: str) -> Optional[Dict[str, Any]]:
@@ -299,19 +318,27 @@ class Yad2Scraper:
             url = f"{self.api_base_url}/yad1/projects-developers/autocomplete"
             params = {"phrase": phrase}
             response = self.session.get(url, params=params, timeout=30)
+            
             if response.status_code != 200:
-                logger.warning("Failed to fetch project autocomplete: %s", response.status_code)
+                logger.debug("Project autocomplete API returned status %s for phrase '%s'", response.status_code, phrase)
                 return None
 
             # Check if response is empty before parsing JSON
-            if not response.text or not response.text.strip():
-                logger.warning("Empty response from project autocomplete API")
+            response_text = response.text.strip() if response.text else ""
+            if not response_text:
+                logger.debug("Empty response from project autocomplete API for phrase '%s'", phrase)
+                return None
+
+            # Check if response looks like HTML (common error page)
+            if response_text.startswith('<') or response_text.lower().startswith('<!doctype'):
+                logger.debug("Received HTML instead of JSON from project autocomplete API for phrase '%s'", phrase)
                 return None
 
             try:
                 data = response.json()
             except json.JSONDecodeError as e:
-                logger.error("Failed to parse JSON from project autocomplete API: %s. Response: %s", e, response.text[:200])
+                logger.debug("Failed to parse JSON from project autocomplete API for phrase '%s': %s. Response preview: %s", 
+                           phrase, e, response_text[:200])
                 return None
 
             entries: List[str, Any] = data.get("data", {}).get('projects', [])
@@ -325,8 +352,14 @@ class Yad2Scraper:
 
             self._project_autocomplete_cache[phrase] = best
             return best
+        except requests.exceptions.RequestException as e:
+            logger.debug("Network error fetching project autocomplete for phrase '%s': %s", phrase, e)
+            return None
+        except json.JSONDecodeError as e:
+            logger.debug("JSON decode error fetching project autocomplete for phrase '%s': %s", phrase, e)
+            return None
         except Exception as e:
-            logger.error("Error fetching project autocomplete: %s", e)
+            logger.debug("Unexpected error fetching project autocomplete for phrase '%s': %s", phrase, e)
             return None
 
     def get_property_types(self):

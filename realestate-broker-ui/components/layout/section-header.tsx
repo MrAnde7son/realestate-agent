@@ -88,8 +88,9 @@ export function SectionHeader({
                 onClick={action.onClick}
                 disabled={action.disabled}
                 className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
+                aria-label={action.label}
               >
-                {action.icon}
+                {action.icon && <span aria-hidden="true">{action.icon}</span>}
                 {action.label}
               </Button>
             ))}
@@ -107,6 +108,8 @@ export function SectionHeader({
               size="sm"
               onClick={filter.onClick}
               className="h-7"
+              aria-label={filter.label}
+              aria-pressed={filter.isActive}
             >
               {filter.label}
             </Button>

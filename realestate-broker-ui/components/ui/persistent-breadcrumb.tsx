@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { ArrowLeft, Home, Building, ChevronDown } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,12 +12,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
 export interface PersistentBreadcrumbItemType {
@@ -50,53 +43,48 @@ export function PersistentBreadcrumb({
   tabContext,
   className,
 }: PersistentBreadcrumbProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-
-  const handleTabChange = (value: string) => {
-    if (tabContext?.onTabChange) {
-      tabContext.onTabChange(value)
-    } else if (tabContext) {
-      const tab = tabContext.tabs.find((t) => t.value === value)
-      if (tab?.href) {
-        router.push(tab.href)
-      } else {
-        // Update URL with tab parameter
-        const url = new URL(window.location.href)
-        url.searchParams.set("tab", value)
-        router.push(`${url.pathname}${url.search}`)
-      }
-    }
-  }
-
-  const currentTab = tabContext?.tabs.find((t) => t.value === tabContext.currentTab)
-
   return (
-    <div className={cn("flex items-center justify-between gap-4 mb-4", className)}>
-      <Breadcrumb>
-        <BreadcrumbList>
+    <div className={cn("flex items-center justify-between gap-2 sm:gap-4 mb-4", className)}>
+      <Breadcrumb className="flex-1 min-w-0">
+        <BreadcrumbList className="flex-wrap">
           {items.map((item, index) => {
             const isLast = index === items.length - 1
             const Icon = item.icon
+            const shouldHideOnMobile = items.length > 3 && index > 0 && index < items.length - 2
+            const showEllipsisBefore = items.length > 3 && index === items.length - 2
 
             return (
               <React.Fragment key={index}>
-                {index > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem>
+                {index > 0 && <BreadcrumbSeparator className={cn(
+                  shouldHideOnMobile && "hidden sm:block"
+                )} />}
+                {/* Show ellipsis on mobile before last 2 items */}
+                {showEllipsisBefore && (
+                  <>
+                    <BreadcrumbSeparator className="sm:hidden" />
+                    <BreadcrumbItem className="sm:hidden">
+                      <span className="text-muted-foreground text-xs">...</span>
+                    </BreadcrumbItem>
+                  </>
+                )}
+                <BreadcrumbItem className={cn(
+                  "max-w-[200px] sm:max-w-none",
+                  shouldHideOnMobile && "hidden sm:inline-flex"
+                )}>
                   {isLast ? (
-                    <BreadcrumbPage className="flex items-center gap-1">
-                      {Icon && <Icon className="h-4 w-4" />}
-                      {item.label}
+                    <BreadcrumbPage className="flex items-center gap-1 truncate">
+                      {Icon && <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />}
+                      <span className="truncate text-xs sm:text-sm">{item.label}</span>
                     </BreadcrumbPage>
                   ) : item.href ? (
-                    <BreadcrumbLink href={item.href} className="flex items-center gap-1">
-                      {Icon && <Icon className="h-4 w-4" />}
-                      {item.label}
+                    <BreadcrumbLink href={item.href} className="flex items-center gap-1 truncate">
+                      {Icon && <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />}
+                      <span className="truncate text-xs sm:text-sm">{item.label}</span>
                     </BreadcrumbLink>
                   ) : (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      {Icon && <Icon className="h-4 w-4" />}
-                      {item.label}
+                    <span className="flex items-center gap-1 text-muted-foreground truncate">
+                      {Icon && <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />}
+                      <span className="truncate text-xs sm:text-sm">{item.label}</span>
                     </span>
                   )}
                 </BreadcrumbItem>
@@ -106,40 +94,16 @@ export function PersistentBreadcrumb({
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {tabContext && tabContext.tabs.length > 1 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                {currentTab?.label || "בחר קטגוריה"}
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {tabContext.tabs.map((tab) => (
-                <DropdownMenuItem
-                  key={tab.value}
-                  onClick={() => handleTabChange(tab.value)}
-                  className={cn(
-                    tab.value === tabContext.currentTab && "bg-accent"
-                  )}
-                >
-                  {tab.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        {showBackToAssets && (
-          <Button variant="ghost" size="sm" asChild>
+      {showBackToAssets && (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button variant="ghost" size="sm" asChild className="h-8 sm:h-9">
             <Link href="/assets" className="flex items-center gap-1">
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-              חזרה לנכסים
+              <span className="hidden sm:inline">חזרה לנכסים</span>
             </Link>
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

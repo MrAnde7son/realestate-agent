@@ -62,6 +62,7 @@ import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
+import { getUserFriendlyError } from "@/lib/error-utils";
 
 const DEFAULT_RADIUS_METERS = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -1330,7 +1331,7 @@ export default function AssetsPage() {
         } else {
           toast({
             title: "שגיאה בעדכון רשימת המעקב",
-            description: response.error || "הפעולה נכשלה",
+            description: getUserFriendlyError(response),
             variant: "destructive",
           });
         }
@@ -1338,7 +1339,7 @@ export default function AssetsPage() {
         console.error("Error updating watchlist:", error);
         toast({
           title: "שגיאה בעדכון רשימת המעקב",
-          description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
           variant: "destructive",
         });
       } finally {
@@ -1408,7 +1409,7 @@ export default function AssetsPage() {
       console.error("Error exporting all assets:", error);
       toast({
         title: "שגיאה בייצוא",
-        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
         variant: "destructive",
       });
       throw error;
@@ -1465,7 +1466,7 @@ export default function AssetsPage() {
       } else {
         toast({
           title: "שגיאה",
-          description: `שגיאה במחיקת הנכס: ${response.error}`,
+          description: getUserFriendlyError(response),
           variant: "destructive",
         });
       }
@@ -1473,7 +1474,7 @@ export default function AssetsPage() {
       console.error("Error deleting asset:", error);
       toast({
         title: "שגיאה",
-        description: "שגיאה במחיקת הנכס",
+        description: getUserFriendlyError(error),
         variant: "destructive",
       });
     } finally {
@@ -1567,7 +1568,7 @@ export default function AssetsPage() {
       } else {
         toast({
           title: "שגיאה במחיקה מרובה",
-          description: response.error || "הפעולה נכשלה",
+            description: getUserFriendlyError(response),
           variant: "destructive",
         });
       }
@@ -1575,7 +1576,7 @@ export default function AssetsPage() {
       console.error("Error performing bulk delete:", error);
       toast({
         title: "שגיאה במחיקה מרובה",
-        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -1622,7 +1623,7 @@ export default function AssetsPage() {
       } else {
         toast({
           title: "שגיאה בסנכרון",
-          description: response.error || "הפעולה נכשלה",
+            description: getUserFriendlyError(response),
           variant: "destructive",
         });
       }
@@ -1630,7 +1631,7 @@ export default function AssetsPage() {
       console.error("Error performing bulk sync:", error);
       toast({
         title: "שגיאה בסנכרון",
-        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -1671,7 +1672,7 @@ export default function AssetsPage() {
       } else {
         toast({
           title: "שגיאה בהוספה למעקב",
-          description: response.error || "הפעולה נכשלה",
+            description: getUserFriendlyError(response),
           variant: "destructive",
         });
       }
@@ -1679,7 +1680,7 @@ export default function AssetsPage() {
       console.error("Error performing bulk watch:", error);
       toast({
         title: "שגיאה בהוספה למעקב",
-        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -1732,7 +1733,7 @@ export default function AssetsPage() {
       } else {
         toast({
           title: "שגיאה בהסרה ממעקב",
-          description: response.error || "הפעולה נכשלה",
+            description: getUserFriendlyError(response),
           variant: "destructive",
         });
       }
@@ -1740,7 +1741,7 @@ export default function AssetsPage() {
       console.error("Error performing bulk unwatch:", error);
       toast({
         title: "שגיאה בהסרה ממעקב",
-        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -1777,7 +1778,7 @@ export default function AssetsPage() {
       } else {
         toast({
           title: "שגיאה ביצירת דוחות",
-          description: response.error || "הפעולה נכשלה",
+            description: getUserFriendlyError(response),
           variant: "destructive",
         });
       }
@@ -1785,7 +1786,7 @@ export default function AssetsPage() {
       console.error("Error creating bulk reports:", error);
       toast({
         title: "שגיאה ביצירת דוחות",
-        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -1916,7 +1917,7 @@ export default function AssetsPage() {
         } else {
           toast({
             title: "שגיאה",
-            description: `שגיאה ביצירת הנכס: ${response.error || 'שגיאה לא ידועה'}`,
+            description: getUserFriendlyError(response),
             variant: "destructive",
           });
         }
@@ -1925,7 +1926,7 @@ export default function AssetsPage() {
       console.error("Error creating asset:", error);
       toast({
         title: "שגיאה",
-        description: "שגיאה ביצירת הנכס",
+        description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }

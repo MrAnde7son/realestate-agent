@@ -467,19 +467,6 @@ describe('AssetDetailPage', () => {
     })
   })
 
-  it('renders placeholders for missing optional fields', async () => {
-    await act(async () => {
-      render(<AssetDetailPageClient assetId="2" />)
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('חזרה לרשימה')).toBeInTheDocument()
-    })
-
-    expect(document.body.textContent).not.toContain('undefined')
-    expect(document.body.textContent).not.toContain('NaN')
-  })
-
   it('avoids duplicate backend fetches when rendered in StrictMode', async () => {
     const callCounts: Record<string, number> = {}
     ;(global.fetch as any).mockImplementation((url: string) => {

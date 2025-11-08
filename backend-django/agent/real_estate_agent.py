@@ -18,6 +18,8 @@ from typing import List, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+from .internet_fetcher import get_fetcher
+
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.callbacks import BaseCallbackHandler
@@ -115,7 +117,6 @@ def _patch_langchain_tool_parser():
         # Patch in tools module
         from langchain.agents.output_parsers import tools as tools_module
         from langchain.agents.output_parsers import openai_tools as openai_tools_module
-        from langchain_core.messages import ToolCall
         import json
         
         # Save original functions
@@ -402,6 +403,7 @@ def translate_tool_name(tool_name: str) -> str:
         "list_leads_tool": "רשימת לידים",
         "create_lead_tool": "יצירת ליד",
         "list_tasks_tool": "רשימת משימות",
+        "fetch_web_page_tool": "שליפת דף אינטרנט",
     }
     return translations.get(tool_name, tool_name.replace("_tool", "").replace("_", " "))
 
@@ -416,6 +418,7 @@ class RealEstateAgent:
         api_url: Optional[str] = None,
         temperature: float = 0.3,
         user_api_key: Optional[str] = None,
+        internet_enabled: bool = False,
     ):
         """Initialize the Real Estate Agent.
         
@@ -425,10 +428,13 @@ class RealEstateAgent:
             api_url: Optional API base URL (defaults to env var or localhost)
             temperature: LLM temperature setting
             user_api_key: Optional user's API key for LLM (overrides environment variables)
+            internet_enabled: Enable Internet access (default: False). When enabled, allows
+                             fetching web pages from whitelisted domains only.
         """
         self.api_token = api_token  # Use provided token (should be from authenticated user)
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
         self.user_api_key = user_api_key  # Store user's API key
+        self.internet_enabled = internet_enabled
         
         # Set environment variables for MCP tools
         # Always use the provided api_token (from authenticated user) - don't fall back to env
@@ -1012,6 +1018,98 @@ class RealEstateAgent:
             list_tasks_tool,
         ]
         
+        # Add Internet access tool if enabled
+        if self.internet_enabled:
+            async def fetch_web_page_tool_func(url: str, scope: Optional[str] = None) -> str:
+                """Fetch a web page from allowed domains only.
+                
+                IMPORTANT: 
+                - For yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
+                  use the appropriate MCP tools instead! They provide better structured data.
+                - This tool is for sites WITHOUT MCP servers or one-off lookups.
+                
+                Allowed domains:
+                - *.gov.il - All Israeli government websites (e.g., data.gov.il, mavat.iplan.gov.il, etc.)
+                - boi.org.il - Bank of Israel (interest rates, mortgage data)
+                - nadlaner.com, api.nadlaner.com - Internal application domains
+                
+                The tool:
+                - Only allows GET requests (no POST/PUT/DELETE)
+                - Converts HTML to plain text (no JavaScript execution)
+                - Limits response size to 1 MB
+                - Implements rate limiting (5 requests per minute)
+                - Filters out potential injection vectors
+                - Caches responses for efficiency
+                
+                Parameters:
+                - url: Full URL to fetch (must start with http:// or https://)
+                - scope: Optional description of why you're fetching this URL (for logging)
+                
+                Returns:
+                - Plain text content extracted from the page
+                - Source URL (may differ if redirected)
+                - Error message if fetch failed
+                """
+                try:
+                    fetcher = get_fetcher()
+                    result = fetcher.fetch(url, scope)
+                    
+                    if result.get('success'):
+                        content = result.get('content', '')
+                        source_url = result.get('url', url)
+                        cached = result.get('cached', False)
+                        
+                        response = f"Content from {source_url}:\n\n{content}"
+                        if cached:
+                            response += "\n\n[Retrieved from cache]"
+                        return response
+                    else:
+                        error = result.get('error', 'Unknown error')
+                        return f"Error fetching {url}: {error}"
+                except Exception as e:
+                    logger.exception("Error in fetch_web_page_tool: %s", e)
+                    return f"Error fetching {url}: {str(e)}"
+            
+            fetch_web_page_tool = StructuredTool.from_function(
+                func=wrap_async_tool(fetch_web_page_tool_func),
+                name="fetch_web_page_tool",
+                description="""גישה לאינטרנט - שליפת דפי אינטרנט מדומיינים מורשים בלבד.
+                
+                חשוב מאוד: 
+                - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
+                  השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
+                - כלי זה מיועד לאתרים שאין להם MCP server או לחיפושים חד-פעמיים.
+                
+                דומיינים מורשים:
+                - *.gov.il - כל אתרי הממשלה הישראלית (לדוגמה: data.gov.il, mavat.iplan.gov.il, וכו')
+                - boi.org.il - בנק ישראל (ריביות, נתוני משכנתא)
+                - nadlaner.com, api.nadlaner.com - אתרים פנימיים
+                
+                הכלי:
+                - מאפשר רק בקשות GET (לא POST/PUT/DELETE)
+                - ממיר HTML לטקסט רגיל (ללא ביצוע JavaScript)
+                - מגביל גודל תגובה ל-1 MB
+                - מגביל קצב (5 בקשות לדקה)
+                - מסנן וקטורי הזרקה פוטנציאליים
+                - משתמש במטמון לניצול יעיל
+                
+                פרמטרים:
+                - url: כתובת URL מלאה לשליפה (חייבת להתחיל ב-http:// או https://)
+                - scope: תיאור אופציונלי למה אתה שולף את ה-URL הזה (ללוגים)
+                
+                דוגמה: fetch_web_page_tool(url='https://boi.org.il/...', scope='חיפוש ריביות משכנתא')
+                
+                שימוש מומלץ:
+                1. תכנן מה אתה צריך לחפש
+                2. שלוף רק את הדפים הרלוונטיים
+                3. עבד עם הטקסט המסוכם, לא עם כל הדף
+                4. ציין את מקור המידע בתשובה שלך
+                5. עבור אתרים עם MCP - השתמש בכליי MCP במקום!"""
+            )
+            
+            tools_list.append(fetch_web_page_tool)
+            logger.info("Internet access tool enabled")
+        
         # Log tool names for debugging
         tool_names = [tool.name for tool in tools_list]
         logger.debug("Created tools: %s", ", ".join(tool_names))
@@ -1020,13 +1118,27 @@ class RealEstateAgent:
     
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the agent executor with system prompt."""
-        system_prompt = """אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
+        internet_access_note = ""
+        if self.internet_enabled:
+            internet_access_note = """
+6. **גישה לאינטרנט** (מופעלת): אתה יכול לשלוף מידע מדפי אינטרנט מדומיינים מורשים בלבד.
+   - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
+     השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
+   - השתמש ב-fetch_web_page_tool רק עבור אתרים שאין להם MCP server או לחיפושים חד-פעמיים
+   - דומיינים מורשים: *.gov.il (כל אתרי הממשלה), boi.org.il (בנק ישראל), nadlaner.com (פנימי)
+   - תכנן מראש מה אתה צריך לחפש - אל תשלוף דפים מיותרים
+   - עבד עם הטקסט המסוכם, לא עם כל הדף
+   - תמיד ציין את מקור המידע בתשובה שלך
+   - יש מגבלת קצב של 5 בקשות לדקה - השתמש בחוכמה
+"""
+
+        system_prompt = f"""אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
 
 1. **חיפוש וניתוח נכסים**: חיפוש נכסים, קבלת פרטי נכסים, צפייה בעסקאות, היתרים, תוכניות והערכות שווי
 2. **ניהול עסקאות**: יצירה וניהול עסקאות, צפייה במשא ומתן והצעות
 3. **חישובי הוצאות**: הערכת עלויות בנייה ואפשרויות עלויות
 4. **ניתוח משכנתא**: ניתוח יכולת משכנתא ותרחישי תשלום
-5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות
+5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות{internet_access_note}
 
 כאשר משתמשים שואלים שאלות:
 - השתמש בכלים המתאימים כדי לאחזר נתונים אמיתיים

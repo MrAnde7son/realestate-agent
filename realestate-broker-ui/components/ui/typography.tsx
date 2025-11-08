@@ -40,12 +40,14 @@ export type TypographyProps = React.HTMLAttributes<HTMLElement> & {
 
 export const Typography = React.forwardRef<HTMLElement, TypographyProps>(
   ({ as, variant = 'body', className, ...props }, ref) => {
-    const Component = (as ?? defaultElementByVariant[variant]) as keyof JSX.IntrinsicElements
+    const resolvedVariant = (variant ?? 'body') as NonNullable<TypographyVariant>
+
+    const Component = (as ?? defaultElementByVariant[resolvedVariant]) as keyof JSX.IntrinsicElements
 
     return (
       <Component
         ref={ref as React.Ref<HTMLElement>}
-        className={cn(typographyVariants({ variant }), className)}
+        className={cn(typographyVariants({ variant: resolvedVariant }), className)}
         {...props}
       />
     )

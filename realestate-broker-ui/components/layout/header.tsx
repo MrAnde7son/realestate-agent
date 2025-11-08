@@ -197,16 +197,6 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             נדל״נר
           </span>
         </Link>
-        <div
-          className="flex flex-col text-right sm:hidden"
-          aria-live="polite"
-          aria-label="עמוד נוכחי"
-        >
-          <span className="text-[10px] font-medium text-muted-foreground">עמוד נוכחי</span>
-          <span className="text-sm font-semibold text-foreground truncate" data-testid="mobile-page-title">
-            {mobilePageTitle}
-          </span>
-        </div>
       </div>
 
       {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}

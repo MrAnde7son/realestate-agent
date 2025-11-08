@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { requireAuth } from '@/app/api/_utils/require-auth';
+import { validateToken } from '@/lib/token-utils';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 

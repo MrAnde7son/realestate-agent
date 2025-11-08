@@ -855,7 +855,15 @@ def register_crm_tools():
         params["page_size"] = min(page_size or limit, 20)
         
         raw = _make_request(ctx, "GET", "/crm/contacts", params=params)
-        return process_list_result(raw, fields=fields, limit=limit, compact=compact)
+        result = process_list_result(raw, fields=fields, limit=limit, compact=compact)
+        
+        # Preserve pagination metadata (count) from paginated responses
+        if isinstance(raw, dict) and raw.get("success"):
+            data = raw.get("data", {})
+            if isinstance(data, dict) and "count" in data:
+                result["count"] = data["count"]
+        
+        return result
 
     @mcp.tool(description="Get contact.")
     async def get_contact(
@@ -1132,14 +1140,12 @@ def register_crm_tools():
 # TOOL REGISTRATION
 # ============================================================================
 
-# Register core tools by default (assets, deals, cost, mortgage)
-# CRM tools can be registered on-demand if needed
+# Register core tools by default (assets, deals, cost, mortgage, CRM)
 register_assets_tools()
 register_deals_tools()
 register_cost_tools()
 register_mortgage_tools()
-
-# To register CRM tools on-demand, call: register_crm_tools()
+register_crm_tools()
 
 
 if __name__ == "__main__":

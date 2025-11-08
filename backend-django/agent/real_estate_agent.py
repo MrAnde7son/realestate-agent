@@ -898,10 +898,14 @@ class RealEstateAgent:
         async def list_contacts_tool_func() -> str:
             """List all CRM contacts."""
             try:
-                result = await list_contacts(ctx)
+                result = await list_contacts(ctx, page=1, page_size=1)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
+                    # Use count from pagination if available, otherwise use list length
+                    count = result.get("count")
+                    data = result.get("data", [])
                     if isinstance(data, list):
+                        if count is not None:
+                            return f"יש לך {count} לקוחות במערכת."
                         return f"נמצאו {len(data)} אנשי קשר: {data}"
                     return str(data)
                 return str(result)

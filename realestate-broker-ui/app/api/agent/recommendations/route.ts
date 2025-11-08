@@ -1,24 +1,35 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { validateToken } from '@/lib/token-utils'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function GET(req: Request) {  
   try {
+    // Get tokens from cookies or Authorization header
     const cookieStore = await cookies()
-    const token = cookieStore.get('access_token')?.value
+    let token = cookieStore.get('access_token')?.value
+    const refreshToken = cookieStore.get('refresh_token')?.value
     
-    // Validate token
-    const tokenValidation = validateToken(token)
-    if (!tokenValidation.isValid) {
+    // Also check Authorization header for API tokens
+    if (!token) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7)
+      }
+    }
+    
+    // If no tokens at all, return JSON error (let backend handle auth if tokens exist)
+    if (!token && !refreshToken) {
       return NextResponse.json(
-        { error: 'Unauthorized - Token expired or invalid' },
+        { error: 'Unauthorized', recommendations: [] },
         { status: 401 }
       )
     }
     
-    // Option 1: Fetch from backend API if available
+    // For proxy routes, we forward requests with tokens to the backend
+    // The backend will handle token validation and refresh if needed
+    
+    // Fetch from backend API if available
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -37,7 +48,15 @@ export async function GET(req: Request) {
         const data = await res.json()
         console.log('Backend recommendations received:', data)
         return NextResponse.json(data)
+      } else if (res.status === 401) {
+        // Backend authentication failed - return 401 so frontend can handle token refresh
+        const errorData = await res.json().catch(() => ({}))
+        return NextResponse.json(
+          { error: 'Unauthorized', recommendations: [] },
+          { status: 401 }
+        )
       } else {
+        // Other backend errors - log and fall back to defaults
         const errorText = await res.text()
         console.log(`Backend returned ${res.status}, falling back to defaults:`, errorText)
       }

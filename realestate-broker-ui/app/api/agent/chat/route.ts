@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { validateToken } from '@/lib/token-utils'
+import { requireAuth } from '@/app/api/_utils/require-auth'
 import { z } from 'zod'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
@@ -50,6 +50,13 @@ const chatRequestSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // Check authentication and redirect if not authenticated
+    const authResponse = await requireAuth(req)
+    if (authResponse) {
+      return authResponse
+    }
+    
+    // Get token from cookies or Authorization header
     const cookieStore = await cookies()
     let token = cookieStore.get('access_token')?.value
     
@@ -60,29 +67,7 @@ export async function POST(req: Request) {
         token = authHeader.substring(7)
       }
     }
-    
-    // Validate token only if it's a JWT (has 3 parts separated by dots)
-    // API tokens are not JWTs, so we skip validation and let the backend handle them
-    const isJWT = token && token.split('.').length === 3
-    if (isJWT) {
-      const tokenValidation = validateToken(token)
-      if (!tokenValidation.isValid) {
-        const response = NextResponse.json(
-          { error: 'Unauthorized - Token expired or invalid' },
-          { status: 401 }
-        )
-        response.cookies.delete('access_token')
-        response.cookies.delete('refresh_token')
-        return response
-      }
-    } else if (!token) {
-      // No token at all
-      return NextResponse.json(
-        { error: 'Unauthorized - No token provided' },
-        { status: 401 }
-      )
-    }
-    // If token exists but is not a JWT, assume it's an API token and let backend validate it
+    // Token exists and is valid (validated by requireAuth)
     
     const body = await req.json()
     

@@ -18,6 +18,8 @@ from typing import List, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+from .internet_fetcher import get_fetcher
+
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.callbacks import BaseCallbackHandler
@@ -57,10 +59,10 @@ try:
             return tool_obj
     
     list_assets = get_underlying_func(mcp_server.list_assets)
+    get_asset_filters = get_underlying_func(mcp_server.get_asset_filters)
     get_asset = get_underlying_func(mcp_server.get_asset)
     create_asset = get_underlying_func(mcp_server.create_asset)
-    get_asset_transactions = get_underlying_func(mcp_server.get_asset_transactions)
-    get_asset_appraisal = get_underlying_func(mcp_server.get_asset_appraisal)
+    get_asset_data = get_underlying_func(mcp_server.get_asset_data)
     list_deals = get_underlying_func(mcp_server.list_deals)
     create_deal = get_underlying_func(mcp_server.create_deal)
     get_offer = get_underlying_func(mcp_server.get_offer)
@@ -83,10 +85,10 @@ except Exception as e:
         return {"success": False, "error": error_msg}
     
     list_assets = _stub_func
+    get_asset_filters = _stub_func
     get_asset = _stub_func
     create_asset = _stub_func
-    get_asset_transactions = _stub_func
-    get_asset_appraisal = _stub_func
+    get_asset_data = _stub_func
     list_deals = _stub_func
     create_deal = _stub_func
     get_offer = _stub_func
@@ -115,7 +117,6 @@ def _patch_langchain_tool_parser():
         # Patch in tools module
         from langchain.agents.output_parsers import tools as tools_module
         from langchain.agents.output_parsers import openai_tools as openai_tools_module
-        from langchain_core.messages import ToolCall
         import json
         
         # Save original functions
@@ -386,6 +387,7 @@ def translate_tool_name(tool_name: str) -> str:
     """Translate tool name to Hebrew."""
     translations = {
         "list_assets_tool": "חיפוש נכסים",
+        "get_asset_filters_tool": "קבלת אפשרויות סינון",
         "get_asset_tool": "קבלת פרטי נכס",
         "create_asset_tool": "יצירת נכס",
         "get_asset_transactions_tool": "קבלת היסטוריית עסקאות",
@@ -401,6 +403,7 @@ def translate_tool_name(tool_name: str) -> str:
         "list_leads_tool": "רשימת לידים",
         "create_lead_tool": "יצירת ליד",
         "list_tasks_tool": "רשימת משימות",
+        "fetch_web_page_tool": "שליפת דף אינטרנט",
     }
     return translations.get(tool_name, tool_name.replace("_tool", "").replace("_", " "))
 
@@ -415,6 +418,7 @@ class RealEstateAgent:
         api_url: Optional[str] = None,
         temperature: float = 0.3,
         user_api_key: Optional[str] = None,
+        internet_enabled: bool = False,
     ):
         """Initialize the Real Estate Agent.
         
@@ -424,10 +428,13 @@ class RealEstateAgent:
             api_url: Optional API base URL (defaults to env var or localhost)
             temperature: LLM temperature setting
             user_api_key: Optional user's API key for LLM (overrides environment variables)
+            internet_enabled: Enable Internet access (default: False). When enabled, allows
+                             fetching web pages from whitelisted domains only.
         """
         self.api_token = api_token  # Use provided token (should be from authenticated user)
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
         self.user_api_key = user_api_key  # Store user's API key
+        self.internet_enabled = internet_enabled
         
         # Set environment variables for MCP tools
         # Always use the provided api_token (from authenticated user) - don't fall back to env
@@ -609,17 +616,24 @@ class RealEstateAgent:
         ) -> str:
             """List all assets with optional filtering. Use this to search for properties.
             
+            IMPORTANT: Before searching, use get_asset_filters_tool() to get available city names.
+            The API may use different city name formats (e.g., 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
+            Use the exact city name from the filters.cities list for best results.
+            
             Parameters:
-            - city: City name (e.g., 'תל אביב', 'ירושלים') - REQUIRED for location-based searches
-            - max_price: Maximum price in shekels (e.g., 4000000 for 4 million)
+            - city: City name - MUST match one of the names in filters.cities from get_asset_filters_tool()
+                     Common formats: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', etc.
+            - max_price: Maximum price in shekels (e.g., 2000000 for 2 million)
             - min_price: Minimum price in shekels
             - rooms: Number of rooms
             - page: Page number for pagination (default: 1)
             
-            Example: list_assets_tool(city='תל אביב', max_price=4000000)
+            Example workflow:
+            1. First call: get_asset_filters_tool() to see available cities
+            2. Then call: list_assets_tool(city='תל אביב יפו', max_price=2000000)
             """
             try:
-                result = await list_assets(ctx, city, max_price, min_price, rooms, page)
+                result = await list_assets(ctx, city=city, max_price=max_price, min_price=min_price, rooms=rooms, page=page)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
                     if isinstance(data, dict) and "results" in data:
@@ -638,16 +652,63 @@ class RealEstateAgent:
             name="list_assets_tool",
             description="""חיפוש נכסים עם אפשרויות סינון. 
             
+            חשוב מאוד: לפני חיפוש, השתמש ב-get_asset_filters_tool() כדי לקבל את שמות הערים הזמינים.
+            ה-API עשוי להשתמש בפורמטים שונים של שמות ערים (לדוגמה: 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
+            השתמש בשם העיר המדויק מרשימת filters.cities לתוצאות הטובות ביותר.
+            
             פרמטרים:
-            - city: שם העיר (לדוגמה: 'תל אביב', 'ירושלים') - חובה לחיפוש לפי מיקום
-            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 4000000 עבור 4 מיליון)
+            - city: שם העיר - חייב להתאים לאחד השמות ב-filters.cities מ-get_asset_filters_tool()
+                     פורמטים נפוצים: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', וכו'
+            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 2000000 עבור 2 מיליון)
             - min_price: מחיר מינימלי בשקלים
             - rooms: מספר חדרים
             - page: מספר עמוד (ברירת מחדל: 1)
             
-            דוגמה: list_assets_tool(city='תל אביב', max_price=4000000)
+            דוגמה לשימוש:
+            1. קודם: get_asset_filters_tool() כדי לראות את הערים הזמינים
+            2. אחר כך: list_assets_tool(city='תל אביב יפו', max_price=2000000)"""
+        )
+        
+        async def get_asset_filters_tool_func() -> str:
+            """Get available filter options including cities, property types, neighborhoods, etc.
             
-            חשוב: השתמש בפרמטר 'city' לחיפוש לפי מיקום, לא 'location' או 'lang'."""
+            This is essential before searching for properties to ensure you use the correct city name format.
+            Returns a dictionary with available filter values including:
+            - cities: List of available city names (use exact name from this list)
+            - types: List of property types
+            - neighborhoods: List of neighborhoods
+            - And more...
+            """
+            try:
+                result = await get_asset_filters(ctx)
+                if isinstance(result, dict) and result.get("success"):
+                    filters = result.get("filters", {})
+                    cities = filters.get("cities", [])
+                    cities_str = ', '.join(cities[:20]) + ('...' if len(cities) > 20 else '')
+                    types_str = ', '.join(filters.get('types', [])[:10]) + ('...' if len(filters.get('types', [])) > 10 else '')
+                    neighborhoods_str = ', '.join(filters.get('neighborhoods', [])[:10]) + ('...' if len(filters.get('neighborhoods', [])) > 10 else '')
+                    return f"פילטרים זמינים:\n" + \
+                           f"ערים: {cities_str}\n" + \
+                           f"סוגי נכסים: {types_str}\n" + \
+                           f"שכונות: {neighborhoods_str}\n" + \
+                           "\nהשתמש בשם העיר המדויק מרשימת הערים לחיפוש."
+                return str(result)
+            except Exception as e:
+                return f"שגיאה: {str(e)}"
+        
+        get_asset_filters_tool = StructuredTool.from_function(
+            func=wrap_async_tool(get_asset_filters_tool_func),
+            name="get_asset_filters_tool",
+            description="""קבלת אפשרויות פילטר זמינות (ערים, סוגי נכסים, שכונות וכו').
+            
+            חשוב מאוד: השתמש בכלי זה לפני חיפוש נכסים כדי לוודא שאתה משתמש בפורמט הנכון של שם העיר.
+            מחזיר מילון עם ערכי פילטר זמינים כולל:
+            - cities: רשימת שמות ערים זמינים (השתמש בשם המדויק מרשימה זו)
+            - types: רשימת סוגי נכסים
+            - neighborhoods: רשימת שכונות
+            - ועוד...
+            
+            דוגמה: get_asset_filters_tool()"""
         )
         
         async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
@@ -692,7 +753,7 @@ class RealEstateAgent:
         async def get_asset_transactions_tool_func(asset_id: int) -> str:
             """Get transaction history for an asset."""
             try:
-                result = await get_asset_transactions(ctx, asset_id)
+                result = await get_asset_data(ctx, asset_id, "transactions")
                 if isinstance(result, dict) and result.get("success"):
                     return f"עסקאות עבור נכס {asset_id}: {result.get('data', {})}"
                 return str(result)
@@ -708,7 +769,7 @@ class RealEstateAgent:
         async def get_asset_appraisal_tool_func(asset_id: int) -> str:
             """Get appraisal analysis for an asset including comparable sales."""
             try:
-                result = await get_asset_appraisal(ctx, asset_id)
+                result = await get_asset_data(ctx, asset_id, "appraisal")
                 if isinstance(result, dict) and result.get("success"):
                     return f"הערכת שווי עבור נכס {asset_id}: {result.get('data', {})}"
                 return str(result)
@@ -843,10 +904,14 @@ class RealEstateAgent:
         async def list_contacts_tool_func() -> str:
             """List all CRM contacts."""
             try:
-                result = await list_contacts(ctx)
+                result = await list_contacts(ctx, page=1, page_size=1)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
+                    # Use count from pagination if available, otherwise use list length
+                    count = result.get("count")
+                    data = result.get("data", [])
                     if isinstance(data, list):
+                        if count is not None:
+                            return f"יש לך {count} לקוחות במערכת."
                         return f"נמצאו {len(data)} אנשי קשר: {data}"
                     return str(data)
                 return str(result)
@@ -935,6 +1000,7 @@ class RealEstateAgent:
         
         tools_list = [
             list_assets_tool,
+            get_asset_filters_tool,
             get_asset_tool,
             create_asset_tool,
             get_asset_transactions_tool,
@@ -952,6 +1018,98 @@ class RealEstateAgent:
             list_tasks_tool,
         ]
         
+        # Add Internet access tool if enabled
+        if self.internet_enabled:
+            async def fetch_web_page_tool_func(url: str, scope: Optional[str] = None) -> str:
+                """Fetch a web page from allowed domains only.
+                
+                IMPORTANT: 
+                - For yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
+                  use the appropriate MCP tools instead! They provide better structured data.
+                - This tool is for sites WITHOUT MCP servers or one-off lookups.
+                
+                Allowed domains:
+                - *.gov.il - All Israeli government websites (e.g., data.gov.il, mavat.iplan.gov.il, etc.)
+                - boi.org.il - Bank of Israel (interest rates, mortgage data)
+                - nadlaner.com, api.nadlaner.com - Internal application domains
+                
+                The tool:
+                - Only allows GET requests (no POST/PUT/DELETE)
+                - Converts HTML to plain text (no JavaScript execution)
+                - Limits response size to 1 MB
+                - Implements rate limiting (5 requests per minute)
+                - Filters out potential injection vectors
+                - Caches responses for efficiency
+                
+                Parameters:
+                - url: Full URL to fetch (must start with http:// or https://)
+                - scope: Optional description of why you're fetching this URL (for logging)
+                
+                Returns:
+                - Plain text content extracted from the page
+                - Source URL (may differ if redirected)
+                - Error message if fetch failed
+                """
+                try:
+                    fetcher = get_fetcher()
+                    result = fetcher.fetch(url, scope)
+                    
+                    if result.get('success'):
+                        content = result.get('content', '')
+                        source_url = result.get('url', url)
+                        cached = result.get('cached', False)
+                        
+                        response = f"Content from {source_url}:\n\n{content}"
+                        if cached:
+                            response += "\n\n[Retrieved from cache]"
+                        return response
+                    else:
+                        error = result.get('error', 'Unknown error')
+                        return f"Error fetching {url}: {error}"
+                except Exception as e:
+                    logger.exception("Error in fetch_web_page_tool: %s", e)
+                    return f"Error fetching {url}: {str(e)}"
+            
+            fetch_web_page_tool = StructuredTool.from_function(
+                func=wrap_async_tool(fetch_web_page_tool_func),
+                name="fetch_web_page_tool",
+                description="""גישה לאינטרנט - שליפת דפי אינטרנט מדומיינים מורשים בלבד.
+                
+                חשוב מאוד: 
+                - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
+                  השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
+                - כלי זה מיועד לאתרים שאין להם MCP server או לחיפושים חד-פעמיים.
+                
+                דומיינים מורשים:
+                - *.gov.il - כל אתרי הממשלה הישראלית (לדוגמה: data.gov.il, mavat.iplan.gov.il, וכו')
+                - boi.org.il - בנק ישראל (ריביות, נתוני משכנתא)
+                - nadlaner.com, api.nadlaner.com - אתרים פנימיים
+                
+                הכלי:
+                - מאפשר רק בקשות GET (לא POST/PUT/DELETE)
+                - ממיר HTML לטקסט רגיל (ללא ביצוע JavaScript)
+                - מגביל גודל תגובה ל-1 MB
+                - מגביל קצב (5 בקשות לדקה)
+                - מסנן וקטורי הזרקה פוטנציאליים
+                - משתמש במטמון לניצול יעיל
+                
+                פרמטרים:
+                - url: כתובת URL מלאה לשליפה (חייבת להתחיל ב-http:// או https://)
+                - scope: תיאור אופציונלי למה אתה שולף את ה-URL הזה (ללוגים)
+                
+                דוגמה: fetch_web_page_tool(url='https://boi.org.il/...', scope='חיפוש ריביות משכנתא')
+                
+                שימוש מומלץ:
+                1. תכנן מה אתה צריך לחפש
+                2. שלוף רק את הדפים הרלוונטיים
+                3. עבד עם הטקסט המסוכם, לא עם כל הדף
+                4. ציין את מקור המידע בתשובה שלך
+                5. עבור אתרים עם MCP - השתמש בכליי MCP במקום!"""
+            )
+            
+            tools_list.append(fetch_web_page_tool)
+            logger.info("Internet access tool enabled")
+        
         # Log tool names for debugging
         tool_names = [tool.name for tool in tools_list]
         logger.debug("Created tools: %s", ", ".join(tool_names))
@@ -960,13 +1118,27 @@ class RealEstateAgent:
     
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the agent executor with system prompt."""
-        system_prompt = """אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
+        internet_access_note = ""
+        if self.internet_enabled:
+            internet_access_note = """
+6. **גישה לאינטרנט** (מופעלת): אתה יכול לשלוף מידע מדפי אינטרנט מדומיינים מורשים בלבד.
+   - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
+     השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
+   - השתמש ב-fetch_web_page_tool רק עבור אתרים שאין להם MCP server או לחיפושים חד-פעמיים
+   - דומיינים מורשים: *.gov.il (כל אתרי הממשלה), boi.org.il (בנק ישראל), nadlaner.com (פנימי)
+   - תכנן מראש מה אתה צריך לחפש - אל תשלוף דפים מיותרים
+   - עבד עם הטקסט המסוכם, לא עם כל הדף
+   - תמיד ציין את מקור המידע בתשובה שלך
+   - יש מגבלת קצב של 5 בקשות לדקה - השתמש בחוכמה
+"""
+
+        system_prompt = f"""אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
 
 1. **חיפוש וניתוח נכסים**: חיפוש נכסים, קבלת פרטי נכסים, צפייה בעסקאות, היתרים, תוכניות והערכות שווי
 2. **ניהול עסקאות**: יצירה וניהול עסקאות, צפייה במשא ומתן והצעות
 3. **חישובי הוצאות**: הערכת עלויות בנייה ואפשרויות עלויות
 4. **ניתוח משכנתא**: ניתוח יכולת משכנתא ותרחישי תשלום
-5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות
+5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות{internet_access_note}
 
 כאשר משתמשים שואלים שאלות:
 - השתמש בכלים המתאימים כדי לאחזר נתונים אמיתיים

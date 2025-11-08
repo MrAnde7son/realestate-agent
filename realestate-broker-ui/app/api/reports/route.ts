@@ -1,23 +1,20 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { requireAuth } from '@/app/api/_utils/require-auth';
 import { validateToken } from '@/lib/token-utils';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(req: Request) {
   try {
+    // Check authentication and redirect if not authenticated
+    const authResponse = await requireAuth(req)
+    if (authResponse) {
+      return authResponse
+    }
+    
     const cookieStore = await cookies();
     const token = cookieStore.get('access_token')?.value;
-    
-    // Validate token
-    const tokenValidation = validateToken(token);
-    if (!tokenValidation.isValid) {
-      console.log('❌ Reports API - Token validation failed:', tokenValidation.error);
-      const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
-      response.cookies.delete('access_token');
-      response.cookies.delete('refresh_token');
-      return response;
-    }
     
     const res = await fetch(`${BACKEND_URL}/api/reports`, { 
       cache: 'no-store',

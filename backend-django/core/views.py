@@ -1982,7 +1982,13 @@ def _apply_asset_filters(queryset, params, user):
 
     city = params.get("city")
     if city and city != "all":
-        queryset = queryset.filter(city__iexact=city)
+        # Handle city name variations (e.g., "תל אביב יפו", "תל אביב-יפו", "תל אביב יפו")
+        from .services.asset_deduplication import _get_city_variations
+        city_variations = _get_city_variations(city)
+        if city_variations:
+            queryset = queryset.filter(city__in=city_variations)
+        else:
+            queryset = queryset.filter(city__iexact=city)
 
     type_filter = params.get("type")
     if type_filter and type_filter != "all":
@@ -2002,7 +2008,7 @@ def _apply_asset_filters(queryset, params, user):
 
     neighborhood = params.get("neighborhood")
     if neighborhood and neighborhood != "all":
-        queryset = queryset.filter(neighborhood__iexact=neighborhood)
+        queryset = queryset.filter(neighborhood__icontains=neighborhood)
 
     zoning = params.get("zoning")
     if zoning and zoning != "all":
@@ -2439,7 +2445,7 @@ def _get_assets_list(request):
 
     page = _parse_positive_int(params.get("page"), 1)
     page_size = _parse_positive_int(
-        params.get("pageSize") or params.get("page_size"), DEFAULT_ASSET_PAGE_SIZE
+        params.get("pageSize") or params.get("page_size") or params.get("limit"), DEFAULT_ASSET_PAGE_SIZE
     )
     page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 
@@ -4876,21 +4882,26 @@ def get_user_friendly_error_message(exception: Exception) -> str:
     request={
         'application/json': {
             'type': 'object',
-            'properties': {
-                'message': {'type': 'string', 'description': 'User message'},
-                'chat_history': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'role': {'type': 'string'},
-                            'content': {'type': 'string'}
-                        }
+                'properties': {
+                    'message': {'type': 'string', 'description': 'User message'},
+                    'chat_history': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'role': {'type': 'string'},
+                                'content': {'type': 'string'}
+                            }
+                        },
+                        'description': 'Optional chat history'
                     },
-                    'description': 'Optional chat history'
-                }
-            },
-            'required': ['message']
+                    'internet_enabled': {
+                        'type': 'boolean',
+                        'description': 'Enable Internet access for this request (default: false). When enabled, allows fetching web pages from whitelisted domains only.',
+                        'default': False
+                    }
+                },
+                'required': ['message']
         }
     },
     responses={
@@ -4926,6 +4937,7 @@ def agent_chat(request):
         data = json.loads(request.body.decode("utf-8"))
         message = data.get("message")
         chat_history = data.get("chat_history", [])
+        internet_enabled = data.get("internet_enabled", False)  # Default: off, enable per task
         
         if not message:
             return Response(
@@ -5049,7 +5061,8 @@ def agent_chat(request):
             api_token=api_token,
             api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
             temperature=0.3,
-            user_api_key=api_key  # Pass user's API key to agent
+            user_api_key=api_key,  # Pass user's API key to agent
+            internet_enabled=internet_enabled  # Enable Internet access per request
         )
         
         # Convert chat history format if needed
@@ -5099,6 +5112,7 @@ def agent_chat_stream(request):
         data = json.loads(request.body.decode("utf-8"))
         message = data.get("message")
         chat_history = data.get("chat_history", [])
+        internet_enabled = data.get("internet_enabled", False)  # Default: off, enable per task
         
         if not message:
             def error_generator():
@@ -5225,7 +5239,8 @@ def agent_chat_stream(request):
                 api_token=api_token,
                 api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
                 temperature=0.3,
-                user_api_key=api_key  # Pass user's API key to agent
+                user_api_key=api_key,  # Pass user's API key to agent
+                internet_enabled=internet_enabled  # Enable Internet access per request
             )
         except ValueError as e:
             # Catch API key errors during agent initialization

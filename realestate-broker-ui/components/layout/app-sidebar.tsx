@@ -174,30 +174,36 @@ export default function AppSidebar({
                         isCollapsed
                           ? "justify-center px-2 py-3"
                           : "gap-2 px-2.5 py-2",
-                        isSelf || isDescendant
+                        isCollapsed
+                          ? isSelf || isDescendant
+                            ? "bg-[var(--brand-teal)]/12 text-[var(--brand-teal)]"
+                            : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
+                          : isSelf || isDescendant
                           ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
                           : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
-                        isSelf
+                        !isCollapsed && isSelf
                           ? "font-semibold"
-                          : isDescendant
+                          : !isCollapsed && isDescendant
                           ? "font-medium text-[var(--brand-teal)]/80"
                           : undefined
                       )}
                     >
-                      <span
-                        aria-hidden="true"
-                        data-active-indicator
-                        className={cn(
-                          "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
-                          "ltr:right-1 rtl:left-1",
-                          isCollapsed ? "w-0.5" : "w-1",
-                          isSelf
-                            ? "opacity-100"
-                            : isDescendant
-                            ? "opacity-60"
-                            : "opacity-0"
-                        )}
-                      />
+                      {!isCollapsed && (
+                        <span
+                          aria-hidden="true"
+                          data-active-indicator
+                          className={cn(
+                            "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                            "ltr:right-1 rtl:left-1",
+                            "w-1",
+                            isSelf
+                              ? "opacity-100"
+                              : isDescendant
+                              ? "opacity-60"
+                              : "opacity-0"
+                          )}
+                        />
+                      )}
                       <Icon
                         className={cn(
                           isCollapsed ? "h-8 w-8" : "h-4 w-4",

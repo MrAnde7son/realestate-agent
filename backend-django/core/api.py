@@ -8,6 +8,7 @@ from django.db.models import Q
 
 from .serializers import PermitSerializer, PlanSerializer, DocumentSerializer
 from .services.cost_service import CostService
+from .services.deal_expenses_service import DealExpensesService
 
 import logging
 
@@ -530,3 +531,129 @@ def get_cost_options(request):
     except Exception as e:
         logger.error(f"Error getting cost options: {e}")
         return Response({"error": "Failed to get cost options"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@extend_schema(
+    summary="Calculate deal expenses",
+    description="Calculate complete deal expenses including purchase tax, service costs, and construction costs",
+    tags=["Deal Expenses"],
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "price": {"type": "number", "description": "Property price"},
+                "area": {"type": "number", "description": "Property area in square meters"},
+                "propertyType": {
+                    "type": "string",
+                    "enum": ["residential", "land"],
+                    "description": "Property type",
+                    "default": "residential"
+                },
+                "buyers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "sharePct": {"type": "number", "description": "Percentage share (0-100)"},
+                            "isFirstHome": {"type": "boolean"},
+                            "isReplacementHome": {"type": "boolean"},
+                            "oleh": {"type": "boolean"},
+                            "disabled": {"type": "boolean"},
+                            "bereavedFamily": {"type": "boolean"}
+                        },
+                        "required": ["sharePct"]
+                    },
+                    "description": "List of buyers"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "label": {"type": "string"},
+                            "percent": {"type": "number", "description": "Percentage of price"},
+                            "amount": {"type": "number", "description": "Fixed amount"},
+                            "includesVat": {"type": "boolean", "description": "Whether VAT is included"}
+                        }
+                    },
+                    "description": "List of service costs"
+                },
+                "vatRate": {
+                    "type": "number",
+                    "description": "VAT rate (e.g., 0.18 for 18%)",
+                    "default": 0.18
+                },
+                "constructionArea": {
+                    "type": "number",
+                    "description": "Construction area in sqm (for land)"
+                },
+                "constructionCostPerSqm": {
+                    "type": "number",
+                    "description": "Construction cost per sqm (for land)"
+                },
+                "constructionIncludesVat": {
+                    "type": "boolean",
+                    "description": "Whether construction cost includes VAT",
+                    "default": True
+                }
+            },
+            "required": ["price", "buyers"]
+        }
+    },
+    responses={
+        200: {
+            "description": "Deal expenses calculated successfully",
+            "content": {
+                "application/json": {
+                    "type": "object",
+                    "properties": {
+                        "totalTax": {"type": "number"},
+                        "breakdown": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "buyer": {"type": "object"},
+                                    "portionPrice": {"type": "number"},
+                                    "tax": {"type": "number"},
+                                    "track": {"type": "string"}
+                                }
+                            }
+                        },
+                        "serviceTotal": {"type": "number"},
+                        "serviceBreakdown": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "label": {"type": "string"},
+                                    "cost": {"type": "number"}
+                                }
+                            }
+                        },
+                        "constructionCost": {"type": "number"},
+                        "total": {"type": "number"},
+                        "pricePerSqBefore": {"type": "number"},
+                        "pricePerSqAfter": {"type": "number"}
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid input data"}
+    }
+)
+def calculate_deal_expenses(request):
+    """Calculate complete deal expenses."""
+    try:
+        deal_expenses_service = DealExpensesService()
+        result = deal_expenses_service.calculate_deal_expenses(request.data)
+        return Response(result)
+    except Exception as e:
+        logger.error(f"Error calculating deal expenses: {e}")
+        return Response(
+            {"error": "Failed to calculate deal expenses", "details": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

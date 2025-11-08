@@ -54,7 +54,10 @@ function collectFiles(directory: string): string[] {
 describe('icon usage', () => {
   it('does not include Tabler icon imports', () => {
     const projectRoot = path.join(__dirname, '..')
-    const filesToCheck = collectFiles(projectRoot)
+    const testFilePath = __filename
+    const filesToCheck = collectFiles(projectRoot).filter(
+      (filePath) => filePath !== testFilePath
+    )
 
     const violations: Array<{ file: string; pattern: RegExp }> = []
 
@@ -68,10 +71,13 @@ describe('icon usage', () => {
       }
     }
 
-    const formattedViolations = violations
-      .map(({ file, pattern }) => `${file} (matched ${pattern})`)
-      .join('\n')
+    if (violations.length > 0) {
+      const formattedViolations = violations
+        .map(({ file, pattern }) => `${file} (matched ${pattern})`)
+        .join('\n')
+      throw new Error(`Found ${violations.length} violation(s):\n${formattedViolations}`)
+    }
 
-    expect(violations, formattedViolations).toHaveLength(0)
+    expect(violations).toHaveLength(0)
   })
 })

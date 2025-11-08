@@ -78,6 +78,16 @@
     --brand-orange: #ea580c;
     --brand-red: #dc2626;
     --brand-gray: #6b7280;
+    --brand-teal-rgb: 18 179 166;
+    --brand-teal-light-rgb: 94 234 212;
+    --brand-slate-rgb: 15 23 42;
+    --brand-slate-muted-rgb: 148 163 184;
+    --brand-slate-light-rgb: 226 232 240;
+    --brand-slate-soft-rgb: 241 245 249;
+    --surface-white-rgb: 255 255 255;
+    --surface-snow-rgb: 248 250 252;
+    --brand-ice-rgb: 240 249 255;
+    --neutral-black-rgb: 0 0 0;
     
     /* Light mode (default) */
     --background: 0 0% 100%;
@@ -591,12 +601,12 @@
 .clickable-row:hover {
   background-color: hsl(var(--muted) / 0.5);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgb(var(--neutral-black-rgb) / 0.1);
 }
 
 .clickable-row:active {
   transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 4px rgb(var(--neutral-black-rgb) / 0.1);
 }
 
 /* Prevent text selection on clickable rows */
@@ -689,11 +699,11 @@
   }
 
   .surface-section-divider {
-    box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.06);
+    box-shadow: inset 0 -1px 0 rgb(var(--brand-slate-rgb) / 0.06);
   }
 
   .dark .surface-section-divider {
-    box-shadow: inset 0 -1px 0 rgba(148, 163, 184, 0.18);
+    box-shadow: inset 0 -1px 0 rgb(var(--brand-slate-muted-rgb) / 0.18);
   }
 
   .asset-marker {
@@ -726,7 +736,7 @@
     pointer-events: none;
     text-align: center;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border: 1px solid rgb(var(--brand-slate-rgb) / 0.08);
   }
 
   .asset-marker-label[data-visible='false'] {
@@ -738,9 +748,9 @@
   }
 
   .dark .asset-marker-label {
-    background: rgba(15, 23, 42, 0.92);
-    color: rgba(248, 250, 252, 0.95);
-    border-color: rgba(148, 163, 184, 0.18);
+    background: rgb(var(--brand-slate-rgb) / 0.92);
+    color: rgb(var(--surface-snow-rgb) / 0.95);
+    border-color: rgb(var(--brand-slate-muted-rgb) / 0.18);
   }
 
   .asset-marker-label--hover {
@@ -770,11 +780,11 @@
 
   .asset-marker-city {
     font-size: var(--text-xs);
-    color: rgba(15, 23, 42, 0.7);
+    color: rgb(var(--brand-slate-rgb) / 0.7);
   }
 
   .dark .asset-marker-city {
-    color: rgba(226, 232, 240, 0.75);
+    color: rgb(var(--brand-slate-light-rgb) / 0.75);
   }
 
   .asset-marker-pin {
@@ -782,25 +792,25 @@
     height: 14px;
     border-radius: 9999px;
     background: var(--brand-teal);
-    border: 3px solid #ffffff;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.28), 0 0 0 4px rgba(18, 179, 166, 0.35);
+    border: 3px solid rgb(var(--surface-white-rgb) / 1);
+    box-shadow: 0 6px 18px rgb(var(--brand-slate-rgb) / 0.28), 0 0 0 4px rgb(var(--brand-teal-rgb) / 0.35);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
   .asset-marker:hover .asset-marker-pin,
   .asset-marker:focus-visible .asset-marker-pin {
     transform: scale(1.08);
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.32), 0 0 0 5px rgba(18, 179, 166, 0.45);
+    box-shadow: 0 8px 22px rgb(var(--brand-slate-rgb) / 0.32), 0 0 0 5px rgb(var(--brand-teal-rgb) / 0.45);
   }
 
   .dark .asset-marker-pin {
-    border-color: rgba(15, 23, 42, 0.9);
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.6), 0 0 0 4px rgba(94, 234, 212, 0.35);
+    border-color: rgb(var(--brand-slate-rgb) / 0.9);
+    box-shadow: 0 6px 18px rgb(var(--brand-slate-rgb) / 0.6), 0 0 0 4px rgb(var(--brand-teal-light-rgb) / 0.35);
   }
 
   .dark .asset-marker:hover .asset-marker-pin,
   .dark .asset-marker:focus-visible .asset-marker-pin {
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.7), 0 0 0 5px rgba(94, 234, 212, 0.45);
+    box-shadow: 0 8px 22px rgb(var(--brand-slate-rgb) / 0.7), 0 0 0 5px rgb(var(--brand-teal-light-rgb) / 0.45);
   }
 
   .asset-marker-tooltip {
@@ -829,21 +839,21 @@
 
   .asset-marker-tooltip-card {
     position: relative;
-    background: #ffffff;
+    background: rgb(var(--surface-white-rgb) / 1);
     color: var(--brand-slate);
     border-radius: var(--radius-lg);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 18px 40px rgb(var(--brand-slate-rgb) / 0.18);
     overflow: hidden;
     min-width: 220px;
     max-width: 260px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border: 1px solid rgb(var(--brand-slate-rgb) / 0.08);
   }
 
   .dark .asset-marker-tooltip-card {
-    background: rgba(15, 23, 42, 0.95);
-    color: rgba(226, 232, 240, 0.95);
-    border-color: rgba(148, 163, 184, 0.2);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
+    background: rgb(var(--brand-slate-rgb) / 0.95);
+    color: rgb(var(--brand-slate-light-rgb) / 0.95);
+    border-color: rgb(var(--brand-slate-muted-rgb) / 0.2);
+    box-shadow: 0 18px 40px rgb(var(--brand-slate-rgb) / 0.45);
   }
 
   .asset-marker-tooltip-card::after {
@@ -854,17 +864,17 @@
     transform: translateX(-50%);
     border-width: 12px 10px 0 10px;
     border-style: solid;
-    border-color: #ffffff transparent transparent transparent;
+    border-color: rgb(var(--surface-white-rgb) / 1) transparent transparent transparent;
   }
 
   .dark .asset-marker-tooltip-card::after {
-    border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+    border-color: rgb(var(--brand-slate-rgb) / 0.95) transparent transparent transparent;
   }
 
   .asset-marker-tooltip-photo {
     width: 100%;
     height: 140px;
-    background: #f1f5f9;
+    background: rgb(var(--brand-slate-soft-rgb) / 1);
     overflow: hidden;
   }
 
@@ -898,11 +908,11 @@
 
   .asset-marker-tooltip-city {
     font-size: var(--text-xs);
-    color: rgba(15, 23, 42, 0.65);
+    color: rgb(var(--brand-slate-rgb) / 0.65);
   }
 
   .dark .asset-marker-tooltip-city {
-    color: rgba(226, 232, 240, 0.75);
+    color: rgb(var(--brand-slate-light-rgb) / 0.75);
   }
 
   .asset-marker-tooltip-meta {
@@ -916,34 +926,34 @@
     align-items: center;
     padding: 0.15rem 0.6rem;
     border-radius: 9999px;
-    background: rgba(18, 179, 166, 0.12);
+    background: rgb(var(--brand-teal-rgb) / 0.12);
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--brand-slate);
   }
 
   .dark .asset-marker-tooltip-meta span {
-    background: rgba(94, 234, 212, 0.18);
-    color: rgba(240, 249, 255, 0.9);
+    background: rgb(var(--brand-teal-light-rgb) / 0.18);
+    color: rgb(var(--brand-ice-rgb) / 0.9);
   }
 
   .asset-marker-tooltip-features {
     font-size: var(--text-xs);
-    color: rgba(15, 23, 42, 0.7);
+    color: rgb(var(--brand-slate-rgb) / 0.7);
     line-height: 1.4;
   }
 
   .dark .asset-marker-tooltip-features {
-    color: rgba(226, 232, 240, 0.7);
+    color: rgb(var(--brand-slate-light-rgb) / 0.7);
   }
 
   .asset-marker-tooltip-source {
     font-size: var(--text-xs);
-    color: rgba(15, 23, 42, 0.55);
+    color: rgb(var(--brand-slate-rgb) / 0.55);
   }
 
   .dark .asset-marker-tooltip-source {
-    color: rgba(226, 232, 240, 0.6);
+    color: rgb(var(--brand-slate-light-rgb) / 0.6);
   }
 }
 

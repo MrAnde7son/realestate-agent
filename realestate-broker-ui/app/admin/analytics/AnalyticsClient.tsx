@@ -316,17 +316,17 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
                   strokeWidth={2}
                   name="התראות"
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="page_views" 
-                  stroke="#8884d8" 
+                <Line
+                  type="monotone"
+                  dataKey="page_views"
+                  stroke={C.series5}
                   strokeWidth={2}
                   name="צפיות בדפים"
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="searches_performed" 
-                  stroke="#82ca9d" 
+                <Line
+                  type="monotone"
+                  dataKey="searches_performed"
+                  stroke={C.series3}
                   strokeWidth={2}
                   name="חיפושים"
                 />

@@ -164,7 +164,7 @@ pnpm install
 # NEXT_PUBLIC_MCP_GIS_URL=http://localhost:8003
 # NEXT_PUBLIC_MCP_GOV_URL=http://localhost:8004
 # NEXT_PUBLIC_MCP_MAVAT_URL=http://localhost:8005
-pnpm dev  
+pnpm dev
 
 # 🔧 Backend Setup (in a new terminal)
 cd ../backend-django
@@ -174,8 +174,19 @@ python setup_auth.py  # Runs migrations and creates demo/admin users
 # Default credentials:
 #   admin@example.com / admin123
 #   demo@example.com  / demo123
-python manage.py runserver 0.0.0.0:8000  
+python manage.py runserver 0.0.0.0:8000
 ```
+
+### 🛠️ Local Development Workflow
+
+Use the project-level helper scripts to get a full stack running quickly. The new [Local Development Guide](docs/LOCAL_DEVELOPMENT.md) walks through each step in detail.
+
+1. **Bootstrap Django automatically** with `./dev_start.sh`. The script copies `env.development`, runs migrations via `setup_auth.py`, seeds demo assets, and finally launches the API on `http://localhost:8000`.
+2. **Run the Next.js dashboard** from `realestate-broker-ui/` with `pnpm dev` and the `.env.local` template shown above.
+3. **Start MCP servers** either individually (`python -m yad2.mcp_server`, etc.) or all at once with `./run_all.sh` so LLM clients and the dashboard can reach data sources.
+4. **Optional Celery/Redis stack** – when testing alerts, start `redis-server` plus `celery -A broker_backend worker` and `celery -A broker_backend beat` in separate terminals. These commands are summarised in the backend README as well.
+
+The combination provides end-to-end parity with production flows, allowing you to test scraping, alerts, and UI interactions locally.
 
 #### 🚨 Enable Real-time Alerts (Optional)
 For email/WhatsApp notifications, set up Redis and Celery:
@@ -277,6 +288,14 @@ python -m gis.mcp_server       # Tel Aviv GIS (port 8002)
 python -m gov.mcp_server       # Government data (port 8003)
 python -m mavat.mcp_server     # National planning portal (port 8004)
 ```
+
+## 📚 Documentation Index
+
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) – system diagrams, service breakdowns, and component responsibilities.
+- [LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) – step-by-step developer setup for backend, frontend, MCP, and Celery stacks.
+- [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) – production GCP topology and Terraform deployment instructions.
+- [WORKFLOWS.md](docs/WORKFLOWS.md) – broker onboarding cookbook and day-to-day operational playbooks.
+- [MCP_TOOLS.md](docs/MCP_TOOLS.md) – reference documentation for available Model Context Protocol tools.
 
 ### 5️⃣ Quick Examples
 

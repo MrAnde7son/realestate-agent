@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { MessageCircle, X, Loader2, Trash2, Copy, Check, ThumbsUp, ThumbsDown, Maximize2, Minimize2, Sparkles, ArrowRight, Edit, RotateCw, FileText, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
+import { authAPI } from "@/lib/auth"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { Components } from "react-markdown"
@@ -353,10 +354,15 @@ export function AgentChat({
           method: "GET",
           headers: {
             "Content-Type": "application/json"
-          }
+          },
+          redirect: 'manual' // Prevent automatic redirect following
         })
         
-        if (response.ok) {
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type')
+        const isJson = contentType && contentType.includes('application/json')
+        
+        if (response.ok && isJson) {
           const data = await response.json()
           console.log("Recommendations API response:", data)
           if (data.recommendations && Array.isArray(data.recommendations)) {
@@ -366,9 +372,41 @@ export function AgentChat({
             console.warn("Recommendations API returned invalid data format:", data)
           }
         } else {
-          // Response not OK - log the error (API should always return 200, so this is unexpected)
-          const errorText = await response.text()
-          console.error(`Recommendations API returned ${response.status}:`, errorText)
+          // Response not OK or not JSON - handle appropriately
+          if (isJson) {
+            try {
+              const errorData = await response.json()
+              // Handle 401 Unauthorized - redirect to login if user was authenticated
+              if (response.status === 401) {
+                // Check if we had a token (user was authenticated)
+                const hadToken = authAPI.getAccessToken() || authAPI.getRefreshToken()
+                if (hadToken && typeof window !== 'undefined') {
+                  // Clear tokens and redirect to login
+                  authAPI.clearTokens()
+                  window.location.href = '/auth'
+                  return
+                }
+                console.log(`Recommendations API: Not authenticated (${response.status})`)
+              } else {
+                console.warn(`Recommendations API returned ${response.status}:`, errorData)
+              }
+            } catch {
+              if (response.status === 401) {
+                // Handle 401 even if JSON parsing fails
+                const hadToken = authAPI.getAccessToken() || authAPI.getRefreshToken()
+                if (hadToken && typeof window !== 'undefined') {
+                  authAPI.clearTokens()
+                  window.location.href = '/auth'
+                  return
+                }
+              } else {
+                console.warn(`Recommendations API returned ${response.status}`)
+              }
+            }
+          } else {
+            // Not JSON (likely HTML redirect) - just log and continue
+            console.warn(`Recommendations API returned non-JSON response (${response.status}), skipping`)
+          }
         }
       } catch (error) {
         console.error("Failed to fetch recommendations:", error)

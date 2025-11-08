@@ -4,7 +4,7 @@
 Real Estate API FastMCP Server
 
 FastMCP-based Model Context Protocol server for the Real Estate API integration with LLMs.
-Provides tools for accessing assets, deal expenses, expense calculations, mortgage calculations, and CRM functionality.
+Provides tools for accessing assets, deal management, calculations, and CRM functionality.
 
 Available Tools:
 
@@ -15,7 +15,7 @@ ASSETS:
 - sync_asset: Trigger synchronization for an asset
 - get_asset_data: Get asset subresource (transactions/permits/plans/appraisal/listings/documents)
 
-DEAL EXPENSES:
+DEAL MANAGEMENT:
 - list_deals: List all deals
 - get_deal: Get deal details
 - create_deal: Create a new deal
@@ -24,11 +24,10 @@ DEAL EXPENSES:
 - list_offers: List offers for a negotiation
 - get_offer: Get offer details
 
-EXPENSE CALCULATION:
+CALCULATIONS:
 - estimate_build_cost: Estimate building construction costs
 - get_cost_options: Get available options for cost estimation
-
-MORTGAGE CALCULATION:
+- calculate_deal_expenses: Calculate complete deal expenses including purchase tax, service costs, and construction costs
 - analyze_mortgage: Analyze mortgage affordability and payment scenarios
 
 CRM:
@@ -56,6 +55,7 @@ Usage Examples:
 4. Analyze mortgage: analyze_mortgage(property_price=4500000, savings_total=900000)
 5. List contacts: list_contacts()
 6. Create deal: create_deal(asset_id=123, stage="discovery")
+7. Calculate deal expenses: calculate_deal_expenses(price=3000000, buyers=[{"sharePct": 100, "isFirstHome": True}], area=100)
 """
 
 import json
@@ -576,7 +576,7 @@ def register_assets_tools():
 
 
 # ============================================================================
-# DEAL EXPENSES TOOLS
+# DEAL MANAGEMENT TOOLS
 # ============================================================================
 
 def register_deals_tools():
@@ -722,6 +722,76 @@ def register_cost_tools():
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", "/cost/options")
 
+    @mcp.tool(description="Calculate deal expenses including purchase tax, service costs, and construction costs.")
+    async def calculate_deal_expenses(
+        ctx: Context,
+        price: float,
+        buyers: List[Dict[str, Any]],
+        area: Optional[float] = None,
+        property_type: Optional[str] = None,
+        services: Optional[List[Dict[str, Any]]] = None,
+        vat_rate: Optional[float] = None,
+        construction_area: Optional[float] = None,
+        construction_cost_per_sqm: Optional[float] = None,
+        construction_includes_vat: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """
+        Calculate complete deal expenses for a property purchase.
+        
+        Args:
+            price: Property price (required)
+            buyers: List of buyer dictionaries with sharePct and optional flags:
+                - sharePct: Percentage share (0-100)
+                - isFirstHome: Boolean (optional)
+                - isReplacementHome: Boolean (optional)
+                - oleh: Boolean (optional, for new immigrants)
+                - disabled: Boolean (optional)
+                - bereavedFamily: Boolean (optional)
+                - name: String (optional)
+            area: Property area in square meters (optional, for price per sqm calculation)
+            property_type: "residential" or "land" (default: "residential")
+            services: List of service cost dictionaries with:
+                - label: Service label
+                - percent: Percentage of price (optional)
+                - amount: Fixed amount (optional)
+                - includesVat: Boolean indicating if VAT is included
+            vat_rate: VAT rate (default: 0.18 for 18%)
+            construction_area: Construction area in sqm (for land purchases)
+            construction_cost_per_sqm: Construction cost per sqm (for land purchases)
+            construction_includes_vat: Whether construction cost includes VAT (default: True)
+            
+        Returns:
+            Dictionary with complete expense breakdown including:
+            - totalTax: Total purchase tax
+            - breakdown: Purchase tax breakdown per buyer
+            - serviceTotal: Total service costs
+            - serviceBreakdown: Service costs breakdown
+            - constructionCost: Construction cost (for land)
+            - total: Total cost including all expenses
+            - pricePerSqBefore: Price per sqm before expenses
+            - pricePerSqAfter: Price per sqm after expenses
+        """
+        data = {
+            "price": price,
+            "buyers": buyers,
+        }
+        if area is not None:
+            data["area"] = area
+        if property_type:
+            data["propertyType"] = property_type
+        if services:
+            data["services"] = services
+        if vat_rate is not None:
+            data["vatRate"] = vat_rate
+        if construction_area is not None:
+            data["constructionArea"] = construction_area
+        if construction_cost_per_sqm is not None:
+            data["constructionCostPerSqm"] = construction_cost_per_sqm
+        if construction_includes_vat is not None:
+            data["constructionIncludesVat"] = construction_includes_vat
+        
+        return _make_request(ctx, "POST", "/deal-expenses/calculate", data=data)
+
 
 # ============================================================================
 # MORTGAGE CALCULATION TOOLS
@@ -735,18 +805,22 @@ def register_mortgage_tools():
         ctx: Context,
         property_price: float,
         savings_total: float,
-        annual_rate_pct: Optional[float] = None,
-        term_years: Optional[int] = None,
+        annual_rate_pct: Optional[float | str] = None,
+        term_years: Optional[int | str] = None,
         transactions: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
+        # Ensure proper type conversion for parameters that might come as strings
+        property_price = float(property_price)
+        savings_total = float(savings_total)
+        
         data = {
             "property_price": property_price,
             "savings_total": savings_total,
         }
         if annual_rate_pct is not None:
-            data["annual_rate_pct"] = annual_rate_pct
+            data["annual_rate_pct"] = float(annual_rate_pct)
         if term_years is not None:
-            data["term_years"] = term_years
+            data["term_years"] = int(term_years)
         if transactions:
             data["transactions"] = transactions
         

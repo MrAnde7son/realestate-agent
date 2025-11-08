@@ -19,6 +19,7 @@ from .api import (
     PlanViewSet,
     estimate_build_cost,
     get_cost_options,
+    calculate_deal_expenses,
 )
 
 
@@ -109,6 +110,13 @@ urlpatterns = [
         name='estimate_build_cost',
     ),
     path('cost/options', get_cost_options, name='get_cost_options'),
+    
+    # Deal expenses endpoint
+    path(
+        'deal-expenses/calculate',
+        calculate_deal_expenses,
+        name='calculate_deal_expenses',
+    ),
 
 
     # Authentication endpoints

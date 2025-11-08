@@ -9,12 +9,12 @@ import Logo from "@/components/Logo"
 import { baseNavigation } from "./app-sidebar"
 import { GlobalSearch } from "./global-search"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { User, Users, CreditCard, Settings, LogOut, X, LineChart } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
+import { getRouteMatchState, usePersistentPathname } from "@/lib/navigation-state"
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -30,7 +30,7 @@ const additionalMobileNavigation = [
 const mobileNavigation = [...baseMobileNavigation, ...additionalMobileNavigation]
 
 export default function Header({ onToggleSidebar }: HeaderProps) {
-  const pathname = usePathname()
+  const activePath = usePersistentPathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const { user, logout } = useAuth()
@@ -50,7 +50,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   // Close mobile sidebar when pathname changes
   React.useEffect(() => {
     setMobileSidebarOpen(false)
-  }, [pathname])
+  }, [activePath])
 
   // Prevent hydration mismatch
   React.useEffect(() => {
@@ -136,22 +136,47 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
                 <nav className="space-y-2">
                   {filteredMobileNavigation.map((item) => {
-                    const isActive = pathname === item.href
+                    const matchState = getRouteMatchState(item.href, activePath)
+                    const isSelf = matchState === 'self'
+                    const isDescendant = matchState === 'descendant'
                     const Icon = item.icon
-                    
+
                     return (
                       <Link
                         key={item.name}
                         href={item.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-[var(--brand-teal)]/10 hover:text-[var(--brand-teal)] mobile-nav-item",
+                          "group relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors mobile-nav-item",
                           "min-h-[44px]", // Ensure 44px touch target
-                          isActive 
-                            ? "bg-[var(--brand-teal)]/10 text-[var(--brand-teal)]" 
-                            : "text-muted-foreground"
+                          isSelf || isDescendant
+                            ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
+                            : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
+                          isSelf
+                            ? "font-semibold"
+                            : isDescendant
+                            ? "font-medium text-[var(--brand-teal)]/80"
+                            : undefined
                         )}
                         onClick={() => setMobileSidebarOpen(false)}
+                        aria-current={
+                          isSelf ? "page" : isDescendant ? "true" : undefined
+                        }
+                        data-active-state={matchState}
                       >
+                        <span
+                          aria-hidden="true"
+                          data-active-indicator
+                          className={cn(
+                            "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                            "ltr:right-1 rtl:left-1",
+                            "w-1",
+                            isSelf
+                              ? "opacity-100"
+                              : isDescendant
+                              ? "opacity-60"
+                              : "opacity-0"
+                          )}
+                        />
                         <Icon className="h-5 w-5 flex-shrink-0" />
                         <span className="truncate">{item.name}</span>
                       </Link>

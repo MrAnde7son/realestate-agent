@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppSidebar from "@/components/layout/app-sidebar";
 
 const mockLogout = vi.fn();
+let mockPathname = "/assets";
 
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({
@@ -24,7 +25,7 @@ vi.mock("@/lib/auth-context", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/assets",
+  usePathname: () => mockPathname,
 }));
 
 vi.mock("next/link", () => {
@@ -45,6 +46,8 @@ vi.mock("next/link", () => {
 describe("AppSidebar accessibility when collapsed", () => {
   beforeEach(() => {
     mockLogout.mockClear();
+    mockPathname = "/assets";
+    window.history.replaceState(null, "", mockPathname);
   });
 
   it("adds aria-labels and tooltips to collapsed navigation items", async () => {
@@ -69,6 +72,47 @@ describe("AppSidebar accessibility when collapsed", () => {
     const assetsLink = screen.getByRole("link", { name: "נכסים" });
     expect(assetsLink).toHaveTextContent("נכסים");
     expect(assetsLink).not.toHaveAttribute("aria-label");
+  });
+});
+
+describe("AppSidebar active navigation state", () => {
+  beforeEach(() => {
+    mockLogout.mockClear();
+    mockPathname = "/assets";
+    window.history.replaceState(null, "", mockPathname);
+  });
+
+  it("marks the exact route as active", async () => {
+    render(<AppSidebar />);
+
+    const assetsLink = screen.getByRole("link", { name: "נכסים" });
+
+    await waitFor(() => {
+      expect(assetsLink).toHaveAttribute("data-active-state", "self");
+    });
+
+    expect(assetsLink).toHaveAttribute("aria-current", "page");
+    const indicator = assetsLink.querySelector("[data-active-indicator]");
+    expect(indicator).not.toBeNull();
+    expect(indicator?.className).toContain("opacity-100");
+  });
+
+  it("marks descendant routes with a parent indicator", async () => {
+    mockPathname = "/assets/123";
+    window.history.replaceState(null, "", mockPathname);
+
+    render(<AppSidebar />);
+
+    const assetsLink = screen.getByRole("link", { name: "נכסים" });
+
+    await waitFor(() => {
+      expect(assetsLink).toHaveAttribute("data-active-state", "descendant");
+    });
+
+    expect(assetsLink).toHaveAttribute("aria-current", "true");
+    const indicator = assetsLink.querySelector("[data-active-indicator]");
+    expect(indicator).not.toBeNull();
+    expect(indicator?.className).toContain("opacity-60");
   });
 });
 

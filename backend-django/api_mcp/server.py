@@ -976,7 +976,7 @@ def register_crm_tools():
     ) -> Dict[str, Any]:
         return _make_request(ctx, "POST", f"/crm/leads/{lead_id}/add_note", data={"text": text})
 
-    @mcp.tool(description="List tasks.")
+    @mcp.tool(description="List tasks. Status options: 'pending' (open tasks), 'completed', 'cancelled'.")
     async def list_tasks(
         ctx: Context,
         contact_id: Optional[int] = None,

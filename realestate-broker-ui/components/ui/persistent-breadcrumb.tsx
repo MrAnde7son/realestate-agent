@@ -44,7 +44,7 @@ export function PersistentBreadcrumb({
   className,
 }: PersistentBreadcrumbProps) {
   return (
-    <div className={cn("flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4", className)}>
+    <div className={cn("flex items-center justify-between gap-2 sm:gap-4 mb-4", className)}>
       <Breadcrumb className="flex-1 min-w-0">
         <BreadcrumbList className="flex-wrap">
           {items.map((item, index) => {

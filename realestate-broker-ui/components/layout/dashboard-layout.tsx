@@ -3,7 +3,7 @@
 import * as React from "react"
 import AppSidebar from "./app-sidebar"
 import Header from "./header"
-import { cn } from "@/lib/utils"
+import { MobileBottomNav } from "./mobile-bottom-nav"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -40,11 +40,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onToggleSidebar={handleToggleSidebar} />
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pt-16 touch-pan-y -webkit-overflow-scrolling-touch">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pt-16 pb-24 touch-pan-y -webkit-overflow-scrolling-touch md:pb-0">
           <div>
             {children}
           </div>
         </main>
+        <MobileBottomNav />
       </div>
     </div>
   )

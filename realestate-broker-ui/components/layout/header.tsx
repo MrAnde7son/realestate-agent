@@ -6,46 +6,25 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Logo from "@/components/Logo"
-import { baseNavigation } from "./app-sidebar"
 import { GlobalSearch } from "./global-search"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { User, Users, CreditCard, Settings, LogOut, X, LineChart } from "lucide-react"
+import { LogOut, X } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
+import { isNavigationPathActive, useMobileNavigation } from "./use-mobile-navigation"
 
 interface HeaderProps {
   onToggleSidebar?: () => void
 }
 
-// Mobile navigation items
-const baseMobileNavigation = baseNavigation.map((item) => ({ ...item }))
-const additionalMobileNavigation = [
-  { name: "פרופיל", href: "/profile", icon: User },
-  { name: "חבילות ותשלומים", href: "/billing", icon: CreditCard },
-  { name: "הגדרות", href: "/settings", icon: Settings },
-]
-const mobileNavigation = [...baseMobileNavigation, ...additionalMobileNavigation]
-
 export default function Header({ onToggleSidebar }: HeaderProps) {
-  const pathname = usePathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const { user, logout } = useAuth()
-  const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
-  const filteredMobileNavigation = mobileNavigation.filter(
-    (item) => item.href !== '/crm' || canAccessCrm
-  )
-  
-  // Add admin navigation items for mobile
-  if (user?.role === 'admin') {
-    filteredMobileNavigation.push(
-      { name: "מעקב", href: "/admin/analytics", icon: LineChart },
-      { name: "משתמשים", href: "/admin/users", icon: Users }
-    )
-  }
+  const { items: mobileNavigation, activeItem, pathname } = useMobileNavigation()
+  const mobilePageTitle = activeItem?.name ?? 'תפריט ראשי'
 
   // Close mobile sidebar when pathname changes
   React.useEffect(() => {
@@ -135,10 +114,10 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <div className="flex-1 overflow-y-auto p-4 mobile-sidebar-nav">
 
                 <nav className="space-y-2">
-                  {filteredMobileNavigation.map((item) => {
-                    const isActive = pathname === item.href
+                  {mobileNavigation.map((item) => {
+                    const isActive = isNavigationPathActive(item.href, pathname)
                     const Icon = item.icon
-                    
+
                     return (
                       <Link
                         key={item.name}
@@ -146,10 +125,11 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-[var(--brand-teal)]/10 hover:text-[var(--brand-teal)] mobile-nav-item",
                           "min-h-[44px]", // Ensure 44px touch target
-                          isActive 
-                            ? "bg-[var(--brand-teal)]/10 text-[var(--brand-teal)]" 
+                          isActive
+                            ? "bg-[var(--brand-teal)]/10 text-[var(--brand-teal)]"
                             : "text-muted-foreground"
                         )}
+                        aria-current={isActive ? 'page' : undefined}
                         onClick={() => setMobileSidebarOpen(false)}
                       >
                         <Icon className="h-5 w-5 flex-shrink-0" />
@@ -217,6 +197,16 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             נדל״נר
           </span>
         </Link>
+        <div
+          className="flex flex-col text-right sm:hidden"
+          aria-live="polite"
+          aria-label="עמוד נוכחי"
+        >
+          <span className="text-[10px] font-medium text-muted-foreground">עמוד נוכחי</span>
+          <span className="text-sm font-semibold text-foreground truncate" data-testid="mobile-page-title">
+            {mobilePageTitle}
+          </span>
+        </div>
       </div>
 
       {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}

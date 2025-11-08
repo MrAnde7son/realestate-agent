@@ -3,6 +3,7 @@
  */
 
 import { authAPI } from './auth'
+import { getUserFriendlyError } from './error-utils'
 
 export interface ApiResponse<T = any> {
   data?: T
@@ -94,7 +95,7 @@ class ApiClient {
         
         return {
           data: undefined,
-          error: 'Session expired. Please log in again.',
+          error: getUserFriendlyError(new Error('401')),
           status: 401,
           ok: false
         }
@@ -107,11 +108,12 @@ class ApiClient {
       try {
         data = await response.json()
       } catch (parseError) {
-        error = 'Failed to parse response'
+        error = getUserFriendlyError('Failed to parse response')
       }
       
       if (!response.ok) {
-        error = (data as any)?.error || `HTTP error! status: ${response.status}`
+        const rawError = (data as any)?.error || `HTTP error! status: ${response.status}`
+        error = getUserFriendlyError({ error: rawError, status: response.status })
       }
       
       return {
@@ -127,7 +129,7 @@ class ApiClient {
       }
       return {
         data: undefined,
-        error: error instanceof Error ? error.message : 'Request failed',
+        error: getUserFriendlyError(error),
         status: 0,
         ok: false
       }

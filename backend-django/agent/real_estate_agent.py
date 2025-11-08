@@ -100,6 +100,132 @@ except Exception as e:
     list_tasks = _stub_func
 
 
+# Patch LangChain's parse_ai_message_to_tool_action to handle None args
+# This must be done BEFORE any LangChain imports that use this function
+def _patch_langchain_tool_parser():
+    """Patch LangChain's tool parser to handle None tool call args.
+    
+    The error occurs in tools.py line 63-64:
+    _tool_input = tool_call["args"]  # This can be None
+    tool_input = _tool_input.get("__arg1", _tool_input)  # Fails if _tool_input is None
+    
+    We patch both the function AND patch it in openai_tools.py which also calls it.
+    """
+    try:
+        # Patch in tools module
+        from langchain.agents.output_parsers import tools as tools_module
+        from langchain.agents.output_parsers import openai_tools as openai_tools_module
+        from langchain_core.messages import ToolCall
+        import json
+        
+        # Save original functions
+        _original_parse_tools = tools_module.parse_ai_message_to_tool_action
+        _original_parse_openai = openai_tools_module.parse_ai_message_to_openai_tool_action
+        
+        def _safe_parse_ai_message_to_tool_action(message):
+            """Wrapper that handles None tool call args."""
+            logger.debug("Patched parse_ai_message_to_tool_action called")
+            # CRITICAL: Fix additional_kwargs BEFORE parsing
+            if hasattr(message, 'additional_kwargs') and message.additional_kwargs:
+                tool_calls_raw = message.additional_kwargs.get("tool_calls", [])
+                if tool_calls_raw:
+                    for tool_call_dict in tool_calls_raw:
+                        if isinstance(tool_call_dict, dict):
+                            func = tool_call_dict.get("function", {})
+                            if isinstance(func, dict):
+                                arguments = func.get("arguments")
+                                # Fix None, empty, or JSON "null" string
+                                if arguments is None or arguments == "" or arguments == "null" or arguments == "None":
+                                    func["arguments"] = "{}"
+                                # Also validate it's valid JSON
+                                try:
+                                    parsed = json.loads(func["arguments"])
+                                    if parsed is None:  # json.loads("null") returns None
+                                        func["arguments"] = "{}"
+                                except json.JSONDecodeError:
+                                    func["arguments"] = "{}"
+            
+            # Fix existing tool_calls
+            # ToolCall is a TypedDict, so we can't use isinstance()
+            # Instead, check if it has the expected attributes
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                for tool_call in message.tool_calls:
+                    # Check if it's a ToolCall-like object (has 'args' attribute/key)
+                    if hasattr(tool_call, 'args'):
+                        if tool_call.args is None:
+                            tool_call.args = {}
+                        elif not isinstance(tool_call.args, dict):
+                            tool_call.args = {}
+                    elif isinstance(tool_call, dict) and 'args' in tool_call:
+                        # Handle dict-like ToolCall
+                        if tool_call.get('args') is None:
+                            tool_call['args'] = {}
+                        elif not isinstance(tool_call.get('args'), dict):
+                            tool_call['args'] = {}
+            
+            # Call original with error handling
+            try:
+                return _original_parse_tools(message)
+            except AttributeError as e:
+                if "'NoneType' object has no attribute 'get'" in str(e):
+                    logger.warning("Caught NoneType error, fixing and retrying...")
+                    # Re-fix everything
+                    if hasattr(message, 'tool_calls') and message.tool_calls:
+                        for tool_call in message.tool_calls:
+                            # Handle both object and dict-like ToolCall
+                            if hasattr(tool_call, 'args') and tool_call.args is None:
+                                tool_call.args = {}
+                            elif isinstance(tool_call, dict) and tool_call.get('args') is None:
+                                tool_call['args'] = {}
+                    if hasattr(message, 'additional_kwargs') and message.additional_kwargs:
+                        tool_calls_raw = message.additional_kwargs.get("tool_calls", [])
+                        if tool_calls_raw:
+                            for tool_call_dict in tool_calls_raw:
+                                if isinstance(tool_call_dict, dict):
+                                    func = tool_call_dict.get("function", {})
+                                    if isinstance(func, dict):
+                                        arguments = func.get("arguments")
+                                        if arguments is None or arguments == "" or arguments == "null":
+                                            func["arguments"] = "{}"
+                    try:
+                        return _original_parse_tools(message)
+                    except Exception:
+                        from langchain_core.agents import AgentFinish
+                        return AgentFinish(
+                            return_values={"output": "אירעה שגיאה בעיבוד הבקשה. אנא נסה לנסח מחדש את השאלה."},
+                            log="Error: Tool call parsing failed"
+                        )
+                raise
+        
+        # Note: ToolCall is a TypedDict, not a class, so we can't patch __init__
+        # Instead, we rely on fixing the args before they're used in the parser
+        
+        # Apply patches
+        tools_module.parse_ai_message_to_tool_action = _safe_parse_ai_message_to_tool_action
+        
+        # Also patch openai_tools - it calls parse_ai_message_to_tool_action internally
+        # We need to ensure it uses our patched version
+        def _safe_parse_openai(message):
+            """Wrapper for OpenAI tools parser that uses our patched function."""
+            # This will call our patched _safe_parse_ai_message_to_tool_action
+            return _original_parse_openai(message)
+        
+        openai_tools_module.parse_ai_message_to_openai_tool_action = _safe_parse_openai
+        
+        # CRITICAL: Also patch the import in openai_tools to use our patched version
+        # openai_tools imports parse_ai_message_to_tool_action, so we need to update that reference
+        if hasattr(openai_tools_module, 'parse_ai_message_to_tool_action'):
+            # Update the imported reference
+            openai_tools_module.parse_ai_message_to_tool_action = _safe_parse_ai_message_to_tool_action
+        
+        logger.info("Patched LangChain tool parser (tools + openai_tools)")
+    except Exception as e:
+        logger.error("Could not patch LangChain tool parser: %s", e, exc_info=True)
+
+# Apply patch IMMEDIATELY - before any other LangChain code runs
+_patch_langchain_tool_parser()
+
+
 class ToolCallTracker(BaseCallbackHandler):
     """Callback handler to track tool calls during agent execution."""
     
@@ -110,6 +236,7 @@ class ToolCallTracker(BaseCallbackHandler):
     def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         """Called when a tool starts running."""
         tool_name = serialized.get("name", "unknown_tool")
+        logger.info("🔧 Tool started: %s with input: %s", tool_name, str(input_str)[:100])
         self.current_tool_call = {
             "tool": tool_name,
             "input": input_str,
@@ -121,8 +248,10 @@ class ToolCallTracker(BaseCallbackHandler):
     def on_tool_end(self, output: str, **kwargs: Any) -> None:
         """Called when a tool finishes running."""
         if self.current_tool_call:
+            tool_name = self.current_tool_call["tool"]
             self.current_tool_call["status"] = "completed"
             self.current_tool_call["output"] = output[:200]  # Truncate long outputs
+            logger.info("✅ Tool completed: %s", tool_name)
             self.current_tool_call = None
     
     def on_tool_error(self, error: Exception, **kwargs: Any) -> None:
@@ -159,6 +288,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         """Called when a tool starts running."""
         tool_name = serialized.get("name", "unknown_tool")
+        logger.info("🔧 Tool started (streaming): %s with input: %s", tool_name, str(input_str)[:100])
         self.current_tool_call = {
             "tool": tool_name,
             "input": input_str,
@@ -189,9 +319,10 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     def on_tool_end(self, output: str, **kwargs: Any) -> None:
         """Called when a tool finishes running."""
         if self.current_tool_call:
+            tool_name = self.current_tool_call["tool"]
             self.current_tool_call["status"] = "completed"
             self.current_tool_call["output"] = str(output)[:200] if output else ""  # Truncate long outputs
-            tool_name = self.current_tool_call["tool"]
+            logger.info("✅ Tool completed (streaming): %s", tool_name)
             self.current_tool_call = None
             try:
                 self.chunk_queue.put_nowait({
@@ -311,6 +442,7 @@ class RealEstateAgent:
         
         # Create tools
         self.tools = self._create_tools()
+        logger.info("Created %d tools for agent", len(self.tools))
         
         # Create agent
         self.agent_executor = self._create_agent_executor()
@@ -318,11 +450,22 @@ class RealEstateAgent:
     def _create_llm(self, provider: str, temperature: float, user_api_key: Optional[str] = None):
         """Create LLM instance based on provider."""
         # Helper to get API key from user key first, then env or Django settings
-        def get_api_key(env_var_name: str, settings_attr: str = None) -> tuple[Optional[str], str]:
+        def get_api_key(env_var_name: str, settings_attr: str = None, expected_provider: str = None) -> tuple[Optional[str], str]:
             """Return (key, source) tuple where source indicates where key came from."""
-            # Use user's API key if provided
-            if user_api_key:
-                return user_api_key.strip(), "user"
+            # Use user's API key ONLY if it matches the expected provider
+            # This prevents using a Groq key for OpenAI, etc.
+            if user_api_key and expected_provider:
+                # Check if user_api_key is for the expected provider by checking env vars
+                # If we're looking for GROQ_API_KEY and user_api_key was passed, assume it's for the current provider
+                # The views.py code ensures the correct key is passed for the selected provider
+                provider_key_map = {
+                    "groq": "GROQ_API_KEY",
+                    "openai": "OPENAI_API_KEY",
+                    "gemini": "GEMINI_API_KEY"
+                }
+                if expected_provider in provider_key_map and env_var_name == provider_key_map[expected_provider]:
+                    return user_api_key.strip(), "user"
+            
             # Fall back to environment variable
             key = os.getenv(env_var_name)
             if key:
@@ -339,7 +482,7 @@ class RealEstateAgent:
             return None, "none"
         
         if provider == "openai":
-            api_key, key_source = get_api_key("OPENAI_API_KEY", "OPENAI_API_KEY")
+            api_key, key_source = get_api_key("OPENAI_API_KEY", "OPENAI_API_KEY", expected_provider=provider)
             if not api_key or not api_key.strip():
                 logger.error("OPENAI_API_KEY is missing or empty (source: %s)", key_source)
                 raise ValueError("OPENAI_API_KEY is required and must not be empty")
@@ -357,8 +500,8 @@ class RealEstateAgent:
                 streaming=True,  # Enable streaming for callbacks
             )
         elif provider == "gemini":
-            api_key1, source1 = get_api_key("GEMINI_API_KEY", "GEMINI_API_KEY")
-            api_key2, source2 = get_api_key("GOOGLE_API_KEY", "GOOGLE_API_KEY")
+            api_key1, source1 = get_api_key("GEMINI_API_KEY", "GEMINI_API_KEY", expected_provider=provider)
+            api_key2, source2 = get_api_key("GOOGLE_API_KEY", "GOOGLE_API_KEY", expected_provider=provider)
             api_key = api_key1 or api_key2
             key_source = source1 if api_key1 else source2
             if not api_key or not api_key.strip():
@@ -375,16 +518,17 @@ class RealEstateAgent:
                 streaming=True,  # Enable streaming for callbacks
             )
         elif provider == "groq":
-            api_key, key_source = get_api_key("GROQ_API_KEY", "GROQ_API_KEY")
+            api_key, key_source = get_api_key("GROQ_API_KEY", "GROQ_API_KEY", expected_provider=provider)
             if not api_key or not api_key.strip():
                 logger.error("GROQ_API_KEY is missing or empty (source: %s)", key_source)
                 raise ValueError("GROQ_API_KEY is required and must not be empty")
             key_preview = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else api_key[:10] + "..."
+            groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
             logger.info("Using Groq LLM - Model: %s, Key source: %s, Key preview: %s", 
-                       os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile"), key_source, key_preview)
+                       groq_model, key_source, key_preview)
             # Groq uses OpenAI-compatible API
             return ChatOpenAI(
-                model=os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile"),
+                model=groq_model,
                 temperature=temperature,
                 api_key=api_key.strip(),  # Ensure no leading/trailing whitespace
                 base_url="https://api.groq.com/openai/v1",
@@ -394,13 +538,20 @@ class RealEstateAgent:
             raise ValueError(f"Unsupported LLM provider: {provider}")
     
     def _create_tools(self) -> List[BaseTool]:
-        """Create LangChain tools from MCP server functions."""
+        """Create LangChain tools from MCP server functions.
+        
+        MockContext: A dummy context object passed to MCP functions.
+        Some MCP functions expect a context parameter for logging/info.
+        This is just a placeholder - it doesn't affect functionality.
+        """
         # Create a context object for MCP tools
+        # This is just a dummy object - MCP functions might expect a context parameter
         class MockContext:
             def info(self, msg: str):
-                pass
+                pass  # No-op - just satisfies the interface
         
         ctx = MockContext()
+        logger.debug("Creating tools with MockContext (dummy context object)")
         
         # Helper function to wrap async tool functions for LangChain
         def wrap_async_tool(async_func):
@@ -782,7 +933,7 @@ class RealEstateAgent:
             description="רשימת כל המשימות ב-CRM, עם אפשרות סינון לפי סטטוס."
         )
         
-        return [
+        tools_list = [
             list_assets_tool,
             get_asset_tool,
             create_asset_tool,
@@ -800,6 +951,12 @@ class RealEstateAgent:
             create_lead_tool,
             list_tasks_tool,
         ]
+        
+        # Log tool names for debugging
+        tool_names = [tool.name for tool in tools_list]
+        logger.debug("Created tools: %s", ", ".join(tool_names))
+        
+        return tools_list
     
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the agent executor with system prompt."""
@@ -832,13 +989,23 @@ class RealEstateAgent:
         ])
         
         agent = create_openai_tools_agent(self.llm, self.tools, prompt)
+        
+        # Simple error handler for parsing errors
+        def handle_parsing_error(error: Exception) -> str:
+            """Handle parsing errors gracefully."""
+            error_msg = str(error)
+            logger.error("Parsing error occurred: %s", error_msg)
+            if "'NoneType' object has no attribute 'get'" in error_msg or "NoneType" in error_msg:
+                return "אירעה שגיאה בעיבוד הבקשה. אנא נסה לנסח מחדש את השאלה."
+            return "אירעה שגיאה בעיבוד הבקשה. אנא נסה שוב."
+        
         return AgentExecutor(
             agent=agent,
             tools=self.tools,
-            verbose=False,  # Disable verbose to reduce noise - use logger instead
-            handle_parsing_errors=True,
+            verbose=True,  # Enable verbose to show tool chain in logs
+            handle_parsing_errors=handle_parsing_error,
             max_iterations=10,
-            return_intermediate_steps=False,  # Don't return intermediate steps in output
+            return_intermediate_steps=False,
         )
     
     async def chat(self, message: str, chat_history: Optional[List] = None, track_tool_calls: bool = True) -> Dict[str, Any]:
@@ -851,32 +1018,43 @@ class RealEstateAgent:
         
         Returns:
             Dictionary with 'response' and 'tool_calls' keys
+        
+        Raises:
+            Exception: If agent execution fails, with a user-friendly error message
         """
         history = chat_history or []
         
-        if track_tool_calls:
-            callback = ToolCallTracker()
-            result = await self.agent_executor.ainvoke(
-                {"input": message, "chat_history": history},
-                config={"callbacks": [callback]}
-            )
-            tool_calls = callback.get_tool_calls()
-            # Translate tool names to Hebrew
-            for tool_call in tool_calls:
-                tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
-            return {
-                "response": result["output"],
-                "tool_calls": tool_calls
-            }
-        else:
-            result = await self.agent_executor.ainvoke({
-                "input": message,
-                "chat_history": history,
-            })
-            return {
-                "response": result["output"],
-                "tool_calls": []
-            }
+        try:
+            if track_tool_calls:
+                callback = ToolCallTracker()
+                result = await self.agent_executor.ainvoke(
+                    {"input": message, "chat_history": history},
+                    config={"callbacks": [callback]}
+                )
+                tool_calls = callback.get_tool_calls()
+                # Translate tool names to Hebrew
+                for tool_call in tool_calls:
+                    tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+                return {
+                    "response": result.get("output", ""),
+                    "tool_calls": tool_calls
+                }
+            else:
+                result = await self.agent_executor.ainvoke({
+                    "input": message,
+                    "chat_history": history,
+                })
+                return {
+                    "response": result.get("output", ""),
+                    "tool_calls": []
+                }
+        except Exception as e:
+            # Log the full error for debugging
+            logger.exception("Error in agent chat: %s", e)
+            # Extract user-friendly error message
+            error_msg = self._extract_error_message(e)
+            # Raise with user-friendly message
+            raise Exception(error_msg) from e
     
     async def chat_stream(self, message: str, chat_history: Optional[List] = None):
         """Stream chat responses from the agent.
@@ -936,20 +1114,15 @@ class RealEstateAgent:
             except Exception as e:
                 logger.exception("Error in agent execution: %s", e)
                 try:
-                    # Handle specific error types with user-friendly messages
-                    error_str = str(e)
-                    if "401" in error_str or "invalid_api_key" in error_str.lower() or "AuthenticationError" in str(type(e)):
-                        error_msg = ("שגיאת אימות: מפתח API לא תקף או חסר. "
-                                   "אנא ודא שמפתח ה-API מוגדר נכון במשתני הסביבה.")
-                    elif "429" in error_str or "rate_limit" in error_str.lower():
-                        error_msg = "הגעת למגבלת השימוש ב-API. אנא נסה שוב מאוחר יותר."
-                    elif "timeout" in error_str.lower():
-                        error_msg = "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
-                    else:
-                        error_msg = f"שגיאה בביצוע הסוכן: {error_str[:200]}"
+                    # Use the error extraction method for consistent error messages
+                    error_msg = self._extract_error_message(e)
                     callback.chunk_queue.put_nowait({"type": "error", "error": error_msg})
                 except Exception:
-                    pass
+                    # Fallback if error extraction fails
+                    try:
+                        callback.chunk_queue.put_nowait({"type": "error", "error": "אירעה שגיאה בעת ביצוע הסוכן. אנא נסה שוב."})
+                    except Exception:
+                        pass
                 finally:
                     callback.mark_finished()
         
@@ -986,15 +1159,8 @@ class RealEstateAgent:
                                 break
                         # If no error event was found in queue, send one
                         if not error_sent:
-                            error_str = str(exception)
-                            if "429" in error_str or "rate_limit" in error_str.lower():
-                                error_msg = "הגעת למגבלת השימוש ב-API. אנא נסה שוב מאוחר יותר."
-                            elif "401" in error_str or "invalid_api_key" in error_str.lower():
-                                error_msg = "שגיאת אימות: מפתח API לא תקף או חסר."
-                            elif "timeout" in error_str.lower():
-                                error_msg = "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
-                            else:
-                                error_msg = f"שגיאה בביצוע הסוכן: {error_str[:200]}"
+                            # Use the error extraction method for consistent error messages
+                            error_msg = self._extract_error_message(exception)
                             yield {"type": "error", "error": error_msg}
                     else:
                         # Agent finished successfully, drain remaining events
@@ -1086,10 +1252,57 @@ class RealEstateAgent:
         
         Returns:
             Agent response string
+        
+        Raises:
+            Exception: If agent execution fails, with a user-friendly error message
         """
         import asyncio
-        result = asyncio.run(self.chat(message, track_tool_calls=False))
-        return result.get("response", "") if isinstance(result, dict) else result
+        try:
+            result = asyncio.run(self.chat(message, track_tool_calls=False))
+            response = result.get("response", "") if isinstance(result, dict) else result
+            if not response:
+                return "לא התקבלה תשובה מהסוכן."
+            return response
+        except Exception as e:
+            # Extract meaningful error message
+            error_msg = self._extract_error_message(e)
+            raise Exception(error_msg) from e
+    
+    def _extract_error_message(self, exception: Exception) -> str:
+        """Extract user-friendly error message from exception."""
+        error_str = str(exception)
+        error_lower = error_str.lower()
+        
+        # Handle NoneType parsing errors (most common issue)
+        if "'nonetype' object has no attribute 'get'" in error_lower:
+            return "אירעה שגיאה בעיבוד הבקשה. אנא נסה לנסח מחדש את השאלה."
+        
+        # Handle model decommissioned errors
+        if "model" in error_lower and ("decommissioned" in error_lower or "no longer supported" in error_lower):
+            return "המודל שנבחר הוצא משימוש. אנא עדכן את משתנה הסביבה GROQ_MODEL למודל תקף."
+        
+        # Handle API key errors
+        if "api key" in error_lower or "authentication" in error_lower or "401" in error_str:
+            return "שגיאת אימות: מפתח API לא תקף או חסר."
+        
+        # Handle rate limit errors
+        if "rate limit" in error_lower or "429" in error_str:
+            return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
+        
+        # Handle timeout errors
+        if "timeout" in error_lower:
+            return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
+        
+        # Handle connection errors
+        if "connection" in error_lower or "network" in error_lower:
+            return "בעיית חיבור לשירות. אנא בדוק את החיבור לאינטרנט ונסה שוב."
+        
+        # Handle quota errors
+        if "quota" in error_lower or "limit" in error_lower:
+            return "המגבלה היומית הושגה. אנא נסה שוב מחר."
+        
+        # Generic fallback
+        return "אירעה שגיאה בעת ביצוע הסוכן. אנא נסה שוב."
 
 
 def main():
@@ -1155,12 +1368,18 @@ def main():
                     break
                 
                 response = agent.run(user_input)
-                print(f"\nAgent: {response}\n")
+                if response:
+                    print(f"\nAgent: {response}\n")
+                else:
+                    print("\nAgent: לא התקבלה תשובה.\n")
             except KeyboardInterrupt:
                 print("\nGoodbye!")
                 break
             except Exception as e:
-                print(f"\nError: {e}\n")
+                # Error message is already user-friendly from _extract_error_message
+                error_msg = str(e)
+                print(f"\nError: {error_msg}\n")
+                logger.exception("Error in interactive mode: %s", e)
 
 
 if __name__ == "__main__":

@@ -250,8 +250,8 @@ CSRF_TRUSTED_ORIGINS = [
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'core.authentication.APITokenAuthentication',  # API token authentication (check first)
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'core.authentication.APITokenAuthentication',  # API token authentication
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',

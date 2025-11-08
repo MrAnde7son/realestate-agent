@@ -10,6 +10,13 @@ from .models import APIToken
 class APITokenAuthentication(BaseAuthentication):
     """Authentication backend that accepts API tokens."""
     
+    def authenticate_header(self, request):
+        """Return a string to be used as the value of the `WWW-Authenticate`
+        header in a `401 Unauthenticated` response, or `None` if the
+        authentication scheme should return `403 Permission Denied` responses.
+        """
+        return 'Bearer'
+    
     def authenticate(self, request):
         """Authenticate using API token from Authorization header."""
         auth_header = request.META.get('HTTP_AUTHORIZATION', '')
@@ -20,6 +27,12 @@ class APITokenAuthentication(BaseAuthentication):
         token = auth_header.split(' ')[1] if len(auth_header.split(' ')) > 1 else None
         
         if not token:
+            return None
+        
+        # Skip JWT tokens (they have 3 parts separated by dots)
+        # API tokens are URL-safe base64 strings without dots
+        if token.count('.') == 2:
+            # This looks like a JWT token, let JWT authentication handle it
             return None
         
         try:

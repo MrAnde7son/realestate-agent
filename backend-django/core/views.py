@@ -4850,6 +4850,10 @@ def get_user_friendly_error_message(exception: Exception) -> str:
         return "שגיאה בשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
     
     # Check error message content for common patterns
+    if "model" in error_str and ("decommissioned" in error_str or "no longer supported" in error_str):
+        return "המודל שנבחר הוצא משימוש. אנא עדכן את משתנה הסביבה GROQ_MODEL למודל תקף (לדוגמה: llama-3.3-70b-versatile)"
+    if "'nonetype' object has no attribute 'get'" in error_str or ("nonetype" in error_str and "get" in error_str):
+        return "אירעה שגיאה בעיבוד הבקשה. אנא נסה לנסח מחדש את השאלה או לנסות שוב."
     if "rate limit" in error_str or "429" in error_str:
         return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
     if "quota" in error_str or "tokens per day" in error_str:
@@ -4992,11 +4996,20 @@ def agent_chat(request):
         # If no user preference or no valid key, check environment
         if not llm_provider:
             llm_provider = os.getenv("AGENT_LLM_PROVIDER")
-            if not llm_provider:
-                llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+            # Validate key exists for explicitly set provider
+            if llm_provider and not has_valid_api_key(llm_provider, user):
+                llm_provider = None  # Fall back to auto-detection
+        
+        # Check default provider if still not set
+        if not llm_provider:
+            default_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+            # Only use default if it has a valid key
+            if default_provider and has_valid_api_key(default_provider, user):
+                llm_provider = default_provider
         
         # Auto-detect if still no provider
         if not llm_provider:
+            # Check user's keys first, then environment - prefer groq
             if has_valid_api_key("groq", user):
                 llm_provider = "groq"
             elif has_valid_api_key("gemini", user):
@@ -5161,12 +5174,20 @@ def agent_chat_stream(request):
         # If no user preference or no valid key, check environment
         if not llm_provider:
             llm_provider = os.getenv("AGENT_LLM_PROVIDER")
-            if not llm_provider:
-                llm_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+            # Validate key exists for explicitly set provider
+            if llm_provider and not has_valid_api_key(llm_provider, user):
+                llm_provider = None  # Fall back to auto-detection
+        
+        # Check default provider if still not set
+        if not llm_provider:
+            default_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
+            # Only use default if it has a valid key
+            if default_provider and has_valid_api_key(default_provider, user):
+                llm_provider = default_provider
         
         # Auto-detect if still no provider
         if not llm_provider:
-            # Check user's keys first, then environment
+            # Check user's keys first, then environment - prefer groq
             if has_valid_api_key("groq", user):
                 llm_provider = "groq"
             elif has_valid_api_key("gemini", user):

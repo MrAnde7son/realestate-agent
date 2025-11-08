@@ -13,6 +13,11 @@ import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Typography } from '@/components/ui/typography'
 import { fmtCurrency } from '@/lib/utils'
+import {
+  buildResolvedCssVariableDeclaration,
+  colorVar,
+  hslColorVarWithAlpha,
+} from '@/lib/design-tokens'
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput, type BuildCostEstimate, type CostEstimateOptions, fetchBuildCostEstimate, fetchCostOptions, mergeBuildEstimateIntoDeal } from '@/lib/deal-expenses'
 import type { Asset } from '@/lib/normalizers/asset'
@@ -776,6 +781,8 @@ export default function DealExpensesPage() {
     if (!printWindow) return
 
     const propertyTypeLabel = isLand ? 'קרקע' : 'נכס בנוי'
+    const themeVariables = buildResolvedCssVariableDeclaration()
+    const chartHighlight = hslColorVarWithAlpha('chart1', 0.12)
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -784,19 +791,20 @@ export default function DealExpensesPage() {
         <meta charset="UTF-8">
         <title>חישוב הוצאות עסקה</title>
         <style>
+          ${themeVariables}
           body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
           .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { color: #2563eb; margin-bottom: 10px; }
+          .header h1 { color: ${colorVar('brandBlue')}; margin-bottom: 10px; }
           .section { margin-bottom: 25px; }
-          .section h2 { color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
+          .section h2 { color: ${colorVar('text')}; border-bottom: 2px solid ${colorVar('border')}; padding-bottom: 5px; }
           .row { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; }
-          .row:nth-child(even) { background-color: #f9fafb; }
+          .row:nth-child(even) { background-color: ${colorVar('chip')}; }
           .label { font-weight: bold; }
-          .value { color: #059669; font-weight: bold; }
-          .total { background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
-          .total .value { font-size: 1.2em; color: #1d4ed8; }
-          .badge { background-color: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 10px; }
-          .footer { margin-top: 30px; text-align: center; color: #6b7280; font-size: 0.9em; }
+          .value { color: ${colorVar('brandGreen')}; font-weight: bold; }
+          .total { background-color: ${chartHighlight}; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          .total .value { font-size: 1.2em; color: ${colorVar('brandBlue')}; }
+          .badge { background-color: ${colorVar('chip')}; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 10px; }
+          .footer { margin-top: 30px; text-align: center; color: ${colorVar('sub')}; font-size: 0.9em; }
         </style>
       </head>
       <body>
@@ -850,7 +858,7 @@ export default function DealExpensesPage() {
               <span class="value">${fmtCurrency(item.tax)}</span>
             </div>
           `).join('')}
-          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
+          <div class="row" style="border-top: 1px solid ${colorVar('border')}; margin-top: 10px; padding-top: 10px;">
             <span class="label">סה&quot;כ מס רכישה:</span>
             <span class="value">${fmtCurrency(result.totalTax)}</span>
           </div>
@@ -874,7 +882,7 @@ export default function DealExpensesPage() {
               <span class="value">${fmtCurrency(item.cost)}</span>
             </div>
           `).join('')}
-          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
+          <div class="row" style="border-top: 1px solid ${colorVar('border')}; margin-top: 10px; padding-top: 10px;">
             <span class="label">סה&quot;כ הוצאות עיסקה:</span>
             <span class="value">${fmtCurrency(result.serviceTotal)}</span>
           </div>

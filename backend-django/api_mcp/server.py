@@ -109,6 +109,9 @@ def _make_request(
 ) -> Dict[str, Any]:
     """Make an HTTP request to the API."""
     import requests
+    import logging
+    
+    logger = logging.getLogger(__name__)
 
     url = f"{_get_api_base_url()}{endpoint}"
     headers = {"Content-Type": "application/json"}
@@ -116,6 +119,9 @@ def _make_request(
     token = _get_api_token()
     if token:
         headers["Authorization"] = f"Bearer {token}"
+        logger.debug(f"MCP request to {url} with token: {token[:20]}...")
+    else:
+        logger.warning(f"MCP request to {url} without token - REALESTATE_API_TOKEN not set")
     
     try:
         if method == "GET":
@@ -131,6 +137,17 @@ def _make_request(
         else:
             return {"success": False, "error": f"Unsupported method: {method}"}
         
+        # Log response status for debugging
+        if response.status_code == 401:
+            logger.warning(f"401 Unauthorized for {url}. Token present: {bool(token)}, Token preview: {token[:20] if token else 'None'}...")
+            # Try to get error details
+            try:
+                error_data = response.json()
+                logger.warning(f"Error details: {error_data}")
+            except Exception:
+                error_text = response.text[:200]
+                logger.warning(f"Error text: {error_text}")
+        
         response.raise_for_status()
         
         # Handle empty responses
@@ -138,6 +155,20 @@ def _make_request(
             return {"success": True, "data": None}
         
         return {"success": True, "data": response.json()}
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+        error_msg = str(e)
+        try:
+            if hasattr(e, 'response') and e.response:
+                error_data = e.response.json()
+                error_msg = error_data.get('error', error_msg)
+        except Exception:
+            pass
+        return {
+            "success": False,
+            "error": error_msg,
+            "status_code": status_code,
+        }
     except requests.exceptions.RequestException as e:
         return {
             "success": False,

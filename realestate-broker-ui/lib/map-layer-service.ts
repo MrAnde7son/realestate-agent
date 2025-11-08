@@ -1,4 +1,5 @@
 import layersConfig from './map-layers-config.json'
+import { resolveColorValue } from './design-tokens'
 
 export interface LayerConfig {
   id: string
@@ -139,12 +140,13 @@ export class MapLayerService {
           maxzoom: config.maxzoom
         }
       } else if (config.type === 'geojson') {
+        const fillColor = config.style?.fillColor ?? resolveColorValue('brandBlue')
         layer = {
           id: layerId,
           type: 'fill',
           source: sourceId,
           paint: {
-            'fill-color': config.style?.fillColor || '#0080ff',
+            'fill-color': fillColor,
             'fill-opacity': config.opacity
           },
           layout: {
@@ -154,13 +156,14 @@ export class MapLayerService {
           maxzoom: config.maxzoom
         }
       } else if (config.type === 'vector') {
+        const fillColor = config.style?.fillColor ?? resolveColorValue('brandBlue')
         layer = {
           id: layerId,
           type: 'fill',
           source: sourceId,
           'source-layer': config.id,
           paint: {
-            'fill-color': config.style?.fillColor || '#0080ff',
+            'fill-color': fillColor,
             'fill-opacity': config.opacity
           },
           layout: {

@@ -148,7 +148,9 @@ class HebrewPDFGenerationTest(TestCase):
         ]:
             self.assertIn(title, text)
         self.assertIn("01.07.2023", text)
-        self.assertIn("07.11.2025", text)
+        # Check for today's date (transactions are created with timezone.now())
+        today_formatted = timezone.now().strftime("%d.%m.%Y")
+        self.assertIn(today_formatted, text)
         self.assertIn("₪11089", text)
         # Ensure custom sections only include requested content
         req = self.factory.post(

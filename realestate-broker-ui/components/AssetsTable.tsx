@@ -168,7 +168,7 @@ function createColumns({
               <span className="block truncate">{row.original.address}</span>
             </Link>
             {row.original.isWatched && (
-              <Badge variant="outline" className="flex items-center gap-1 text-amber-600 border-amber-200 bg-amber-50">
+              <Badge variant="warning" className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-current" />
                 במעקב
               </Badge>
@@ -1919,23 +1919,38 @@ export default function AssetsTable({
                   ) : table.getRowModel().rows.length === 0 ? (
                     <TR>
                       <TD colSpan={table.getFlatHeaders().length} className="py-12">
-                        <EmptyState
-                          icon={Search}
-                          title="לא נמצאו נכסים"
-                          description={
-                            searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
-                              ? 'נסה לשנות את הסינון או החיפוש'
-                              : 'אין נכסים זמינים כרגע'
-                          }
-                          action={
-                            !searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew ? (
-                              <Button onClick={onAddNew}>
-                                <Plus className="h-4 w-4 ms-2" />
-                                הוסף נכס ראשון
-                              </Button>
-                            ) : undefined
-                          }
-                        />
+                        {(() => {
+                          const hasFilters = searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
+                          const isEmptyState = !hasFilters && onAddNew
+                          
+                          return (
+                            <EmptyState
+                              icon={hasFilters ? Search : Building}
+                              title={hasFilters ? "לא נמצאו נכסים" : "אין נכסים"}
+                              description={
+                                hasFilters
+                                  ? 'נסה לשנות את הסינון או החיפוש'
+                                  : 'התחל על ידי הוספת נכס ראשון או ייבוא מנתונים'
+                              }
+                              action={
+                                isEmptyState ? (
+                                  <div className="flex gap-2">
+                                    <Button onClick={onAddNew}>
+                                      <Plus className="h-4 w-4 ms-2" />
+                                      הוסף נכס
+                                    </Button>
+                                    {importAction && (
+                                      <Button variant="outline" onClick={importAction.onClick}>
+                                        <Download className="h-4 w-4 ms-2" />
+                                        ייבא נתונים
+                                      </Button>
+                                    )}
+                                  </div>
+                                ) : undefined
+                              }
+                            />
+                          )
+                        })()}
                       </TD>
                     </TR>
                   ) : (
@@ -2015,23 +2030,38 @@ export default function AssetsTable({
             ))
           ) : data.length === 0 ? (
             <div className="col-span-full">
-              <EmptyState
-                icon={Search}
-                title="לא נמצאו נכסים"
-                description={
-                  searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
-                    ? 'נסה לשנות את הסינון או החיפוש'
-                    : 'אין נכסים זמינים כרגע'
-                }
-                action={
-                  !searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew ? (
-                    <Button onClick={onAddNew}>
-                      <Plus className="ms-2 h-4 w-4" />
-                      הוסף נכס ראשון
-                    </Button>
-                  ) : undefined
-                }
-              />
+              {(() => {
+                const hasFilters = searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
+                const isEmptyState = !hasFilters && onAddNew
+                
+                return (
+                  <EmptyState
+                    icon={hasFilters ? Search : Building}
+                    title={hasFilters ? "לא נמצאו נכסים" : "אין נכסים"}
+                    description={
+                      hasFilters
+                        ? 'נסה לשנות את הסינון או החיפוש'
+                        : 'התחל על ידי הוספת נכס ראשון או ייבוא מנתונים'
+                    }
+                    action={
+                      isEmptyState ? (
+                        <div className="flex gap-2">
+                          <Button onClick={onAddNew}>
+                            <Plus className="h-4 w-4 ms-2" />
+                            הוסף נכס
+                          </Button>
+                          {importAction && (
+                            <Button variant="outline" onClick={importAction.onClick}>
+                              <Download className="h-4 w-4 ms-2" />
+                              ייבא נתונים
+                            </Button>
+                          )}
+                        </div>
+                      ) : undefined
+                    }
+                  />
+                )
+              })()}
             </div>
           ) : (
             data.map(asset => (

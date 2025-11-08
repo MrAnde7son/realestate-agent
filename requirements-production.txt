@@ -1,5 +1,6 @@
 # Production requirements for the backend container including data pipeline and collectors
 -r backend-django/requirements.txt
+-r backend-django/requirements-langchain.txt
 -r db/requirements.txt
 -r orchestration/requirements.txt
 -r gov/requirements.txt

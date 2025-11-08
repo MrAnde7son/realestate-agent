@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { Plus, Trash2, TestTube, Bell, Building } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 import { 
   ALERT_TYPES, 
   ALERT_TYPE_LABELS, 
@@ -49,6 +50,7 @@ interface AlertRulesManagerProps {
 
 export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }: AlertRulesManagerProps) {
   const { refreshUser } = useAuth()
+  const { toast } = useToast()
   const [rules, setRules] = useState<AlertRule[]>([])
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -194,12 +196,26 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
         if (onRuleSaved) {
           onRuleSaved()
         }
+        
+        toast({
+          title: 'הצלחה',
+          description: rule.id ? 'כלל ההתראה עודכן בהצלחה' : 'כלל ההתראה נשמר בהצלחה',
+          variant: 'success',
+        })
       } else {
-        alert(`Failed to save rule: ${response.error || 'Unknown error'}`)
+        toast({
+          title: 'שגיאה',
+          description: response.error || 'לא ניתן לשמור את כלל ההתראה',
+          variant: 'destructive',
+        })
       }
     } catch (error) {
       console.error('Failed to save rule:', error)
-      alert('Failed to save rule')
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לשמור את כלל ההתראה',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -211,13 +227,25 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
       const response = await api.post('/api/alerts', { test: true })
       
       if (response.ok) {
-        alert('Test alert sent successfully!')
+        toast({
+          title: 'הצלחה',
+          description: 'התראה לבדיקה נשלחה בהצלחה',
+          variant: 'success',
+        })
       } else {
-        alert(`Failed to send test: ${response.error || 'Unknown error'}`)
+        toast({
+          title: 'שגיאה',
+          description: response.error || 'לא ניתן לשלוח התראה לבדיקה',
+          variant: 'destructive',
+        })
       }
     } catch (error) {
       console.error('Failed to send test:', error)
-      alert('Failed to send test')
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לשלוח התראה לבדיקה',
+        variant: 'destructive',
+      })
     } finally {
       setTesting(false)
     }

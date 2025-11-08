@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { FileText, Download, Eye, Calendar, MapPin, Trash2, ExternalLink, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 
 type Report = {
   id: number
@@ -32,6 +33,7 @@ const getStatusHebrew = (status: string): string => {
 }
 
 export default function ReportsPage() {
+  const { toast } = useToast()
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
@@ -85,14 +87,25 @@ export default function ReportsPage() {
       if (response.ok) {
         // Remove the report from the local state
         setReports(prev => prev.filter(r => r.id !== reportId))
-        // Show success message (you could add a toast notification here)
-        alert('הדוח נמחק בהצלחה')
+        toast({
+          title: 'הצלחה',
+          description: 'הדוח נמחק בהצלחה',
+          variant: 'success',
+        })
       } else {
-        alert(`שגיאה במחיקת הדוח: ${response.error}`)
+        toast({
+          title: 'שגיאה',
+          description: response.error || 'לא ניתן למחוק את הדוח',
+          variant: 'destructive',
+        })
       }
     } catch (error) {
       console.error('Error deleting report:', error)
-      alert('שגיאה במחיקת הדוח')
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן למחוק את הדוח',
+        variant: 'destructive',
+      })
     } finally {
       setDeleting(null)
     }

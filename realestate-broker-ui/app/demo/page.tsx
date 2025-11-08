@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Typography } from "@/components/ui/typography"
 import { useAuth } from "@/lib/auth-context"
 import { authAPI } from "@/lib/auth"
 
@@ -31,9 +32,17 @@ export default function DemoPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center p-4 text-center">
-      <h1 className="text-2xl font-bold mb-4">התנסות בדמו</h1>
-      <p className="text-muted-foreground mb-6">אין צורך בהרשמה</p>
-      {error && <p className="text-destructive mb-4">{error}</p>}
+      <Typography variant="h1" className="text-2xl font-bold mb-4">
+        התנסות בדמו
+      </Typography>
+      <Typography variant="muted" className="mb-6">
+        אין צורך בהרשמה
+      </Typography>
+      {error && (
+        <Typography variant="body" className="text-destructive mb-4">
+          {error}
+        </Typography>
+      )}
       <Button onClick={startDemo} disabled={loading}>
         {loading ? "מתחיל..." : "התחל דמו"}
       </Button>

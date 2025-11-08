@@ -799,7 +799,7 @@ export default function PermitsTable({
       />
 
       <div className="relative">
-        <Table className="rtl">
+        <Table className="rtl" aria-label="רשימת היתרים">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

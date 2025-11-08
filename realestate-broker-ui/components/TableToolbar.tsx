@@ -26,6 +26,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/Badge";
@@ -739,6 +740,7 @@ export default function TableToolbar({
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, min: parsed });
                 track({ value: parsed ?? 'clear', suffix: 'min' });
               }}
+              aria-label={`${filter.label} - מינימום`}
             />
           </div>
           <div className="space-y-1">
@@ -755,6 +757,7 @@ export default function TableToolbar({
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, max: parsed });
                 track({ value: parsed ?? 'clear', suffix: 'max' });
               }}
+              aria-label={`${filter.label} - מקסימום`}
             />
           </div>
         </div>
@@ -775,6 +778,7 @@ export default function TableToolbar({
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, from: value });
                 track({ value: value ?? 'clear', suffix: 'from' });
               }}
+              aria-label={`${filter.label} - מתאריך`}
             />
           </div>
           <div className="space-y-1">
@@ -788,6 +792,7 @@ export default function TableToolbar({
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, to: value });
                 track({ value: value ?? 'clear', suffix: 'to' });
               }}
+              aria-label={`${filter.label} - עד תאריך`}
             />
           </div>
         </div>
@@ -804,6 +809,7 @@ export default function TableToolbar({
             onAdditionalFilterChange?.(filter.key, value);
             track({ value });
           }}
+          aria-label={filter.label}
         />
       );
     }
@@ -927,6 +933,7 @@ export default function TableToolbar({
                       value,
                     });
                   }}
+                  aria-label={priceMinFilter.label ?? 'מחיר מינימלי'}
                 />
               </div>
             )}
@@ -951,6 +958,7 @@ export default function TableToolbar({
                       value,
                     });
                   }}
+                  aria-label={priceMaxFilter.label ?? 'מחיר מקסימלי'}
                 />
               </div>
             )}
@@ -1030,6 +1038,7 @@ export default function TableToolbar({
                       value: parsed ?? 'clear',
                     });
                   }}
+                  aria-label="שטח מינימלי"
                 />
               </div>
             )}
@@ -1054,6 +1063,7 @@ export default function TableToolbar({
                       value: parsed ?? 'clear',
                     });
                   }}
+                  aria-label="שטח מקסימלי"
                 />
               </div>
             )}
@@ -1140,6 +1150,7 @@ export default function TableToolbar({
                   const date = e.target.value ? new Date(e.target.value) : undefined;
                   dateRange.onChange(date, dateRange.to);
                 }}
+                aria-label="טווח תאריכים - מתאריך"
               />
             </div>
             <div>
@@ -1151,6 +1162,7 @@ export default function TableToolbar({
                   const date = e.target.value ? new Date(e.target.value) : undefined;
                   dateRange.onChange(dateRange.from, date);
                 }}
+                aria-label="טווח תאריכים - עד תאריך"
               />
             </div>
           </div>
@@ -1189,6 +1201,7 @@ export default function TableToolbar({
                       value,
                     });
                   }}
+                  aria-label={pricePerSqmMinFilter.label ?? 'מחיר למ״ר מינימלי'}
                 />
               </div>
             )}
@@ -1213,6 +1226,7 @@ export default function TableToolbar({
                       value,
                     });
                   }}
+                  aria-label={pricePerSqmMaxFilter.label ?? 'מחיר למ״ר מקסימלי'}
                 />
               </div>
             )}
@@ -1250,6 +1264,7 @@ export default function TableToolbar({
                       value,
                     });
                   }}
+                  aria-label={remainingRightsMinFilter.label ?? 'יתרת זכויות מינימלית'}
                 />
               </div>
             )}
@@ -1274,6 +1289,7 @@ export default function TableToolbar({
                       value,
                     });
                   }}
+                  aria-label={remainingRightsMaxFilter.label ?? 'יתרת זכויות מקסימלית'}
                 />
               </div>
             )}
@@ -1323,14 +1339,19 @@ export default function TableToolbar({
     <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3" dir="rtl">
         <div className="relative flex min-w-[180px] flex-1">
-          <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+          <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" aria-hidden="true" />
           <Input
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
             dir="rtl"
+            aria-label="חיפוש נכסים"
+            aria-describedby="search-help-text"
           />
+          <div id="search-help-text" className="sr-only">
+            השתמש בשדה זה כדי לחפש נכסים לפי כתובת, עיר או מספר נכס
+          </div>
         </div>
 
         <div className="ms-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
@@ -1590,6 +1611,7 @@ export default function TableToolbar({
                                 value: parsed ?? 'clear',
                               });
                             }}
+                            aria-label="מחיר מינימלי"
                           />
                         </div>
                       )}
@@ -1614,6 +1636,7 @@ export default function TableToolbar({
                                 value: parsed ?? 'clear',
                               });
                             }}
+                            aria-label="מחיר מקסימלי"
                           />
                         </div>
                       )}
@@ -1693,6 +1716,7 @@ export default function TableToolbar({
                                 value: parsed ?? 'clear',
                               });
                             }}
+                            aria-label="שטח מינימלי"
                           />
                         </div>
                       )}
@@ -1717,6 +1741,7 @@ export default function TableToolbar({
                                 value: parsed ?? 'clear',
                               });
                             }}
+                            aria-label="שטח מקסימלי"
                           />
                         </div>
                       )}
@@ -1795,10 +1820,10 @@ export default function TableToolbar({
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES}>
-                  <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                  <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
                   <span className="hidden sm:inline">סינון</span>
                   {hasActiveFilters && (
-                    <Badge variant="secondary" className="h-4 min-w-4 sm:h-5 sm:min-w-5 px-1 sm:px-1.5 flex items-center justify-center text-xs shrink-0 font-semibold">
+                    <Badge variant="secondary" className="h-4 min-w-4 sm:h-5 sm:min-w-5 px-1 sm:px-1.5 flex items-center justify-center text-xs shrink-0 font-semibold" aria-hidden="true">
                       {activeFilterCount}
                     </Badge>
                   )}
@@ -1807,6 +1832,9 @@ export default function TableToolbar({
                 <SheetContent className="w-full sm:w-80 max-w-[95vw]" side="right">
                   <SheetHeader>
                     <SheetTitle>אפשרויות סינון</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      תפריט סינון מתקדם עם אפשרויות למיקום, תקציב, מאפייני נכס, סטטוס ומקור
+                    </SheetDescription>
                   </SheetHeader>
                   <div className="space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
                     <div className="flex items-center justify-between rtl:flex-row-reverse">
@@ -1951,7 +1979,7 @@ export default function TableToolbar({
               size="sm"
               className={TOOLBAR_PILL_BUTTON_CLASSES}
             >
-              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">עמודות</span>
             </Button>
           </DropdownMenuTrigger>
@@ -1962,13 +1990,14 @@ export default function TableToolbar({
             <DropdownMenuSeparator />
             <div className="p-2 border-b">
               <div className="relative">
-                <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
                 <Input
                   placeholder="חיפוש עמודות..."
                   value={columnSearch}
                   onChange={(e) => setColumnSearch(e.target.value)}
                   className="pe-8 text-start text-sm h-8"
                   dir="rtl"
+                  aria-label="חיפוש עמודות"
                 />
               </div>
             </div>
@@ -2144,7 +2173,7 @@ export default function TableToolbar({
           disabled={loading}
           className={TOOLBAR_PILL_BUTTON_CLASSES}
         >
-          <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           <span className="hidden sm:inline">רענן</span>
         </Button>
 
@@ -2155,7 +2184,7 @@ export default function TableToolbar({
             size="sm"
             className={TOOLBAR_PILL_BUTTON_CLASSES}
           >
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>
         )}

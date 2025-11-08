@@ -426,7 +426,7 @@ export default function RamiAppraisalsTable({
         <div className="px-4 text-sm text-muted-foreground">טוען שומות רמ״י...</div>
       )}
 
-      <Table className="rtl">
+      <Table className="rtl" aria-label="רשימת שומות רמ״י">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

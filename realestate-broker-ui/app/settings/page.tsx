@@ -14,6 +14,7 @@ import { ContactSupportDialog, BugReportDialog } from '@/components/support/dial
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 
 interface UserSettings {
   language: string
@@ -23,6 +24,7 @@ interface UserSettings {
 }
 
 export default function SettingsPage() {
+  const { toast } = useToast()
   const [settings, setSettings] = useState<UserSettings>({
     language: 'en',
     timezone: 'UTC',
@@ -51,13 +53,21 @@ export default function SettingsPage() {
         body: JSON.stringify(settings)
       })
       if (res.ok) {
-        alert('Settings saved successfully')
+        toast({
+          title: 'הצלחה',
+          description: 'ההגדרות נשמרו בהצלחה',
+          variant: 'success',
+        })
       } else {
         throw new Error(res.error || 'Failed to save settings')
       }
     } catch (err) {
       console.error('Failed to save settings', err)
-      alert('Failed to save settings')
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לשמור את ההגדרות',
+        variant: 'destructive',
+      })
     }
   }
 

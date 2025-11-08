@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Typography } from '@/components/ui/typography'
 import { fmtCurrency } from '@/lib/utils'
 import {
   buildResolvedCssVariableDeclaration,
@@ -1427,7 +1428,9 @@ export default function DealExpensesPage() {
                 <Card key={index} variant="outlined" className="p-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-sm">רוכש {index + 1}</h4>
+                      <Typography variant='h3' className='text-sm font-medium'>
+                        רוכש {index + 1}
+                      </Typography>
                       {buyers.length > 1 && (
                         <Button 
                           variant="ghost" 
@@ -1669,7 +1672,9 @@ export default function DealExpensesPage() {
 
               {/* Detailed Breakdown */}
               <div className="space-y-4">
-                <h4 className="font-semibold">פירוט הוצאות העסקה</h4>
+                <Typography variant='h3' className='font-semibold'>
+                  פירוט הוצאות העסקה
+                </Typography>
                 <div className="space-y-2">
                   {/* Property Price */}
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
@@ -1741,13 +1746,17 @@ export default function DealExpensesPage() {
               {/* Price per square meter */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">מחיר למ&quot;ר לפני הוצאות</h4>
+                  <Typography variant='h3' className='text-sm font-semibold'>
+                    מחיר למ&quot;ר לפני הוצאות
+                  </Typography>
                   <div className="text-2xl font-bold text-muted-foreground">
                     {fmtCurrency(result.pricePerSqBefore)}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">מחיר למ&quot;ר אחרי הוצאות</h4>
+                  <Typography variant='h3' className='text-sm font-semibold'>
+                    מחיר למ&quot;ר אחרי הוצאות
+                  </Typography>
                   <div className="text-2xl font-bold text-primary">
                     {fmtCurrency(result.pricePerSqAfter)}
                   </div>
@@ -1759,7 +1768,9 @@ export default function DealExpensesPage() {
                 <div className="text-center space-y-3">
                   <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300">
                     <Banknote className="h-5 w-5" />
-                    <h3 className="font-semibold text-lg">רוצה לחשב משכנתא?</h3>
+                    <Typography variant='h3' className='text-lg font-semibold'>
+                      רוצה לחשב משכנתא?
+                    </Typography>
                   </div>
                   <p className="text-sm text-blue-600 dark:text-blue-400">
                     השתמש בתוצאות החישוב כדי לחשב משכנתא עם מחיר כולל של {fmtCurrency(result.total)} (כולל כל ההוצאות)

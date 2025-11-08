@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Mail, Phone, MapPin, Clock, MessageSquare, HelpCircle } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 export default function ContactPage() {
+  const { toast } = useToast()
   const [pending, setPending] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -34,11 +36,24 @@ export default function ContactPage() {
       })
       if (res.ok) {
         setSubmitted(true)
+        toast({
+          title: 'הצלחה',
+          description: 'ההודעה נשלחה בהצלחה',
+          variant: 'success',
+        })
       } else {
-        alert('אירעה שגיאה, נסה שוב')
+        toast({
+          title: 'שגיאה',
+          description: 'אירעה שגיאה, נסה שוב',
+          variant: 'destructive',
+        })
       }
     } catch (e) {
-      alert('אירעה שגיאה, נסה שוב')
+      toast({
+        title: 'שגיאה',
+        description: 'אירעה שגיאה, נסה שוב',
+        variant: 'destructive',
+      })
     } finally {
       setPending(false)
     }

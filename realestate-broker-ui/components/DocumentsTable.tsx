@@ -540,7 +540,7 @@ export default function DocumentsTable({
         loading={loading}
       />
 
-      <Table className="rtl">
+      <Table className="rtl" aria-label="רשימת מסמכים">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

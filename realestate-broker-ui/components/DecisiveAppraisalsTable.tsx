@@ -394,7 +394,7 @@ export default function DecisiveAppraisalsTable({
         <div className="px-4 text-sm text-muted-foreground">טוען שומות מכריעות...</div>
       )}
 
-      <Table className="rtl">
+      <Table className="rtl" aria-label="רשימת שומות מכריעות">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

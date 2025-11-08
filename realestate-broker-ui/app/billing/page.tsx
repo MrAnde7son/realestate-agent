@@ -162,7 +162,10 @@ export default function BillingPage() {
                 )}
               >
                 {plan.popular && (
-                  <Badge className="absolute -top-3 start-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground">
+                  <Badge
+                    variant="default"
+                    className="absolute -top-3 start-1/2 -translate-x-1/2 transform"
+                  >
                     הכי פופולרי
                   </Badge>
                 )}

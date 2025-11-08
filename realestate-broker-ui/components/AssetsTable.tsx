@@ -168,7 +168,7 @@ function createColumns({
               <span className="block truncate">{row.original.address}</span>
             </Link>
             {row.original.isWatched && (
-              <Badge variant="outline" className="flex items-center gap-1 text-amber-600 border-amber-200 bg-amber-50">
+              <Badge variant="warning" className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-current" />
                 במעקב
               </Badge>

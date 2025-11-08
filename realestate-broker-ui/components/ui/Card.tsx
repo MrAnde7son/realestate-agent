@@ -3,30 +3,49 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const cardVariants = cva(
-  'rounded-lg bg-card/95 backdrop-blur-sm text-card-foreground shadow-md',
+  'relative flex flex-col rounded-xl border text-card-foreground transition-shadow duration-200',
   {
     variants: {
       variant: {
-        default: 'bg-card/95 backdrop-blur-sm shadow-md',
-        elevated: 'bg-card backdrop-blur-md shadow-lg',
-        outlined: 'bg-card/95 backdrop-blur-sm border-2 border-border shadow-md',
-        ghost: 'bg-transparent backdrop-blur-none shadow-none',
+        default: 'bg-card/95 border-border/60 shadow-sm backdrop-blur-sm',
+        elevated: 'bg-card border-border/40 shadow-lg backdrop-blur-sm',
+        outlined: 'bg-card/95 border-2 border-border shadow-none backdrop-blur-sm',
+      },
+      interactive: {
+        flat: '',
+        interactive:
+          'hover:border-border/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       },
     },
     defaultVariants: {
       variant: 'default',
+      interactive: 'flat',
     },
   }
 )
 
-export interface CardProps
-  extends HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {}
+type CardVariant = NonNullable<VariantProps<typeof cardVariants>['variant']>
 
-export function Card({ variant = 'default', className, ...props }: CardProps) {
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: CardVariant
+  /**
+   * Adds interactive hover and focus styles for clickable cards.
+   */
+  interactive?: boolean
+}
+
+export function Card({
+  variant = 'default',
+  interactive = false,
+  className,
+  ...props
+}: CardProps) {
   return (
     <div
-      className={cn(cardVariants({ variant }), className)}
+      className={cn(
+        cardVariants({ variant, interactive: interactive ? 'interactive' : 'flat' }),
+        className,
+      )}
       {...props}
     />
   )

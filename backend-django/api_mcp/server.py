@@ -49,6 +49,11 @@ CRM:
 - list_interactions: List all interactions
 - create_interaction: Create a new interaction
 
+FILE READING:
+- read_file: Read files (PDF, image, text) from filesystem. Read-only, for uploads/data pipeline.
+  Supports permits, zchuyot (building privilege pages), tabu documents, etc.
+  Default limits: 10 MB, 10 pages. Can expand limits on request.
+
 Usage Examples:
 1. List assets: list_assets(city="תל אביב", page=1)
 2. Get asset: get_asset(asset_id=123)
@@ -58,6 +63,8 @@ Usage Examples:
 6. List contacts: list_contacts()
 7. Create deal: create_deal(asset_id=123, stage="discovery")
 8. Calculate deal expenses: calculate_deal_expenses(price=3000000, buyers=[{"sharePct": 100, "isFirstHome": True}], area=100)
+9. Read file: read_file(file_path="permits/document.pdf", max_pages=10)
+10. Read file with expanded limits: read_file(file_path="zchuyot/page.pdf", expand_limits=True, max_pages=50)
 """
 
 import json
@@ -1863,15 +1870,277 @@ def register_handasa_tools():
 
 
 # ============================================================================
+# FILE READING TOOLS
+# ============================================================================
+
+def register_file_reading_tools():
+    """Register file reading tools for permits, zchuyot, tabu, etc."""
+    
+    @mcp.tool(description="Read a file (PDF, image, or text) from the filesystem. Read-only, for uploads/data pipeline only. Supports permits, zchuyot, tabu documents, etc.")
+    async def read_file(
+        ctx: Context,
+        file_path: str,
+        max_size_mb: Optional[float] = 10.0,
+        max_pages: Optional[int] = 10,
+        expand_limits: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Read a file from the filesystem and extract its content.
+        
+        This is a read-only tool designed for reading uploaded documents and data pipeline files.
+        Supports reading permits, zchuyot (building privilege pages), tabu documents, and other real estate documents.
+        
+        Args:
+            file_path: Path to the file to read (relative to workspace root or absolute path)
+            max_size_mb: Maximum file size in MB (default: 10 MB). Can be expanded with expand_limits=True
+            max_pages: Maximum number of pages to read for PDFs (default: 10). Can be expanded with expand_limits=True
+            expand_limits: If True, allows reading larger files (up to 50 MB, 50 pages). Requires explicit request.
+        
+        Returns:
+            Dictionary with:
+            - success: Boolean indicating if read was successful
+            - file_path: Path to the file
+            - file_size: File size in bytes
+            - file_size_mb: File size in MB
+            - mime_type: Detected MIME type
+            - content: Extracted content (text for PDFs, base64 for images, text for text files)
+            - pages: Number of pages (for PDFs)
+            - pages_read: Number of pages actually read (may be limited by max_pages)
+            - truncated: Boolean indicating if content was truncated due to limits
+        """
+        import mimetypes
+        import base64
+        from pathlib import Path
+        
+        # Allowed file types for security
+        ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.json', '.xml', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
+        ALLOWED_MIME_TYPES = {
+            'application/pdf',
+            'text/plain',
+            'text/json',
+            'application/json',
+            'text/xml',
+            'application/xml',
+            'image/png',
+            'image/jpeg',
+            'image/gif',
+            'image/bmp',
+            'image/tiff',
+        }
+        
+        # Expand limits if requested
+        if expand_limits:
+            max_size_mb = max(max_size_mb or 10.0, 50.0)
+            max_pages = max(max_pages or 10, 50)
+        else:
+            max_size_mb = max_size_mb or 10.0
+            max_pages = max_pages or 10
+        
+        max_size_bytes = int(max_size_mb * 1024 * 1024)
+        
+        try:
+            # Resolve file path
+            file_path_obj = Path(file_path)
+            if not file_path_obj.is_absolute():
+                # Try relative to workspace root
+                workspace_root = Path(project_root)
+                file_path_obj = workspace_root / file_path_obj
+            else:
+                file_path_obj = file_path_obj.resolve()
+            
+            # Security check: ensure file exists and is readable
+            if not file_path_obj.exists():
+                return {
+                    "success": False,
+                    "error": f"File not found: {file_path}",
+                }
+            
+            if not file_path_obj.is_file():
+                return {
+                    "success": False,
+                    "error": f"Path is not a file: {file_path}",
+                }
+            
+            # Check file extension
+            if file_path_obj.suffix.lower() not in ALLOWED_EXTENSIONS:
+                return {
+                    "success": False,
+                    "error": f"File type not allowed. Allowed extensions: {', '.join(ALLOWED_EXTENSIONS)}",
+                }
+            
+            # Get file size
+            file_size = file_path_obj.stat().st_size
+            file_size_mb = file_size / (1024 * 1024)
+            
+            # Check size limit
+            if file_size > max_size_bytes:
+                return {
+                    "success": False,
+                    "error": f"File too large: {file_size_mb:.2f} MB exceeds limit of {max_size_mb:.2f} MB. Use expand_limits=True to read larger files.",
+                    "file_size_mb": file_size_mb,
+                    "max_size_mb": max_size_mb,
+                }
+            
+            # Detect MIME type
+            mime_type, _ = mimetypes.guess_type(str(file_path_obj))
+            if not mime_type:
+                # Fallback based on extension
+                ext = file_path_obj.suffix.lower()
+                mime_map = {
+                    '.pdf': 'application/pdf',
+                    '.txt': 'text/plain',
+                    '.json': 'application/json',
+                    '.xml': 'text/xml',
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.gif': 'image/gif',
+                    '.bmp': 'image/bmp',
+                    '.tiff': 'image/tiff',
+                }
+                mime_type = mime_map.get(ext, 'application/octet-stream')
+            
+            # Check MIME type
+            if mime_type not in ALLOWED_MIME_TYPES:
+                return {
+                    "success": False,
+                    "error": f"MIME type not allowed: {mime_type}",
+                }
+            
+            # Read file based on type
+            content = None
+            pages = None
+            pages_read = None
+            truncated = False
+            
+            if mime_type == 'application/pdf':
+                # Read PDF
+                try:
+                    import pdfplumber
+                    
+                    with pdfplumber.open(str(file_path_obj)) as pdf:
+                        total_pages = len(pdf.pages)
+                        pages = total_pages
+                        pages_to_read = min(total_pages, max_pages)
+                        pages_read = pages_to_read
+                        truncated = total_pages > max_pages
+                        
+                        # Extract text from pages
+                        text_parts = []
+                        for i in range(pages_to_read):
+                            page = pdf.pages[i]
+                            page_text = page.extract_text()
+                            if page_text:
+                                text_parts.append(f"--- Page {i + 1} ---\n{page_text}")
+                        
+                        content = "\n\n".join(text_parts)
+                        
+                        if truncated:
+                            content += f"\n\n[Note: Document has {total_pages} pages, but only first {max_pages} pages were read. Use expand_limits=True to read more pages.]"
+                        
+                except ImportError:
+                    return {
+                        "success": False,
+                        "error": "pdfplumber library not available. Install with: pip install pdfplumber",
+                    }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "error": f"Error reading PDF: {str(e)}",
+                    }
+            
+            elif mime_type.startswith('image/'):
+                # Read image as base64
+                try:
+                    with open(file_path_obj, 'rb') as f:
+                        image_data = f.read()
+                        content = base64.b64encode(image_data).decode('utf-8')
+                        # Also try to get image dimensions if PIL is available
+                        try:
+                            from PIL import Image
+                            with Image.open(file_path_obj) as img:
+                                pages = 1  # Images are single "page"
+                                pages_read = 1
+                                content = {
+                                    "base64": content,
+                                    "format": img.format,
+                                    "mode": img.mode,
+                                    "size": img.size,
+                                }
+                        except ImportError:
+                            # PIL not available, just return base64
+                            pages = 1
+                            pages_read = 1
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "error": f"Error reading image: {str(e)}",
+                    }
+            
+            elif mime_type.startswith('text/') or mime_type in ('application/json', 'application/xml'):
+                # Read text file
+                try:
+                    with open(file_path_obj, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        pages = 1
+                        pages_read = 1
+                except UnicodeDecodeError:
+                    # Try with different encoding
+                    try:
+                        with open(file_path_obj, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                            pages = 1
+                            pages_read = 1
+                    except Exception as e:
+                        return {
+                            "success": False,
+                            "error": f"Error reading text file: {str(e)}",
+                        }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "error": f"Error reading text file: {str(e)}",
+                    }
+            
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unsupported file type: {mime_type}",
+                }
+            
+            return {
+                "success": True,
+                "file_path": str(file_path_obj),
+                "file_size": file_size,
+                "file_size_mb": round(file_size_mb, 2),
+                "mime_type": mime_type,
+                "content": content,
+                "pages": pages,
+                "pages_read": pages_read,
+                "truncated": truncated,
+            }
+            
+        except Exception as e:
+            logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": f"Error reading file: {str(e)}",
+            }
+    
+    logger.info("File reading tools registered successfully")
+
+
+# ============================================================================
 # TOOL REGISTRATION
 # ============================================================================
 
-# Register core tools by default (assets, deals, cost, mortgage, CRM)
+# Register core tools by default (assets, deals, cost, mortgage, CRM, file reading)
 register_assets_tools()
 register_deals_tools()
 register_cost_tools()
 register_mortgage_tools()
 register_crm_tools()
+register_file_reading_tools()
 
 # Register external MCP tools (optional - can be enabled via environment variable)
 # Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable all external tools

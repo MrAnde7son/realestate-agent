@@ -10,6 +10,7 @@ This MCP server provides tools for accessing:
 - **Expense Calculation**: Building construction cost estimation
 - **Mortgage Calculation**: Mortgage affordability analysis
 - **CRM**: Contacts, leads, tasks, meetings, and interactions
+- **File Reading**: Read-only file reading for uploads/data pipeline (permits, zchuyot, tabu documents, etc.)
 
 ## Installation
 
@@ -49,7 +50,8 @@ Tools are organized by domain and can be registered on-demand to reduce context 
 - `register_deals_tools()` - Deal management (registered by default)
 - `register_cost_tools()` - Cost estimation (registered by default)
 - `register_mortgage_tools()` - Mortgage analysis (registered by default)
-- `register_crm_tools()` - CRM functionality (register on-demand)
+- `register_crm_tools()` - CRM functionality (registered by default)
+- `register_file_reading_tools()` - File reading (registered by default)
 
 ## Available Tools
 
@@ -98,6 +100,14 @@ Tools are organized by domain and can be registered on-demand to reduce context 
 - `create_meeting`: Create a new meeting
 - `list_interactions`: List all interactions with optional filtering
 - `create_interaction`: Create a new interaction
+
+### File Reading (1 tool)
+
+- `read_file`: Read files (PDF, image, text) from filesystem. Read-only, designed for uploads/data pipeline only.
+  - Supports permits, zchuyot (building privilege pages), tabu documents, and other real estate documents
+  - Default limits: 10 MB file size, 10 pages for PDFs
+  - Can expand limits on request (up to 50 MB, 50 pages)
+  - Allowed file types: PDF, TXT, JSON, XML, PNG, JPG, JPEG, GIF, BMP, TIFF
 
 ## Example Usage
 
@@ -183,6 +193,42 @@ result = await create_contact(
     tags=["investor", "buyer"]
 )
 ```
+
+### Read a File
+
+```python
+# Read a PDF file with default limits (10 MB, 10 pages)
+result = await read_file(
+    ctx=ctx,
+    file_path="permits/document.pdf"
+)
+
+# Read a file with expanded limits (up to 50 MB, 50 pages)
+result = await read_file(
+    ctx=ctx,
+    file_path="zchuyot/building_privilege.pdf",
+    expand_limits=True,
+    max_pages=50
+)
+
+# Read a tabu document
+result = await read_file(
+    ctx=ctx,
+    file_path="tabu/parcel_123.pdf",
+    max_pages=20
+)
+```
+
+The `read_file` tool returns:
+- `success`: Boolean indicating if read was successful
+- `file_path`: Path to the file
+- `file_size`: File size in bytes
+- `file_size_mb`: File size in MB
+- `mime_type`: Detected MIME type
+- `content`: Extracted content (text for PDFs, base64 for images, text for text files)
+- `pages`: Total number of pages (for PDFs)
+- `pages_read`: Number of pages actually read (may be limited by max_pages)
+- `truncated`: Boolean indicating if content was truncated due to limits
 
 ## Error Handling
 

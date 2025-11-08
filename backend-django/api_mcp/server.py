@@ -375,6 +375,7 @@ def register_assets_tools():
     async def list_assets(
         ctx: Context,
         city: Optional[str] = None,
+        neighborhood: Optional[str] = None,
         max_price: Optional[int | str] = None,
         min_price: Optional[int | str] = None,
         rooms: Optional[int | str] = None,
@@ -396,6 +397,8 @@ def register_assets_tools():
         params = {}
         if city:
             params["city"] = city
+        if neighborhood:
+            params["neighborhood"] = neighborhood
         price_max_int = _to_int(max_price)
         if price_max_int is not None:
             params["priceMax"] = price_max_int

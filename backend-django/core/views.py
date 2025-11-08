@@ -2008,7 +2008,7 @@ def _apply_asset_filters(queryset, params, user):
 
     neighborhood = params.get("neighborhood")
     if neighborhood and neighborhood != "all":
-        queryset = queryset.filter(neighborhood__iexact=neighborhood)
+        queryset = queryset.filter(neighborhood__icontains=neighborhood)
 
     zoning = params.get("zoning")
     if zoning and zoning != "all":

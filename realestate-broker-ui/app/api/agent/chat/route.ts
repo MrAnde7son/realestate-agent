@@ -51,19 +51,38 @@ const chatRequestSchema = z.object({
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get('access_token')?.value
+    let token = cookieStore.get('access_token')?.value
     
-    // Validate token
-    const tokenValidation = validateToken(token)
-    if (!tokenValidation.isValid) {
-      const response = NextResponse.json(
-        { error: 'Unauthorized - Token expired or invalid' },
+    // Also check Authorization header for API tokens
+    if (!token) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7)
+      }
+    }
+    
+    // Validate token only if it's a JWT (has 3 parts separated by dots)
+    // API tokens are not JWTs, so we skip validation and let the backend handle them
+    const isJWT = token && token.split('.').length === 3
+    if (isJWT) {
+      const tokenValidation = validateToken(token)
+      if (!tokenValidation.isValid) {
+        const response = NextResponse.json(
+          { error: 'Unauthorized - Token expired or invalid' },
+          { status: 401 }
+        )
+        response.cookies.delete('access_token')
+        response.cookies.delete('refresh_token')
+        return response
+      }
+    } else if (!token) {
+      // No token at all
+      return NextResponse.json(
+        { error: 'Unauthorized - No token provided' },
         { status: 401 }
       )
-      response.cookies.delete('access_token')
-      response.cookies.delete('refresh_token')
-      return response
     }
+    // If token exists but is not a JWT, assume it's an API token and let backend validate it
     
     const body = await req.json()
     

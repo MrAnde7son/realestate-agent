@@ -42,9 +42,9 @@ type TypographyOwnProps<T extends React.ElementType> = {
 export type TypographyProps<T extends React.ElementType = 'p'> = TypographyOwnProps<T> &
   Omit<React.ComponentPropsWithoutRef<T>, keyof TypographyOwnProps<T>>
 
-type TypographyComponent = <T extends React.ElementType = 'p'>(
+type TypographyComponent = (<T extends React.ElementType = 'p'>(
   props: TypographyProps<T> & { ref?: React.ComponentPropsWithRef<T>['ref'] }
-) => React.ReactElement | null
+) => React.ReactElement | null) & { displayName?: string }
 
 export const Typography = React.forwardRef(
   <T extends React.ElementType = 'p'>({ as, variant = 'body', className, ...props }: TypographyProps<T>, ref: React.Ref<React.ElementRef<T>>) => {

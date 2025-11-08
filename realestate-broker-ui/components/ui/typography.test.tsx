@@ -38,4 +38,8 @@ describe('Typography', () => {
     expect(heading.tagName.toLowerCase()).toBe('h3')
     expect(heading).toHaveClass('custom-class')
   })
+
+  it('exposes a component displayName', () => {
+    expect(Typography.displayName).toBe('Typography')
+  })
 })

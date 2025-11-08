@@ -163,10 +163,22 @@ REALESTATE_API_TOKEN=your-jwt-token           # Optional, for authenticated requ
 ENABLE_EXTERNAL_MCP_TOOLS=false                # Set to true to enable external tools
 ```
 
+## OAuth Authentication
+
+The MCP server supports OAuth 2.0 authentication for secure access to authenticated endpoints. See [OAUTH_SETUP.md](./OAUTH_SETUP.md) for detailed setup instructions.
+
+**Quick Setup:**
+1. Run migrations: `python manage.py migrate core` (OAuth is in core app)
+2. Configure ChatGPT connector with OAuth enabled
+3. Use MCP-specific OAuth endpoints: `/mcp/oauth/*` for ChatGPT integration
+4. Users will be prompted to authenticate when connecting
+
+**Note**: OAuth functionality is implemented in the `core` app for reuse across the application. MCP exposes OAuth endpoints under `/mcp/oauth/*` for ChatGPT integration, while general-purpose OAuth endpoints are available at `/api/oauth/*`.
+
 ## Next Steps
 
 1. **Deploy with HTTPS**: Use a service like Render, Railway, or AWS
-2. **Set up Authentication**: If needed, implement OAuth or API key authentication
+2. **Set up OAuth**: Follow [OAUTH_SETUP.md](./OAUTH_SETUP.md) for authentication
 3. **Monitor Usage**: Track tool calls and API usage
 4. **Optimize**: Adjust tool registration based on usage patterns
 

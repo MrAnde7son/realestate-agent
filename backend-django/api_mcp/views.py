@@ -59,6 +59,10 @@ def mcp_endpoint(request: HttpRequest) -> HttpResponse:
                 except Exception as e:
                     logger.warning(f"Could not list MCP tools: {e}")
             
+            # Build OAuth metadata URL (MCP-specific endpoints for ChatGPT integration)
+            base_url = request.build_absolute_uri('/').rstrip('/')
+            oauth_metadata_url = f"{base_url}/mcp/oauth/metadata"
+            
             return JsonResponse({
                 "name": "RealEstateAPI",
                 "version": "1.0.0",
@@ -67,6 +71,12 @@ def mcp_endpoint(request: HttpRequest) -> HttpResponse:
                 "tools_count": len(tools_info),
                 "endpoint": "/mcp",
                 "endpoints": ["/mcp", "/mcp/"],
+                "oauth": {
+                    "authorization_endpoint": f"{base_url}/mcp/oauth/authorize",
+                    "token_endpoint": f"{base_url}/mcp/oauth/token",
+                    "metadata_endpoint": oauth_metadata_url,
+                    "note": "OAuth endpoints are also available at /api/oauth/* for general use"
+                },
                 "note": "For full MCP protocol support with tool calls, use FastMCP's HTTP transport via ASGI"
             })
         except Exception as e:

@@ -63,14 +63,19 @@ A modern, professional Next.js 15 dashboard for real estate brokers and agents. 
 - **Recharts** - Chart and data visualization
 - **MapLibre GL** - Open-source interactive maps
 - **Mapbox Draw** - Drawing and measurement tools
-- **Lucide React** - Modern icon library
-- **Tabler Icons** - Additional icon set
+- **Lucide React** - Primary icon library (see [Icon Usage Guidelines](../docs/icon-guidelines.md))
 
 ### Development
 - **Vitest** - Fast testing framework
 - **Testing Library** - Component testing utilities
 - **ESLint** - Code linting and formatting
 - **TypeScript** - Static type checking
+
+### Icon Usage
+- **Lucide React only**: Use `lucide-react` imports for all icons to maintain bundle consistency.
+- **Central mapping**: Refer to the [icon guidelines](../docs/icon-guidelines.md) for approved substitutions when migrating components off Tabler icons.
+- **Automated guardrails**: A Vitest suite (`pnpm test`) fails if any `@tabler/icons-react` imports slip back into the codebase.
+- **Shared utilities**: Create shared icon wrappers instead of duplicating configuration inside components.
 
 ## 📋 Prerequisites
 

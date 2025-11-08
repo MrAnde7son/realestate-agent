@@ -228,12 +228,12 @@ Nadlaner is a real estate intelligence platform with a solid foundation but requ
 - **Typography**: Inconsistent scale and usage
 - **Spacing**: No systematic spacing scale
 - **Components**: Good foundation but inconsistent variants
-- **Icons**: Mixed icon libraries (Lucide, Tabler)
+- **Icons**: Standardized on Lucide icons (Tabler removed)
 
 ### Issues
 1. **No Design Tokens**: Colors and spacing defined in multiple places
 2. **Inconsistent Variants**: Button and badge variants not standardized
-3. **Mixed Icon Libraries**: Using both Lucide and Tabler icons
+3. **Icon Governance**: Maintain Lucide-only usage and document new additions
 4. **RTL Gaps**: Icons and spacing not properly RTL-aware
 5. **Dark Mode**: Basic implementation but not fully tested
 

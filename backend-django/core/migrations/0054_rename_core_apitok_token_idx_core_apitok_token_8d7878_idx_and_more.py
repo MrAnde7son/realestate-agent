@@ -1,6 +1,6 @@
 """Safe index renames for Postgres deployments."""
 
-from django.db import migrations
+from django.db import ProgrammingError, migrations
 
 
 INDEX_RENAMES = (
@@ -53,12 +53,17 @@ def rename_index_if_exists(
     if old_name not in constraints or new_name in constraints:
         return
 
-    schema_editor.execute(
-        "ALTER INDEX {} RENAME TO {}".format(
-            schema_editor.quote_name(old_name),
-            schema_editor.quote_name(new_name),
+    try:
+        schema_editor.execute(
+            "ALTER INDEX {} RENAME TO {}".format(
+                schema_editor.quote_name(old_name),
+                schema_editor.quote_name(new_name),
+            )
         )
-    )
+    except ProgrammingError:
+        # If the index has been dropped or renamed concurrently we can safely ignore the
+        # failure and continue. The new name will be in place (or no longer required).
+        return
 
 
 def rename_indexes(apps, schema_editor):

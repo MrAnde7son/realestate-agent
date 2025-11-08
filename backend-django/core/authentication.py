@@ -22,6 +22,12 @@ class APITokenAuthentication(BaseAuthentication):
         if not token:
             return None
         
+        # Skip JWT tokens (they have 3 parts separated by dots)
+        # API tokens are URL-safe base64 strings without dots
+        if token.count('.') == 2:
+            # This looks like a JWT token, let JWT authentication handle it
+            return None
+        
         try:
             api_token = APIToken.objects.select_related('user').get(token=token)
             

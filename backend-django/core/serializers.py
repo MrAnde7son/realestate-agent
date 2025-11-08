@@ -620,46 +620,79 @@ class AssetSerializer(MetaSerializerMixin):
 
 
 class PermitSerializer(MetaSerializerMixin):
-    is_tama_38 = serializers.ReadOnlyField()
-    has_construction_allowances = serializers.ReadOnlyField()
-    display_title = serializers.ReadOnlyField()
+    is_tama_38 = serializers.SerializerMethodField()
+    has_construction_allowances = serializers.SerializerMethodField()
+    display_title = serializers.SerializerMethodField()
     asset_ids = serializers.ListField(
         child=serializers.IntegerField(), required=False, write_only=True
     )
     assets = serializers.SerializerMethodField(read_only=True)
+    request_num = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Permit
         fields = [
             'id', 'asset', 'asset_ids', 'assets', 'permit_number', 'request_num', 'description', 'status',
             # Dates
-            'issued_date', 'permission_date', 'expiry_date', 'tr_hathalat_bniya', 'date_import',
-            # GIS details
-            'oid_permit', 'open_request', 'building_num', 'yechidot_diyur',
-            # TAMA 38
-            'sw_tama_38', 'sw_tama_38_chadash', 'sw_tama_38_tosefet', 'is_tama_38',
-            # Request and permit types
-            'sug_bakasha', 'tochen_bakasha', 'request_stage', 'building_stage', 'maslul_rishuy',
-            # Status and progress
-            'finished', 'occupation', 'progress', 'protected',
-            # Additional details
-            'koteret', 'ms_klali', 'heara_teudat_gmar', 'k_sivug_makor', 'sivug_makor',
-            'ms_tik_binyan', 'addresses',
-            # Construction allowances
-            'hakala_tosefet_achuz_shetach', 'hakala_yd_hagdala_achuz', 'hakala_yd_mevukash',
-            'hakala_yd_mutar', 'hakala_melel', 'hakala_nimuk', 'has_construction_allowances',
-            # File handling
-            'tik_tipul_1', 'tik_tipul_2', 'tik_tipul_3', 'tik_tipul_4', 'tik_tipul_5',
+            'issued_date', 'expiry_date',
             # Files and documents
-            'file_url', 'url_hadmaya',
+            'file_url',
+            # Computed fields
+            'is_tama_38', 'has_construction_allowances', 'display_title',
             # Metadata
-            'source', 'raw', 'display_title', 'created_at', 'updated_at'
+            'raw'
         ]
         read_only_fields = ['asset']
 
     def get_assets(self, instance):
         assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
         return [{'id': asset.id} for asset in assets_qs]
+    
+    def get_request_num(self, instance):
+        """Get request_num from raw JSONField."""
+        raw = getattr(instance, 'raw', {}) or {}
+        return raw.get('request_num') or raw.get('meta', {}).get('request_num') if isinstance(raw.get('meta'), dict) else None
+
+    def get_is_tama_38(self, instance):
+        """Check if permit is TAMA 38 from raw JSONField."""
+        raw = getattr(instance, 'raw', {}) or {}
+        meta = raw.get('meta', {}) if isinstance(raw.get('meta'), dict) else {}
+        return (
+            raw.get('sw_tama_38') or
+            raw.get('sw_tama_38_chadash') or
+            raw.get('sw_tama_38_tosefet') or
+            meta.get('sw_tama_38') or
+            meta.get('sw_tama_38_chadash') or
+            meta.get('sw_tama_38_tosefet') or
+            False
+        )
+
+    def get_has_construction_allowances(self, instance):
+        """Check if permit has construction allowances from raw JSONField."""
+        raw = getattr(instance, 'raw', {}) or {}
+        meta = raw.get('meta', {}) if isinstance(raw.get('meta'), dict) else {}
+        return bool(
+            raw.get('hakala_tosefet_achuz_shetach') or
+            raw.get('hakala_yd_hagdala_achuz') or
+            raw.get('hakala_yd_mevukash') or
+            raw.get('hakala_yd_mutar') or
+            meta.get('hakala_tosefet_achuz_shetach') or
+            meta.get('hakala_yd_hagdala_achuz') or
+            meta.get('hakala_yd_mevukash') or
+            meta.get('hakala_yd_mutar')
+        )
+
+    def get_display_title(self, instance):
+        """Get display title from raw JSONField or generate from permit_number."""
+        raw = getattr(instance, 'raw', {}) or {}
+        meta = raw.get('meta', {}) if isinstance(raw.get('meta'), dict) else {}
+        return (
+            raw.get('koteret') or
+            meta.get('koteret') or
+            raw.get('description') or
+            instance.description or
+            f"Permit {instance.permit_number}"
+        )
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

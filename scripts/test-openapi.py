@@ -6,12 +6,20 @@ Test script to verify OpenAPI spec generation is working.
 import requests
 import json
 import sys
+import os
 from pathlib import Path
 
 API_BASE_URL = "http://localhost:8000"
 OPENAPI_SPEC_URL = f"{API_BASE_URL}/api/docs/openapi.yaml"
 SWAGGER_UI_URL = f"{API_BASE_URL}/api/docs/"
 REDOC_URL = f"{API_BASE_URL}/api/docs/redoc/"
+
+def get_auth_headers():
+    """Get authentication headers if token is available."""
+    token = os.getenv("REALESTATE_API_TOKEN")
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
 
 def test_openapi_endpoints():
     """Test that all OpenAPI endpoints are working."""
@@ -75,12 +83,22 @@ def test_api_endpoints():
         print(f"❌ Schema endpoint failed: {e}")
         return False
     
-    # Test assets endpoint (should return empty list or 401)
+    # Test assets endpoint
     assets_url = f"{API_BASE_URL}/api/assets"
     try:
-        response = requests.get(assets_url, timeout=10)
-        if response.status_code in [200, 401, 403]:  # 401/403 is expected without auth
-            print("✅ Assets endpoint is responding")
+        headers = get_auth_headers()
+        response = requests.get(assets_url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            print("✅ Assets endpoint is working")
+            data = response.json()
+            asset_count = len(data.get("rows", []))
+            print(f"   Found {asset_count} asset(s)")
+        elif response.status_code == 401:
+            if headers:
+                print(f"❌ Assets endpoint returned 401 Unauthorized - token may be invalid")
+                print(f"   Response: {response.text[:200]}")
+            else:
+                print("⚠️  Assets endpoint returned 401 (no token provided)")
         else:
             print(f"⚠️  Assets endpoint returned {response.status_code}")
     except requests.RequestException as e:
@@ -93,6 +111,14 @@ def main():
     """Main test function."""
     print("🚀 Testing OpenAPI and API endpoints...")
     print(f"🌐 API Base URL: {API_BASE_URL}")
+    
+    # Check for API token
+    token = os.getenv("REALESTATE_API_TOKEN")
+    if token:
+        print(f"🔑 Using API token: {token[:20]}...")
+    else:
+        print("⚠️  No REALESTATE_API_TOKEN environment variable found")
+        print("   Some endpoints may require authentication")
     
     # Test OpenAPI endpoints
     if not test_openapi_endpoints():

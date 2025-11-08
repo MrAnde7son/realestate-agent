@@ -3379,7 +3379,7 @@ useDedupedEffect(() => {
                   <div className="text-sm text-muted-foreground mb-1">מאפיינים</div>
                   <div className="flex flex-wrap gap-2">
                     {listingFeatures.map((feature) => (
-                      <Badge key={feature} variant="outline" className="bg-muted/40">
+                      <Badge key={feature} variant="neutral">
                         {feature}
                       </Badge>
                     ))}

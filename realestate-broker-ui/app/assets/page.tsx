@@ -312,6 +312,10 @@ export default function AssetsPage() {
     const value = searchParams.get("hasElevator");
     return value ?? "all";
   });
+  const [recentDealFilter, setRecentDealFilter] = useState<string>(() => {
+    const value = searchParams.get("recentDeal");
+    return value ?? "all";
+  });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>(() => {
     const urlViewMode = searchParams.get("view");
     if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
@@ -561,6 +565,7 @@ export default function AssetsPage() {
     setAirConditioningFilter(searchParams.get("airConditioning") ?? "all");
     setStorageRoomFilter(searchParams.get("storageRoom") ?? "all");
     setHasElevatorFilter(searchParams.get("hasElevator") ?? "all");
+    setRecentDealFilter(searchParams.get("recentDeal") ?? "all");
     const pageParam = searchParams.get("page");
     const pageSizeParam = searchParams.get("pageSize");
     setPagination(prev => {
@@ -848,6 +853,11 @@ export default function AssetsPage() {
     } else {
       params.delete("hasElevator");
     }
+    if (recentDealFilter && recentDealFilter !== "all") {
+      params.set("recentDeal", recentDealFilter);
+    } else {
+      params.delete("recentDeal");
+    }
     if (pagination.pageIndex > 0) {
       params.set("page", String(pagination.pageIndex + 1));
     } else {
@@ -1044,6 +1054,7 @@ export default function AssetsPage() {
     if (airConditioningFilter && airConditioningFilter !== "all") params.set("airConditioning", airConditioningFilter);
     if (storageRoomFilter && storageRoomFilter !== "all") params.set("storageRoom", storageRoomFilter);
     if (hasElevatorFilter && hasElevatorFilter !== "all") params.set("hasElevator", hasElevatorFilter);
+    if (recentDealFilter && recentDealFilter !== "all") params.set("recentDeal", recentDealFilter);
 
     return params;
   }, [
@@ -1101,6 +1112,7 @@ export default function AssetsPage() {
     airConditioningFilter,
     storageRoomFilter,
     hasElevatorFilter,
+    recentDealFilter,
   ]);
 
   const fetchAssets = React.useCallback(async () => {
@@ -2805,6 +2817,15 @@ export default function AssetsPage() {
                     { value: 'all', label: 'הכל' },
                     { value: 'true', label: 'עם מעלית' },
                     { value: 'false', label: 'ללא מעלית' },
+                  ]
+                },
+                recentDeal: {
+                  value: recentDealFilter,
+                  onChange: setRecentDealFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'כן' },
+                    { value: 'false', label: 'לא' },
                   ]
                 },
               }}

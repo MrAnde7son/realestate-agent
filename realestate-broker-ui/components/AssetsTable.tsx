@@ -754,6 +754,11 @@ interface AssetsTableProps {
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
     }
+    recentDeal?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
   }
   onRefresh?: () => void
   onAddNew?: () => void
@@ -1581,6 +1586,17 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.recentDeal) {
+      items.push({
+        key: 'recentDeal',
+        label: 'נמכר לאחרונה',
+        type: 'select',
+        value: filters.recentDeal.value,
+        options: (filters.recentDeal.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'recent_deal'
+      })
+    }
+
     return items
   }, [filters])
 
@@ -1672,6 +1688,10 @@ export default function AssetsTable({
         case 'hasElevator':
           filters.hasElevator?.onChange(value)
           trackString('elevator', value)
+          break
+        case 'recentDeal':
+          filters.recentDeal?.onChange(value)
+          trackString('recent_deal', value)
           break
         default:
           break

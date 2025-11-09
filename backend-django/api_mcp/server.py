@@ -1536,6 +1536,7 @@ def register_govmap_tools():
             get_addresses_by_block_parcel as _govmap_get_addresses_by_block_parcel,
             get_base_layers as _govmap_get_base_layers,
             entities_by_point as _govmap_entities_by_point,
+            get_deals_by_location as _govmap_get_deals_by_location,
         )
         
         @mcp.tool(description="GovMap public autocomplete (no token). Returns raw JSON buckets.")
@@ -1585,6 +1586,22 @@ def register_govmap_tools():
             tolerance_m: float = 30.0
         ):
             return await _govmap_entities_by_point(ctx, x, y, layer_ids, tolerance_m)
+        
+        @mcp.tool(description="Get real estate deals for a specific location and radius. Returns standardized Deal objects with address, deal_date, deal_amount, rooms, floor, asset_type, area, neighborhood, parcel information, etc.")
+        async def govmap_get_deals_by_location(
+            ctx: Context,
+            x: float,
+            y: float,
+            start_date: str = "1998-01",
+            end_date: str = "2025-11",
+            radius: float = 100.0,
+            deal_type: str = "street",
+            limit: int = 9,
+            offset: int = 0,
+        ):
+            return await _govmap_get_deals_by_location(
+                ctx, x, y, start_date, end_date, radius, deal_type, limit, offset
+            )
         
         logger.info("GovMap tools registered successfully")
     except ImportError as e:

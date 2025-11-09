@@ -2320,6 +2320,31 @@ def _apply_asset_filters(queryset, params, user):
     if elevator_filter is not None:
         queryset = queryset.filter(elevator=elevator_filter)
 
+    recent_deal_filter = _parse_bool(params.get("recentDeal"))
+    if recent_deal_filter is not None:
+        matching_asset_ids = set(
+            AssetListing.objects.filter(
+                listing__recent_deal=recent_deal_filter
+            ).values_list("asset_id", flat=True)
+        )
+        
+        candidate_ids = list(queryset.values_list("id", flat=True))
+        if candidate_ids:
+            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
+                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                for listing in yad2_listings:
+                    if not isinstance(listing, dict):
+                        continue
+                    recent_deal_value = listing.get("recent_deal") or listing.get("recentDeal")
+                    if isinstance(recent_deal_value, bool) and recent_deal_value == recent_deal_filter:
+                        matching_asset_ids.add(asset.id)
+                        break
+        
+        if matching_asset_ids:
+            queryset = queryset.filter(id__in=matching_asset_ids).distinct()
+        else:
+            queryset = queryset.none()
+
     return queryset.distinct()
 
 

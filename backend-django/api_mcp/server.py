@@ -220,7 +220,18 @@ def process_list_result(
     
     def project(item: Dict[str, Any], keep: List[str]) -> Dict[str, Any]:
         """Project only specified fields from item."""
-        return {k: item.get(k) for k in keep if k in item}
+        # Include all requested fields, even if they're None or missing
+        # This ensures consistent output format
+        result = {}
+        for k in keep:
+            # Always include the field if it's in the item (even if None)
+            if k in item:
+                result[k] = item.get(k)
+            # If field doesn't exist at all, include None for essential fields
+            # This prevents empty dicts when essential fields are missing
+            elif k in ("id", "address", "price"):
+                result[k] = None
+        return result
     
     def compact_item(item: Dict[str, Any]) -> Dict[str, Any]:
         """Aggressively compact a single item."""
@@ -281,6 +292,16 @@ def process_list_result(
     
     # Apply field projection if specified
     if fields:
+        # Debug: Check if requested fields exist in raw data
+        # This helps identify if fields are missing or None
+        if items and fields:
+            sample_item = items[0]
+            missing_fields = [f for f in fields if f not in sample_item]
+            if missing_fields:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"Fields requested but not in API response: {missing_fields}. Available fields: {list(sample_item.keys())[:20]}")
+        
         items = [project(x, fields) for x in items]
     
     # Apply compaction (drop bulky nested fields)

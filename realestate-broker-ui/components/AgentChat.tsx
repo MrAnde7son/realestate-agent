@@ -3,6 +3,7 @@
 
 import * as React from "react"
 import { useState, useRef, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -166,7 +167,9 @@ export function AgentChat({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
   const messageCount = messages.length
   
   // Markdown components configuration
@@ -346,7 +349,6 @@ export function AgentChat({
   // Fetch recommendations from API if enabled
   useEffect(() => {
     const fetchRecommendations = async () => {
-      if (!fetchRecommendationsFromAPI || !user || recommendedQuestions) return
       
       setIsLoadingRecommendations(true)
       try {
@@ -376,17 +378,20 @@ export function AgentChat({
           if (isJson) {
             try {
               const errorData = await response.json()
-              // Handle 401 Unauthorized - redirect to login if user was authenticated
+              // Handle 401 Unauthorized - redirect to login
               if (response.status === 401) {
-                // Check if we had a token (user was authenticated)
+                // Clear tokens if they exist
                 const hadToken = authAPI.getAccessToken() || authAPI.getRefreshToken()
                 if (hadToken && typeof window !== 'undefined') {
-                  // Clear tokens and redirect to login
                   authAPI.clearTokens()
-                  window.location.href = '/auth'
+                }
+                // Close chat and redirect to login with current path as redirect parameter
+                if (typeof window !== 'undefined') {
+                  setIsOpen(false)
+                  const currentPath = pathname || window.location.pathname
+                  router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
                   return
                 }
-                console.log(`Recommendations API: Not authenticated (${response.status})`)
               } else {
                 console.warn(`Recommendations API returned ${response.status}:`, errorData)
               }
@@ -396,7 +401,12 @@ export function AgentChat({
                 const hadToken = authAPI.getAccessToken() || authAPI.getRefreshToken()
                 if (hadToken && typeof window !== 'undefined') {
                   authAPI.clearTokens()
-                  window.location.href = '/auth'
+                }
+                // Close chat and redirect to login with current path as redirect parameter
+                if (typeof window !== 'undefined') {
+                  setIsOpen(false)
+                  const currentPath = pathname || window.location.pathname
+                  router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
                   return
                 }
               } else {
@@ -404,7 +414,13 @@ export function AgentChat({
               }
             }
           } else {
-            // Not JSON (likely HTML redirect) - just log and continue
+            // Not JSON (likely HTML redirect) - check if it's a 401
+            if (response.status === 401 && typeof window !== 'undefined') {
+              setIsOpen(false)
+              const currentPath = pathname || window.location.pathname
+              router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
+              return
+            }
             console.warn(`Recommendations API returned non-JSON response (${response.status}), skipping`)
           }
         }
@@ -418,7 +434,7 @@ export function AgentChat({
     if (isOpen && messageCount === 1) {
       fetchRecommendations()
     }
-  }, [isOpen, messageCount, fetchRecommendationsFromAPI, user, recommendedQuestions])
+  }, [isOpen, messages.length, fetchRecommendationsFromAPI, user, authLoading, recommendedQuestions])
 
   // Update recommended questions when prop changes
   useEffect(() => {
@@ -427,12 +443,29 @@ export function AgentChat({
     }
   }, [recommendedQuestions])
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading || !user) return
+  const handleSend = async (messageText?: string) => {
+    const textToSend = messageText?.trim() || input.trim()
+    if (!textToSend || isLoading) return
+    
+    // Wait for auth to finish loading
+    if (authLoading) {
+      console.log("Waiting for auth to load...")
+      return
+    }
+    
+    // API requires authentication - redirect to login if not authenticated
+    if (!user) {
+      console.log("User not authenticated, redirecting to login...")
+      // Close chat and redirect to login with current path as redirect parameter
+      setIsOpen(false)
+      const currentPath = pathname || window.location.pathname
+      router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
+      return
+    }
 
     const userMessage: Message = {
       role: "user",
-      content: input.trim(),
+      content: textToSend,
       timestamp: new Date()
     }
 
@@ -712,9 +745,8 @@ export function AgentChat({
 
   const handleSuggestionSend = (suggestionText: string) => {
     setInput(suggestionText)
-    setTimeout(() => {
-      handleSend()
-    }, 100)
+    // Pass the suggestion text directly to handleSend to avoid async state update issues
+    handleSend(suggestionText)
   }
 
   const handleEditMessage = (messageIndex: number) => {
@@ -1373,8 +1405,8 @@ export function AgentChat({
                     />
                   </div>
                   <Button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
+                    onClick={() => handleSend()}
+                    disabled={!input.trim() || isLoading || authLoading}
                     size="icon"
                     className="h-[44px] w-[44px] shrink-0 rounded-full shadow-md hover:shadow-lg transition-all disabled:opacity-50"
                     style={{

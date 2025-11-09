@@ -906,7 +906,16 @@ class RealEstateAgent:
                             corrected_city = matched_city
                             logger.info(f"Auto-corrected city name: '{city}' -> '{corrected_city}'")
                 
-                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=fields, limit=limit, compact=True)
+                # Ensure essential fields are always included for display
+                # id is always present, address and price are important for identification
+                essential_fields = ["id", "address", "price"]
+                if fields:
+                    # Merge user's fields with essential fields, preserving order
+                    api_fields = list(dict.fromkeys(essential_fields + fields))  
+                else:
+                    api_fields = ["id", "address", "price", "rooms", "area"]
+                
+                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=api_fields, limit=limit, compact=True)
                 
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
@@ -925,9 +934,8 @@ class RealEstateAgent:
                                 # No match found, suggest checking filters
                                 return f"לא נמצאו נכסים בעיר '{city}'. אנא השתמש ב-get_asset_filters_tool() כדי לראות את שמות הערים הזמינים."
                     
-                    # Pick a sensible default projection if fields not provided
-                    key_fields = fields or ["id", "address", "price", "city", "rooms", "area"]
-                    formatted_result = _fmt_list(data, key_fields, limit)
+                    # Use the same fields for formatting that we requested from API
+                    formatted_result = _fmt_list(data, api_fields, limit)
                     
                     # Add note if city was auto-corrected
                     if city and corrected_city != city:

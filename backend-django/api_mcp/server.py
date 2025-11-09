@@ -67,10 +67,10 @@ Usage Examples:
 10. Read file with expanded limits: read_file(file_path="zchuyot/page.pdf", expand_limits=True, max_pages=50)
 """
 
+import sys
 import json
 import logging
 import os
-import sys
 from typing import Optional, Dict, Any, List
 
 from fastmcp import Context, FastMCP
@@ -88,6 +88,23 @@ _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
 
 logger = logging.getLogger(__name__)
+
+
+def _assign_to_module(**kwargs):
+    """Helper function to assign attributes to the module namespace.
+    
+    This is cleaner than using globals() directly and makes the intent explicit.
+    Works correctly even when module is loaded via importlib.
+    """
+    # Get the module's namespace - works for both regular imports and importlib
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        # Get the caller's globals (the module namespace)
+        caller_globals = frame.f_back.f_globals
+        caller_globals.update(kwargs)
+    finally:
+        del frame
 
 
 def prune_json(obj: Any, max_chars: int = 15_000, list_limit: int = 20, str_limit: int = 300, depth: int = 0) -> Any:
@@ -664,6 +681,17 @@ def register_assets_tools():
             data["sections"] = sections
         
         return _make_request(ctx, "POST", "/reports", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        list_assets=list_assets,
+        get_asset_filters=get_asset_filters,
+        get_asset=get_asset,
+        create_asset=create_asset,
+        sync_asset=sync_asset,
+        get_asset_data=get_asset_data,
+        generate_pdf_report=generate_pdf_report,
+    )
 
 
 # ============================================================================
@@ -780,6 +808,17 @@ def register_deals_tools():
         offer_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/deal-workspace/offers/{offer_id}")
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        list_deals=list_deals,
+        create_deal=create_deal,
+        get_deal=get_deal,
+        list_negotiations=list_negotiations,
+        get_negotiation=get_negotiation,
+        list_offers=list_offers,
+        get_offer=get_offer,
+    )
 
 
 # ============================================================================
@@ -882,6 +921,13 @@ def register_cost_tools():
             data["constructionIncludesVat"] = construction_includes_vat
         
         return _make_request(ctx, "POST", "/deal-expenses/calculate", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        estimate_build_cost=estimate_build_cost,
+        get_cost_options=get_cost_options,
+        calculate_deal_expenses=calculate_deal_expenses,
+    )
 
 
 # ============================================================================
@@ -916,6 +962,9 @@ def register_mortgage_tools():
             data["transactions"] = transactions
         
         return _make_request(ctx, "POST", "/mortgage-analyze", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(analyze_mortgage=analyze_mortgage)
 
 
 # ============================================================================
@@ -1220,6 +1269,26 @@ def register_crm_tools():
             data["metadata"] = metadata
         
         return _make_request(ctx, "POST", "/crm/interactions", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        list_contacts=list_contacts,
+        get_contact=get_contact,
+        create_contact=create_contact,
+        search_contacts=search_contacts,
+        list_leads=list_leads,
+        get_lead=get_lead,
+        create_lead=create_lead,
+        update_lead_status=update_lead_status,
+        add_lead_note=add_lead_note,
+        list_tasks=list_tasks,
+        create_task=create_task,
+        complete_task=complete_task,
+        list_meetings=list_meetings,
+        create_meeting=create_meeting,
+        list_interactions=list_interactions,
+        create_interaction=create_interaction,
+    )
 
 
 # ============================================================================

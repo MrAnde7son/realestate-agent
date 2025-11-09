@@ -571,6 +571,10 @@ def translate_tool_name(tool_name: str) -> str:
 class RealEstateAgent:
     """Real Estate Agent powered by LangChain."""
     
+    # Class-level cache for available cities (shared across all instances)
+    # This is more efficient since agents are created per HTTP request
+    _available_cities_cache: Optional[List[str]] = None
+    
     def __init__(
         self,
         llm_provider: str = "openai",
@@ -597,7 +601,7 @@ class RealEstateAgent:
             memory_max_messages: Maximum number of messages to keep in memory.
             memory: Optional pre-configured memory object (overrides other memory settings).
         """
-        self.api_token = api_token  # Use provided token (should be from authenticated user)
+        self.api_token = api_token or os.getenv("REALESTATE_API_TOKEN")  # Use provided token or fallback to env var
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
         self.user_api_key = user_api_key  # Store user's API key
         self.internet_enabled = internet_enabled
@@ -609,7 +613,7 @@ class RealEstateAgent:
         self._tool_budget_message_cache: Optional[Dict[str, str]] = None
 
         # Set environment variables for MCP tools
-        # Always use the provided api_token (from authenticated user) - don't fall back to env
+        # Use api_token (from parameter or env var fallback)
         if self.api_token:
             os.environ["REALESTATE_API_TOKEN"] = self.api_token
         else:
@@ -801,6 +805,62 @@ class RealEstateAgent:
             more = "" if len(items) <= max_items else f"\n…(+{len(items)-max_items} נוספים)"
             return "\n".join(out) + more
         
+        def _normalize_city_name(city: str) -> str:
+            """Normalize city name for comparison (remove spaces, dashes, etc.)."""
+            if not city:
+                return ""
+            # Remove common separators and normalize whitespace
+            normalized = city.replace("-", " ").replace("–", " ").replace("—", " ")
+            normalized = " ".join(normalized.split())  # Normalize whitespace
+            return normalized.strip()
+        
+        def _find_best_city_match(city: str, available_cities: List[str]) -> Optional[str]:
+            """Find the best matching city name from available cities.
+            
+            Returns the exact match if found, otherwise tries fuzzy matching.
+            """
+            if not city or not available_cities:
+                return None
+            
+            city_normalized = _normalize_city_name(city)
+            
+            # First, try exact match (case-insensitive)
+            for available_city in available_cities:
+                if city_normalized == _normalize_city_name(available_city):
+                    return available_city
+            
+            # Try substring match (city name contains the search term or vice versa)
+            for available_city in available_cities:
+                available_normalized = _normalize_city_name(available_city)
+                if city_normalized in available_normalized or available_normalized in city_normalized:
+                    return available_city
+            
+            # Try matching after removing common suffixes/prefixes
+            # For example, "תל אביב" should match "תל אביב יפו" or "תל אביב-יפו"
+            city_words = set(city_normalized.split())
+            for available_city in available_cities:
+                available_normalized = _normalize_city_name(available_city)
+                available_words = set(available_normalized.split())
+                # If all words from the search city are in the available city, it's a match
+                if city_words and city_words.issubset(available_words):
+                    return available_city
+            
+            return None
+        
+        async def _get_available_cities() -> List[str]:
+            """Get available cities from cache or API."""
+            if RealEstateAgent._available_cities_cache is None:
+                try:
+                    result = await get_asset_filters(ctx)
+                    if isinstance(result, dict) and result.get("success"):
+                        filters = result.get("filters", {})
+                        RealEstateAgent._available_cities_cache = filters.get("cities", [])
+                    else:
+                        RealEstateAgent._available_cities_cache = []
+                except Exception:
+                    RealEstateAgent._available_cities_cache = []
+            return RealEstateAgent._available_cities_cache or []
+        
         # Wrap MCP functions as LangChain tools
         # Assets tools
         async def list_assets_tool_func(
@@ -834,12 +894,47 @@ class RealEstateAgent:
             """
             try:
                 limit = _safe_limit(limit, default=5, hard_max=50)
-                result = await list_assets(ctx, city=city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=fields, limit=limit, compact=True)
+                corrected_city = city
+                
+                # If city is provided, try to correct it automatically
+                if city:
+                    available_cities = await _get_available_cities()
+                    if available_cities:
+                        matched_city = _find_best_city_match(city, available_cities)
+                        if matched_city and matched_city != city:
+                            # Found a better match, use it automatically
+                            corrected_city = matched_city
+                            logger.info(f"Auto-corrected city name: '{city}' -> '{corrected_city}'")
+                
+                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=fields, limit=limit, compact=True)
+                
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
+                    
+                    # If we got empty results and city was corrected, inform the user
+                    if not data and city and corrected_city != city:
+                        return f"תוקן שם העיר מ-'{city}' ל-'{corrected_city}'. לא נמצאו נכסים התואמים את הקריטריונים."
+                    
+                    # If we got empty results and city wasn't corrected (no match found), suggest checking filters
+                    if not data and city and corrected_city == city:
+                        available_cities = await _get_available_cities()
+                        if available_cities:
+                            # Double-check if there's a match we might have missed
+                            matched_city = _find_best_city_match(city, available_cities)
+                            if not matched_city:
+                                # No match found, suggest checking filters
+                                return f"לא נמצאו נכסים בעיר '{city}'. אנא השתמש ב-get_asset_filters_tool() כדי לראות את שמות הערים הזמינים."
+                    
                     # Pick a sensible default projection if fields not provided
                     key_fields = fields or ["id", "address", "price", "city", "rooms", "area"]
-                    return _fmt_list(data, key_fields, limit)
+                    formatted_result = _fmt_list(data, key_fields, limit)
+                    
+                    # Add note if city was auto-corrected
+                    if city and corrected_city != city:
+                        formatted_result = f"[תוקן אוטומטית: '{city}' -> '{corrected_city}']\n" + formatted_result
+                    
+                    return formatted_result
+                
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -865,6 +960,8 @@ class RealEstateAgent:
                 if isinstance(result, dict) and result.get("success"):
                     filters = result.get("filters", {})
                     cities = filters.get("cities", [])
+                    # Update the cache with fresh data
+                    RealEstateAgent._available_cities_cache = cities
                     cities_str = ', '.join(cities[:20]) + ('...' if len(cities) > 20 else '')
                     types_str = ', '.join(filters.get('types', [])[:10]) + ('...' if len(filters.get('types', [])) > 10 else '')
                     neighborhoods_str = ', '.join(filters.get('neighborhoods', [])[:10]) + ('...' if len(filters.get('neighborhoods', [])) > 10 else '')

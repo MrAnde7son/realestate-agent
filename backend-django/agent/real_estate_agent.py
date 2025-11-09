@@ -650,7 +650,7 @@ class RealEstateAgent:
         list_assets_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
-            description="חיפוש נכסים עם פילטרים."
+            description="חיפוש נכסים עם מסננים, לבדיקת מסננים זמינים get_asset_filters_tool."
         )
         
         async def get_asset_filters_tool_func() -> str:
@@ -671,7 +671,7 @@ class RealEstateAgent:
                     cities_str = ', '.join(cities[:20]) + ('...' if len(cities) > 20 else '')
                     types_str = ', '.join(filters.get('types', [])[:10]) + ('...' if len(filters.get('types', [])) > 10 else '')
                     neighborhoods_str = ', '.join(filters.get('neighborhoods', [])[:10]) + ('...' if len(filters.get('neighborhoods', [])) > 10 else '')
-                    return f"פילטרים זמינים:\n" + \
+                    return f"מסננים זמינים:\n" + \
                            f"ערים: {cities_str}\n" + \
                            f"סוגי נכסים: {types_str}\n" + \
                            f"שכונות: {neighborhoods_str}\n" + \
@@ -683,7 +683,7 @@ class RealEstateAgent:
         get_asset_filters_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_filters_tool_func),
             name="get_asset_filters_tool",
-            description="קבלת פילטרים זמינים לנכסים."
+            description="קבלת מסננים זמינים לנכסים."
         )
         
         async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:

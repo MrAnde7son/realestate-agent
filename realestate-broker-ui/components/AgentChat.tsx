@@ -105,16 +105,16 @@ const CodeBlock = ({
   const language = match ? match[1] : ""
 
   return (
-    <div className="relative group my-4">
-      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border rounded-t-lg">
+    <div className="relative group my-2 sm:my-4">
+      <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 bg-muted/50 border-b border-border rounded-t-lg">
         {language && (
-          <span className="text-xs text-muted-foreground font-mono">{language}</span>
+          <span className="text-xs text-muted-foreground font-mono truncate">{language}</span>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={handleCopy}
-          className="h-6 w-6 ml-auto"
+          className="h-6 w-6 ml-auto shrink-0"
           aria-label="העתק קוד"
         >
           {copied ? (
@@ -127,7 +127,7 @@ const CodeBlock = ({
       <pre
         ref={codeRef}
         className={cn(
-          "overflow-x-auto p-4 bg-muted rounded-b-lg text-sm font-mono",
+          "overflow-x-auto p-2 sm:p-4 bg-muted rounded-b-lg text-xs sm:text-sm font-mono break-words whitespace-pre-wrap",
           className
         )}
       >
@@ -178,7 +178,7 @@ export function AgentChat({
       const isInline = !className || !className.includes("language-")
       if (isInline) {
         return (
-          <code className="px-1.5 py-0.5 bg-muted/70 rounded text-sm font-mono" {...props}>
+          <code className="px-1.5 py-0.5 bg-muted/70 rounded text-xs sm:text-sm font-mono break-words" {...props}>
             {children}
           </code>
         )
@@ -193,16 +193,16 @@ export function AgentChat({
       return <>{children}</>
     },
     p: ({ children }) => {
-      return <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+      return <p className="mb-2 last:mb-0 leading-relaxed text-sm sm:text-base break-words">{children}</p>
     },
     ul: ({ children }) => {
-      return <ul className="list-disc list-inside mb-2 space-y-1 mr-4">{children}</ul>
+      return <ul className="list-disc list-inside mb-2 space-y-1 mr-2 sm:mr-4 text-sm sm:text-base">{children}</ul>
     },
     ol: ({ children }) => {
-      return <ol className="list-decimal list-inside mb-2 space-y-1 mr-4">{children}</ol>
+      return <ol className="list-decimal list-inside mb-2 space-y-1 mr-2 sm:mr-4 text-sm sm:text-base">{children}</ol>
     },
     li: ({ children }) => {
-      return <li className="leading-relaxed">{children}</li>
+      return <li className="leading-relaxed break-words">{children}</li>
     },
     a: ({ href, children }) => {
       return (
@@ -210,24 +210,33 @@ export function AgentChat({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-brand-teal hover:underline"
+          className="text-brand-teal hover:underline break-all sm:break-normal"
         >
           {children}
         </a>
       )
     },
     h1: ({ children }) => {
-      return <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">{children}</h1>
+      return <h1 className="text-lg sm:text-xl font-bold mb-2 mt-4 first:mt-0 break-words">{children}</h1>
     },
     h2: ({ children }) => {
-      return <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0">{children}</h2>
+      return <h2 className="text-base sm:text-lg font-semibold mb-2 mt-3 first:mt-0 break-words">{children}</h2>
     },
     h3: ({ children }) => {
-      return <h3 className="text-base font-semibold mb-2 mt-2 first:mt-0">{children}</h3>
+      return <h3 className="text-sm sm:text-base font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h3>
+    },
+    h4: ({ children }) => {
+      return <h4 className="text-sm font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h4>
+    },
+    h5: ({ children }) => {
+      return <h5 className="text-xs sm:text-sm font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h5>
+    },
+    h6: ({ children }) => {
+      return <h6 className="text-xs font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h6>
     },
     blockquote: ({ children }) => {
       return (
-        <blockquote className="border-r-4 border-brand-teal/50 pr-4 py-2 my-2 bg-muted/30 italic">
+        <blockquote className="border-r-4 border-brand-teal/50 pr-2 sm:pr-4 py-2 my-2 bg-muted/30 italic text-sm sm:text-base break-words">
           {children}
         </blockquote>
       )
@@ -237,11 +246,13 @@ export function AgentChat({
     },
     table: ({ children }) => {
       return (
-        <div className="my-4 surface-panel overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              {children}
-            </table>
+        <div className="my-4 surface-panel overflow-hidden rounded-lg">
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <table className="min-w-full border-collapse text-sm sm:text-base">
+                {children}
+              </table>
+            </div>
           </div>
         </div>
       )
@@ -256,12 +267,29 @@ export function AgentChat({
       return <tr className="surface-section-divider last:shadow-none">{children}</tr>
     },
     th: ({ children }) => {
-      return <th className="px-4 py-3 text-right font-semibold bg-muted/40">
+      return <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold bg-muted/40 text-xs sm:text-sm break-words">
         {children}
       </th>
     },
     td: ({ children }) => {
-      return <td className="px-4 py-2 text-right">{children}</td>
+      return <td className="px-2 sm:px-4 py-2 text-right text-xs sm:text-sm break-words">{children}</td>
+    },
+    strong: ({ children }) => {
+      return <strong className="font-semibold">{children}</strong>
+    },
+    em: ({ children }) => {
+      return <em className="italic">{children}</em>
+    },
+    img: ({ src, alt, ...props }) => {
+      return (
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full h-auto rounded-lg my-2"
+          loading="lazy"
+          {...props}
+        />
+      )
     },
   }
   
@@ -1099,7 +1127,7 @@ export function AgentChat({
                     )}
                     <div
                       className={cn(
-                        "max-w-[80%] rounded-xl px-4 py-3 text-sm relative group shadow-sm",
+                        "max-w-[85%] sm:max-w-[80%] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm relative group shadow-sm",
                         message.role === "user"
                           ? "bg-brand-teal text-white rounded-br-sm shadow-[0_10px_24px_-16px_rgba(18,179,166,0.75)]"
                           : message.isError
@@ -1204,7 +1232,7 @@ export function AgentChat({
                                 )
                               })()}
                               
-                              <div className="markdown-content">
+                              <div className="markdown-content max-w-none break-words overflow-wrap-anywhere">
                                 <ReactMarkdown
                                   remarkPlugins={[remarkGfm]}
                                   components={markdownComponents}

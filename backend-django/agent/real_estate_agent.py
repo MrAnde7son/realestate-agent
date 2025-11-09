@@ -1374,7 +1374,7 @@ class RealEstateAgent:
         get_cost_options_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_cost_options_tool_func),
             name="get_cost_options_tool",
-            description="קבלת אפשרויות עלות זמינות להערכת עלויות בנייה בלבד עבור מגרשים."
+            description="קבלת אפשרויות עלות להערכת עלויות בנייה בלבד עבור מגרשים."
         )
         
         async def calculate_deal_expenses_tool_func(

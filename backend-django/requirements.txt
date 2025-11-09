@@ -24,6 +24,7 @@ google-generativeai>=0.7.2
 openai>=1.43.0
 pydantic>=2.7.0
 tenacity>=8.4.1
+tiktoken>=0.7.0
 
 # MCP (Model Context Protocol) Server
 fastmcp>=0.9.0

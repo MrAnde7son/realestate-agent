@@ -15,6 +15,8 @@ import time
 import logging
 from typing import List, Optional, Dict, Any
 
+from functools import lru_cache
+
 logger = logging.getLogger(__name__)
 
 from .internet_fetcher import get_fetcher
@@ -229,6 +231,135 @@ def _patch_langchain_tool_parser():
 _patch_langchain_tool_parser()
 
 
+def _safe_int_env(var_name: str, default: int) -> int:
+    """Return integer value from environment with safe fallback."""
+    try:
+        value = os.getenv(var_name)
+        if value is None:
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        logger.warning("Invalid integer for %s: %s. Using default %s.", var_name, value, default)
+        return default
+
+
+@lru_cache(maxsize=1)
+def _get_tokenizer():
+    """Lazily load and cache the tokenizer used for budgeting."""
+    try:
+        from tiktoken import get_encoding
+
+        return get_encoding("cl100k_base")
+    except ImportError as exc:
+        logger.error("tiktoken is required for token budgeting but is not installed: %s", exc)
+        raise
+
+
+def enforce_token_budget(messages, max_tokens: int, reserve_for_output: int = 1024):
+    """Ensure total tokens for messages stay within max_tokens - reserve."""
+
+    if max_tokens <= 0:
+        return messages
+
+    tokenizer = _get_tokenizer()
+
+    def count(msg):
+        content = msg.get("content") or ""
+        return len(tokenizer.encode(content))
+
+    total = sum(count(m) for m in messages)
+    target = max_tokens - max(reserve_for_output, 0)
+    if total <= target:
+        return messages
+
+    trimmed = []
+    running = 0
+    for msg in reversed(messages):  # newest → oldest
+        c = count(msg)
+        if running + c <= target:
+            trimmed.append(msg)
+            running += c
+        elif msg.get("role") != "system":
+            trimmed.append({"role": "system", "content": "[history summarized due to budget]"})
+            break
+    trimmed.reverse()
+    return trimmed
+
+
+def _normalize_content(text: str) -> str:
+    """Normalize whitespace in text for summaries."""
+    if not text:
+        return ""
+    return " ".join(text.split())
+
+
+def build_history_with_summary(
+    history: List[Dict[str, str]],
+    keep_last: int = 4,
+    summary_max_chars: int = 600,
+) -> List[Dict[str, str]]:
+    """Return chat history keeping the latest turns and adding a summary for older ones."""
+
+    if not history:
+        return []
+
+    keep_last = max(keep_last, 0)
+    summary_max_chars = max(summary_max_chars, 120)
+
+    sanitized = [
+        {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+        for msg in history
+        if isinstance(msg, dict)
+    ]
+
+    if len(sanitized) <= keep_last or keep_last == 0:
+        return sanitized[-keep_last:] if keep_last else sanitized
+
+    older_messages = sanitized[:-keep_last]
+    recent_messages = sanitized[-keep_last:]
+
+    summary_parts = []
+    for msg in older_messages:
+        role = (msg.get("role") or "user").upper()
+        content = _normalize_content(msg.get("content") or "")
+        if not content:
+            continue
+        summary_parts.append(f"{role}: {content}")
+
+    if not summary_parts:
+        return recent_messages
+
+    summary_text = " | ".join(summary_parts)
+    summary_text = summary_text[:summary_max_chars]
+
+    summary_message = {
+        "role": "system",
+        "content": f"[תקציר שיחה]: {summary_text}",
+    }
+
+    return [summary_message, *recent_messages]
+
+
+def compress_tool_output(text: str, max_chars: int = 1200) -> str:
+    """Compress verbose tool output while preserving the most useful parts."""
+
+    if text is None:
+        return ""
+
+    text = str(text)
+    if len(text) <= max_chars:
+        return text
+
+    compact = " ".join(text.split())
+    if len(compact) <= max_chars:
+        return compact
+
+    head = compact[:800]
+    tail = compact[-300:]
+    trimmed_chars = max(len(compact) - (len(head) + len(tail)), 0)
+    return f"{head}\n...[trimmed {trimmed_chars} chars]...\n{tail}"
+
+
 class ToolCallTracker(BaseCallbackHandler):
     """Callback handler to track tool calls during agent execution."""
     
@@ -240,8 +371,10 @@ class ToolCallTracker(BaseCallbackHandler):
         """Called when a tool starts running."""
         tool_name = serialized.get("name", "unknown_tool")
         logger.info("🔧 Tool started: %s with input: %s", tool_name, str(input_str)[:100])
+        tool_hebrew = translate_tool_name(tool_name)
         self.current_tool_call = {
             "tool": tool_name,
+            "tool_hebrew": tool_hebrew,
             "input": input_str,
             "status": "running",
             "output": None
@@ -253,7 +386,7 @@ class ToolCallTracker(BaseCallbackHandler):
         if self.current_tool_call:
             tool_name = self.current_tool_call["tool"]
             self.current_tool_call["status"] = "completed"
-            self.current_tool_call["output"] = output[:200]  # Truncate long outputs
+            self.current_tool_call["output"] = compress_tool_output(output)
             logger.info("✅ Tool completed: %s", tool_name)
             self.current_tool_call = None
     
@@ -292,8 +425,10 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Called when a tool starts running."""
         tool_name = serialized.get("name", "unknown_tool")
         logger.info("🔧 Tool started (streaming): %s with input: %s", tool_name, str(input_str)[:100])
+        tool_hebrew = translate_tool_name(tool_name)
         self.current_tool_call = {
             "tool": tool_name,
+            "tool_hebrew": tool_hebrew,
             "input": input_str,
             "status": "running",
             "output": None
@@ -304,6 +439,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             self.chunk_queue.put_nowait({
                 "type": "tool_call_start",
                 "tool": tool_name,
+                "tool_hebrew": tool_hebrew,
                 "input": str(input_str)[:100] if input_str else ""
             })
         except asyncio.QueueFull:
@@ -323,15 +459,18 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Called when a tool finishes running."""
         if self.current_tool_call:
             tool_name = self.current_tool_call["tool"]
+            tool_hebrew = translate_tool_name(tool_name)
             self.current_tool_call["status"] = "completed"
-            self.current_tool_call["output"] = str(output)[:200] if output else ""  # Truncate long outputs
+            compressed_output = compress_tool_output(output)
+            self.current_tool_call["output"] = compressed_output
             logger.info("✅ Tool completed (streaming): %s", tool_name)
             self.current_tool_call = None
             try:
                 self.chunk_queue.put_nowait({
                     "type": "tool_call_end",
                     "tool": tool_name,
-                    "output": str(output)[:200] if output else ""
+                    "tool_hebrew": tool_hebrew,
+                    "output": compressed_output
                 })
             except asyncio.QueueFull:
                 # Try to make space
@@ -340,7 +479,8 @@ class StreamingCallbackHandler(BaseCallbackHandler):
                     self.chunk_queue.put_nowait({
                         "type": "tool_call_end",
                         "tool": tool_name,
-                        "output": str(output)[:200] if output else ""
+                        "tool_hebrew": tool_hebrew,
+                        "output": compressed_output
                     })
                 except:
                     pass
@@ -351,11 +491,13 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             self.current_tool_call["status"] = "error"
             self.current_tool_call["output"] = f"Error: {str(error)}"
             tool_name = self.current_tool_call["tool"]
+            tool_hebrew = translate_tool_name(tool_name)
             self.current_tool_call = None
             try:
                 self.chunk_queue.put_nowait({
                     "type": "tool_call_error",
                     "tool": tool_name,
+                    "tool_hebrew": tool_hebrew,
                     "error": str(error)
                 })
             except asyncio.QueueFull:
@@ -443,7 +585,13 @@ class RealEstateAgent:
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
         self.user_api_key = user_api_key  # Store user's API key
         self.internet_enabled = internet_enabled
-        
+
+        self.max_input_tokens = _safe_int_env("AGENT_MAX_INPUT_TOKENS", 120_000)
+        self.output_token_reserve = _safe_int_env("AGENT_OUTPUT_TOKEN_RESERVE", 1024)
+        self.history_keep_last = _safe_int_env("AGENT_HISTORY_KEEP_LAST", 4)
+        self.history_summary_max_chars = _safe_int_env("AGENT_HISTORY_SUMMARY_MAX_CHARS", 600)
+        self._tool_budget_message_cache: Optional[Dict[str, str]] = None
+
         # Set environment variables for MCP tools
         # Always use the provided api_token (from authenticated user) - don't fall back to env
         if self.api_token:
@@ -1089,7 +1237,9 @@ class RealEstateAgent:
         ])
         
         agent = create_openai_tools_agent(self.llm, self.tools, prompt)
-        
+
+        self.system_prompt = system_prompt
+
         # Simple error handler for parsing errors
         def handle_parsing_error(error: Exception) -> str:
             """Handle parsing errors gracefully."""
@@ -1107,7 +1257,94 @@ class RealEstateAgent:
             max_iterations=10,
             return_intermediate_steps=False,
         )
-    
+
+    def _get_tools_budget_message(self) -> Optional[Dict[str, str]]:
+        """Return a system message describing tools for budgeting calculations."""
+
+        if not self.tools:
+            return None
+
+        if self._tool_budget_message_cache is not None:
+            return self._tool_budget_message_cache.copy()
+
+        descriptions = []
+        for tool in self.tools:
+            name = getattr(tool, "name", "tool")
+            description = _normalize_content(getattr(tool, "description", ""))
+            if description:
+                descriptions.append(f"{name}: {description}")
+            else:
+                descriptions.append(name)
+
+        if not descriptions:
+            return None
+
+        content = "Available tools:\n" + "\n".join(descriptions)
+        self._tool_budget_message_cache = {"role": "system", "content": content}
+        return self._tool_budget_message_cache.copy()
+
+    def _prepare_history_for_llm(
+        self,
+        user_message: str,
+        chat_history: Optional[List[Dict[str, str]]],
+    ) -> List[Dict[str, str]]:
+        """Prepare chat history with summaries and enforce token budget.
+        
+        Note: System prompt and current user message are already in the ChatPromptTemplate,
+        so we only need to prepare the history itself. Token budgeting accounts for
+        system prompts and current message, but they're not included in the returned history.
+        """
+
+        history = chat_history or []
+        processed_history = build_history_with_summary(
+            history,
+            keep_last=self.history_keep_last,
+            summary_max_chars=self.history_summary_max_chars,
+        )
+
+        # Calculate token budget for history only (system prompt and current message are in template)
+        system_prompt = getattr(self, "system_prompt", "")
+        tool_budget_message = self._get_tools_budget_message()
+        
+        # Build full message set for token budgeting (but won't be returned)
+        budget_messages: List[Dict[str, str]] = []
+        if system_prompt:
+            budget_messages.append({"role": "system", "content": system_prompt})
+        if tool_budget_message:
+            budget_messages.append(tool_budget_message)
+        budget_messages.extend(processed_history)
+        budget_messages.append({"role": "user", "content": user_message})
+
+        # Enforce token budget on full message set
+        trimmed_messages = enforce_token_budget(
+            budget_messages,
+            max_tokens=self.max_input_tokens,
+            reserve_for_output=self.output_token_reserve,
+        )
+
+        # Extract only history messages (filter out system prompt, tool budget, and current user message)
+        trimmed_history: List[Dict[str, str]] = []
+        tool_budget_content = tool_budget_message.get("content") if tool_budget_message else None
+        total_messages = len(trimmed_messages)
+        
+        for index, msg in enumerate(trimmed_messages):
+            role = msg.get("role")
+            content = msg.get("content")
+            
+            # Skip system prompt (already in template)
+            if system_prompt and role == "system" and content == system_prompt:
+                continue
+            # Skip tool budget message (not needed in history)
+            if tool_budget_content and role == "system" and content == tool_budget_content:
+                continue
+            # Skip current user message (already in template as {input})
+            if index == total_messages - 1 and role == "user" and content == user_message:
+                continue
+            
+            trimmed_history.append({"role": role or "user", "content": content or ""})
+
+        return trimmed_history
+
     async def chat(self, message: str, chat_history: Optional[List] = None, track_tool_calls: bool = True) -> Dict[str, Any]:
         """Chat with the agent.
         
@@ -1123,12 +1360,13 @@ class RealEstateAgent:
             Exception: If agent execution fails, with a user-friendly error message
         """
         history = self._build_chat_history(chat_history)
+        prepared_history = self._prepare_history_for_llm(message, history)
 
         try:
             if track_tool_calls:
                 callback = ToolCallTracker()
                 result = await self.agent_executor.ainvoke(
-                    {"input": message, "chat_history": history},
+                    {"input": message, "chat_history": prepared_history},
                     config={"callbacks": [callback]}
                 )
                 tool_calls = callback.get_tool_calls()
@@ -1144,7 +1382,7 @@ class RealEstateAgent:
             else:
                 result = await self.agent_executor.ainvoke({
                     "input": message,
-                    "chat_history": history,
+                    "chat_history": prepared_history,
                 })
                 response_text = result.get("output", "")
                 self._record_interaction(message, response_text)
@@ -1177,6 +1415,7 @@ class RealEstateAgent:
             - {'type': 'error', 'error': str}
         """
         history = self._build_chat_history(chat_history)
+        prepared_history = self._prepare_history_for_llm(message, history)
         callback = StreamingCallbackHandler()
         
         # Run agent execution in background task
@@ -1188,7 +1427,7 @@ class RealEstateAgent:
                 # The callback handler will receive LLM tokens via on_llm_new_token
                 async def stream_with_timeout():
                     async for chunk in self.agent_executor.astream(
-                        {"input": message, "chat_history": history},
+                        {"input": message, "chat_history": prepared_history},
                         config={"callbacks": [callback]}
                     ):
                         # Log chunks for debugging (astream yields intermediate agent steps)

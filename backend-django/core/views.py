@@ -5427,47 +5427,26 @@ def agent_recommendations(request):
     Returns personalized recommendations based on user's assets and activity,
     or default recommendations if no personalization is available.
     """
+    user = request.user
+    
+    # Base recommendations - always include these
+    recommendations = [
+        "נכסים ברשימת מעקב",
+        "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+        "נכסים ברמת החייל בתל אביב מתחת ל7 מיליון שקל",
+        "חשב לי משכנתא לנכס ב4 מיליון עם הון עצמי של 1.5 מיליון",
+        "חשב לי הוצאות עיסקה לנכס ב4 מיליון",
+    ]
+    
+    # Try to personalize based on user's assets
     try:
-        user = request.user
-        
-        # Base recommendations - always include these
-        recommendations = []
-        
-        # Try to personalize based on user's assets
-        try:
-            from .models import Asset
-            user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
-            recommendations = [
-                "מצא לי נכסים בתל אביב מתחת למחיר שוק",
-                "מה הפוטנציאל של הנכס הזה?",
-                "איזה סיכונים יש בנכס הזה?",
-                "מה ההיסטוריה של העסקאות באזור?",
-                "מה השווי של הנכס הזה?"
-            ]
-            
-
-        except Exception as e:
-            logger.warning(f"Error personalizing recommendations: {e}")
-            
-        recommendations = [
-            "מצא לי נכסים בתל אביב מתחת למחיר שוק",
-            "מה הפוטנציאל של הנכס הזה?",
-            "איזה סיכונים יש בנכס הזה?",
-            "מה ההיסטוריה של העסקאות באזור?",
-            "מה השווי של הנכס הזה?"
-        ]
-        
-        return Response({
-            "recommendations": recommendations
-        })
-        
+        from .models import Asset
+        user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
     except Exception as e:
-        logger.exception("Error in agent recommendations: %s", e)
-        # Return defaults even on error
-        return Response({
-            "recommendations": [
-                "מה השווי של הנכס הזה?",
-                "מה ההיסטוריה של העסקאות באזור?",
-                "איזה סיכונים יש בנכס הזה?"
-            ]
-        })
+        logger.warning(f"Error personalizing recommendations: {e}")
+
+    
+    return Response({
+        "recommendations": recommendations
+    })
+

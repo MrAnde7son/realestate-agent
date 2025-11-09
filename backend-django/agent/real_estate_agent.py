@@ -606,23 +606,7 @@ class RealEstateAgent:
         list_assets_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
-            description="""חיפוש נכסים עם אפשרויות סינון. 
-            
-            חשוב מאוד: לפני חיפוש, השתמש ב-get_asset_filters_tool() כדי לקבל את שמות הערים הזמינים.
-            ה-API עשוי להשתמש בפורמטים שונים של שמות ערים (לדוגמה: 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
-            השתמש בשם העיר המדויק מרשימת filters.cities לתוצאות הטובות ביותר.
-            
-            פרמטרים:
-            - city: שם העיר - חייב להתאים לאחד השמות ב-filters.cities מ-get_asset_filters_tool()
-                     פורמטים נפוצים: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', וכו'
-            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 2000000 עבור 2 מיליון)
-            - min_price: מחיר מינימלי בשקלים
-            - rooms: מספר חדרים
-            - page: מספר עמוד (ברירת מחדל: 1)
-            
-            דוגמה לשימוש:
-            1. קודם: get_asset_filters_tool() כדי לראות את הערים הזמינים
-            2. אחר כך: list_assets_tool(city='תל אביב יפו', max_price=2000000)"""
+            description="חיפוש נכסים עם מסננים, לבדיקת מסננים זמינים get_asset_filters_tool."
         )
         
         async def get_asset_filters_tool_func() -> str:
@@ -643,7 +627,7 @@ class RealEstateAgent:
                     cities_str = ', '.join(cities[:20]) + ('...' if len(cities) > 20 else '')
                     types_str = ', '.join(filters.get('types', [])[:10]) + ('...' if len(filters.get('types', [])) > 10 else '')
                     neighborhoods_str = ', '.join(filters.get('neighborhoods', [])[:10]) + ('...' if len(filters.get('neighborhoods', [])) > 10 else '')
-                    return f"פילטרים זמינים:\n" + \
+                    return f"מסננים זמינים:\n" + \
                            f"ערים: {cities_str}\n" + \
                            f"סוגי נכסים: {types_str}\n" + \
                            f"שכונות: {neighborhoods_str}\n" + \
@@ -655,16 +639,7 @@ class RealEstateAgent:
         get_asset_filters_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_filters_tool_func),
             name="get_asset_filters_tool",
-            description="""קבלת אפשרויות פילטר זמינות (ערים, סוגי נכסים, שכונות וכו').
-            
-            חשוב מאוד: השתמש בכלי זה לפני חיפוש נכסים כדי לוודא שאתה משתמש בפורמט הנכון של שם העיר.
-            מחזיר מילון עם ערכי פילטר זמינים כולל:
-            - cities: רשימת שמות ערים זמינים (השתמש בשם המדויק מרשימה זו)
-            - types: רשימת סוגי נכסים
-            - neighborhoods: רשימת שכונות
-            - ועוד...
-            
-            דוגמה: get_asset_filters_tool()"""
+            description="קבלת מסננים זמינים לנכסים."
         )
         
         async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
@@ -681,7 +656,7 @@ class RealEstateAgent:
         get_asset_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_tool_func),
             name="get_asset_tool",
-            description="קבלת פרטים מפורטים על נכס ספציפי לפי מזהה. מקבל עברית ואנגלית."
+            description="קבלת פרטי נכס לפי מזהה."
         )
         
         async def create_asset_tool_func(
@@ -703,7 +678,7 @@ class RealEstateAgent:
         create_asset_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_asset_tool_func),
             name="create_asset_tool",
-            description="יצירת נכס חדש. יש לספק פרטי כתובת. מקבל עברית ואנגלית."
+            description="יצירת נכס חדש עם כתובת."
         )
         
         async def get_asset_transactions_tool_func(asset_id: int) -> str:
@@ -719,7 +694,7 @@ class RealEstateAgent:
         get_asset_transactions_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_transactions_tool_func),
             name="get_asset_transactions_tool",
-            description="קבלת היסטוריית עסקאות של נכס."
+            description="קבלת היסטוריית עסקאות לנכס."
         )
         
         async def get_asset_appraisal_tool_func(asset_id: int) -> str:
@@ -735,7 +710,7 @@ class RealEstateAgent:
         get_asset_appraisal_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_appraisal_tool_func),
             name="get_asset_appraisal_tool",
-            description="קבלת ניתוח הערכת שווי של נכס כולל מכירות דומות."
+            description="קבלת הערכת שווי לנכס."
         )
         
         # Deal tools
@@ -758,7 +733,7 @@ class RealEstateAgent:
         list_deals_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_deals_tool_func),
             name="list_deals_tool",
-            description="רשימת כל העסקאות, עם אפשרות סינון לפי שלב או נכס. מקבל עברית ואנגלית."
+            description="רשימת עסקאות עם סינון אופציונלי."
         )
         
         async def create_deal_tool_func(
@@ -777,7 +752,7 @@ class RealEstateAgent:
         create_deal_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_deal_tool_func),
             name="create_deal_tool",
-            description="יצירת עסקה חדשה עבור נכס."
+            description="יצירת עסקה חדשה לנכס."
         )
         
         async def get_offer_tool_func(offer_id: int) -> str:
@@ -793,7 +768,7 @@ class RealEstateAgent:
         get_offer_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_offer_tool_func),
             name="get_offer_tool",
-            description="קבלת פרטי הצעה כולל מידע פיננסי."
+            description="קבלת פרטי הצעה."
         )
         
         # Expense calculation tools
@@ -815,7 +790,7 @@ class RealEstateAgent:
         estimate_build_cost_tool = StructuredTool.from_function(
             func=wrap_async_tool(estimate_build_cost_tool_func),
             name="estimate_build_cost_tool",
-            description="הערכת עלויות בנייה במטר רבוע."
+            description="הערכת עלויות בנייה במ\"ר."
         )
         
         async def get_cost_options_tool_func() -> str:
@@ -831,7 +806,7 @@ class RealEstateAgent:
         get_cost_options_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_cost_options_tool_func),
             name="get_cost_options_tool",
-            description="קבלת אפשרויות זמינות להערכת עלויות (אזורים, איכויות, היקפים)."
+            description="קבלת אפשרויות עלות זמינות."
         )
         
         # Mortgage tools
@@ -853,7 +828,7 @@ class RealEstateAgent:
         analyze_mortgage_tool = StructuredTool.from_function(
             func=wrap_async_tool(analyze_mortgage_tool_func),
             name="analyze_mortgage_tool",
-            description="ניתוח יכולת משכנתא ותרחישי תשלום."
+            description="ניתוח יכולת משכנתא."
         )
         
         # CRM tools
@@ -877,7 +852,7 @@ class RealEstateAgent:
         list_contacts_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_contacts_tool_func),
             name="list_contacts_tool",
-            description="רשימת כל אנשי הקשר ב-CRM."
+            description="רשימת אנשי קשר ב-CRM."
         )
         
         async def create_contact_tool_func(
@@ -897,7 +872,7 @@ class RealEstateAgent:
         create_contact_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_contact_tool_func),
             name="create_contact_tool",
-            description="יצירת איש קשר חדש ב-CRM."
+            description="יצירת איש קשר ב-CRM."
         )
         
         async def list_leads_tool_func(status: Optional[str] = None) -> str:
@@ -916,7 +891,7 @@ class RealEstateAgent:
         list_leads_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_leads_tool_func),
             name="list_leads_tool",
-            description="רשימת כל הלידים, עם אפשרות סינון לפי סטטוס."
+            description="רשימת לידים עם סינון אופציונלי."
         )
         
         async def create_lead_tool_func(contact_id: int, asset_id: int) -> str:
@@ -932,7 +907,7 @@ class RealEstateAgent:
         create_lead_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_lead_tool_func),
             name="create_lead_tool",
-            description="יצירת ליד חדש המקשר איש קשר לנכס."
+            description="יצירת ליד חדש לנכס."
         )
         
         async def list_tasks_tool_func(status: Optional[str] = None) -> str:
@@ -951,7 +926,7 @@ class RealEstateAgent:
         list_tasks_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_tasks_tool_func),
             name="list_tasks_tool",
-            description="רשימת כל המשימות ב-CRM, עם אפשרות סינון לפי סטטוס."
+            description="רשימת משימות עם סינון אופציונלי."
         )
         
         tools_list = [
@@ -1029,38 +1004,7 @@ class RealEstateAgent:
             fetch_web_page_tool = StructuredTool.from_function(
                 func=wrap_async_tool(fetch_web_page_tool_func),
                 name="fetch_web_page_tool",
-                description="""גישה לאינטרנט - שליפת דפי אינטרנט מדומיינים מורשים בלבד.
-                
-                חשוב מאוד: 
-                - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
-                  השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
-                - כלי זה מיועד לאתרים שאין להם MCP server או לחיפושים חד-פעמיים.
-                
-                דומיינים מורשים:
-                - *.gov.il - כל אתרי הממשלה הישראלית (לדוגמה: data.gov.il, mavat.iplan.gov.il, וכו')
-                - boi.org.il - בנק ישראל (ריביות, נתוני משכנתא)
-                - nadlaner.com, api.nadlaner.com - אתרים פנימיים
-                
-                הכלי:
-                - מאפשר רק בקשות GET (לא POST/PUT/DELETE)
-                - ממיר HTML לטקסט רגיל (ללא ביצוע JavaScript)
-                - מגביל גודל תגובה ל-1 MB
-                - מגביל קצב (5 בקשות לדקה)
-                - מסנן וקטורי הזרקה פוטנציאליים
-                - משתמש במטמון לניצול יעיל
-                
-                פרמטרים:
-                - url: כתובת URL מלאה לשליפה (חייבת להתחיל ב-http:// או https://)
-                - scope: תיאור אופציונלי למה אתה שולף את ה-URL הזה (ללוגים)
-                
-                דוגמה: fetch_web_page_tool(url='https://boi.org.il/...', scope='חיפוש ריביות משכנתא')
-                
-                שימוש מומלץ:
-                1. תכנן מה אתה צריך לחפש
-                2. שלוף רק את הדפים הרלוונטיים
-                3. עבד עם הטקסט המסוכם, לא עם כל הדף
-                4. ציין את מקור המידע בתשובה שלך
-                5. עבור אתרים עם MCP - השתמש בכליי MCP במקום!"""
+                description="שליפת דפי אינטרנט מדומיינים מורשים בלבד."
             )
             
             tools_list.append(fetch_web_page_tool)
@@ -1074,40 +1018,20 @@ class RealEstateAgent:
     
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the agent executor with system prompt."""
+        scope_sentence = (
+            "אתה עוזר AI מקצועי לסוכני נדל\"ן, המסייע בחיפוש וניתוח נכסים, ניהול עסקאות, "
+            "חישובי הוצאות, ניתוח משכנתא וניהול CRM."
+        )
+
         internet_access_note = ""
         if self.internet_enabled:
-            internet_access_note = """
-6. **גישה לאינטרנט** (מופעלת): אתה יכול לשלוף מידע מדפי אינטרנט מדומיינים מורשים בלבד.
-   - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
-     השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
-   - השתמש ב-fetch_web_page_tool רק עבור אתרים שאין להם MCP server או לחיפושים חד-פעמיים
-   - דומיינים מורשים: *.gov.il (כל אתרי הממשלה), boi.org.il (בנק ישראל), nadlaner.com (פנימי)
-   - תכנן מראש מה אתה צריך לחפש - אל תשלוף דפים מיותרים
-   - עבד עם הטקסט המסוכם, לא עם כל הדף
-   - תמיד ציין את מקור המידע בתשובה שלך
-   - יש מגבלת קצב של 5 בקשות לדקה - השתמש בחוכמה
-"""
+            internet_access_note = "\nיש לך גישה מוגבלת לדפי אינטרנט מדומיינים מורשים באמצעות fetch_web_page_tool."
 
-        system_prompt = f"""אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
+        language_sentence = (
+            "ענה בעברית למשתמשים בעברית ועבור לשפה אחרת רק אם התבקשת במפורש. הצג נתונים בצורה ברורה בעברית."
+        )
 
-1. **חיפוש וניתוח נכסים**: חיפוש נכסים, קבלת פרטי נכסים, צפייה בעסקאות, היתרים, תוכניות והערכות שווי
-2. **ניהול עסקאות**: יצירה וניהול עסקאות, צפייה במשא ומתן והצעות
-3. **חישובי הוצאות**: הערכת עלויות בנייה ואפשרויות עלויות
-4. **ניתוח משכנתא**: ניתוח יכולת משכנתא ותרחישי תשלום
-5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות{internet_access_note}
-
-כאשר משתמשים שואלים שאלות:
-- השתמש בכלים המתאימים כדי לאחזר נתונים אמיתיים
-- תן הסברים ברורים ומועילים
-- ערוך מספרים ומחירים בצורה קריאה
-- אם אין לך מספיק מידע, שאל שאלות הבהרה
-- תמיד בדוק מזהה נכסים ומזהים אחרים לפני השימוש בהם
-
-**שפה**: אתה עובד בעיקר בעברית. תגיב בעברית למשתמשים שמדברים עברית. 
-תמיד השתמש בעברית כשאתה מתקשר עם המשתמש, אלא אם כן הוא מבקש במפורש שפה אחרת.
-כשאתה מציג נתונים, ערוך אותם בצורה קריאה בעברית עם פורמט נכון למספרים ומחירים.
-
-היה מקצועי, ידידותי ומקיף בתגובות שלך."""
+        system_prompt = f"{scope_sentence}{internet_access_note}\n\n{language_sentence}"
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),

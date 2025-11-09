@@ -281,10 +281,11 @@ export function AgentChat({
       return <em className="italic">{children}</em>
     },
     img: ({ src, alt, ...props }) => {
+      if (!src) return null
       return (
         <img
           src={src}
-          alt={alt}
+          alt={alt || ""}
           className="max-w-full h-auto rounded-lg my-2"
           loading="lazy"
           {...props}
@@ -462,7 +463,7 @@ export function AgentChat({
     if (isOpen && messageCount === 1) {
       fetchRecommendations()
     }
-  }, [isOpen, messages.length, fetchRecommendationsFromAPI, user, authLoading, recommendedQuestions])
+  }, [isOpen, messageCount, pathname, router, fetchRecommendationsFromAPI, user, authLoading, recommendedQuestions])
 
   // Update recommended questions when prop changes
   useEffect(() => {
@@ -1031,7 +1032,7 @@ export function AgentChat({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-3">
                   <AIIcon />
-                  <CardTitle className="text-lg font-semibold">נדל"נר AI</CardTitle>
+                  <CardTitle className="text-lg font-semibold">נדל&quot;נר AI</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground mr-12">
                   העוזר עלול לטעות - אנא בדקו את המידע

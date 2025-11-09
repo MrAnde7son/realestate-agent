@@ -435,6 +435,7 @@ def register_assets_tools():
         rental_sale: Optional[str] = None,
         status: Optional[str] = None,
         zoning: Optional[str] = None,
+        user_assets: Optional[str] = None,
         page: Optional[int | str] = None,
         page_size: Optional[int | str] = None,
         fields: Optional[List[str]] = None,
@@ -474,6 +475,8 @@ def register_assets_tools():
             params["rentalSale"] = rental_sale
         if ad_type and ad_type != "all":
             params["adType"] = ad_type
+        if user_assets and user_assets != "all":
+            params["userAssets"] = user_assets
         price_max_int = _to_int(max_price)
         if price_max_int is not None:
             params["priceMax"] = price_max_int

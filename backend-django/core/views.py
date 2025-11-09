@@ -5437,41 +5437,25 @@ def agent_recommendations(request):
         try:
             from .models import Asset
             user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
-            
-            if user_assets.exists():
-                # User has assets - provide asset-specific recommendations
-                recommendations = [
-                    "מה השווי של הנכסים שלי?",
-                    "איזה סיכונים יש בנכסים שלי?",
-                    "מה הפוטנציאל של הנכסים שלי?",
-                    "מצא לי נכסים דומים לנכסים שלי",
-                    "מה ההיסטוריה של העסקאות באזורים של הנכסים שלי?"
-                ]
-            else:
-                # User has no assets - provide general recommendations
-                recommendations = [
-                    "מצא לי נכסים בתל אביב מתחת למחיר שוק",
-                    "מה הפוטנציאל של הנכס הזה?",
-                    "איזה סיכונים יש בנכס הזה?",
-                    "מה ההיסטוריה של העסקאות באזור?",
-                    "מה השווי של הנכס הזה?"
-                ]
-        except Exception as e:
-            logger.warning(f"Error personalizing recommendations: {e}")
-            # Fallback to defaults if personalization fails
             recommendations = [
                 "מצא לי נכסים בתל אביב מתחת למחיר שוק",
                 "מה הפוטנציאל של הנכס הזה?",
-                "איזה סיכונים יש בנכס הזה?"
-            ]
-        
-        # Ensure we always return at least some recommendations
-        if not recommendations:
-            recommendations = [
-                "מה השווי של הנכס הזה?",
+                "איזה סיכונים יש בנכס הזה?",
                 "מה ההיסטוריה של העסקאות באזור?",
-                "איזה סיכונים יש בנכס הזה?"
+                "מה השווי של הנכס הזה?"
             ]
+            
+
+        except Exception as e:
+            logger.warning(f"Error personalizing recommendations: {e}")
+            
+        recommendations = [
+            "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+            "מה הפוטנציאל של הנכס הזה?",
+            "איזה סיכונים יש בנכס הזה?",
+            "מה ההיסטוריה של העסקאות באזור?",
+            "מה השווי של הנכס הזה?"
+        ]
         
         return Response({
             "recommendations": recommendations

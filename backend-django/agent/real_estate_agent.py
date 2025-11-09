@@ -616,8 +616,6 @@ class RealEstateAgent:
         self.history_summary_max_chars = _safe_int_env("AGENT_HISTORY_SUMMARY_MAX_CHARS", 600)
         self._tool_budget_message_cache: Optional[Dict[str, str]] = None
 
-        # Set environment variables for MCP tools
-        # Use api_token (from parameter or env var fallback)
         if self.api_token:
             os.environ["REALESTATE_API_TOKEN"] = self.api_token
         else:
@@ -1014,7 +1012,7 @@ class RealEstateAgent:
                     enriched_items.append(enriched)
                 except Exception as e:
                     logger.debug(f"Error enriching item in {tool_name}: {e}", exc_info=True)
-                    enriched_items.append(item)  # Fallback to original
+                    enriched_items.append(item)
             
             # Format enriched items
             formatted_items = []
@@ -1035,7 +1033,8 @@ class RealEstateAgent:
             min_price: Optional[int] = None,
             rooms: Optional[int] = None,
             page: Optional[int] = None,
-            fields: Optional[List[str]] = None,
+            user_assets: Optional[str] = None,
+            fields: Optional[Any] = None,
             limit: Optional[int] = 5,
         ) -> str:
             """List all assets with optional filtering. Returns formatted results with addresses, prices, and property details.
@@ -1046,7 +1045,8 @@ class RealEstateAgent:
             - min_price: Minimum price in shekels
             - rooms: Number of rooms
             - page: Page number for pagination
-            - fields: Optional list of field names to return
+            - user_assets: Filter by user assets - use "watchlist" for assets in user's watchlist, "mine" for user's own assets, "others" for others' assets
+            - fields: Optional list of field names to return (can be a list or comma-separated string)
             - limit: Maximum number of items to return (default: 5, max: 50)
             
             Returns formatted list ready to present to user.
@@ -1065,16 +1065,32 @@ class RealEstateAgent:
                             corrected_city = matched_city
                             logger.info(f"Auto-corrected city name: '{city}' -> '{corrected_city}'")
                 
+                # Normalize fields parameter: handle both string and list inputs
+                # This handles cases where the LLM passes fields as a string instead of an array
+                fields_list = None
+                if fields is not None:
+                    if isinstance(fields, str):
+                        # Convert comma-separated string to list
+                        fields_list = [f.strip() for f in fields.split(",") if f.strip()]
+                    elif isinstance(fields, list):
+                        fields_list = fields
+                    else:
+                        # Fallback: try to convert to list
+                        try:
+                            fields_list = list(fields) if fields else None
+                        except (TypeError, ValueError):
+                            fields_list = None
+                
                 # Ensure essential fields are always included for address building
                 # We need street, number, city, neighborhood to build addresses
                 essential_fields = ["id", "street", "number", "city", "neighborhood"]
-                if fields:
+                if fields_list:
                     # Merge user's fields with essential fields, preserving order
-                    api_fields = list(dict.fromkeys(essential_fields + fields))  
+                    api_fields = list(dict.fromkeys(essential_fields + fields_list))  
                 else:
                     api_fields = essential_fields
                 
-                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=api_fields, limit=limit, compact=True)
+                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, user_assets=user_assets, fields=api_fields, limit=limit, compact=True)
                 
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
@@ -1116,7 +1132,7 @@ class RealEstateAgent:
         list_assets_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
-            description="חיפוש נכסים עם מסננים, לבדיקת מסננים זמינים get_asset_filters_tool."
+            description="חיפוש נכסים עם מסננים. להשתמש ב-user_assets='watchlist' כדי לקבל נכסים ברשימת המעקב של המשתמש. לבדיקת מסננים זמינים get_asset_filters_tool."
         )
         
         async def get_asset_filters_tool_func() -> str:
@@ -2031,10 +2047,6 @@ class RealEstateAgent:
                 # Sometimes tokens arrive slightly after astream finishes
                 await asyncio.sleep(0.5)  # Wait 500ms for any delayed tokens
                 logger.info("After wait, callback complete_response length: %d", len(callback.complete_response))
-                
-                # Note: We don't call ainvoke here to avoid duplicate execution
-                # The response should be captured via on_llm_new_token callback
-                # If it's not, we'll use the fallback response generation below
                 
                 # Ensure final output is captured if it wasn't streamed via tokens
                 # The final_output from chunks might contain the complete response

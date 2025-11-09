@@ -1003,7 +1003,7 @@ export function AgentChat({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-3">
                   <AIIcon />
-                  <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
+                  <CardTitle className="text-lg font-semibold">נדל"נר AI</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground mr-12">
                   העוזר עלול לטעות - אנא בדקו את המידע

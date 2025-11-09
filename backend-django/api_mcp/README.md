@@ -27,13 +27,37 @@ Set the following environment variables:
 
 ## Usage
 
-Run the server:
+### Standalone Server
+
+Run the server as a standalone process:
 
 ```bash
-python backend-django/mcp_server.py
+python backend-django/api_mcp/server.py
 ```
 
-Or use with an MCP client:
+### HTTP Endpoint (Django Integration)
+
+The MCP server is also exposed as an HTTP endpoint in the Django backend at `/mcp/`:
+
+- **GET** `/mcp/`: Returns server information and health status
+- **POST** `/mcp/`: Handles MCP protocol JSON-RPC messages
+
+Example:
+```bash
+# Health check
+curl http://localhost:8000/mcp/
+
+# MCP initialize request
+curl -X POST http://localhost:8000/mcp/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}'
+```
+
+**Note**: For full MCP protocol support with tool calls, use FastMCP's HTTP transport via ASGI mounting. The current Django endpoint provides basic protocol support.
+
+### Programmatic Usage
+
+Use with an MCP client:
 
 ```python
 from backend_django.api_mcp.server import mcp, register_crm_tools

@@ -1543,6 +1543,78 @@ class APIToken(models.Model):
         return secrets.token_urlsafe(32)
 
 
+class OAuthAuthorizationCode(models.Model):
+    """Temporary OAuth authorization code for OAuth 2.0 Authorization Code flow with PKCE support.
+    
+    Used for OAuth 2.0 authentication flows, including:
+    - MCP server authentication (ChatGPT integration)
+    - API client authentication
+    - Third-party integrations
+    - Any OAuth 2.0 Authorization Code flow
+    
+    Authorization codes are short-lived (10 minutes) and single-use.
+    """
+    
+    code = models.CharField(max_length=128, unique=True, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    client_id = models.CharField(max_length=255, db_index=True)
+    redirect_uri = models.URLField()
+    code_challenge = models.CharField(max_length=128, null=True, blank=True)
+    code_challenge_method = models.CharField(max_length=10, default='plain')  # 'plain' or 'S256'
+    scope = models.TextField(default='')  # Space-separated scopes
+    expires_at = models.DateTimeField(db_index=True)
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["client_id", "used"]),
+        ]
+        ordering = ["-created_at"]
+
+    @classmethod
+    def generate_code(cls):
+        """Generate a secure authorization code."""
+        import secrets
+        return secrets.token_urlsafe(32)
+
+    def is_expired(self):
+        """Check if the authorization code has expired."""
+        return timezone.now() > self.expires_at
+
+    def is_valid(self):
+        """Check if the code is valid (not used and not expired)."""
+        return not self.used and not self.is_expired()
+
+    def verify_code_verifier(self, code_verifier):
+        """Verify PKCE code verifier against stored challenge."""
+        import hashlib
+        import base64
+        
+        if not self.code_challenge:
+            # No PKCE challenge, allow plain verification
+            return code_verifier == self.code_challenge
+        
+        if self.code_challenge_method == 'S256':
+            # SHA256 hash of code_verifier should match code_challenge
+            verifier_hash = hashlib.sha256(code_verifier.encode()).digest()
+            verifier_b64 = base64.urlsafe_b64encode(verifier_hash).decode().rstrip('=')
+            return verifier_b64 == self.code_challenge
+        elif self.code_challenge_method == 'plain':
+            return code_verifier == self.code_challenge
+        
+        return False
+
+    def mark_used(self):
+        """Mark the authorization code as used."""
+        self.used = True
+        self.save(update_fields=['used'])
+
+    def __str__(self):
+        return f"OAuthAuthorizationCode({self.client_id}, {self.user.email}, {'used' if self.used else 'active'})"
+
+
 class AnalyticsEvent(models.Model):
     """Raw analytics events for tracking system activity."""
 

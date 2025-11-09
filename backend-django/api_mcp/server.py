@@ -67,10 +67,10 @@ Usage Examples:
 10. Read file with expanded limits: read_file(file_path="zchuyot/page.pdf", expand_limits=True, max_pages=50)
 """
 
+import sys
 import json
 import logging
 import os
-import sys
 from typing import Optional, Dict, Any, List
 
 from fastmcp import Context, FastMCP
@@ -88,6 +88,23 @@ _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
 
 logger = logging.getLogger(__name__)
+
+
+def _assign_to_module(**kwargs):
+    """Helper function to assign attributes to the module namespace.
+    
+    This is cleaner than using globals() directly and makes the intent explicit.
+    Works correctly even when module is loaded via importlib.
+    """
+    # Get the module's namespace - works for both regular imports and importlib
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        # Get the caller's globals (the module namespace)
+        caller_globals = frame.f_back.f_globals
+        caller_globals.update(kwargs)
+    finally:
+        del frame
 
 
 def prune_json(obj: Any, max_chars: int = 15_000, list_limit: int = 20, str_limit: int = 300, depth: int = 0) -> Any:
@@ -203,7 +220,18 @@ def process_list_result(
     
     def project(item: Dict[str, Any], keep: List[str]) -> Dict[str, Any]:
         """Project only specified fields from item."""
-        return {k: item.get(k) for k in keep if k in item}
+        # Include all requested fields, even if they're None or missing
+        # This ensures consistent output format
+        result = {}
+        for k in keep:
+            # Always include the field if it's in the item (even if None)
+            if k in item:
+                result[k] = item.get(k)
+            # If field doesn't exist at all, include None for essential fields
+            # This prevents empty dicts when essential fields are missing
+            elif k in ("id", "address", "price"):
+                result[k] = None
+        return result
     
     def compact_item(item: Dict[str, Any]) -> Dict[str, Any]:
         """Aggressively compact a single item."""
@@ -264,6 +292,16 @@ def process_list_result(
     
     # Apply field projection if specified
     if fields:
+        # Debug: Check if requested fields exist in raw data
+        # This helps identify if fields are missing or None
+        if items and fields:
+            sample_item = items[0]
+            missing_fields = [f for f in fields if f not in sample_item]
+            if missing_fields:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"Fields requested but not in API response: {missing_fields}. Available fields: {list(sample_item.keys())[:20]}")
+        
         items = [project(x, fields) for x in items]
     
     # Apply compaction (drop bulky nested fields)
@@ -291,6 +329,17 @@ def _get_api_token() -> Optional[str]:
     if _api_token is None:
         _api_token = os.getenv("REALESTATE_API_TOKEN")
     return _api_token
+
+
+def _get_user_profile(ctx: Context) -> Optional[Dict[str, Any]]:
+    """Get the current user's profile from the API."""
+    try:
+        result = _make_request(ctx, "GET", "/auth/profile")
+        if isinstance(result, dict) and result.get("success"):
+            return result.get("data", {}).get("user")
+    except Exception as e:
+        logger.warning(f"Failed to get user profile: {e}")
+    return None
 
 
 def _make_request(
@@ -397,6 +446,7 @@ def register_assets_tools():
         rental_sale: Optional[str] = None,
         status: Optional[str] = None,
         zoning: Optional[str] = None,
+        user_assets: Optional[str] = None,
         page: Optional[int | str] = None,
         page_size: Optional[int | str] = None,
         fields: Optional[List[str]] = None,
@@ -436,6 +486,8 @@ def register_assets_tools():
             params["rentalSale"] = rental_sale
         if ad_type and ad_type != "all":
             params["adType"] = ad_type
+        if user_assets and user_assets != "all":
+            params["userAssets"] = user_assets
         price_max_int = _to_int(max_price)
         if price_max_int is not None:
             params["priceMax"] = price_max_int
@@ -664,6 +716,17 @@ def register_assets_tools():
             data["sections"] = sections
         
         return _make_request(ctx, "POST", "/reports", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        list_assets=list_assets,
+        get_asset_filters=get_asset_filters,
+        get_asset=get_asset,
+        create_asset=create_asset,
+        sync_asset=sync_asset,
+        get_asset_data=get_asset_data,
+        generate_pdf_report=generate_pdf_report,
+    )
 
 
 # ============================================================================
@@ -780,6 +843,17 @@ def register_deals_tools():
         offer_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/deal-workspace/offers/{offer_id}")
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        list_deals=list_deals,
+        create_deal=create_deal,
+        get_deal=get_deal,
+        list_negotiations=list_negotiations,
+        get_negotiation=get_negotiation,
+        list_offers=list_offers,
+        get_offer=get_offer,
+    )
 
 
 # ============================================================================
@@ -807,7 +881,7 @@ def register_cost_tools():
         
         return _make_request(ctx, "POST", "/cost/estimate/build", data=data)
 
-    @mcp.tool(description="Get cost options.")
+    @mcp.tool(description="Get cost options for construction cost estimation only. Only relevant for land properties (מגרשים) when estimating building costs. Not needed for regular deal expense calculations.")
     async def get_cost_options(
         ctx: Context,
     ) -> Dict[str, Any]:
@@ -817,7 +891,7 @@ def register_cost_tools():
     async def calculate_deal_expenses(
         ctx: Context,
         price: float,
-        buyers: List[Dict[str, Any]],
+        buyers: Optional[List[Dict[str, Any]]] = None,
         area: Optional[float] = None,
         property_type: Optional[str] = None,
         services: Optional[List[Dict[str, Any]]] = None,
@@ -831,7 +905,8 @@ def register_cost_tools():
         
         Args:
             price: Property price (required)
-            buyers: List of buyer dictionaries with sharePct and optional flags:
+            buyers: List of buyer dictionaries with sharePct and optional flags (optional).
+                If not provided, uses the logged-in user as the default buyer with 100% share:
                 - sharePct: Percentage share (0-100)
                 - isFirstHome: Boolean (optional)
                 - isReplacementHome: Boolean (optional)
@@ -840,15 +915,16 @@ def register_cost_tools():
                 - bereavedFamily: Boolean (optional)
                 - name: String (optional)
             area: Property area in square meters (optional, for price per sqm calculation)
-            property_type: "residential" or "land" (default: "residential")
+            property_type: "residential" or "land" (default: "residential").
+                Building expenses are only calculated for "land" property type.
             services: List of service cost dictionaries with:
                 - label: Service label
                 - percent: Percentage of price (optional)
                 - amount: Fixed amount (optional)
                 - includesVat: Boolean indicating if VAT is included
             vat_rate: VAT rate (default: 0.18 for 18%)
-            construction_area: Construction area in sqm (for land purchases)
-            construction_cost_per_sqm: Construction cost per sqm (for land purchases)
+            construction_area: Construction area in sqm (for land purchases only)
+            construction_cost_per_sqm: Construction cost per sqm (for land purchases only)
             construction_includes_vat: Whether construction cost includes VAT (default: True)
             
         Returns:
@@ -857,11 +933,27 @@ def register_cost_tools():
             - breakdown: Purchase tax breakdown per buyer
             - serviceTotal: Total service costs
             - serviceBreakdown: Service costs breakdown
-            - constructionCost: Construction cost (for land)
+            - constructionCost: Construction cost (only for land property type)
             - total: Total cost including all expenses
             - pricePerSqBefore: Price per sqm before expenses
             - pricePerSqAfter: Price per sqm after expenses
         """
+        # If no buyers provided, use logged-in user as default buyer with 100% share
+        if not buyers:
+            user_profile = _get_user_profile(ctx)
+            if user_profile:
+                # Use user's full name if available, otherwise use email
+                first_name = user_profile.get("first_name", "")
+                last_name = user_profile.get("last_name", "")
+                if first_name or last_name:
+                    user_name = f"{first_name} {last_name}".strip()
+                else:
+                    user_name = user_profile.get("email", "User")
+                buyers = [{"name": user_name, "sharePct": 100}]
+            else:
+                # Fallback if user profile cannot be retrieved
+                buyers = [{"name": "User", "sharePct": 100}]
+        
         data = {
             "price": price,
             "buyers": buyers,
@@ -882,6 +974,13 @@ def register_cost_tools():
             data["constructionIncludesVat"] = construction_includes_vat
         
         return _make_request(ctx, "POST", "/deal-expenses/calculate", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        estimate_build_cost=estimate_build_cost,
+        get_cost_options=get_cost_options,
+        calculate_deal_expenses=calculate_deal_expenses,
+    )
 
 
 # ============================================================================
@@ -916,6 +1015,9 @@ def register_mortgage_tools():
             data["transactions"] = transactions
         
         return _make_request(ctx, "POST", "/mortgage-analyze", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(analyze_mortgage=analyze_mortgage)
 
 
 # ============================================================================
@@ -1220,6 +1322,26 @@ def register_crm_tools():
             data["metadata"] = metadata
         
         return _make_request(ctx, "POST", "/crm/interactions", data=data)
+    
+    # Assign functions to module namespace for direct access (after registration)
+    _assign_to_module(
+        list_contacts=list_contacts,
+        get_contact=get_contact,
+        create_contact=create_contact,
+        search_contacts=search_contacts,
+        list_leads=list_leads,
+        get_lead=get_lead,
+        create_lead=create_lead,
+        update_lead_status=update_lead_status,
+        add_lead_note=add_lead_note,
+        list_tasks=list_tasks,
+        create_task=create_task,
+        complete_task=complete_task,
+        list_meetings=list_meetings,
+        create_meeting=create_meeting,
+        list_interactions=list_interactions,
+        create_interaction=create_interaction,
+    )
 
 
 # ============================================================================

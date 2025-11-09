@@ -63,7 +63,8 @@ INSTALLED_APPS = [
     'core',
     'crm',
     'imports',
-    'deal_workspace'
+    'deal_workspace',
+    'api_mcp',  # MCP server endpoints (uses core OAuth)
 ]
 
 MIDDLEWARE = [

@@ -11,6 +11,7 @@ from . import views
 from . import views_analytics as va
 from . import views_support as vs
 from . import views_api_tokens
+from . import oauth_views
 from .urls_assets import urlpatterns as asset_urlpatterns
 from .admin_views import AdminUserViewSet
 from .api import (
@@ -145,6 +146,10 @@ urlpatterns = [
         views.auth_google_callback,
         name='auth_google_callback',
     ),
+    # OAuth 2.0 endpoints (for MCP, API clients, and other integrations)
+    path('oauth/authorize', oauth_views.oauth_authorize, name='oauth_authorize'),
+    path('oauth/token', oauth_views.oauth_token, name='oauth_token'),
+    path('oauth/metadata', oauth_views.oauth_metadata, name='oauth_metadata'),
     path('schema', SpectacularAPIView.as_view(), name='schema'),
     path(
         'docs',

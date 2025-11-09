@@ -3,6 +3,8 @@
 
 import * as React from "react"
 import { useState, useRef, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -104,16 +106,16 @@ const CodeBlock = ({
   const language = match ? match[1] : ""
 
   return (
-    <div className="relative group my-4">
-      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border rounded-t-lg">
+    <div className="relative group my-2 sm:my-4">
+      <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 bg-muted/50 border-b border-border rounded-t-lg">
         {language && (
-          <span className="text-xs text-muted-foreground font-mono">{language}</span>
+          <span className="text-xs text-muted-foreground font-mono truncate">{language}</span>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={handleCopy}
-          className="h-6 w-6 ml-auto"
+          className="h-6 w-6 ml-auto shrink-0"
           aria-label="העתק קוד"
         >
           {copied ? (
@@ -126,7 +128,7 @@ const CodeBlock = ({
       <pre
         ref={codeRef}
         className={cn(
-          "overflow-x-auto p-4 bg-muted rounded-b-lg text-sm font-mono",
+          "overflow-x-auto p-2 sm:p-4 bg-muted rounded-b-lg text-xs sm:text-sm font-mono break-words whitespace-pre-wrap",
           className
         )}
       >
@@ -166,7 +168,9 @@ export function AgentChat({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
   const messageCount = messages.length
   
   // Markdown components configuration
@@ -175,7 +179,7 @@ export function AgentChat({
       const isInline = !className || !className.includes("language-")
       if (isInline) {
         return (
-          <code className="px-1.5 py-0.5 bg-muted/70 rounded text-sm font-mono" {...props}>
+          <code className="px-1.5 py-0.5 bg-muted/70 rounded text-xs sm:text-sm font-mono break-words" {...props}>
             {children}
           </code>
         )
@@ -190,16 +194,16 @@ export function AgentChat({
       return <>{children}</>
     },
     p: ({ children }) => {
-      return <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+      return <p className="mb-2 last:mb-0 leading-relaxed text-sm sm:text-base break-words">{children}</p>
     },
     ul: ({ children }) => {
-      return <ul className="list-disc list-inside mb-2 space-y-1 mr-4">{children}</ul>
+      return <ul className="list-disc list-inside mb-2 space-y-1 mr-2 sm:mr-4 text-sm sm:text-base">{children}</ul>
     },
     ol: ({ children }) => {
-      return <ol className="list-decimal list-inside mb-2 space-y-1 mr-4">{children}</ol>
+      return <ol className="list-decimal list-inside mb-2 space-y-1 mr-2 sm:mr-4 text-sm sm:text-base">{children}</ol>
     },
     li: ({ children }) => {
-      return <li className="leading-relaxed">{children}</li>
+      return <li className="leading-relaxed break-words">{children}</li>
     },
     a: ({ href, children }) => {
       return (
@@ -207,24 +211,33 @@ export function AgentChat({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-brand-teal hover:underline"
+          className="text-brand-teal hover:underline break-all sm:break-normal"
         >
           {children}
         </a>
       )
     },
     h1: ({ children }) => {
-      return <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">{children}</h1>
+      return <h1 className="text-lg sm:text-xl font-bold mb-2 mt-4 first:mt-0 break-words">{children}</h1>
     },
     h2: ({ children }) => {
-      return <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0">{children}</h2>
+      return <h2 className="text-base sm:text-lg font-semibold mb-2 mt-3 first:mt-0 break-words">{children}</h2>
     },
     h3: ({ children }) => {
-      return <h3 className="text-base font-semibold mb-2 mt-2 first:mt-0">{children}</h3>
+      return <h3 className="text-sm sm:text-base font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h3>
+    },
+    h4: ({ children }) => {
+      return <h4 className="text-sm font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h4>
+    },
+    h5: ({ children }) => {
+      return <h5 className="text-xs sm:text-sm font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h5>
+    },
+    h6: ({ children }) => {
+      return <h6 className="text-xs font-semibold mb-2 mt-2 first:mt-0 break-words">{children}</h6>
     },
     blockquote: ({ children }) => {
       return (
-        <blockquote className="border-r-4 border-brand-teal/50 pr-4 py-2 my-2 bg-muted/30 italic">
+        <blockquote className="border-r-4 border-brand-teal/50 pr-2 sm:pr-4 py-2 my-2 bg-muted/30 italic text-sm sm:text-base break-words">
           {children}
         </blockquote>
       )
@@ -234,11 +247,13 @@ export function AgentChat({
     },
     table: ({ children }) => {
       return (
-        <div className="my-4 surface-panel overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              {children}
-            </table>
+        <div className="my-4 surface-panel overflow-hidden rounded-lg">
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <table className="min-w-full border-collapse text-sm sm:text-base">
+                {children}
+              </table>
+            </div>
           </div>
         </div>
       )
@@ -253,12 +268,35 @@ export function AgentChat({
       return <tr className="surface-section-divider last:shadow-none">{children}</tr>
     },
     th: ({ children }) => {
-      return <th className="px-4 py-3 text-right font-semibold bg-muted/40">
+      return <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold bg-muted/40 text-xs sm:text-sm break-words">
         {children}
       </th>
     },
     td: ({ children }) => {
-      return <td className="px-4 py-2 text-right">{children}</td>
+      return <td className="px-2 sm:px-4 py-2 text-right text-xs sm:text-sm break-words">{children}</td>
+    },
+    strong: ({ children }) => {
+      return <strong className="font-semibold">{children}</strong>
+    },
+    em: ({ children }) => {
+      return <em className="italic">{children}</em>
+    },
+    img: ({ src, alt, ...props }) => {
+      if (!src) return null
+      const { ref, ...imageProps } = props as any
+      return (
+        <div className="relative w-full my-2 rounded-lg overflow-hidden" style={{ aspectRatio: 'auto', minHeight: '150px' }}>
+          <Image
+            src={src}
+            alt={alt || ""}
+            fill
+            className="object-contain rounded-lg"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            unoptimized
+            {...imageProps}
+          />
+        </div>
+      )
     },
   }
   
@@ -346,7 +384,6 @@ export function AgentChat({
   // Fetch recommendations from API if enabled
   useEffect(() => {
     const fetchRecommendations = async () => {
-      if (!fetchRecommendationsFromAPI || !user || recommendedQuestions) return
       
       setIsLoadingRecommendations(true)
       try {
@@ -376,17 +413,20 @@ export function AgentChat({
           if (isJson) {
             try {
               const errorData = await response.json()
-              // Handle 401 Unauthorized - redirect to login if user was authenticated
+              // Handle 401 Unauthorized - redirect to login
               if (response.status === 401) {
-                // Check if we had a token (user was authenticated)
+                // Clear tokens if they exist
                 const hadToken = authAPI.getAccessToken() || authAPI.getRefreshToken()
                 if (hadToken && typeof window !== 'undefined') {
-                  // Clear tokens and redirect to login
                   authAPI.clearTokens()
-                  window.location.href = '/auth'
+                }
+                // Close chat and redirect to login with current path as redirect parameter
+                if (typeof window !== 'undefined') {
+                  setIsOpen(false)
+                  const currentPath = pathname || window.location.pathname
+                  router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
                   return
                 }
-                console.log(`Recommendations API: Not authenticated (${response.status})`)
               } else {
                 console.warn(`Recommendations API returned ${response.status}:`, errorData)
               }
@@ -396,7 +436,12 @@ export function AgentChat({
                 const hadToken = authAPI.getAccessToken() || authAPI.getRefreshToken()
                 if (hadToken && typeof window !== 'undefined') {
                   authAPI.clearTokens()
-                  window.location.href = '/auth'
+                }
+                // Close chat and redirect to login with current path as redirect parameter
+                if (typeof window !== 'undefined') {
+                  setIsOpen(false)
+                  const currentPath = pathname || window.location.pathname
+                  router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
                   return
                 }
               } else {
@@ -404,7 +449,13 @@ export function AgentChat({
               }
             }
           } else {
-            // Not JSON (likely HTML redirect) - just log and continue
+            // Not JSON (likely HTML redirect) - check if it's a 401
+            if (response.status === 401 && typeof window !== 'undefined') {
+              setIsOpen(false)
+              const currentPath = pathname || window.location.pathname
+              router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
+              return
+            }
             console.warn(`Recommendations API returned non-JSON response (${response.status}), skipping`)
           }
         }
@@ -418,7 +469,7 @@ export function AgentChat({
     if (isOpen && messageCount === 1) {
       fetchRecommendations()
     }
-  }, [isOpen, messageCount, fetchRecommendationsFromAPI, user, recommendedQuestions])
+  }, [isOpen, messageCount, pathname, router, fetchRecommendationsFromAPI, user, authLoading, recommendedQuestions])
 
   // Update recommended questions when prop changes
   useEffect(() => {
@@ -427,12 +478,29 @@ export function AgentChat({
     }
   }, [recommendedQuestions])
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading || !user) return
+  const handleSend = async (messageText?: string) => {
+    const textToSend = messageText?.trim() || input.trim()
+    if (!textToSend || isLoading) return
+    
+    // Wait for auth to finish loading
+    if (authLoading) {
+      console.log("Waiting for auth to load...")
+      return
+    }
+    
+    // API requires authentication - redirect to login if not authenticated
+    if (!user) {
+      console.log("User not authenticated, redirecting to login...")
+      // Close chat and redirect to login with current path as redirect parameter
+      setIsOpen(false)
+      const currentPath = pathname || window.location.pathname
+      router.push(`/auth?redirect=${encodeURIComponent(currentPath)}`)
+      return
+    }
 
     const userMessage: Message = {
       role: "user",
-      content: input.trim(),
+      content: textToSend,
       timestamp: new Date()
     }
 
@@ -712,9 +780,8 @@ export function AgentChat({
 
   const handleSuggestionSend = (suggestionText: string) => {
     setInput(suggestionText)
-    setTimeout(() => {
-      handleSend()
-    }, 100)
+    // Pass the suggestion text directly to handleSend to avoid async state update issues
+    handleSend(suggestionText)
   }
 
   const handleEditMessage = (messageIndex: number) => {
@@ -971,7 +1038,7 @@ export function AgentChat({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-3">
                   <AIIcon />
-                  <CardTitle className="text-lg font-semibold">עוזר בינה מלאכותית</CardTitle>
+                  <CardTitle className="text-lg font-semibold">נדל&quot;נר AI</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground mr-12">
                   העוזר עלול לטעות - אנא בדקו את המידע
@@ -1067,7 +1134,7 @@ export function AgentChat({
                     )}
                     <div
                       className={cn(
-                        "max-w-[80%] rounded-xl px-4 py-3 text-sm relative group shadow-sm",
+                        "max-w-[85%] sm:max-w-[80%] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm relative group shadow-sm",
                         message.role === "user"
                           ? "bg-brand-teal text-white rounded-br-sm shadow-[0_10px_24px_-16px_rgba(18,179,166,0.75)]"
                           : message.isError
@@ -1172,7 +1239,7 @@ export function AgentChat({
                                 )
                               })()}
                               
-                              <div className="markdown-content">
+                              <div className="markdown-content max-w-none break-words overflow-wrap-anywhere">
                                 <ReactMarkdown
                                   remarkPlugins={[remarkGfm]}
                                   components={markdownComponents}
@@ -1373,8 +1440,8 @@ export function AgentChat({
                     />
                   </div>
                   <Button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
+                    onClick={() => handleSend()}
+                    disabled={!input.trim() || isLoading || authLoading}
                     size="icon"
                     className="h-[44px] w-[44px] shrink-0 rounded-full shadow-md hover:shadow-lg transition-all disabled:opacity-50"
                     style={{

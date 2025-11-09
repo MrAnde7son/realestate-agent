@@ -9,6 +9,9 @@ urlpatterns = [
     path('api/crm/', include('crm.urls')),
     path('api/imports/', include('imports.urls')),
     path('api/deal-workspace/', include('deal_workspace.urls')),
+    # Support both /mcp and /mcp/ for MCP endpoint
+    path('mcp', include('api_mcp.urls')),
+    path('mcp/', include('api_mcp.urls')),
     path(
         'r/<str:token>/',
         core_views.asset_share_read_only,

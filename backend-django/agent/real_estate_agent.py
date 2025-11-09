@@ -11,14 +11,38 @@ import os
 import sys
 import importlib.util
 import asyncio
-import threading
 import time
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
+
+from functools import lru_cache
+
+# Add backend-django directory to path before agent imports
+backend_django_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_django_path not in sys.path:
+    sys.path.insert(0, backend_django_path)
+
+# Load .env file if available (before any environment variable access)
+try:
+    from dotenv import load_dotenv
+    # Try to find .env file in project root or backend-django directory
+    project_root = os.path.abspath(os.path.join(backend_django_path, ".."))
+    env_file = os.path.join(project_root, '.env')
+    if not os.path.exists(env_file):
+        env_file = os.path.join(backend_django_path, '.env')
+    if os.path.exists(env_file):
+        load_dotenv(env_file, override=False)
+except ImportError:
+    # python-dotenv not available, skip
+    pass
+except Exception:
+    # Ignore errors loading .env file
+    pass
 
 logger = logging.getLogger(__name__)
 
-from .internet_fetcher import get_fetcher
+from agent.internet_fetcher import get_fetcher
+from agent.memory import ConversationMemory
 
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
@@ -28,10 +52,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-# Add project root to path (after imports to satisfy linter)
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+from agent.tool_utils import wrap_async_tool
 
 # Import MCP server functions dynamically
 _agent_import_error = None
@@ -68,6 +89,7 @@ try:
     get_offer = get_underlying_func(mcp_server.get_offer)
     estimate_build_cost = get_underlying_func(mcp_server.estimate_build_cost)
     get_cost_options = get_underlying_func(mcp_server.get_cost_options)
+    calculate_deal_expenses = get_underlying_func(mcp_server.calculate_deal_expenses)
     analyze_mortgage = get_underlying_func(mcp_server.analyze_mortgage)
     list_contacts = get_underlying_func(mcp_server.list_contacts)
     create_contact = get_underlying_func(mcp_server.create_contact)
@@ -94,6 +116,7 @@ except Exception as e:
     get_offer = _stub_func
     estimate_build_cost = _stub_func
     get_cost_options = _stub_func
+    calculate_deal_expenses = _stub_func
     analyze_mortgage = _stub_func
     list_contacts = _stub_func
     create_contact = _stub_func
@@ -227,6 +250,135 @@ def _patch_langchain_tool_parser():
 _patch_langchain_tool_parser()
 
 
+def _safe_int_env(var_name: str, default: int) -> int:
+    """Return integer value from environment with safe fallback."""
+    try:
+        value = os.getenv(var_name)
+        if value is None:
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        logger.warning("Invalid integer for %s: %s. Using default %s.", var_name, value, default)
+        return default
+
+
+@lru_cache(maxsize=1)
+def _get_tokenizer():
+    """Lazily load and cache the tokenizer used for budgeting."""
+    try:
+        from tiktoken import get_encoding
+
+        return get_encoding("cl100k_base")
+    except ImportError as exc:
+        logger.error("tiktoken is required for token budgeting but is not installed: %s", exc)
+        raise
+
+
+def enforce_token_budget(messages, max_tokens: int, reserve_for_output: int = 1024):
+    """Ensure total tokens for messages stay within max_tokens - reserve."""
+
+    if max_tokens <= 0:
+        return messages
+
+    tokenizer = _get_tokenizer()
+
+    def count(msg):
+        content = msg.get("content") or ""
+        return len(tokenizer.encode(content))
+
+    total = sum(count(m) for m in messages)
+    target = max_tokens - max(reserve_for_output, 0)
+    if total <= target:
+        return messages
+
+    trimmed = []
+    running = 0
+    for msg in reversed(messages):  # newest → oldest
+        c = count(msg)
+        if running + c <= target:
+            trimmed.append(msg)
+            running += c
+        elif msg.get("role") != "system":
+            trimmed.append({"role": "system", "content": "[history summarized due to budget]"})
+            break
+    trimmed.reverse()
+    return trimmed
+
+
+def _normalize_content(text: str) -> str:
+    """Normalize whitespace in text for summaries."""
+    if not text:
+        return ""
+    return " ".join(text.split())
+
+
+def build_history_with_summary(
+    history: List[Dict[str, str]],
+    keep_last: int = 4,
+    summary_max_chars: int = 600,
+) -> List[Dict[str, str]]:
+    """Return chat history keeping the latest turns and adding a summary for older ones."""
+
+    if not history:
+        return []
+
+    keep_last = max(keep_last, 0)
+    summary_max_chars = max(summary_max_chars, 120)
+
+    sanitized = [
+        {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+        for msg in history
+        if isinstance(msg, dict)
+    ]
+
+    if len(sanitized) <= keep_last or keep_last == 0:
+        return sanitized[-keep_last:] if keep_last else sanitized
+
+    older_messages = sanitized[:-keep_last]
+    recent_messages = sanitized[-keep_last:]
+
+    summary_parts = []
+    for msg in older_messages:
+        role = (msg.get("role") or "user").upper()
+        content = _normalize_content(msg.get("content") or "")
+        if not content:
+            continue
+        summary_parts.append(f"{role}: {content}")
+
+    if not summary_parts:
+        return recent_messages
+
+    summary_text = " | ".join(summary_parts)
+    summary_text = summary_text[:summary_max_chars]
+
+    summary_message = {
+        "role": "system",
+        "content": f"[תקציר שיחה]: {summary_text}",
+    }
+
+    return [summary_message, *recent_messages]
+
+
+def compress_tool_output(text: str, max_chars: int = 1200) -> str:
+    """Compress verbose tool output while preserving the most useful parts."""
+
+    if text is None:
+        return ""
+
+    text = str(text)
+    if len(text) <= max_chars:
+        return text
+
+    compact = " ".join(text.split())
+    if len(compact) <= max_chars:
+        return compact
+
+    head = compact[:800]
+    tail = compact[-300:]
+    trimmed_chars = max(len(compact) - (len(head) + len(tail)), 0)
+    return f"{head}\n...[trimmed {trimmed_chars} chars]...\n{tail}"
+
+
 class ToolCallTracker(BaseCallbackHandler):
     """Callback handler to track tool calls during agent execution."""
     
@@ -238,8 +390,10 @@ class ToolCallTracker(BaseCallbackHandler):
         """Called when a tool starts running."""
         tool_name = serialized.get("name", "unknown_tool")
         logger.info("🔧 Tool started: %s with input: %s", tool_name, str(input_str)[:100])
+        tool_hebrew = translate_tool_name(tool_name)
         self.current_tool_call = {
             "tool": tool_name,
+            "tool_hebrew": tool_hebrew,
             "input": input_str,
             "status": "running",
             "output": None
@@ -251,7 +405,7 @@ class ToolCallTracker(BaseCallbackHandler):
         if self.current_tool_call:
             tool_name = self.current_tool_call["tool"]
             self.current_tool_call["status"] = "completed"
-            self.current_tool_call["output"] = output[:200]  # Truncate long outputs
+            self.current_tool_call["output"] = compress_tool_output(output)
             logger.info("✅ Tool completed: %s", tool_name)
             self.current_tool_call = None
     
@@ -280,18 +434,22 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
         """Called when a new token is generated."""
         self.complete_response += token
+        logger.debug("Received LLM token: %s (total length: %d)", token[:50], len(self.complete_response))
         # Put token in queue for async consumption
         try:
             self.chunk_queue.put_nowait({"type": "chunk", "content": token})
         except asyncio.QueueFull:
+            logger.warning("Chunk queue full, skipping token")
             pass  # Queue is full, skip this chunk
     
     def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         """Called when a tool starts running."""
         tool_name = serialized.get("name", "unknown_tool")
         logger.info("🔧 Tool started (streaming): %s with input: %s", tool_name, str(input_str)[:100])
+        tool_hebrew = translate_tool_name(tool_name)
         self.current_tool_call = {
             "tool": tool_name,
+            "tool_hebrew": tool_hebrew,
             "input": input_str,
             "status": "running",
             "output": None
@@ -302,6 +460,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             self.chunk_queue.put_nowait({
                 "type": "tool_call_start",
                 "tool": tool_name,
+                "tool_hebrew": tool_hebrew,
                 "input": str(input_str)[:100] if input_str else ""
             })
         except asyncio.QueueFull:
@@ -321,15 +480,18 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Called when a tool finishes running."""
         if self.current_tool_call:
             tool_name = self.current_tool_call["tool"]
+            tool_hebrew = translate_tool_name(tool_name)
             self.current_tool_call["status"] = "completed"
-            self.current_tool_call["output"] = str(output)[:200] if output else ""  # Truncate long outputs
+            compressed_output = compress_tool_output(output)
+            self.current_tool_call["output"] = compressed_output
             logger.info("✅ Tool completed (streaming): %s", tool_name)
             self.current_tool_call = None
             try:
                 self.chunk_queue.put_nowait({
                     "type": "tool_call_end",
                     "tool": tool_name,
-                    "output": str(output)[:200] if output else ""
+                    "tool_hebrew": tool_hebrew,
+                    "output": compressed_output
                 })
             except asyncio.QueueFull:
                 # Try to make space
@@ -338,7 +500,8 @@ class StreamingCallbackHandler(BaseCallbackHandler):
                     self.chunk_queue.put_nowait({
                         "type": "tool_call_end",
                         "tool": tool_name,
-                        "output": str(output)[:200] if output else ""
+                        "tool_hebrew": tool_hebrew,
+                        "output": compressed_output
                     })
                 except:
                     pass
@@ -349,11 +512,13 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             self.current_tool_call["status"] = "error"
             self.current_tool_call["output"] = f"Error: {str(error)}"
             tool_name = self.current_tool_call["tool"]
+            tool_hebrew = translate_tool_name(tool_name)
             self.current_tool_call = None
             try:
                 self.chunk_queue.put_nowait({
                     "type": "tool_call_error",
                     "tool": tool_name,
+                    "tool_hebrew": tool_hebrew,
                     "error": str(error)
                 })
             except asyncio.QueueFull:
@@ -390,8 +555,8 @@ def translate_tool_name(tool_name: str) -> str:
         "get_asset_filters_tool": "קבלת אפשרויות סינון",
         "get_asset_tool": "קבלת פרטי נכס",
         "create_asset_tool": "יצירת נכס",
-        "get_asset_transactions_tool": "קבלת היסטוריית עסקאות",
-        "get_asset_appraisal_tool": "קבלת הערכת שווי",
+        "calculate_deal_expenses_tool": "חישוב הוצאות עסקה",
+        "get_asset_data_tool": "קבלת תת-משאב נכס",
         "list_deals_tool": "רשימת עסקאות",
         "create_deal_tool": "יצירת עסקה",
         "get_offer_tool": "קבלת פרטי הצעה",
@@ -411,6 +576,10 @@ def translate_tool_name(tool_name: str) -> str:
 class RealEstateAgent:
     """Real Estate Agent powered by LangChain."""
     
+    # Class-level cache for available cities (shared across all instances)
+    # This is more efficient since agents are created per HTTP request
+    _available_cities_cache: Optional[List[str]] = None
+    
     def __init__(
         self,
         llm_provider: str = "openai",
@@ -419,9 +588,12 @@ class RealEstateAgent:
         temperature: float = 0.3,
         user_api_key: Optional[str] = None,
         internet_enabled: bool = False,
+        enable_memory: bool = True,
+        memory_max_messages: int = 50,
+        memory: Optional[ConversationMemory] = None,
     ):
         """Initialize the Real Estate Agent.
-        
+
         Args:
             llm_provider: LLM provider to use ("openai", "gemini", or "groq")
             api_token: Optional API token for authenticated requests
@@ -430,14 +602,21 @@ class RealEstateAgent:
             user_api_key: Optional user's API key for LLM (overrides environment variables)
             internet_enabled: Enable Internet access (default: False). When enabled, allows
                              fetching web pages from whitelisted domains only.
+            enable_memory: Enable storing chat history in memory.
+            memory_max_messages: Maximum number of messages to keep in memory.
+            memory: Optional pre-configured memory object (overrides other memory settings).
         """
-        self.api_token = api_token  # Use provided token (should be from authenticated user)
+        self.api_token = api_token or os.getenv("REALESTATE_API_TOKEN")  # Use provided token or fallback to env var
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
         self.user_api_key = user_api_key  # Store user's API key
         self.internet_enabled = internet_enabled
-        
-        # Set environment variables for MCP tools
-        # Always use the provided api_token (from authenticated user) - don't fall back to env
+
+        self.max_input_tokens = _safe_int_env("AGENT_MAX_INPUT_TOKENS", 120_000)
+        self.output_token_reserve = _safe_int_env("AGENT_OUTPUT_TOKEN_RESERVE", 1024)
+        self.history_keep_last = _safe_int_env("AGENT_HISTORY_KEEP_LAST", 4)
+        self.history_summary_max_chars = _safe_int_env("AGENT_HISTORY_SUMMARY_MAX_CHARS", 600)
+        self._tool_budget_message_cache: Optional[Dict[str, str]] = None
+
         if self.api_token:
             os.environ["REALESTATE_API_TOKEN"] = self.api_token
         else:
@@ -450,10 +629,51 @@ class RealEstateAgent:
         # Create tools
         self.tools = self._create_tools()
         logger.info("Created %d tools for agent", len(self.tools))
-        
+
+        # Configure memory
+        self.memory = None
+        if memory is not None:
+            self.memory = memory
+        elif enable_memory:
+            try:
+                self.memory = ConversationMemory(max_messages=memory_max_messages)
+            except Exception as exc:
+                logger.error("Failed to initialise conversation memory: %s", exc)
+                self.memory = None
+
         # Create agent
         self.agent_executor = self._create_agent_executor()
-    
+
+    def clear_memory(self) -> None:
+        """Clear stored conversation history."""
+        if self.memory is not None:
+            self.memory.clear()
+
+    def _sanitize_chat_history(self, chat_history: Optional[List[Dict[str, Any]]]) -> List[Dict[str, str]]:
+        """Return a sanitized copy of provided chat history."""
+        sanitized: List[Dict[str, str]] = []
+        if not chat_history:
+            return sanitized
+        for message in chat_history:
+            if not isinstance(message, dict):
+                continue
+            role = str(message.get("role", "user")).strip() or "user"
+            content = str(message.get("content", "")).strip()
+            sanitized.append({"role": role, "content": content})
+        return sanitized
+
+    def _build_chat_history(self, chat_history: Optional[List[Dict[str, Any]]]) -> List[Dict[str, str]]:
+        """Combine external chat history with internal memory if enabled."""
+        if self.memory is not None:
+            return self.memory.build_history(chat_history)
+        return self._sanitize_chat_history(chat_history)
+
+    def _record_interaction(self, user_message: str, agent_response: str) -> None:
+        """Persist the latest interaction to memory if available."""
+        if self.memory is None:
+            return
+        self.memory.append_interaction(user_message, agent_response)
+
     def _create_llm(self, provider: str, temperature: float, user_api_key: Optional[str] = None):
         """Create LLM instance based on provider."""
         # Helper to get API key from user key first, then env or Django settings
@@ -480,11 +700,18 @@ class RealEstateAgent:
             # Try Django settings if available
             try:
                 from django.conf import settings
+                from django.core.exceptions import ImproperlyConfigured
                 if settings_attr:
-                    key = getattr(settings, settings_attr, None)
-                    if key:
-                        return key.strip(), "django_settings"
+                    # Accessing settings attributes may trigger ImproperlyConfigured if Django isn't configured
+                    try:
+                        key = getattr(settings, settings_attr, None)
+                        if key:
+                            return key.strip(), "django_settings"
+                    except ImproperlyConfigured:
+                        # Django not configured, skip Django settings
+                        pass
             except ImportError:
+                # Django not installed, skip Django settings
                 pass
             return None, "none"
         
@@ -560,50 +787,244 @@ class RealEstateAgent:
         ctx = MockContext()
         logger.debug("Creating tools with MockContext (dummy context object)")
         
-        # Helper function to wrap async tool functions for LangChain
-        def wrap_async_tool(async_func):
-            """Wrap an async function to be used with LangChain tools."""
-            import functools
+        # Helper functions for projection-first list handling
+        def _safe_limit(n: Optional[int], default: int = 5, hard_max: int = 50) -> int:
+            """Safely convert limit parameter to int with bounds."""
+            try:
+                if n is None:
+                    return default
+                return max(1, min(int(n), hard_max))
+            except Exception:
+                return default
+        
+        def _fmt_list(items: list, key_fields: list[str], max_items: int) -> str:
+            """Format list items with field projection."""
+            if not isinstance(items, list):
+                return str(items)
+            out = []
+            for x in items[:max_items]:
+                line = " | ".join(f"{k}: {x.get(k)}" for k in key_fields if k in x)
+                out.append(f"- {line or str(x)[:200]}")
+            more = "" if len(items) <= max_items else f"\n…(+{len(items)-max_items} נוספים)"
+            return "\n".join(out) + more
+        
+        def _normalize_city_name(city: str) -> str:
+            """Normalize city name for comparison (remove spaces, dashes, etc.)."""
+            if not city:
+                return ""
+            # Remove common separators and normalize whitespace
+            normalized = city.replace("-", " ").replace("–", " ").replace("—", " ")
+            normalized = " ".join(normalized.split())  # Normalize whitespace
+            return normalized.strip()
+        
+        def _find_best_city_match(city: str, available_cities: List[str]) -> Optional[str]:
+            """Find the best matching city name from available cities.
             
-            @functools.wraps(async_func)
-            def sync_wrapper(*args, **kwargs):
-                """Synchronous wrapper that runs the async function."""
-                # Check if we're in an async context
+            Returns the exact match if found, otherwise tries fuzzy matching.
+            """
+            if not city or not available_cities:
+                return None
+            
+            city_normalized = _normalize_city_name(city)
+            
+            # First, try exact match (case-insensitive)
+            for available_city in available_cities:
+                if city_normalized == _normalize_city_name(available_city):
+                    return available_city
+            
+            # Try substring match (city name contains the search term or vice versa)
+            for available_city in available_cities:
+                available_normalized = _normalize_city_name(available_city)
+                if city_normalized in available_normalized or available_normalized in city_normalized:
+                    return available_city
+            
+            # Try matching after removing common suffixes/prefixes
+            # For example, "תל אביב" should match "תל אביב יפו" or "תל אביב-יפו"
+            city_words = set(city_normalized.split())
+            for available_city in available_cities:
+                available_normalized = _normalize_city_name(available_city)
+                available_words = set(available_normalized.split())
+                # If all words from the search city are in the available city, it's a match
+                if city_words and city_words.issubset(available_words):
+                    return available_city
+            
+            return None
+        
+        async def _get_available_cities() -> List[str]:
+            """Get available cities from cache or API."""
+            if RealEstateAgent._available_cities_cache is None:
                 try:
-                    # Try to get the running loop
-                    loop = asyncio.get_running_loop()
-                    # We're in an async context - need to run in a separate thread with its own loop
-                    result = None
-                    exception = None
-                    
-                    def run_in_new_loop():
-                        nonlocal result, exception
-                        try:
-                            # Create a new event loop in this thread
-                            new_loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(new_loop)
-                            try:
-                                result = new_loop.run_until_complete(async_func(*args, **kwargs))
-                            finally:
-                                new_loop.close()
-                        except Exception as e:
-                            exception = e
-                    
-                    thread = threading.Thread(target=run_in_new_loop, daemon=True)
-                    thread.start()
-                    thread.join(timeout=300)  # 5 minute timeout
-                    
-                    if thread.is_alive():
-                        raise TimeoutError("Tool execution timed out")
-                    
-                    if exception:
-                        raise exception
-                    return result
-                except RuntimeError:
-                    # No running loop - we can use asyncio.run directly
-                    return asyncio.run(async_func(*args, **kwargs))
+                    result = await get_asset_filters(ctx)
+                    if isinstance(result, dict) and result.get("success"):
+                        filters = result.get("filters", {})
+                        RealEstateAgent._available_cities_cache = filters.get("cities", [])
+                    else:
+                        RealEstateAgent._available_cities_cache = []
+                except Exception:
+                    RealEstateAgent._available_cities_cache = []
+            return RealEstateAgent._available_cities_cache or []
+        
+        # Generic tool enrichment system
+        async def _enrich_asset_list_item(asset: Dict[str, Any]) -> Dict[str, Any]:
+            """Enrich a single asset item with listings data."""
+            asset_id = asset.get("id")
+            if not asset_id:
+                return asset
             
-            return sync_wrapper
+            # Build address string from available fields
+            # Try multiple ways to get address info
+            asset_city = asset.get("city") or asset.get("city_name") or ""
+            asset_street = asset.get("street") or asset.get("street_name") or ""
+            asset_number = asset.get("number") or asset.get("house_number")
+            asset_neighborhood = asset.get("neighborhood") or asset.get("neighborhood_name") or ""
+            
+            # If we don't have address components, try to get full asset data
+            if not asset_city and not asset_street:
+                try:
+                    full_asset_result = await get_asset(ctx, asset_id, include_documents=False)
+                    if isinstance(full_asset_result, dict) and full_asset_result.get("success"):
+                        full_asset = full_asset_result.get("data", {})
+                        asset_city = full_asset.get("city") or asset_city
+                        asset_street = full_asset.get("street") or asset_street
+                        asset_number = full_asset.get("number") or asset_number
+                        asset_neighborhood = full_asset.get("neighborhood") or asset_neighborhood
+                except Exception as e:
+                    logger.debug(f"Could not fetch full asset {asset_id} for address: {e}", exc_info=True)
+            
+            address_parts = []
+            if asset_street:
+                address_parts.append(asset_street)
+                if asset_number:
+                    address_parts.append(str(asset_number))
+            if asset_neighborhood:
+                address_parts.append(f"({asset_neighborhood})")
+            if asset_city:
+                address_parts.append(asset_city)
+            address = ", ".join(address_parts) if address_parts else f"נכס #{asset_id}"
+            
+            # Fetch listings to get price information
+            try:
+                listings_result = await get_asset_data(ctx, asset_id=asset_id, kind="listings", limit=1, compact=False)
+                enriched_data = {
+                    "address": address,
+                    "id": asset_id,
+                }
+                
+                if isinstance(listings_result, dict) and listings_result.get("success"):
+                    listings_data = listings_result.get("data", [])
+                    if listings_data:
+                        listing = listings_data[0]
+                        price = listing.get("price")
+                        if price:
+                            if price < 100000:
+                                enriched_data["price"] = f"₪{price:,}/חודש (השכרה)"
+                            else:
+                                enriched_data["price"] = f"₪{price:,}"
+                        
+                        rooms = listing.get("rooms") or listing.get("rooms_display")
+                        if rooms:
+                            enriched_data["rooms"] = f"{rooms} חדרים"
+                        
+                        size = listing.get("size")
+                        if size:
+                            enriched_data["size"] = f"{size} מ\"ר"
+                        
+                        prop_type = listing.get("property_type")
+                        if prop_type:
+                            enriched_data["property_type"] = prop_type
+                
+                return enriched_data
+            except Exception as e:
+                logger.debug(f"Could not enrich asset {asset_id}: {e}", exc_info=True)
+                return {"address": address, "id": asset_id}
+        
+        def _format_enriched_item(item: Dict[str, Any], formatter: Optional[Callable[[Dict[str, Any]], str]] = None) -> str:
+            """Format an enriched item using a custom formatter or default format."""
+            if formatter:
+                return formatter(item)
+            
+            # Default formatting: try to build a nice string
+            parts = []
+            
+            # Address or name first
+            if "address" in item:
+                parts.append(f"**{item['address']}**")
+            elif "name" in item:
+                parts.append(f"**{item['name']}**")
+            
+            # Price if available
+            if "price" in item:
+                parts.append(f"מחיר: {item['price']}")
+            
+            # Property type or other type field
+            if "property_type" in item:
+                parts.append(f"סוג: {item['property_type']}")
+            
+            # Rooms
+            if "rooms" in item:
+                parts.append(item['rooms'])
+            
+            # Size
+            if "size" in item:
+                parts.append(item['size'])
+            
+            # Email/Phone for contacts
+            if "email" in item and item.get("email"):
+                parts.append(f"אימייל: {item['email']}")
+            if "phone" in item and item.get("phone"):
+                parts.append(f"טלפון: {item['phone']}")
+            
+            return " • ".join(parts) if parts else str(item)
+        
+        async def _enrich_list_output(
+            tool_name: str,
+            data: List[Dict[str, Any]],
+            limit: int,
+            enrichment_func: Optional[Callable[[Dict[str, Any]], Any]] = None,
+            formatter: Optional[Callable[[Dict[str, Any]], str]] = None,
+        ) -> str:
+            """Generic function to enrich list tool outputs.
+            
+            Args:
+                tool_name: Name of the tool (for logging)
+                data: List of items to enrich
+                limit: Maximum number of items to process
+                enrichment_func: Async function(item) -> enriched_item_dict
+                formatter: Function(enriched_item) -> formatted_string
+            """
+            if not data:
+                return "לא נמצאו תוצאות."
+            
+            if not enrichment_func:
+                # No enrichment needed, use default formatting
+                formatted_items = []
+                for item in data[:limit]:
+                    formatted_items.append(_format_enriched_item(item, formatter))
+                result_text = "\n".join(f"{i+1}. {item}" for i, item in enumerate(formatted_items))
+                if len(data) > limit:
+                    result_text += f"\n\n…(+{len(data) - limit} נוספים)"
+                return result_text
+            
+            # Enrich items
+            enriched_items = []
+            for item in data[:limit]:
+                try:
+                    enriched = await enrichment_func(item)
+                    enriched_items.append(enriched)
+                except Exception as e:
+                    logger.debug(f"Error enriching item in {tool_name}: {e}", exc_info=True)
+                    enriched_items.append(item)
+            
+            # Format enriched items
+            formatted_items = []
+            for item in enriched_items:
+                formatted_items.append(_format_enriched_item(item, formatter))
+            
+            result_text = "\n".join(f"{i+1}. {item}" for i, item in enumerate(formatted_items))
+            if len(data) > limit:
+                result_text += f"\n\n…(+{len(data) - limit} נוספים)"
+            
+            return result_text
         
         # Wrap MCP functions as LangChain tools
         # Assets tools
@@ -613,36 +1034,98 @@ class RealEstateAgent:
             min_price: Optional[int] = None,
             rooms: Optional[int] = None,
             page: Optional[int] = None,
+            user_assets: Optional[str] = None,
+            fields: Optional[Any] = None,
+            limit: Optional[int] = 5,
         ) -> str:
-            """List all assets with optional filtering. Use this to search for properties.
-            
-            IMPORTANT: Before searching, use get_asset_filters_tool() to get available city names.
-            The API may use different city name formats (e.g., 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
-            Use the exact city name from the filters.cities list for best results.
+            """List all assets with optional filtering. Returns formatted results with addresses, prices, and property details.
             
             Parameters:
-            - city: City name - MUST match one of the names in filters.cities from get_asset_filters_tool()
-                     Common formats: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', etc.
-            - max_price: Maximum price in shekels (e.g., 2000000 for 2 million)
+            - city: City name (use get_asset_filters_tool() to see available formats)
+            - max_price: Maximum price in shekels
             - min_price: Minimum price in shekels
             - rooms: Number of rooms
-            - page: Page number for pagination (default: 1)
+            - page: Page number for pagination
+            - user_assets: Filter by user assets - use "watchlist" for assets in user's watchlist, "mine" for user's own assets, "others" for others' assets
+            - fields: Optional list of field names to return (can be a list or comma-separated string)
+            - limit: Maximum number of items to return (default: 5, max: 50)
             
-            Example workflow:
-            1. First call: get_asset_filters_tool() to see available cities
-            2. Then call: list_assets_tool(city='תל אביב יפו', max_price=2000000)
+            Returns formatted list ready to present to user.
             """
             try:
-                result = await list_assets(ctx, city=city, max_price=max_price, min_price=min_price, rooms=rooms, page=page)
+                limit = _safe_limit(limit, default=5, hard_max=50)
+                corrected_city = city
+                
+                # If city is provided, try to correct it automatically
+                if city:
+                    available_cities = await _get_available_cities()
+                    if available_cities:
+                        matched_city = _find_best_city_match(city, available_cities)
+                        if matched_city and matched_city != city:
+                            # Found a better match, use it automatically
+                            corrected_city = matched_city
+                            logger.info(f"Auto-corrected city name: '{city}' -> '{corrected_city}'")
+                
+                # Normalize fields parameter: handle both string and list inputs
+                # This handles cases where the LLM passes fields as a string instead of an array
+                fields_list = None
+                if fields is not None:
+                    if isinstance(fields, str):
+                        # Convert comma-separated string to list
+                        fields_list = [f.strip() for f in fields.split(",") if f.strip()]
+                    elif isinstance(fields, list):
+                        fields_list = fields
+                    else:
+                        # Fallback: try to convert to list
+                        try:
+                            fields_list = list(fields) if fields else None
+                        except (TypeError, ValueError):
+                            fields_list = None
+                
+                # Ensure essential fields are always included for address building
+                # We need street, number, city, neighborhood to build addresses
+                essential_fields = ["id", "street", "number", "city", "neighborhood"]
+                if fields_list:
+                    # Merge user's fields with essential fields, preserving order
+                    api_fields = list(dict.fromkeys(essential_fields + fields_list))  
+                else:
+                    api_fields = essential_fields
+                
+                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, user_assets=user_assets, fields=api_fields, limit=limit, compact=True)
+                
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, dict) and "results" in data:
-                        assets = data["results"]
-                        return f"נמצאו {len(assets)} נכסים:\n" + "\n".join([
-                            f"- נכס {a.get('id')}: {a.get('address', 'לא זמין')} - {a.get('price', 'לא זמין')} ש\"ח"
-                            for a in assets[:10]
-                        ])
-                    return str(data)
+                    data = result.get("data", [])
+                    
+                    # If we got empty results and city was corrected, inform the user
+                    if not data and city and corrected_city != city:
+                        return f"תוקן שם העיר מ-'{city}' ל-'{corrected_city}'. לא נמצאו נכסים התואמים את הקריטריונים."
+                    
+                    # If we got empty results and city wasn't corrected (no match found), suggest checking filters
+                    if not data and city and corrected_city == city:
+                        available_cities = await _get_available_cities()
+                        if available_cities:
+                            # Double-check if there's a match we might have missed
+                            matched_city = _find_best_city_match(city, available_cities)
+                            if not matched_city:
+                                # No match found, suggest checking filters
+                                return f"לא נמצאו נכסים בעיר '{city}'. אנא השתמש ב-get_asset_filters_tool() כדי לראות את שמות הערים הזמינים."
+                    
+                    enriched_result = await _enrich_list_output(
+                        tool_name="list_assets_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=_enrich_asset_list_item,
+                    )
+                    
+                    # Ensure we return a clear, complete response
+                    final_result = enriched_result
+                    if not final_result.strip():
+                        return "לא נמצאו נכסים התואמים את הקריטריונים."
+                    
+                    # Add a clear completion marker to help the LLM recognize this as final
+                    # The formatted results are complete - no need to call the tool again
+                    return final_result
+                
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -650,23 +1133,7 @@ class RealEstateAgent:
         list_assets_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
-            description="""חיפוש נכסים עם אפשרויות סינון. 
-            
-            חשוב מאוד: לפני חיפוש, השתמש ב-get_asset_filters_tool() כדי לקבל את שמות הערים הזמינים.
-            ה-API עשוי להשתמש בפורמטים שונים של שמות ערים (לדוגמה: 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
-            השתמש בשם העיר המדויק מרשימת filters.cities לתוצאות הטובות ביותר.
-            
-            פרמטרים:
-            - city: שם העיר - חייב להתאים לאחד השמות ב-filters.cities מ-get_asset_filters_tool()
-                     פורמטים נפוצים: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', וכו'
-            - max_price: מחיר מקסימלי בשקלים (לדוגמה: 2000000 עבור 2 מיליון)
-            - min_price: מחיר מינימלי בשקלים
-            - rooms: מספר חדרים
-            - page: מספר עמוד (ברירת מחדל: 1)
-            
-            דוגמה לשימוש:
-            1. קודם: get_asset_filters_tool() כדי לראות את הערים הזמינים
-            2. אחר כך: list_assets_tool(city='תל אביב יפו', max_price=2000000)"""
+            description="חיפוש נכסים עם מסננים. להשתמש ב-user_assets='watchlist' כדי לקבל נכסים ברשימת המעקב של המשתמש. לבדיקת מסננים זמינים get_asset_filters_tool."
         )
         
         async def get_asset_filters_tool_func() -> str:
@@ -684,10 +1151,12 @@ class RealEstateAgent:
                 if isinstance(result, dict) and result.get("success"):
                     filters = result.get("filters", {})
                     cities = filters.get("cities", [])
+                    # Update the cache with fresh data
+                    RealEstateAgent._available_cities_cache = cities
                     cities_str = ', '.join(cities[:20]) + ('...' if len(cities) > 20 else '')
                     types_str = ', '.join(filters.get('types', [])[:10]) + ('...' if len(filters.get('types', [])) > 10 else '')
                     neighborhoods_str = ', '.join(filters.get('neighborhoods', [])[:10]) + ('...' if len(filters.get('neighborhoods', [])) > 10 else '')
-                    return f"פילטרים זמינים:\n" + \
+                    return f"מסננים זמינים:\n" + \
                            f"ערים: {cities_str}\n" + \
                            f"סוגי נכסים: {types_str}\n" + \
                            f"שכונות: {neighborhoods_str}\n" + \
@@ -699,25 +1168,23 @@ class RealEstateAgent:
         get_asset_filters_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_filters_tool_func),
             name="get_asset_filters_tool",
-            description="""קבלת אפשרויות פילטר זמינות (ערים, סוגי נכסים, שכונות וכו').
-            
-            חשוב מאוד: השתמש בכלי זה לפני חיפוש נכסים כדי לוודא שאתה משתמש בפורמט הנכון של שם העיר.
-            מחזיר מילון עם ערכי פילטר זמינים כולל:
-            - cities: רשימת שמות ערים זמינים (השתמש בשם המדויק מרשימה זו)
-            - types: רשימת סוגי נכסים
-            - neighborhoods: רשימת שכונות
-            - ועוד...
-            
-            דוגמה: get_asset_filters_tool()"""
+            description="קבלת מסננים זמינים לנכסים."
         )
         
-        async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
+        async def get_asset_tool_func(
+            asset_id: int,
+            include_documents: bool = False,
+            fields: Optional[List[str]] = None,
+        ) -> str:
             """Get detailed information for a specific asset by ID."""
             try:
                 result = await get_asset(ctx, asset_id, include_documents)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
-                    return f"נכס {asset_id}:\n" + str(data)
+                    if fields:
+                        data = {k: data.get(k) for k in fields if k in data}
+                    # Keep this single-object formatting compact
+                    return "\n".join(f"{k}: {v}" for k, v in data.items())
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -725,7 +1192,7 @@ class RealEstateAgent:
         get_asset_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_tool_func),
             name="get_asset_tool",
-            description="קבלת פרטים מפורטים על נכס ספציפי לפי מזהה. מקבל עברית ואנגלית."
+            description="קבלת פרטי נכס לפי מזהה."
         )
         
         async def create_asset_tool_func(
@@ -747,54 +1214,82 @@ class RealEstateAgent:
         create_asset_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_asset_tool_func),
             name="create_asset_tool",
-            description="יצירת נכס חדש. יש לספק פרטי כתובת. מקבל עברית ואנגלית."
+            description="יצירת נכס חדש עם כתובת."
         )
         
-        async def get_asset_transactions_tool_func(asset_id: int) -> str:
-            """Get transaction history for an asset."""
+        async def get_asset_data_tool_func(
+            asset_id: int,
+            kind: str,  # "transactions" | "permits" | "plans" | "appraisal" | "listings" | "documents"
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
+            """Get asset subresource data with field projection and limiting.
+            
+            Parameters:
+            - asset_id: The ID of the asset
+            - kind: Type of data to retrieve - one of: transactions, permits, plans, appraisal, listings, documents
+            - fields: Optional list of field names to return
+            - limit: Maximum number of items to return (default: 5)
+            """
             try:
-                result = await get_asset_data(ctx, asset_id, "transactions")
+                limit = _safe_limit(limit, default=5)
+                result = await get_asset_data(ctx, asset_id=asset_id, kind=kind, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"עסקאות עבור נכס {asset_id}: {result.get('data', {})}"
+                    data = result.get("data", [])
+                    # Choose minimal sensible defaults per kind
+                    defaults = {
+                        "transactions": ["dealDate", "dealAmount", "assetArea", "floorNo"],
+                        "permits": ["permit_id", "status", "issued_at", "title"],
+                        "plans": ["plan_number", "name", "status"],
+                        "appraisal": ["estPrice", "method", "updatedAt"],
+                        "listings": ["source", "price", "rooms", "area", "url"],
+                        "documents": ["id", "title", "type", "created_at", "size"],
+                    }
+                    key_fields = fields or defaults.get(kind, ["id"])
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
         
-        get_asset_transactions_tool = StructuredTool.from_function(
-            func=wrap_async_tool(get_asset_transactions_tool_func),
-            name="get_asset_transactions_tool",
-            description="קבלת היסטוריית עסקאות של נכס."
-        )
-        
-        async def get_asset_appraisal_tool_func(asset_id: int) -> str:
-            """Get appraisal analysis for an asset including comparable sales."""
-            try:
-                result = await get_asset_data(ctx, asset_id, "appraisal")
-                if isinstance(result, dict) and result.get("success"):
-                    return f"הערכת שווי עבור נכס {asset_id}: {result.get('data', {})}"
-                return str(result)
-            except Exception as e:
-                return f"שגיאה: {str(e)}"
-        
-        get_asset_appraisal_tool = StructuredTool.from_function(
-            func=wrap_async_tool(get_asset_appraisal_tool_func),
-            name="get_asset_appraisal_tool",
-            description="קבלת ניתוח הערכת שווי של נכס כולל מכירות דומות."
+        get_asset_data_tool = StructuredTool.from_function(
+            func=wrap_async_tool(get_asset_data_tool_func),
+            name="get_asset_data_tool",
+            description="קבלת תת-משאב של נכס עם שדות ומגבלה (transactions/permits/plans/appraisal/listings/documents)."
         )
         
         # Deal tools
         async def list_deals_tool_func(
             stage: Optional[str] = None,
             asset_id: Optional[int] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
         ) -> str:
             """List all deals, optionally filtered by stage or asset."""
             try:
-                result = await list_deals(ctx, stage, None, asset_id)
+                limit = _safe_limit(limit)
+                result = await list_deals(ctx, stage=stage, asset_id=asset_id, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        return f"נמצאו {len(data)} עסקאות: {data}"
-                    return str(data)
+                    data = result.get("data", [])
+                    # Custom formatter for deals
+                    def format_deal(deal: Dict[str, Any]) -> str:
+                        parts = []
+                        if "id" in deal:
+                            parts.append(f"**עסקה #{deal['id']}**")
+                        if "stage" in deal:
+                            parts.append(f"שלב: {deal['stage']}")
+                        if "asset_id" in deal:
+                            parts.append(f"נכס #{deal['asset_id']}")
+                        if "updated_at" in deal and deal.get("updated_at"):
+                            parts.append(f"עודכן: {deal['updated_at']}")
+                        return " • ".join(parts) if parts else str(deal)
+                    
+                    return await _enrich_list_output(
+                        tool_name="list_deals_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,
+                        formatter=format_deal,
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -802,7 +1297,7 @@ class RealEstateAgent:
         list_deals_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_deals_tool_func),
             name="list_deals_tool",
-            description="רשימת כל העסקאות, עם אפשרות סינון לפי שלב או נכס. מקבל עברית ואנגלית."
+            description="רשימת עסקאות עם סינון אופציונלי."
         )
         
         async def create_deal_tool_func(
@@ -821,7 +1316,7 @@ class RealEstateAgent:
         create_deal_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_deal_tool_func),
             name="create_deal_tool",
-            description="יצירת עסקה חדשה עבור נכס."
+            description="יצירת עסקה חדשה לנכס."
         )
         
         async def get_offer_tool_func(offer_id: int) -> str:
@@ -837,7 +1332,7 @@ class RealEstateAgent:
         get_offer_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_offer_tool_func),
             name="get_offer_tool",
-            description="קבלת פרטי הצעה כולל מידע פיננסי."
+            description="קבלת פרטי הצעה."
         )
         
         # Expense calculation tools
@@ -859,11 +1354,15 @@ class RealEstateAgent:
         estimate_build_cost_tool = StructuredTool.from_function(
             func=wrap_async_tool(estimate_build_cost_tool_func),
             name="estimate_build_cost_tool",
-            description="הערכת עלויות בנייה במטר רבוע."
+            description="הערכת עלויות בנייה במ\"ר."
         )
         
         async def get_cost_options_tool_func() -> str:
-            """Get available options for cost estimation (regions, qualities, scopes)."""
+            """Get available options for construction cost estimation only (regions, qualities, scopes).
+            
+            Only relevant for land properties (מגרשים) when estimating building costs.
+            Not needed for regular deal expense calculations.
+            """
             try:
                 result = await get_cost_options(ctx)
                 if isinstance(result, dict) and result.get("success"):
@@ -875,10 +1374,133 @@ class RealEstateAgent:
         get_cost_options_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_cost_options_tool_func),
             name="get_cost_options_tool",
-            description="קבלת אפשרויות זמינות להערכת עלויות (אזורים, איכויות, היקפים)."
+            description="קבלת אפשרויות עלות להערכת עלויות בנייה בלבד עבור מגרשים."
+        )
+        
+        async def calculate_deal_expenses_tool_func(
+            price: float,
+            buyers: Optional[List[Dict[str, Any]]] = None,
+            area: Optional[float] = None,
+            property_type: Optional[str] = None,
+            services: Optional[List[Dict[str, Any]]] = None,
+            vat_rate: Optional[float] = None,
+            construction_area: Optional[float] = None,
+            construction_cost_per_sqm: Optional[float] = None,
+            construction_includes_vat: Optional[bool] = None,
+        ) -> str:
+            """Calculate complete deal expenses including purchase tax, service costs, and construction costs.
+            
+            If buyers are not specified, uses the current logged-in user as the default buyer with 100% share.
+            Building expenses are only calculated for land property type (מגרשים).
+            """
+            try:
+                # The calculate_deal_expenses function in MCP server will handle default buyer logic
+                # No need to set default here as it's handled upstream
+                
+                result = await calculate_deal_expenses(
+                    ctx, price, buyers, area, property_type, services, 
+                    vat_rate, construction_area, construction_cost_per_sqm, construction_includes_vat
+                )
+                if isinstance(result, dict) and result.get("success"):
+                    data = result.get("data", {})
+                    # Format the result nicely
+                    total_tax = data.get("totalTax", 0)
+                    service_total = data.get("serviceTotal", 0)
+                    construction_cost = data.get("constructionCost", 0)
+                    total = data.get("total", 0)
+                    
+                    breakdown = data.get("breakdown", [])
+                    breakdown_text = "\n".join([
+                        f"  - {b.get('buyer', {}).get('name', 'Buyer')}: {b.get('portionPrice', 0):,.0f}₪, מס: {b.get('tax', 0):,.0f}₪ ({b.get('track', 'regular')})"
+                        for b in breakdown
+                    ])
+                    
+                    return f"""חישוב הוצאות עסקה:
+מחיר נכס: {price:,.0f}₪
+מס רכישה: {total_tax:,.0f}₪
+עלויות שירות: {service_total:,.0f}₪
+עלויות בנייה: {construction_cost:,.0f}₪
+סה"כ: {total:,.0f}₪
+
+פירוט מס רכישה:
+{breakdown_text}"""
+                return str(result)
+            except Exception as e:
+                return f"שגיאה: {str(e)}"
+        
+        calculate_deal_expenses_tool = StructuredTool.from_function(
+            func=wrap_async_tool(calculate_deal_expenses_tool_func),
+            name="calculate_deal_expenses_tool",
+            description="חישוב הוצאות עסקה כולל מס רכישה, עלויות שירות ועלויות בנייה. אם לא צוינו קונים, משתמש במשתמש הנוכחי כקונה ברירת מחדל."
         )
         
         # Mortgage tools
+        def _format_mortgage_analysis(data: Dict[str, Any]) -> str:
+            """Format mortgage analysis results in a user-friendly Hebrew format."""
+            if not isinstance(data, dict):
+                return str(data)
+            
+            lines = []
+            lines.append("📊 ניתוח משכנתא")
+            lines.append("")
+            
+            # Metrics section
+            metrics = data.get("metrics", {})
+            if metrics:
+                lines.append("📈 נתוני הכנסות והוצאות:")
+                med_income = metrics.get("median_monthly_income", 0)
+                med_expense = metrics.get("median_monthly_expense", 0)
+                surplus = metrics.get("monthly_surplus_estimate", 0)
+                
+                if med_income > 0:
+                    lines.append(f"  • הכנסה חודשית ממוצעת: ₪{med_income:,.0f}")
+                if med_expense > 0:
+                    lines.append(f"  • הוצאה חודשית ממוצעת: ₪{med_expense:,.0f}")
+                if surplus > 0:
+                    lines.append(f"  • עודף חודשי משוער: ₪{surplus:,.0f}")
+                lines.append("")
+            
+            # Recommendation section
+            recommendation = data.get("recommendation", {})
+            if recommendation:
+                lines.append("💡 המלצות:")
+                approved_loan = recommendation.get("approved_loan_ceiling", 0)
+                recommended_payment = recommendation.get("recommended_monthly_payment", 0)
+                cash_gap = recommendation.get("cash_gap_for_purchase", 0)
+                
+                # Always show approved loan amount
+                lines.append(f"  • סכום משכנתא מומלץ: ₪{approved_loan:,.0f}")
+                
+                # Show monthly payment
+                if recommended_payment > 0:
+                    # Check if this is estimated (based on LTV) or calculated from income
+                    max_loan_from_payment = recommendation.get("max_loan_from_payment", 0)
+                    if max_loan_from_payment == 0 and approved_loan > 0:
+                        # Estimated payment based on LTV loan
+                        lines.append(f"  • תשלום חודשי משוער: ₪{recommended_payment:,.0f} (מבוסס על LTV 70%)")
+                    else:
+                        # Calculated from actual income data
+                        lines.append(f"  • תשלום חודשי מומלץ: ₪{recommended_payment:,.0f}")
+                else:
+                    lines.append("  • תשלום חודשי מומלץ: ₪0 (לא ניתן לחשב ללא נתוני הכנסות)")
+                
+                # Show cash gap information
+                if cash_gap > 0:
+                    lines.append(f"  ⚠️  פער הון עצמי: ₪{cash_gap:,.0f} (חסר לקניית הנכס)")
+                elif cash_gap == 0 and approved_loan > 0:
+                    lines.append("  ✓ הון עצמי מספיק לקניית הנכס")
+                lines.append("")
+            
+            # Notes section
+            notes = data.get("notes", [])
+            if notes:
+                lines.append("ℹ️  הערות:")
+                for note in notes:
+                    lines.append(f"  • {note}")
+                lines.append("")
+            
+            return "\n".join(lines)
+        
         async def analyze_mortgage_tool_func(
             property_price: float,
             savings_total: float,
@@ -889,7 +1511,8 @@ class RealEstateAgent:
             try:
                 result = await analyze_mortgage(ctx, property_price, savings_total, annual_rate_pct, term_years)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"ניתוח משכנתא: {result.get('data', {})}"
+                    data = result.get("data", {})
+                    return _format_mortgage_analysis(data)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -897,23 +1520,27 @@ class RealEstateAgent:
         analyze_mortgage_tool = StructuredTool.from_function(
             func=wrap_async_tool(analyze_mortgage_tool_func),
             name="analyze_mortgage_tool",
-            description="ניתוח יכולת משכנתא ותרחישי תשלום."
+            description="ניתוח יכולת משכנתא."
         )
         
         # CRM tools
-        async def list_contacts_tool_func() -> str:
+        async def list_contacts_tool_func(
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
             """List all CRM contacts."""
             try:
-                result = await list_contacts(ctx, page=1, page_size=1)
+                limit = _safe_limit(limit)
+                result = await list_contacts(ctx, page=1, page_size=limit, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    # Use count from pagination if available, otherwise use list length
-                    count = result.get("count")
                     data = result.get("data", [])
-                    if isinstance(data, list):
-                        if count is not None:
-                            return f"יש לך {count} לקוחות במערכת."
-                        return f"נמצאו {len(data)} אנשי קשר: {data}"
-                    return str(data)
+                    # Use generic enrichment system (no enrichment needed, just formatting)
+                    return await _enrich_list_output(
+                        tool_name="list_contacts_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,  # Contacts already have all needed data
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -921,7 +1548,7 @@ class RealEstateAgent:
         list_contacts_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_contacts_tool_func),
             name="list_contacts_tool",
-            description="רשימת כל אנשי הקשר ב-CRM."
+            description="רשימת אנשי קשר ב-CRM."
         )
         
         async def create_contact_tool_func(
@@ -941,18 +1568,42 @@ class RealEstateAgent:
         create_contact_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_contact_tool_func),
             name="create_contact_tool",
-            description="יצירת איש קשר חדש ב-CRM."
+            description="יצירת איש קשר ב-CRM."
         )
         
-        async def list_leads_tool_func(status: Optional[str] = None) -> str:
+        async def list_leads_tool_func(
+            status: Optional[str] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
             """List all leads, optionally filtered by status."""
             try:
-                result = await list_leads(ctx, status)
+                limit = _safe_limit(limit)
+                result = await list_leads(ctx, status=status, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        return f"נמצאו {len(data)} לידים: {data}"
-                    return str(data)
+                    data = result.get("data", [])
+                    # Custom formatter for leads
+                    def format_lead(lead: Dict[str, Any]) -> str:
+                        parts = []
+                        if "contact" in lead and isinstance(lead.get("contact"), dict):
+                            contact_name = lead["contact"].get("name", "")
+                            if contact_name:
+                                parts.append(f"**{contact_name}**")
+                        if "status" in lead:
+                            parts.append(f"סטטוס: {lead['status']}")
+                        if "asset_id" in lead:
+                            parts.append(f"נכס #{lead['asset_id']}")
+                        if "updated_at" in lead and lead.get("updated_at"):
+                            parts.append(f"עודכן: {lead['updated_at']}")
+                        return " • ".join(parts) if parts else str(lead)
+                    
+                    return await _enrich_list_output(
+                        tool_name="list_leads_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,
+                        formatter=format_lead,
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -960,7 +1611,7 @@ class RealEstateAgent:
         list_leads_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_leads_tool_func),
             name="list_leads_tool",
-            description="רשימת כל הלידים, עם אפשרות סינון לפי סטטוס."
+            description="רשימת לידים עם סינון אופציונלי."
         )
         
         async def create_lead_tool_func(contact_id: int, asset_id: int) -> str:
@@ -976,18 +1627,42 @@ class RealEstateAgent:
         create_lead_tool = StructuredTool.from_function(
             func=wrap_async_tool(create_lead_tool_func),
             name="create_lead_tool",
-            description="יצירת ליד חדש המקשר איש קשר לנכס."
+            description="יצירת ליד חדש לנכס."
         )
         
-        async def list_tasks_tool_func(status: Optional[str] = None) -> str:
+        async def list_tasks_tool_func(
+            status: Optional[str] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
             """List all CRM tasks, optionally filtered by status."""
             try:
-                result = await list_tasks(ctx, None, None, status)
+                limit = _safe_limit(limit)
+                result = await list_tasks(ctx, contact_id=None, lead_id=None, status=status, page=None, page_size=None, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        return f"נמצאו {len(data)} משימות: {data}"
-                    return str(data)
+                    data = result.get("data", [])
+                    # Custom formatter for tasks
+                    def format_task(task: Dict[str, Any]) -> str:
+                        parts = []
+                        if "title" in task:
+                            parts.append(f"**{task['title']}**")
+                        if "status" in task:
+                            parts.append(f"סטטוס: {task['status']}")
+                        if "due_at" in task and task.get("due_at"):
+                            parts.append(f"תאריך יעד: {task['due_at']}")
+                        if "contact" in task and isinstance(task.get("contact"), dict):
+                            contact_name = task["contact"].get("name", "")
+                            if contact_name:
+                                parts.append(f"איש קשר: {contact_name}")
+                        return " • ".join(parts) if parts else str(task)
+                    
+                    return await _enrich_list_output(
+                        tool_name="list_tasks_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,
+                        formatter=format_task,
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -995,7 +1670,7 @@ class RealEstateAgent:
         list_tasks_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_tasks_tool_func),
             name="list_tasks_tool",
-            description="רשימת כל המשימות ב-CRM, עם אפשרות סינון לפי סטטוס."
+            description="רשימת משימות עם סינון אופציונלי."
         )
         
         tools_list = [
@@ -1003,13 +1678,13 @@ class RealEstateAgent:
             get_asset_filters_tool,
             get_asset_tool,
             create_asset_tool,
-            get_asset_transactions_tool,
-            get_asset_appraisal_tool,
+            get_asset_data_tool,
             list_deals_tool,
             create_deal_tool,
             get_offer_tool,
             estimate_build_cost_tool,
             get_cost_options_tool,
+            calculate_deal_expenses_tool,
             analyze_mortgage_tool,
             list_contacts_tool,
             create_contact_tool,
@@ -1073,38 +1748,7 @@ class RealEstateAgent:
             fetch_web_page_tool = StructuredTool.from_function(
                 func=wrap_async_tool(fetch_web_page_tool_func),
                 name="fetch_web_page_tool",
-                description="""גישה לאינטרנט - שליפת דפי אינטרנט מדומיינים מורשים בלבד.
-                
-                חשוב מאוד: 
-                - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
-                  השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
-                - כלי זה מיועד לאתרים שאין להם MCP server או לחיפושים חד-פעמיים.
-                
-                דומיינים מורשים:
-                - *.gov.il - כל אתרי הממשלה הישראלית (לדוגמה: data.gov.il, mavat.iplan.gov.il, וכו')
-                - boi.org.il - בנק ישראל (ריביות, נתוני משכנתא)
-                - nadlaner.com, api.nadlaner.com - אתרים פנימיים
-                
-                הכלי:
-                - מאפשר רק בקשות GET (לא POST/PUT/DELETE)
-                - ממיר HTML לטקסט רגיל (ללא ביצוע JavaScript)
-                - מגביל גודל תגובה ל-1 MB
-                - מגביל קצב (5 בקשות לדקה)
-                - מסנן וקטורי הזרקה פוטנציאליים
-                - משתמש במטמון לניצול יעיל
-                
-                פרמטרים:
-                - url: כתובת URL מלאה לשליפה (חייבת להתחיל ב-http:// או https://)
-                - scope: תיאור אופציונלי למה אתה שולף את ה-URL הזה (ללוגים)
-                
-                דוגמה: fetch_web_page_tool(url='https://boi.org.il/...', scope='חיפוש ריביות משכנתא')
-                
-                שימוש מומלץ:
-                1. תכנן מה אתה צריך לחפש
-                2. שלוף רק את הדפים הרלוונטיים
-                3. עבד עם הטקסט המסוכם, לא עם כל הדף
-                4. ציין את מקור המידע בתשובה שלך
-                5. עבור אתרים עם MCP - השתמש בכליי MCP במקום!"""
+                description="שליפת דפי אינטרנט מדומיינים מורשים בלבד."
             )
             
             tools_list.append(fetch_web_page_tool)
@@ -1118,40 +1762,24 @@ class RealEstateAgent:
     
     def _create_agent_executor(self) -> AgentExecutor:
         """Create the agent executor with system prompt."""
+        scope_sentence = (
+            "אתה עוזר AI מקצועי לסוכני נדל\"ן, המסייע בחיפוש וניתוח נכסים, ניהול עסקאות, "
+            "חישובי הוצאות, ניתוח משכנתא וניהול CRM."
+        )
+
         internet_access_note = ""
         if self.internet_enabled:
-            internet_access_note = """
-6. **גישה לאינטרנט** (מופעלת): אתה יכול לשלוף מידע מדפי אינטרנט מדומיינים מורשים בלבד.
-   - עבור yad2.co.il, mavat.iplan.gov.il, govmap.gov.il, nadlan.gov.il, madlan.co.il - 
-     השתמש בכליי MCP המתאימים במקום! הם מספקים נתונים מובנים וטובים יותר.
-   - השתמש ב-fetch_web_page_tool רק עבור אתרים שאין להם MCP server או לחיפושים חד-פעמיים
-   - דומיינים מורשים: *.gov.il (כל אתרי הממשלה), boi.org.il (בנק ישראל), nadlaner.com (פנימי)
-   - תכנן מראש מה אתה צריך לחפש - אל תשלוף דפים מיותרים
-   - עבד עם הטקסט המסוכם, לא עם כל הדף
-   - תמיד ציין את מקור המידע בתשובה שלך
-   - יש מגבלת קצב של 5 בקשות לדקה - השתמש בחוכמה
-"""
+            internet_access_note = "\nיש לך גישה מוגבלת לדפי אינטרנט מדומיינים מורשים באמצעות fetch_web_page_tool."
 
-        system_prompt = f"""אתה עוזר AI מקצועי לסוכני נדל"ן. אתה עוזר למשתמשים עם:
+        language_sentence = (
+            "ענה בעברית למשתמשים בעברית ועבור לשפה אחרת רק אם התבקשת במפורש. הצג נתונים בצורה ברורה בעברית."
+        )
+        
+        tool_output_instruction = (
+            "\n\nכאשר כלי מחזיר תוצאות מפורמטות, הצג אותן ישירות למשתמש."
+        )
 
-1. **חיפוש וניתוח נכסים**: חיפוש נכסים, קבלת פרטי נכסים, צפייה בעסקאות, היתרים, תוכניות והערכות שווי
-2. **ניהול עסקאות**: יצירה וניהול עסקאות, צפייה במשא ומתן והצעות
-3. **חישובי הוצאות**: הערכת עלויות בנייה ואפשרויות עלויות
-4. **ניתוח משכנתא**: ניתוח יכולת משכנתא ותרחישי תשלום
-5. **ניהול CRM**: ניהול אנשי קשר, לידים ומשימות{internet_access_note}
-
-כאשר משתמשים שואלים שאלות:
-- השתמש בכלים המתאימים כדי לאחזר נתונים אמיתיים
-- תן הסברים ברורים ומועילים
-- ערוך מספרים ומחירים בצורה קריאה
-- אם אין לך מספיק מידע, שאל שאלות הבהרה
-- תמיד בדוק מזהה נכסים ומזהים אחרים לפני השימוש בהם
-
-**שפה**: אתה עובד בעיקר בעברית. תגיב בעברית למשתמשים שמדברים עברית. 
-תמיד השתמש בעברית כשאתה מתקשר עם המשתמש, אלא אם כן הוא מבקש במפורש שפה אחרת.
-כשאתה מציג נתונים, ערוך אותם בצורה קריאה בעברית עם פורמט נכון למספרים ומחירים.
-
-היה מקצועי, ידידותי ומקיף בתגובות שלך."""
+        system_prompt = f"{scope_sentence}{internet_access_note}\n\n{language_sentence}{tool_output_instruction}"
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -1161,7 +1789,9 @@ class RealEstateAgent:
         ])
         
         agent = create_openai_tools_agent(self.llm, self.tools, prompt)
-        
+
+        self.system_prompt = system_prompt
+
         # Simple error handler for parsing errors
         def handle_parsing_error(error: Exception) -> str:
             """Handle parsing errors gracefully."""
@@ -1176,10 +1806,97 @@ class RealEstateAgent:
             tools=self.tools,
             verbose=True,  # Enable verbose to show tool chain in logs
             handle_parsing_errors=handle_parsing_error,
-            max_iterations=10,
+            max_iterations=5,
             return_intermediate_steps=False,
         )
-    
+
+    def _get_tools_budget_message(self) -> Optional[Dict[str, str]]:
+        """Return a system message describing tools for budgeting calculations."""
+
+        if not self.tools:
+            return None
+
+        if self._tool_budget_message_cache is not None:
+            return self._tool_budget_message_cache.copy()
+
+        descriptions = []
+        for tool in self.tools:
+            name = getattr(tool, "name", "tool")
+            description = _normalize_content(getattr(tool, "description", ""))
+            if description:
+                descriptions.append(f"{name}: {description}")
+            else:
+                descriptions.append(name)
+
+        if not descriptions:
+            return None
+
+        content = "Available tools:\n" + "\n".join(descriptions)
+        self._tool_budget_message_cache = {"role": "system", "content": content}
+        return self._tool_budget_message_cache.copy()
+
+    def _prepare_history_for_llm(
+        self,
+        user_message: str,
+        chat_history: Optional[List[Dict[str, str]]],
+    ) -> List[Dict[str, str]]:
+        """Prepare chat history with summaries and enforce token budget.
+        
+        Note: System prompt and current user message are already in the ChatPromptTemplate,
+        so we only need to prepare the history itself. Token budgeting accounts for
+        system prompts and current message, but they're not included in the returned history.
+        """
+
+        history = chat_history or []
+        processed_history = build_history_with_summary(
+            history,
+            keep_last=self.history_keep_last,
+            summary_max_chars=self.history_summary_max_chars,
+        )
+
+        # Calculate token budget for history only (system prompt and current message are in template)
+        system_prompt = getattr(self, "system_prompt", "")
+        tool_budget_message = self._get_tools_budget_message()
+        
+        # Build full message set for token budgeting (but won't be returned)
+        budget_messages: List[Dict[str, str]] = []
+        if system_prompt:
+            budget_messages.append({"role": "system", "content": system_prompt})
+        if tool_budget_message:
+            budget_messages.append(tool_budget_message)
+        budget_messages.extend(processed_history)
+        budget_messages.append({"role": "user", "content": user_message})
+
+        # Enforce token budget on full message set
+        trimmed_messages = enforce_token_budget(
+            budget_messages,
+            max_tokens=self.max_input_tokens,
+            reserve_for_output=self.output_token_reserve,
+        )
+
+        # Extract only history messages (filter out system prompt, tool budget, and current user message)
+        trimmed_history: List[Dict[str, str]] = []
+        tool_budget_content = tool_budget_message.get("content") if tool_budget_message else None
+        total_messages = len(trimmed_messages)
+        
+        for index, msg in enumerate(trimmed_messages):
+            role = msg.get("role")
+            content = msg.get("content")
+            
+            # Skip system prompt (already in template)
+            if system_prompt and role == "system" and content == system_prompt:
+                continue
+            # Skip tool budget message (not needed in history)
+            if tool_budget_content and role == "system" and content == tool_budget_content:
+                continue
+            # Skip current user message (already in template as {input})
+            if index == total_messages - 1 and role == "user" and content == user_message:
+                continue
+            
+            trimmed_history.append({"role": role or "user", "content": content or ""})
+
+        return trimmed_history
+
     async def chat(self, message: str, chat_history: Optional[List] = None, track_tool_calls: bool = True) -> Dict[str, Any]:
         """Chat with the agent.
         
@@ -1194,30 +1911,108 @@ class RealEstateAgent:
         Raises:
             Exception: If agent execution fails, with a user-friendly error message
         """
-        history = chat_history or []
-        
+        history = self._build_chat_history(chat_history)
+        prepared_history = self._prepare_history_for_llm(message, history)
+
         try:
             if track_tool_calls:
                 callback = ToolCallTracker()
                 result = await self.agent_executor.ainvoke(
-                    {"input": message, "chat_history": history},
+                    {"input": message, "chat_history": prepared_history},
                     config={"callbacks": [callback]}
                 )
                 tool_calls = callback.get_tool_calls()
                 # Translate tool names to Hebrew
                 for tool_call in tool_calls:
                     tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+                response_text = result.get("output", "")
+                
+                # Check if we have formatted results from list tools
+                # If so, use them as the final answer even if LLM didn't generate a response
+                list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                  "list_leads_tool", "list_deals_tool"]
+                formatted_tool_output = None
+                for tool_call in tool_calls:
+                    tool_name = tool_call.get("tool", "")
+                    if tool_name in list_tool_names:
+                        output = tool_call.get("output", "")
+                        # Check if output contains formatted results
+                        if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                     "סטטוס:" in output or "•" in output):
+                            formatted_tool_output = output
+                            break
+                
+                # If we have formatted tool output and no LLM response, use tool output as final answer
+                if formatted_tool_output and not response_text:
+                    logger.info("Using formatted tool output as final response (no LLM response)")
+                    response_text = formatted_tool_output
+                # If we have both, check if LLM response already includes the tool output
+                elif formatted_tool_output and response_text:
+                    # Check if response already includes tool outputs
+                    has_tool_outputs = any(
+                        keyword in response_text for keyword in ["₪", "מחיר:", "**", "סטטוס:", "•"]
+                    )
+                    if not has_tool_outputs:
+                        logger.info("LLM response doesn't include tool outputs, but tool output is formatted - using tool output")
+                        response_text = formatted_tool_output
+                
+                # Only show tool outputs if response doesn't already include formatted results
+                if not formatted_tool_output:
+                    tool_outputs_section = []
+                    for tool_call in tool_calls:
+                        if tool_call.get("output"):
+                            tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
+                            output = tool_call["output"]
+                            
+                            # Skip showing raw list tool outputs if they're just IDs without details
+                            if tool_call.get("tool") in list_tool_names:
+                                # Only show if it doesn't contain formatted results
+                                if not ("₪" in output or "מחיר:" in output or "**" in output or 
+                                       "סטטוס:" in output or "•" in output):
+                                    # Skip raw interim outputs
+                                    continue
+                            
+                            # Format tool output nicely
+                            tool_outputs_section.append(f"**{tool_hebrew}:**")
+                            tool_outputs_section.append(output)
+                            tool_outputs_section.append("")  # Empty line between tools
+                    
+                    # Only append if we have tool outputs to show
+                    if tool_outputs_section:
+                        tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                        
+                        if not response_text:
+                            # No LLM response, use tool outputs
+                            logger.info("No LLM response, using tool outputs")
+                            response_text = tool_outputs_text
+                        else:
+                            # Check if response already includes tool outputs
+                            has_tool_outputs = any(
+                                keyword in response_text for keyword in ["id:", "נמצאו", "property", "נכס", "₪"]
+                            )
+                            # If response doesn't include tool outputs, append them
+                            if not has_tool_outputs:
+                                logger.info("Appending tool outputs to response")
+                                response_text = f"{response_text}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                            else:
+                                logger.info("Response already includes tool outputs")
+                else:
+                    logger.info("Using formatted tool output as final response")
+                
+                self._record_interaction(message, response_text)
                 return {
-                    "response": result.get("output", ""),
+                    "response": response_text,
                     "tool_calls": tool_calls
                 }
             else:
                 result = await self.agent_executor.ainvoke({
                     "input": message,
-                    "chat_history": history,
+                    "chat_history": prepared_history,
                 })
+                response_text = result.get("output", "")
+                self._record_interaction(message, response_text)
                 return {
-                    "response": result.get("output", ""),
+                    "response": response_text,
                     "tool_calls": []
                 }
         except Exception as e:
@@ -1244,7 +2039,8 @@ class RealEstateAgent:
             - {'type': 'complete', 'response': str, 'tool_calls': list}
             - {'type': 'error', 'error': str}
         """
-        history = chat_history or []
+        history = self._build_chat_history(chat_history)
+        prepared_history = self._prepare_history_for_llm(message, history)
         callback = StreamingCallbackHandler()
         
         # Run agent execution in background task
@@ -1254,26 +2050,106 @@ class RealEstateAgent:
                 # Stream agent execution with timeout
                 # AgentExecutor.astream yields intermediate steps, not final output
                 # The callback handler will receive LLM tokens via on_llm_new_token
+                final_output = None
+                last_chunk_keys = set()  # Track what keys we've seen in chunks
+                
                 async def stream_with_timeout():
+                    nonlocal final_output, last_chunk_keys
+                    chunk_count = 0
+                    last_chunk = None
                     async for chunk in self.agent_executor.astream(
-                        {"input": message, "chat_history": history},
+                        {"input": message, "chat_history": prepared_history},
                         config={"callbacks": [callback]}
                     ):
+                        chunk_count += 1
+                        last_chunk = chunk  # Keep track of last chunk
                         # Log chunks for debugging (astream yields intermediate agent steps)
-                        logger.debug("Agent step received: %s", str(chunk)[:200])
-                        # The actual LLM output is handled by the callback's on_llm_new_token
-                        # But we can also check for final output in chunks
+                        logger.debug("Agent step %d received: %s", chunk_count, str(chunk)[:200])
+                        
+                        # Track chunk structure
                         if isinstance(chunk, dict):
-                            # Some agent executors yield final output as "output" key
-                            if "output" in chunk:
-                                output = chunk["output"]
-                                if isinstance(output, str) and output:
-                                    # If we get final output, ensure it's sent
-                                    if output not in callback.complete_response:
-                                        callback.on_llm_new_token(output)
+                            last_chunk_keys.update(chunk.keys())
+                            # Check for output in various possible keys
+                            for key in ["output", "messages", "agent_outcome", "return_values"]:
+                                if key in chunk:
+                                    value = chunk[key]
+                                    # Handle different value types
+                                    if isinstance(value, str) and value:
+                                        final_output = value
+                                        logger.info("Found final output in chunk[%s]: %s", key, value[:100])
+                                        break
+                                    elif isinstance(value, list) and value:
+                                        # Sometimes output is in a list of messages
+                                        for msg in value:
+                                            if hasattr(msg, 'content') and msg.content:
+                                                final_output = str(msg.content)
+                                                logger.info("Found final output in chunk[%s] message: %s", key, final_output[:100])
+                                                break
+                                        if final_output:
+                                            break
+                            
+                            # If we found final output, ensure it's captured
+                            if final_output and final_output not in callback.complete_response:
+                                logger.info("Final output not in callback, adding it directly")
+                                callback.complete_response = final_output
+                                # Send as a single chunk event
+                                try:
+                                    callback.chunk_queue.put_nowait({"type": "chunk", "content": final_output})
+                                except asyncio.QueueFull:
+                                    # If queue is full, at least ensure response is captured
+                                    pass
+                    
+                    logger.info("Agent astream finished. Total chunks: %d, Last chunk keys: %s", 
+                              chunk_count, last_chunk_keys)
+                    logger.info("Last chunk content: %s", str(last_chunk)[:500] if last_chunk else "None")
+                    # If astream finished but we have no response, the agent executor is done
+                    # but the LLM might not have generated a final response
+                    if not callback.complete_response and not final_output:
+                        logger.warning("Agent executor finished but no LLM response was generated")
+                        # Try to extract from last chunk one more time
+                        if last_chunk and isinstance(last_chunk, dict):
+                            logger.info("Attempting to extract output from last chunk: %s", list(last_chunk.keys()))
                 
                 await asyncio.wait_for(stream_with_timeout(), timeout=300.0)  # 5 minute timeout
-                logger.info("Agent execution completed successfully")
+                logger.info("Agent execution completed successfully. Final output from chunks: %s", final_output)
+                logger.info("Callback complete_response length: %d", len(callback.complete_response))
+                logger.info("Callback complete_response content: %s", callback.complete_response[:500] if callback.complete_response else "Empty")
+                
+                # Wait a bit for any remaining tokens to come through the callback
+                # Sometimes tokens arrive slightly after astream finishes
+                await asyncio.sleep(0.5)  # Wait 500ms for any delayed tokens
+                logger.info("After wait, callback complete_response length: %d", len(callback.complete_response))
+                
+                # Ensure final output is captured if it wasn't streamed via tokens
+                # The final_output from chunks might contain the complete response
+                if final_output:
+                    # If final_output is longer or different, use it
+                    if len(final_output) > len(callback.complete_response):
+                        logger.info("Final output from chunks is longer, updating callback response")
+                        callback.complete_response = final_output
+                    elif final_output not in callback.complete_response:
+                        logger.info("Final output not in callback response, appending it")
+                        callback.complete_response += final_output
+                
+                # If we still have no response but tools were called, check if we have formatted tool output
+                # Use formatted tool output as final response if available
+                if not callback.complete_response:
+                    tool_calls = callback.get_tool_calls()
+                    list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                      "list_leads_tool", "list_deals_tool"]
+                    for tool_call in tool_calls:
+                        tool_name = tool_call.get("tool", "")
+                        if tool_name in list_tool_names:
+                            output = tool_call.get("output", "")
+                            if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                         "סטטוס:" in output or "•" in output):
+                                logger.info("No LLM response but have formatted tool output - using it")
+                                callback.complete_response = output
+                                break
+                
+                logger.info("Final callback response length after processing: %d", len(callback.complete_response))
+                logger.info("Final callback response preview: %s", callback.complete_response[:200] if callback.complete_response else "Empty")
+                logger.info("Tool calls count: %d", len(callback.get_tool_calls()))
                 callback.mark_finished()
             except asyncio.TimeoutError:
                 logger.error("Agent execution timed out after 5 minutes")
@@ -1306,15 +2182,21 @@ class RealEstateAgent:
             max_wait_time = 300  # Maximum 5 minutes total wait time
             start_time = time.time()
             consecutive_timeouts = 0
-            max_consecutive_timeouts = 50  # Stop after 5 seconds of no events (50 * 0.1s)
+            max_consecutive_timeouts = 20  # Stop after 2 seconds of no events (20 * 0.1s)
+            # Reduced from 50 to 20 because if agent executor finishes, we should break quickly
+            
+            agent_finished = False
+            error_occurred = False
             
             while True:
                 # Check if agent task is done
                 if agent_task.done():
+                    agent_finished = True
                     # Check if task raised an exception
                     if agent_task.exception():
                         exception = agent_task.exception()
                         logger.exception("Agent task raised exception: %s", exception)
+                        error_occurred = True
                         # Send error event if not already sent
                         error_sent = False
                         while not callback.chunk_queue.empty():
@@ -1336,6 +2218,7 @@ class RealEstateAgent:
                             yield {"type": "error", "error": error_msg}
                     else:
                         # Agent finished successfully, drain remaining events
+                        # Make sure to yield all chunks and tool events before breaking
                         while not callback.chunk_queue.empty():
                             try:
                                 event = callback.chunk_queue.get_nowait()
@@ -1355,6 +2238,7 @@ class RealEstateAgent:
                         "type": "error",
                         "error": "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
                     }
+                    error_occurred = True
                     break
                 
                 # Get next event
@@ -1362,6 +2246,7 @@ class RealEstateAgent:
                 if event:
                     consecutive_timeouts = 0  # Reset timeout counter
                     if event.get("type") == "finished":
+                        agent_finished = True
                         break
                     # Add Hebrew translation for tool events
                     if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
@@ -1370,38 +2255,125 @@ class RealEstateAgent:
                 else:
                     # No event received (timeout)
                     consecutive_timeouts += 1
-                    if consecutive_timeouts >= max_consecutive_timeouts:
-                        # Check if agent is still running
-                        if agent_task.done():
-                            break
-                        # If agent is still running but no events, log warning and continue
-                        logger.warning("No events received for %s seconds, but agent still running", 
+                    # Check if agent task is done first (before hitting max timeouts)
+                    if agent_task.done():
+                        agent_finished = True
+                        logger.info("Agent task finished, breaking from event loop")
+                        break
+                    elif consecutive_timeouts >= max_consecutive_timeouts:
+                        # If agent is still running but no events for a while, check if it's actually stuck
+                        logger.warning("No events received for %s seconds, but agent still running. Checking task status...", 
                                      consecutive_timeouts * 0.1)
-                        consecutive_timeouts = 0  # Reset to allow more time
+                        # Check one more time if task is done
+                        if agent_task.done():
+                            agent_finished = True
+                            logger.info("Agent task finished during timeout check, breaking")
+                            break
+                        # If still running, reset counter but log more frequently
+                        logger.warning("Agent task still running, continuing to wait...")
+                        consecutive_timeouts = 0  # Reset to allow more time, but log more frequently
             
-            # Wait for agent to finish (with timeout)
-            try:
-                await asyncio.wait_for(agent_task, timeout=5.0)
-            except asyncio.TimeoutError:
-                logger.warning("Agent task did not finish within timeout")
-                # Send error event
-                yield {
-                    "type": "error",
-                    "error": "הסוכן לא סיים את המשימה בזמן. ייתכן שהתהליך תקוע."
+            # Wait for agent to finish (with timeout) if not already done
+            if not agent_finished:
+                try:
+                    await asyncio.wait_for(agent_task, timeout=5.0)
+                    agent_finished = True
+                except asyncio.TimeoutError:
+                    logger.warning("Agent task did not finish within timeout")
+                    # Send error event
+                    yield {
+                        "type": "error",
+                        "error": "הסוכן לא סיים את המשימה בזמן. ייתכן שהתהליך תקוע."
+                    }
+                    return
+            
+            # Only send completion event if no error occurred
+            if not error_occurred and agent_finished:
+                # Get final tool calls and translate
+                tool_calls = callback.get_tool_calls()
+                for tool_call in tool_calls:
+                    tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+                
+                # Send completion event
+                final_response = callback.get_complete_response()
+                logger.info("Agent finished. Response length: %d, Tool calls: %d", 
+                          len(final_response) if final_response else 0, len(tool_calls))
+                logger.info("Final response content (first 200 chars): %s", 
+                          (final_response or "")[:200])
+                
+                # Check if response already includes formatted results from any list tool
+                # Generic detection: look for formatted output patterns
+                has_formatted_results = False
+                list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                  "list_leads_tool", "list_deals_tool"]
+                for tool_call in tool_calls:
+                    tool_name = tool_call.get("tool", "")
+                    if tool_name in list_tool_names:
+                        output = tool_call.get("output", "")
+                        # Check if output contains formatted results (with prices, addresses, bold text, etc.)
+                        if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                     "סטטוס:" in output or "•" in output):
+                            has_formatted_results = True
+                            break
+                
+                # Only show tool outputs if response doesn't already include formatted results
+                if not has_formatted_results:
+                    tool_outputs_section = []
+                    for tool_call in tool_calls:
+                        if tool_call.get("output"):
+                            tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
+                            output = tool_call["output"]
+                            
+                            # Skip showing raw list tool outputs if they're just IDs without details
+                            if tool_call.get("tool") in list_tool_names:
+                                # Only show if it doesn't contain formatted results
+                                if not ("₪" in output or "מחיר:" in output or "**" in output or 
+                                       "סטטוס:" in output or "•" in output):
+                                    # Skip raw interim outputs
+                                    continue
+                            
+                            # Format tool output nicely
+                            tool_outputs_section.append(f"**{tool_hebrew}:**")
+                            tool_outputs_section.append(output)
+                            tool_outputs_section.append("")  # Empty line between tools
+                    
+                    # Only append if we have tool outputs to show
+                    if tool_outputs_section:
+                        tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                        
+                        if not final_response:
+                            # No LLM response, use tool outputs
+                            logger.info("No LLM response in stream, using tool outputs")
+                            final_response = tool_outputs_text
+                        else:
+                            # Check if response already includes tool outputs
+                            has_tool_outputs = any(
+                                keyword in final_response for keyword in ["id:", "נמצאו", "property", "נכס", "₪"]
+                            )
+                            # If response doesn't include tool outputs, append them
+                            if not has_tool_outputs:
+                                logger.info("Appending tool outputs to streamed response")
+                                final_response = f"{final_response}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                            else:
+                                logger.info("Streamed response already includes tool outputs")
+                else:
+                    logger.info("Skipping tool outputs in stream - response already contains formatted results")
+                
+                # Always send complete event if agent finished successfully
+                # Even if response is empty, we should send the event with tool calls
+                complete_event = {
+                    "type": "complete",
+                    "response": final_response or "",
+                    "tool_calls": tool_calls
                 }
-                return
-            
-            # Get final tool calls and translate
-            tool_calls = callback.get_tool_calls()
-            for tool_call in tool_calls:
-                tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
-            
-            # Send completion event
-            yield {
-                "type": "complete",
-                "response": callback.get_complete_response(),
-                "tool_calls": tool_calls
-            }
+                logger.info("Sending complete event with response length: %d", 
+                          len(complete_event["response"]))
+                self._record_interaction(message, final_response or "")
+                yield complete_event
+            elif error_occurred:
+                logger.warning("Agent finished with error, not sending complete event")
+            else:
+                logger.warning("Agent did not finish properly")
         except Exception as e:
             yield {
                 "type": "error",
@@ -1482,11 +2454,15 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Real Estate Agent CLI")
+    # Get default provider from environment variable, fallback to "openai"
+    default_provider = os.getenv("LLM_DEFAULT_PROVIDER", "openai").lower()
+    if default_provider not in ["openai", "gemini", "groq"]:
+        default_provider = "openai"
     parser.add_argument(
         "--provider",
         choices=["openai", "gemini", "groq"],
-        default="openai",
-        help="LLM provider to use",
+        default=default_provider,
+        help=f"LLM provider to use (default: {default_provider} from LLM_DEFAULT_PROVIDER env var)",
     )
     parser.add_argument(
         "--api-url",

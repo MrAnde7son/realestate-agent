@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>אישור גישה — נדל״נר</title>
+    <meta name="theme-color" content="#12b3a6">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            direction: rtl;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            max-width: 520px;
+            width: 100%;
+            border: 1px solid #e5e7eb;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            color: #12b3a6;
+            font-weight: 700;
+            font-size: 20px;
+        }
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: #12b3a6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 18px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .client-info {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+        }
+        .client-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .client-id {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #0f172a;
+            word-break: break-all;
+            font-weight: 600;
+        }
+        .scopes {
+            margin: 24px 0;
+        }
+        .scopes-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 12px;
+        }
+        .scopes ul {
+            list-style: none;
+            padding: 0;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .scopes li {
+            padding: 10px 0;
+            color: #475569;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .scopes li:not(:last-child) {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .scopes li::before {
+            content: "✓";
+            color: #12b3a6;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+            flex-direction: row-reverse;
+        }
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .approve {
+            background: #12b3a6;
+            color: white;
+        }
+        .approve:hover {
+            background: #0d9488;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(18, 179, 166, 0.3);
+        }
+        .approve:active {
+            transform: translateY(0);
+        }
+        .deny {
+            background: white;
+            color: #64748b;
+            border: 2px solid #e2e8f0;
+        }
+        .deny:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        form {
+            margin: 0;
+        }
+        .security-note {
+            margin-top: 24px;
+            padding: 12px;
+            background: #f0fdfa;
+            border-radius: 8px;
+            border: 1px solid #ccfbf1;
+            font-size: 12px;
+            color: #065f46;
+            text-align: center;
+        }
+        .security-note::before {
+            content: "🔒 ";
+        }
+        @media (max-width: 640px) {
+            .container {
+                padding: 24px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            .buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">נ</div>
+                <span>נדל"נר</span>
+            </div>
+            <h1>אישור גישה לאפליקציה</h1>
+            <p class="subtitle">אפליקציה מבקשת גישה לחשבון שלך</p>
+        </div>
+        
+        <div class="client-info">
+            <div class="client-label">מזהה אפליקציה:</div>
+            <div class="client-id">{{ client_id }}</div>
+        </div>
+        
+        {% if scopes %}
+        <div class="scopes">
+            <div class="scopes-title">האפליקציה תוכל:</div>
+            <ul>
+                {% for scope in scopes %}
+                <li>{{ scope }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="approved" value="true">
+            <div class="buttons">
+                <button type="submit" class="approve">אשר גישה</button>
+                <button type="button" class="deny" onclick="deny()">דחה</button>
+            </div>
+        </form>
+        
+        <div class="security-note">
+            החיבור מאובטח ומאומת. תוכל לבטל את הגישה בכל עת מהגדרות החשבון שלך.
+        </div>
+    </div>
+    
+    <script>
+        function deny() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = '<input type="hidden" name="approved" value="false">{% csrf_token %}';
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+</body>
+</html>
+

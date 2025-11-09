@@ -1557,7 +1557,30 @@ def mortgage_analyze(request):
         recommended_payment, annual_rate_pct, term_years
     )
     max_loan_by_ltv = price * 0.70 if price > 0 else max_loan_from_payment
-    approved_loan_ceiling = min(max_loan_from_payment, max_loan_by_ltv)
+    
+    # If we have payment-based calculation, use the minimum of both
+    # Otherwise, use LTV-based calculation
+    if max_loan_from_payment > 0:
+        approved_loan_ceiling = min(max_loan_from_payment, max_loan_by_ltv)
+    else:
+        # No payment data available, use LTV-based calculation
+        approved_loan_ceiling = max_loan_by_ltv
+    
+    # Calculate estimated monthly payment for the approved loan
+    if approved_loan_ceiling > 0 and annual_rate_pct > 0:
+        r = (annual_rate_pct / 100.0) / 12.0
+        n = term_years * 12
+        if r > 0:
+            estimated_monthly_payment = approved_loan_ceiling * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+        else:
+            estimated_monthly_payment = approved_loan_ceiling / n
+    else:
+        estimated_monthly_payment = 0.0
+    
+    # Use estimated payment if we don't have payment-based recommendation
+    if recommended_payment == 0 and estimated_monthly_payment > 0:
+        recommended_payment = estimated_monthly_payment
+    
     cash_needed = max(0.0, price - approved_loan_ceiling)
     cash_gap = max(0.0, cash_needed - savings)
     logger.info(
@@ -5427,63 +5450,25 @@ def agent_recommendations(request):
     Returns personalized recommendations based on user's assets and activity,
     or default recommendations if no personalization is available.
     """
+    user = request.user
+    
+    # Base recommendations - always include these
+    recommendations = [
+        "נכסים ברשימת מעקב",
+        "מצא לי נכסים בתל אביב מתחת למחיר שוק",
+        "נכסים ברמת החייל בתל אביב מתחת ל7 מיליון שקל",
+        "חשב משכנתא של 4 מיליון עם הון עצמי של 1.5 מיליון"
+    ]
+    
+    # Try to personalize based on user's assets
     try:
-        user = request.user
-        
-        # Base recommendations - always include these
-        recommendations = []
-        
-        # Try to personalize based on user's assets
-        try:
-            from .models import Asset
-            user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
-            
-            if user_assets.exists():
-                # User has assets - provide asset-specific recommendations
-                recommendations = [
-                    "מה השווי של הנכסים שלי?",
-                    "איזה סיכונים יש בנכסים שלי?",
-                    "מה הפוטנציאל של הנכסים שלי?",
-                    "מצא לי נכסים דומים לנכסים שלי",
-                    "מה ההיסטוריה של העסקאות באזורים של הנכסים שלי?"
-                ]
-            else:
-                # User has no assets - provide general recommendations
-                recommendations = [
-                    "מצא לי נכסים בתל אביב מתחת למחיר שוק",
-                    "מה הפוטנציאל של הנכס הזה?",
-                    "איזה סיכונים יש בנכס הזה?",
-                    "מה ההיסטוריה של העסקאות באזור?",
-                    "מה השווי של הנכס הזה?"
-                ]
-        except Exception as e:
-            logger.warning(f"Error personalizing recommendations: {e}")
-            # Fallback to defaults if personalization fails
-            recommendations = [
-                "מצא לי נכסים בתל אביב מתחת למחיר שוק",
-                "מה הפוטנציאל של הנכס הזה?",
-                "איזה סיכונים יש בנכס הזה?"
-            ]
-        
-        # Ensure we always return at least some recommendations
-        if not recommendations:
-            recommendations = [
-                "מה השווי של הנכס הזה?",
-                "מה ההיסטוריה של העסקאות באזור?",
-                "איזה סיכונים יש בנכס הזה?"
-            ]
-        
-        return Response({
-            "recommendations": recommendations
-        })
-        
+        from .models import Asset
+        user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
     except Exception as e:
-        logger.exception("Error in agent recommendations: %s", e)
-        # Return defaults even on error
-        return Response({
-            "recommendations": [
-                "מה השווי של הנכס הזה?",
-                "מה ההיסטוריה של העסקאות באזור?",
-                "איזה סיכונים יש בנכס הזה?"
-            ]
-        })
+        logger.warning(f"Error personalizing recommendations: {e}")
+
+    
+    return Response({
+        "recommendations": recommendations
+    })
+

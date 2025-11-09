@@ -834,7 +834,7 @@ class RealEstateAgent:
         estimate_build_cost_tool = StructuredTool.from_function(
             func=wrap_async_tool(estimate_build_cost_tool_func),
             name="estimate_build_cost_tool",
-            description="הערכת עלויות בנייה במ"ר."
+            description="הערכת עלויות בנייה במ\"ר."
         )
         
         async def get_cost_options_tool_func() -> str:

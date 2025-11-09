@@ -1371,11 +1371,32 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         (value for value in recent_deal_candidates if value is not None),
                         None,
                     )
+                    # Extract ad_type from multiple possible locations
+                    ad_type_value = (
+                        listing.get('ad_type') or 
+                        listing.get('adType') or
+                        listing_meta.get('ad_type') or
+                        listing_meta.get('adType') or
+                        (listing_meta.get('raw') or {}).get('adType') if isinstance(listing_meta.get('raw'), dict) else None
+                    )
+                    
+                    # Fallback: infer ad_type from other fields if missing
+                    if not ad_type_value:
+                        contact_info = listing.get('contact_info') or listing.get('contactInfo') or {}
+                        features = listing.get('features') or {}
+                        has_agency = (
+                            bool(contact_info.get('agent')) or
+                            bool(features.get('agency')) or
+                            bool(listing_meta.get('customer', {}).get('agencyName') if isinstance(listing_meta.get('customer'), dict) else None)
+                        )
+                        if has_agency:
+                            ad_type_value = 'broker'
+                    
                     listing_defaults = {
                         'title': listing.get('title'),
                         'url': listing.get('url'),
                         'raw': listing,
-                        'status': listing.get('status') or (listing.get('meta') or {}).get('status') or 'active',
+                        'status': listing.get('status') or listing_meta.get('status') or 'active',
                         'price': listing.get('price'),
                         'rooms': listing.get('rooms'),
                         'area': listing.get('area'),
@@ -1383,7 +1404,7 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         'recent_deal': bool(recent_deal_value) if recent_deal_value is not None else False,
                         # Persist commonly used fields for UI/filters
                         'listing_type': listing.get('listing_type') or listing.get('listingType'),
-                        'ad_type': listing.get('ad_type') or listing.get('adType'),
+                        'ad_type': ad_type_value,
                         'contact_name': listing.get('contact_name') or listing.get('contactName') or ((listing.get('contact_info') or {}).get('name') if isinstance(listing.get('contact_info'), dict) else None),
                         'contact_phone': (listing.get('contact_phone') or listing.get('contactPhone') or ((listing.get('contact_info') or {}).get('phone') if isinstance(listing.get('contact_info'), dict) else None) or ((listing.get('contact_info') or {}).get('brokerPhone') if isinstance(listing.get('contact_info'), dict) else None)),
                         'photos': listing.get('photos') or listing.get('images') or [],

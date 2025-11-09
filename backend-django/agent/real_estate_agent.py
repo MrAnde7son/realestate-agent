@@ -13,7 +13,7 @@ import importlib.util
 import asyncio
 import time
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 
 from functools import lru_cache
 
@@ -865,6 +865,168 @@ class RealEstateAgent:
                     RealEstateAgent._available_cities_cache = []
             return RealEstateAgent._available_cities_cache or []
         
+        # Generic tool enrichment system
+        async def _enrich_asset_list_item(asset: Dict[str, Any]) -> Dict[str, Any]:
+            """Enrich a single asset item with listings data."""
+            asset_id = asset.get("id")
+            if not asset_id:
+                return asset
+            
+            # Build address string from available fields
+            # Try multiple ways to get address info
+            asset_city = asset.get("city") or asset.get("city_name") or ""
+            asset_street = asset.get("street") or asset.get("street_name") or ""
+            asset_number = asset.get("number") or asset.get("house_number")
+            asset_neighborhood = asset.get("neighborhood") or asset.get("neighborhood_name") or ""
+            
+            # If we don't have address components, try to get full asset data
+            if not asset_city and not asset_street:
+                try:
+                    full_asset_result = await get_asset(ctx, asset_id, include_documents=False)
+                    if isinstance(full_asset_result, dict) and full_asset_result.get("success"):
+                        full_asset = full_asset_result.get("data", {})
+                        asset_city = full_asset.get("city") or asset_city
+                        asset_street = full_asset.get("street") or asset_street
+                        asset_number = full_asset.get("number") or asset_number
+                        asset_neighborhood = full_asset.get("neighborhood") or asset_neighborhood
+                except Exception as e:
+                    logger.debug(f"Could not fetch full asset {asset_id} for address: {e}", exc_info=True)
+            
+            address_parts = []
+            if asset_street:
+                address_parts.append(asset_street)
+                if asset_number:
+                    address_parts.append(str(asset_number))
+            if asset_neighborhood:
+                address_parts.append(f"({asset_neighborhood})")
+            if asset_city:
+                address_parts.append(asset_city)
+            address = ", ".join(address_parts) if address_parts else f"נכס #{asset_id}"
+            
+            # Fetch listings to get price information
+            try:
+                listings_result = await get_asset_data(ctx, asset_id=asset_id, kind="listings", limit=1, compact=False)
+                enriched_data = {
+                    "address": address,
+                    "id": asset_id,
+                }
+                
+                if isinstance(listings_result, dict) and listings_result.get("success"):
+                    listings_data = listings_result.get("data", [])
+                    if listings_data:
+                        listing = listings_data[0]
+                        price = listing.get("price")
+                        if price:
+                            if price < 100000:
+                                enriched_data["price"] = f"₪{price:,}/חודש (השכרה)"
+                            else:
+                                enriched_data["price"] = f"₪{price:,}"
+                        
+                        rooms = listing.get("rooms") or listing.get("rooms_display")
+                        if rooms:
+                            enriched_data["rooms"] = f"{rooms} חדרים"
+                        
+                        size = listing.get("size")
+                        if size:
+                            enriched_data["size"] = f"{size} מ\"ר"
+                        
+                        prop_type = listing.get("property_type")
+                        if prop_type:
+                            enriched_data["property_type"] = prop_type
+                
+                return enriched_data
+            except Exception as e:
+                logger.debug(f"Could not enrich asset {asset_id}: {e}", exc_info=True)
+                return {"address": address, "id": asset_id}
+        
+        def _format_enriched_item(item: Dict[str, Any], formatter: Optional[Callable[[Dict[str, Any]], str]] = None) -> str:
+            """Format an enriched item using a custom formatter or default format."""
+            if formatter:
+                return formatter(item)
+            
+            # Default formatting: try to build a nice string
+            parts = []
+            
+            # Address or name first
+            if "address" in item:
+                parts.append(f"**{item['address']}**")
+            elif "name" in item:
+                parts.append(f"**{item['name']}**")
+            
+            # Price if available
+            if "price" in item:
+                parts.append(f"מחיר: {item['price']}")
+            
+            # Property type or other type field
+            if "property_type" in item:
+                parts.append(f"סוג: {item['property_type']}")
+            
+            # Rooms
+            if "rooms" in item:
+                parts.append(item['rooms'])
+            
+            # Size
+            if "size" in item:
+                parts.append(item['size'])
+            
+            # Email/Phone for contacts
+            if "email" in item and item.get("email"):
+                parts.append(f"אימייל: {item['email']}")
+            if "phone" in item and item.get("phone"):
+                parts.append(f"טלפון: {item['phone']}")
+            
+            return " • ".join(parts) if parts else str(item)
+        
+        async def _enrich_list_output(
+            tool_name: str,
+            data: List[Dict[str, Any]],
+            limit: int,
+            enrichment_func: Optional[Callable[[Dict[str, Any]], Any]] = None,
+            formatter: Optional[Callable[[Dict[str, Any]], str]] = None,
+        ) -> str:
+            """Generic function to enrich list tool outputs.
+            
+            Args:
+                tool_name: Name of the tool (for logging)
+                data: List of items to enrich
+                limit: Maximum number of items to process
+                enrichment_func: Async function(item) -> enriched_item_dict
+                formatter: Function(enriched_item) -> formatted_string
+            """
+            if not data:
+                return "לא נמצאו תוצאות."
+            
+            if not enrichment_func:
+                # No enrichment needed, use default formatting
+                formatted_items = []
+                for item in data[:limit]:
+                    formatted_items.append(_format_enriched_item(item, formatter))
+                result_text = "\n".join(f"{i+1}. {item}" for i, item in enumerate(formatted_items))
+                if len(data) > limit:
+                    result_text += f"\n\n…(+{len(data) - limit} נוספים)"
+                return result_text
+            
+            # Enrich items
+            enriched_items = []
+            for item in data[:limit]:
+                try:
+                    enriched = await enrichment_func(item)
+                    enriched_items.append(enriched)
+                except Exception as e:
+                    logger.debug(f"Error enriching item in {tool_name}: {e}", exc_info=True)
+                    enriched_items.append(item)  # Fallback to original
+            
+            # Format enriched items
+            formatted_items = []
+            for item in enriched_items:
+                formatted_items.append(_format_enriched_item(item, formatter))
+            
+            result_text = "\n".join(f"{i+1}. {item}" for i, item in enumerate(formatted_items))
+            if len(data) > limit:
+                result_text += f"\n\n…(+{len(data) - limit} נוספים)"
+            
+            return result_text
+        
         # Wrap MCP functions as LangChain tools
         # Assets tools
         async def list_assets_tool_func(
@@ -876,25 +1038,18 @@ class RealEstateAgent:
             fields: Optional[List[str]] = None,
             limit: Optional[int] = 5,
         ) -> str:
-            """List all assets with optional filtering. Use this to search for properties.
-            
-            IMPORTANT: Before searching, use get_asset_filters_tool() to get available city names.
-            The API may use different city name formats (e.g., 'תל אביב יפו', 'תל אביב-יפו', 'תל אביב - יפו').
-            Use the exact city name from the filters.cities list for best results.
+            """List all assets with optional filtering. Returns formatted results with addresses, prices, and property details.
             
             Parameters:
-            - city: City name - MUST match one of the names in filters.cities from get_asset_filters_tool()
-                     Common formats: 'תל אביב יפו', 'תל אביב-יפו', 'ירושלים', etc.
-            - max_price: Maximum price in shekels (e.g., 2000000 for 2 million)
+            - city: City name (use get_asset_filters_tool() to see available formats)
+            - max_price: Maximum price in shekels
             - min_price: Minimum price in shekels
             - rooms: Number of rooms
-            - page: Page number for pagination (default: 1)
-            - fields: Optional list of field names to return (e.g., ["id", "address", "price"])
+            - page: Page number for pagination
+            - fields: Optional list of field names to return
             - limit: Maximum number of items to return (default: 5, max: 50)
             
-            Example workflow:
-            1. First call: get_asset_filters_tool() to see available cities
-            2. Then call: list_assets_tool(city='תל אביב יפו', max_price=2000000, fields=["id", "address", "price"], limit=10)
+            Returns formatted list ready to present to user.
             """
             try:
                 limit = _safe_limit(limit, default=5, hard_max=50)
@@ -910,14 +1065,14 @@ class RealEstateAgent:
                             corrected_city = matched_city
                             logger.info(f"Auto-corrected city name: '{city}' -> '{corrected_city}'")
                 
-                # Ensure essential fields are always included for display
-                # id is always present, address and price are important for identification
-                essential_fields = ["id", "address", "price"]
+                # Ensure essential fields are always included for address building
+                # We need street, number, city, neighborhood to build addresses
+                essential_fields = ["id", "street", "number", "city", "neighborhood"]
                 if fields:
                     # Merge user's fields with essential fields, preserving order
                     api_fields = list(dict.fromkeys(essential_fields + fields))  
                 else:
-                    api_fields = ["id", "address", "price", "rooms", "area"]
+                    api_fields = essential_fields
                 
                 result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=api_fields, limit=limit, compact=True)
                 
@@ -938,14 +1093,21 @@ class RealEstateAgent:
                                 # No match found, suggest checking filters
                                 return f"לא נמצאו נכסים בעיר '{city}'. אנא השתמש ב-get_asset_filters_tool() כדי לראות את שמות הערים הזמינים."
                     
-                    # Use the same fields for formatting that we requested from API
-                    formatted_result = _fmt_list(data, api_fields, limit)
+                    enriched_result = await _enrich_list_output(
+                        tool_name="list_assets_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=_enrich_asset_list_item,
+                    )
                     
-                    # Add note if city was auto-corrected
-                    if city and corrected_city != city:
-                        formatted_result = f"[תוקן אוטומטית: '{city}' -> '{corrected_city}']\n" + formatted_result
+                    # Ensure we return a clear, complete response
+                    final_result = enriched_result
+                    if not final_result.strip():
+                        return "לא נמצאו נכסים התואמים את הקריטריונים."
                     
-                    return formatted_result
+                    # Add a clear completion marker to help the LLM recognize this as final
+                    # The formatted results are complete - no need to call the tool again
+                    return final_result
                 
                 return str(result)
             except Exception as e:
@@ -1091,8 +1253,26 @@ class RealEstateAgent:
                 result = await list_deals(ctx, stage=stage, asset_id=asset_id, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
-                    key_fields = fields or ["id", "stage", "asset_id", "updated_at"]
-                    return _fmt_list(data, key_fields, limit)
+                    # Custom formatter for deals
+                    def format_deal(deal: Dict[str, Any]) -> str:
+                        parts = []
+                        if "id" in deal:
+                            parts.append(f"**עסקה #{deal['id']}**")
+                        if "stage" in deal:
+                            parts.append(f"שלב: {deal['stage']}")
+                        if "asset_id" in deal:
+                            parts.append(f"נכס #{deal['asset_id']}")
+                        if "updated_at" in deal and deal.get("updated_at"):
+                            parts.append(f"עודכן: {deal['updated_at']}")
+                        return " • ".join(parts) if parts else str(deal)
+                    
+                    return await _enrich_list_output(
+                        tool_name="list_deals_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,
+                        formatter=format_deal,
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1266,8 +1446,13 @@ class RealEstateAgent:
                 result = await list_contacts(ctx, page=1, page_size=limit, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
-                    key_fields = fields or ["id", "name", "email", "phone"]
-                    return _fmt_list(data, key_fields, limit)
+                    # Use generic enrichment system (no enrichment needed, just formatting)
+                    return await _enrich_list_output(
+                        tool_name="list_contacts_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,  # Contacts already have all needed data
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1309,8 +1494,28 @@ class RealEstateAgent:
                 result = await list_leads(ctx, status=status, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
-                    key_fields = fields or ["id", "status", "contact", "asset_id", "updated_at"]
-                    return _fmt_list(data, key_fields, limit)
+                    # Custom formatter for leads
+                    def format_lead(lead: Dict[str, Any]) -> str:
+                        parts = []
+                        if "contact" in lead and isinstance(lead.get("contact"), dict):
+                            contact_name = lead["contact"].get("name", "")
+                            if contact_name:
+                                parts.append(f"**{contact_name}**")
+                        if "status" in lead:
+                            parts.append(f"סטטוס: {lead['status']}")
+                        if "asset_id" in lead:
+                            parts.append(f"נכס #{lead['asset_id']}")
+                        if "updated_at" in lead and lead.get("updated_at"):
+                            parts.append(f"עודכן: {lead['updated_at']}")
+                        return " • ".join(parts) if parts else str(lead)
+                    
+                    return await _enrich_list_output(
+                        tool_name="list_leads_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,
+                        formatter=format_lead,
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1348,8 +1553,28 @@ class RealEstateAgent:
                 result = await list_tasks(ctx, contact_id=None, lead_id=None, status=status, page=None, page_size=None, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
-                    key_fields = fields or ["id", "title", "status", "due_at"]
-                    return _fmt_list(data, key_fields, limit)
+                    # Custom formatter for tasks
+                    def format_task(task: Dict[str, Any]) -> str:
+                        parts = []
+                        if "title" in task:
+                            parts.append(f"**{task['title']}**")
+                        if "status" in task:
+                            parts.append(f"סטטוס: {task['status']}")
+                        if "due_at" in task and task.get("due_at"):
+                            parts.append(f"תאריך יעד: {task['due_at']}")
+                        if "contact" in task and isinstance(task.get("contact"), dict):
+                            contact_name = task["contact"].get("name", "")
+                            if contact_name:
+                                parts.append(f"איש קשר: {contact_name}")
+                        return " • ".join(parts) if parts else str(task)
+                    
+                    return await _enrich_list_output(
+                        tool_name="list_tasks_tool",
+                        data=data,
+                        limit=limit,
+                        enrichment_func=None,
+                        formatter=format_task,
+                    )
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1461,8 +1686,12 @@ class RealEstateAgent:
         language_sentence = (
             "ענה בעברית למשתמשים בעברית ועבור לשפה אחרת רק אם התבקשת במפורש. הצג נתונים בצורה ברורה בעברית."
         )
+        
+        tool_output_instruction = (
+            "\n\nכאשר כלי מחזיר תוצאות מפורמטות, הצג אותן ישירות למשתמש."
+        )
 
-        system_prompt = f"{scope_sentence}{internet_access_note}\n\n{language_sentence}"
+        system_prompt = f"{scope_sentence}{internet_access_note}\n\n{language_sentence}{tool_output_instruction}"
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -1489,7 +1718,7 @@ class RealEstateAgent:
             tools=self.tools,
             verbose=True,  # Enable verbose to show tool chain in logs
             handle_parsing_errors=handle_parsing_error,
-            max_iterations=10,
+            max_iterations=5,
             return_intermediate_steps=False,
         )
 
@@ -1610,45 +1839,77 @@ class RealEstateAgent:
                     tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
                 response_text = result.get("output", "")
                 
-                # Format tool outputs to include in response
-                tool_outputs_section = []
+                # Check if we have formatted results from list tools
+                # If so, use them as the final answer even if LLM didn't generate a response
+                list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                  "list_leads_tool", "list_deals_tool"]
+                formatted_tool_output = None
                 for tool_call in tool_calls:
-                    if tool_call.get("output"):
-                        tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
-                        output = tool_call["output"]
-                        
-                        # Format tool output nicely
-                        tool_outputs_section.append(f"**{tool_hebrew}:**")
-                        # For list_assets_tool, show the actual results
-                        if tool_call.get("tool") == "list_assets_tool" and output:
-                            # Show the actual output (property IDs, etc.)
-                            tool_outputs_section.append("```")
-                            tool_outputs_section.append(output)
-                            tool_outputs_section.append("```")
-                        else:
-                            # For other tools, show output (may be compressed)
-                            tool_outputs_section.append(output)
-                        tool_outputs_section.append("")  # Empty line between tools
+                    tool_name = tool_call.get("tool", "")
+                    if tool_name in list_tool_names:
+                        output = tool_call.get("output", "")
+                        # Check if output contains formatted results
+                        if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                     "סטטוס:" in output or "•" in output):
+                            formatted_tool_output = output
+                            break
                 
-                # Always include tool outputs in the response
-                if tool_outputs_section:
-                    tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                # If we have formatted tool output and no LLM response, use tool output as final answer
+                if formatted_tool_output and not response_text:
+                    logger.info("Using formatted tool output as final response (no LLM response)")
+                    response_text = formatted_tool_output
+                # If we have both, check if LLM response already includes the tool output
+                elif formatted_tool_output and response_text:
+                    # Check if response already includes tool outputs
+                    has_tool_outputs = any(
+                        keyword in response_text for keyword in ["₪", "מחיר:", "**", "סטטוס:", "•"]
+                    )
+                    if not has_tool_outputs:
+                        logger.info("LLM response doesn't include tool outputs, but tool output is formatted - using tool output")
+                        response_text = formatted_tool_output
+                
+                # Only show tool outputs if response doesn't already include formatted results
+                if not formatted_tool_output:
+                    tool_outputs_section = []
+                    for tool_call in tool_calls:
+                        if tool_call.get("output"):
+                            tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
+                            output = tool_call["output"]
+                            
+                            # Skip showing raw list tool outputs if they're just IDs without details
+                            if tool_call.get("tool") in list_tool_names:
+                                # Only show if it doesn't contain formatted results
+                                if not ("₪" in output or "מחיר:" in output or "**" in output or 
+                                       "סטטוס:" in output or "•" in output):
+                                    # Skip raw interim outputs
+                                    continue
+                            
+                            # Format tool output nicely
+                            tool_outputs_section.append(f"**{tool_hebrew}:**")
+                            tool_outputs_section.append(output)
+                            tool_outputs_section.append("")  # Empty line between tools
                     
-                    if not response_text:
-                        # No LLM response, use tool outputs
-                        logger.info("No LLM response, using tool outputs")
-                        response_text = tool_outputs_text
-                    else:
-                        # Check if response already includes tool outputs
-                        has_tool_outputs = any(
-                            keyword in response_text for keyword in ["id:", "נמצאו", "property", "נכס"]
-                        )
-                        # If response doesn't include tool outputs, append them
-                        if not has_tool_outputs:
-                            logger.info("Appending tool outputs to response")
-                            response_text = f"{response_text}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                    # Only append if we have tool outputs to show
+                    if tool_outputs_section:
+                        tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                        
+                        if not response_text:
+                            # No LLM response, use tool outputs
+                            logger.info("No LLM response, using tool outputs")
+                            response_text = tool_outputs_text
                         else:
-                            logger.info("Response already includes tool outputs")
+                            # Check if response already includes tool outputs
+                            has_tool_outputs = any(
+                                keyword in response_text for keyword in ["id:", "נמצאו", "property", "נכס", "₪"]
+                            )
+                            # If response doesn't include tool outputs, append them
+                            if not has_tool_outputs:
+                                logger.info("Appending tool outputs to response")
+                                response_text = f"{response_text}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                            else:
+                                logger.info("Response already includes tool outputs")
+                else:
+                    logger.info("Using formatted tool output as final response")
                 
                 self._record_interaction(message, response_text)
                 return {
@@ -1786,8 +2047,22 @@ class RealEstateAgent:
                         logger.info("Final output not in callback response, appending it")
                         callback.complete_response += final_output
                 
-                # If we still have no response but tools were called, that's okay
-                # We'll send the complete event anyway with an empty response
+                # If we still have no response but tools were called, check if we have formatted tool output
+                # Use formatted tool output as final response if available
+                if not callback.complete_response:
+                    tool_calls = callback.get_tool_calls()
+                    list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                      "list_leads_tool", "list_deals_tool"]
+                    for tool_call in tool_calls:
+                        tool_name = tool_call.get("tool", "")
+                        if tool_name in list_tool_names:
+                            output = tool_call.get("output", "")
+                            if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                         "סטטוס:" in output or "•" in output):
+                                logger.info("No LLM response but have formatted tool output - using it")
+                                callback.complete_response = output
+                                break
+                
                 logger.info("Final callback response length after processing: %d", len(callback.complete_response))
                 logger.info("Final callback response preview: %s", callback.complete_response[:200] if callback.complete_response else "Empty")
                 logger.info("Tool calls count: %d", len(callback.get_tool_calls()))
@@ -1942,45 +2217,63 @@ class RealEstateAgent:
                 logger.info("Final response content (first 200 chars): %s", 
                           (final_response or "")[:200])
                 
-                # Format tool outputs to include in response
-                tool_outputs_section = []
+                # Check if response already includes formatted results from any list tool
+                # Generic detection: look for formatted output patterns
+                has_formatted_results = False
+                list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                  "list_leads_tool", "list_deals_tool"]
                 for tool_call in tool_calls:
-                    if tool_call.get("output"):
-                        tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
-                        output = tool_call["output"]
-                        
-                        # Format tool output nicely
-                        tool_outputs_section.append(f"**{tool_hebrew}:**")
-                        # For list_assets_tool, show the actual results
-                        if tool_call.get("tool") == "list_assets_tool" and output:
-                            # Show the actual output (property IDs, etc.)
-                            tool_outputs_section.append("```")
-                            tool_outputs_section.append(output)
-                            tool_outputs_section.append("```")
-                        else:
-                            # For other tools, show output (may be compressed)
-                            tool_outputs_section.append(output)
-                        tool_outputs_section.append("")  # Empty line between tools
+                    tool_name = tool_call.get("tool", "")
+                    if tool_name in list_tool_names:
+                        output = tool_call.get("output", "")
+                        # Check if output contains formatted results (with prices, addresses, bold text, etc.)
+                        if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                     "סטטוס:" in output or "•" in output):
+                            has_formatted_results = True
+                            break
                 
-                # Always include tool outputs in the response
-                if tool_outputs_section:
-                    tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                # Only show tool outputs if response doesn't already include formatted results
+                if not has_formatted_results:
+                    tool_outputs_section = []
+                    for tool_call in tool_calls:
+                        if tool_call.get("output"):
+                            tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
+                            output = tool_call["output"]
+                            
+                            # Skip showing raw list tool outputs if they're just IDs without details
+                            if tool_call.get("tool") in list_tool_names:
+                                # Only show if it doesn't contain formatted results
+                                if not ("₪" in output or "מחיר:" in output or "**" in output or 
+                                       "סטטוס:" in output or "•" in output):
+                                    # Skip raw interim outputs
+                                    continue
+                            
+                            # Format tool output nicely
+                            tool_outputs_section.append(f"**{tool_hebrew}:**")
+                            tool_outputs_section.append(output)
+                            tool_outputs_section.append("")  # Empty line between tools
                     
-                    if not final_response:
-                        # No LLM response, use tool outputs
-                        logger.info("No LLM response in stream, using tool outputs")
-                        final_response = tool_outputs_text
-                    else:
-                        # Check if response already includes tool outputs
-                        has_tool_outputs = any(
-                            keyword in final_response for keyword in ["id:", "נמצאו", "property", "נכס"]
-                        )
-                        # If response doesn't include tool outputs, append them
-                        if not has_tool_outputs:
-                            logger.info("Appending tool outputs to streamed response")
-                            final_response = f"{final_response}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                    # Only append if we have tool outputs to show
+                    if tool_outputs_section:
+                        tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                        
+                        if not final_response:
+                            # No LLM response, use tool outputs
+                            logger.info("No LLM response in stream, using tool outputs")
+                            final_response = tool_outputs_text
                         else:
-                            logger.info("Streamed response already includes tool outputs")
+                            # Check if response already includes tool outputs
+                            has_tool_outputs = any(
+                                keyword in final_response for keyword in ["id:", "נמצאו", "property", "נכס", "₪"]
+                            )
+                            # If response doesn't include tool outputs, append them
+                            if not has_tool_outputs:
+                                logger.info("Appending tool outputs to streamed response")
+                                final_response = f"{final_response}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                            else:
+                                logger.info("Streamed response already includes tool outputs")
+                else:
+                    logger.info("Skipping tool outputs in stream - response already contains formatted results")
                 
                 # Always send complete event if agent finished successfully
                 # Even if response is empty, we should send the event with tool calls

@@ -89,6 +89,7 @@ try:
     get_offer = get_underlying_func(mcp_server.get_offer)
     estimate_build_cost = get_underlying_func(mcp_server.estimate_build_cost)
     get_cost_options = get_underlying_func(mcp_server.get_cost_options)
+    calculate_deal_expenses = get_underlying_func(mcp_server.calculate_deal_expenses)
     analyze_mortgage = get_underlying_func(mcp_server.analyze_mortgage)
     list_contacts = get_underlying_func(mcp_server.list_contacts)
     create_contact = get_underlying_func(mcp_server.create_contact)
@@ -115,6 +116,7 @@ except Exception as e:
     get_offer = _stub_func
     estimate_build_cost = _stub_func
     get_cost_options = _stub_func
+    calculate_deal_expenses = _stub_func
     analyze_mortgage = _stub_func
     list_contacts = _stub_func
     create_contact = _stub_func
@@ -1174,6 +1176,63 @@ class RealEstateAgent:
             description="קבלת אפשרויות עלות זמינות."
         )
         
+        async def calculate_deal_expenses_tool_func(
+            price: float,
+            buyers: Optional[List[Dict[str, Any]]] = None,
+            area: Optional[float] = None,
+            property_type: Optional[str] = None,
+            services: Optional[List[Dict[str, Any]]] = None,
+            vat_rate: Optional[float] = None,
+            construction_area: Optional[float] = None,
+            construction_cost_per_sqm: Optional[float] = None,
+            construction_includes_vat: Optional[bool] = None,
+        ) -> str:
+            """Calculate complete deal expenses including purchase tax, service costs, and construction costs.
+            
+            If buyers are not specified, uses the current user as the default buyer with 100% share.
+            """
+            try:
+                # Use default buyer if not provided or empty
+                if not buyers:
+                    buyers = [{"name": "User", "sharePct": 100}]
+                
+                result = await calculate_deal_expenses(
+                    ctx, price, buyers, area, property_type, services, 
+                    vat_rate, construction_area, construction_cost_per_sqm, construction_includes_vat
+                )
+                if isinstance(result, dict) and result.get("success"):
+                    data = result.get("data", {})
+                    # Format the result nicely
+                    total_tax = data.get("totalTax", 0)
+                    service_total = data.get("serviceTotal", 0)
+                    construction_cost = data.get("constructionCost", 0)
+                    total = data.get("total", 0)
+                    
+                    breakdown = data.get("breakdown", [])
+                    breakdown_text = "\n".join([
+                        f"  - {b.get('buyer', {}).get('name', 'Buyer')}: {b.get('portionPrice', 0):,.0f}₪, מס: {b.get('tax', 0):,.0f}₪ ({b.get('track', 'regular')})"
+                        for b in breakdown
+                    ])
+                    
+                    return f"""חישוב הוצאות עסקה:
+מחיר נכס: {price:,.0f}₪
+מס רכישה: {total_tax:,.0f}₪
+עלויות שירות: {service_total:,.0f}₪
+עלויות בנייה: {construction_cost:,.0f}₪
+סה"כ: {total:,.0f}₪
+
+פירוט מס רכישה:
+{breakdown_text}"""
+                return str(result)
+            except Exception as e:
+                return f"שגיאה: {str(e)}"
+        
+        calculate_deal_expenses_tool = StructuredTool.from_function(
+            func=wrap_async_tool(calculate_deal_expenses_tool_func),
+            name="calculate_deal_expenses_tool",
+            description="חישוב הוצאות עסקה כולל מס רכישה, עלויות שירות ועלויות בנייה. אם לא צוינו קונים, משתמש במשתמש הנוכחי כקונה ברירת מחדל."
+        )
+        
         # Mortgage tools
         async def analyze_mortgage_tool_func(
             property_price: float,
@@ -1312,6 +1371,7 @@ class RealEstateAgent:
             get_offer_tool,
             estimate_build_cost_tool,
             get_cost_options_tool,
+            calculate_deal_expenses_tool,
             analyze_mortgage_tool,
             list_contacts_tool,
             create_contact_tool,

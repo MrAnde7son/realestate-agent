@@ -17,10 +17,32 @@ from typing import List, Optional, Dict, Any
 
 from functools import lru_cache
 
+# Add backend-django directory to path before agent imports
+backend_django_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_django_path not in sys.path:
+    sys.path.insert(0, backend_django_path)
+
+# Load .env file if available (before any environment variable access)
+try:
+    from dotenv import load_dotenv
+    # Try to find .env file in project root or backend-django directory
+    project_root = os.path.abspath(os.path.join(backend_django_path, ".."))
+    env_file = os.path.join(project_root, '.env')
+    if not os.path.exists(env_file):
+        env_file = os.path.join(backend_django_path, '.env')
+    if os.path.exists(env_file):
+        load_dotenv(env_file, override=False)
+except ImportError:
+    # python-dotenv not available, skip
+    pass
+except Exception:
+    # Ignore errors loading .env file
+    pass
+
 logger = logging.getLogger(__name__)
 
-from .internet_fetcher import get_fetcher
-from .memory import ConversationMemory
+from agent.internet_fetcher import get_fetcher
+from agent.memory import ConversationMemory
 
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
@@ -30,12 +52,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-from .tool_utils import wrap_async_tool
-
-# Add project root to path (after imports to satisfy linter)
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+from agent.tool_utils import wrap_async_tool
 
 # Import MCP server functions dynamically
 _agent_import_error = None
@@ -534,8 +551,7 @@ def translate_tool_name(tool_name: str) -> str:
         "get_asset_filters_tool": "קבלת אפשרויות סינון",
         "get_asset_tool": "קבלת פרטי נכס",
         "create_asset_tool": "יצירת נכס",
-        "get_asset_transactions_tool": "קבלת היסטוריית עסקאות",
-        "get_asset_appraisal_tool": "קבלת הערכת שווי",
+        "get_asset_data_tool": "קבלת תת-משאב נכס",
         "list_deals_tool": "רשימת עסקאות",
         "create_deal_tool": "יצירת עסקה",
         "get_offer_tool": "קבלת פרטי הצעה",
@@ -677,11 +693,18 @@ class RealEstateAgent:
             # Try Django settings if available
             try:
                 from django.conf import settings
+                from django.core.exceptions import ImproperlyConfigured
                 if settings_attr:
-                    key = getattr(settings, settings_attr, None)
-                    if key:
-                        return key.strip(), "django_settings"
+                    # Accessing settings attributes may trigger ImproperlyConfigured if Django isn't configured
+                    try:
+                        key = getattr(settings, settings_attr, None)
+                        if key:
+                            return key.strip(), "django_settings"
+                    except ImproperlyConfigured:
+                        # Django not configured, skip Django settings
+                        pass
             except ImportError:
+                # Django not installed, skip Django settings
                 pass
             return None, "none"
         
@@ -757,6 +780,27 @@ class RealEstateAgent:
         ctx = MockContext()
         logger.debug("Creating tools with MockContext (dummy context object)")
         
+        # Helper functions for projection-first list handling
+        def _safe_limit(n: Optional[int], default: int = 5, hard_max: int = 50) -> int:
+            """Safely convert limit parameter to int with bounds."""
+            try:
+                if n is None:
+                    return default
+                return max(1, min(int(n), hard_max))
+            except Exception:
+                return default
+        
+        def _fmt_list(items: list, key_fields: list[str], max_items: int) -> str:
+            """Format list items with field projection."""
+            if not isinstance(items, list):
+                return str(items)
+            out = []
+            for x in items[:max_items]:
+                line = " | ".join(f"{k}: {x.get(k)}" for k in key_fields if k in x)
+                out.append(f"- {line or str(x)[:200]}")
+            more = "" if len(items) <= max_items else f"\n…(+{len(items)-max_items} נוספים)"
+            return "\n".join(out) + more
+        
         # Wrap MCP functions as LangChain tools
         # Assets tools
         async def list_assets_tool_func(
@@ -765,6 +809,8 @@ class RealEstateAgent:
             min_price: Optional[int] = None,
             rooms: Optional[int] = None,
             page: Optional[int] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
         ) -> str:
             """List all assets with optional filtering. Use this to search for properties.
             
@@ -779,22 +825,21 @@ class RealEstateAgent:
             - min_price: Minimum price in shekels
             - rooms: Number of rooms
             - page: Page number for pagination (default: 1)
+            - fields: Optional list of field names to return (e.g., ["id", "address", "price"])
+            - limit: Maximum number of items to return (default: 5, max: 50)
             
             Example workflow:
             1. First call: get_asset_filters_tool() to see available cities
-            2. Then call: list_assets_tool(city='תל אביב יפו', max_price=2000000)
+            2. Then call: list_assets_tool(city='תל אביב יפו', max_price=2000000, fields=["id", "address", "price"], limit=10)
             """
             try:
-                result = await list_assets(ctx, city=city, max_price=max_price, min_price=min_price, rooms=rooms, page=page)
+                limit = _safe_limit(limit, default=5, hard_max=50)
+                result = await list_assets(ctx, city=city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, dict) and "results" in data:
-                        assets = data["results"]
-                        return f"נמצאו {len(assets)} נכסים:\n" + "\n".join([
-                            f"- נכס {a.get('id')}: {a.get('address', 'לא זמין')} - {a.get('price', 'לא זמין')} ש\"ח"
-                            for a in assets[:10]
-                        ])
-                    return str(data)
+                    data = result.get("data", [])
+                    # Pick a sensible default projection if fields not provided
+                    key_fields = fields or ["id", "address", "price", "city", "rooms", "area"]
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -838,13 +883,20 @@ class RealEstateAgent:
             description="קבלת מסננים זמינים לנכסים."
         )
         
-        async def get_asset_tool_func(asset_id: int, include_documents: bool = False) -> str:
+        async def get_asset_tool_func(
+            asset_id: int,
+            include_documents: bool = False,
+            fields: Optional[List[str]] = None,
+        ) -> str:
             """Get detailed information for a specific asset by ID."""
             try:
                 result = await get_asset(ctx, asset_id, include_documents)
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", {})
-                    return f"נכס {asset_id}:\n" + str(data)
+                    if fields:
+                        data = {k: data.get(k) for k in fields if k in data}
+                    # Keep this single-object formatting compact
+                    return "\n".join(f"{k}: {v}" for k, v in data.items())
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -877,51 +929,61 @@ class RealEstateAgent:
             description="יצירת נכס חדש עם כתובת."
         )
         
-        async def get_asset_transactions_tool_func(asset_id: int) -> str:
-            """Get transaction history for an asset."""
+        async def get_asset_data_tool_func(
+            asset_id: int,
+            kind: str,  # "transactions" | "permits" | "plans" | "appraisal" | "listings" | "documents"
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
+            """Get asset subresource data with field projection and limiting.
+            
+            Parameters:
+            - asset_id: The ID of the asset
+            - kind: Type of data to retrieve - one of: transactions, permits, plans, appraisal, listings, documents
+            - fields: Optional list of field names to return
+            - limit: Maximum number of items to return (default: 5)
+            """
             try:
-                result = await get_asset_data(ctx, asset_id, "transactions")
+                limit = _safe_limit(limit, default=5)
+                result = await get_asset_data(ctx, asset_id=asset_id, kind=kind, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"עסקאות עבור נכס {asset_id}: {result.get('data', {})}"
+                    data = result.get("data", [])
+                    # Choose minimal sensible defaults per kind
+                    defaults = {
+                        "transactions": ["dealDate", "dealAmount", "assetArea", "floorNo"],
+                        "permits": ["permit_id", "status", "issued_at", "title"],
+                        "plans": ["plan_number", "name", "status"],
+                        "appraisal": ["estPrice", "method", "updatedAt"],
+                        "listings": ["source", "price", "rooms", "area", "url"],
+                        "documents": ["id", "title", "type", "created_at", "size"],
+                    }
+                    key_fields = fields or defaults.get(kind, ["id"])
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
         
-        get_asset_transactions_tool = StructuredTool.from_function(
-            func=wrap_async_tool(get_asset_transactions_tool_func),
-            name="get_asset_transactions_tool",
-            description="קבלת היסטוריית עסקאות לנכס."
-        )
-        
-        async def get_asset_appraisal_tool_func(asset_id: int) -> str:
-            """Get appraisal analysis for an asset including comparable sales."""
-            try:
-                result = await get_asset_data(ctx, asset_id, "appraisal")
-                if isinstance(result, dict) and result.get("success"):
-                    return f"הערכת שווי עבור נכס {asset_id}: {result.get('data', {})}"
-                return str(result)
-            except Exception as e:
-                return f"שגיאה: {str(e)}"
-        
-        get_asset_appraisal_tool = StructuredTool.from_function(
-            func=wrap_async_tool(get_asset_appraisal_tool_func),
-            name="get_asset_appraisal_tool",
-            description="קבלת הערכת שווי לנכס."
+        get_asset_data_tool = StructuredTool.from_function(
+            func=wrap_async_tool(get_asset_data_tool_func),
+            name="get_asset_data_tool",
+            description="קבלת תת-משאב של נכס עם שדות ומגבלה (transactions/permits/plans/appraisal/listings/documents)."
         )
         
         # Deal tools
         async def list_deals_tool_func(
             stage: Optional[str] = None,
             asset_id: Optional[int] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
         ) -> str:
             """List all deals, optionally filtered by stage or asset."""
             try:
-                result = await list_deals(ctx, stage, None, asset_id)
+                limit = _safe_limit(limit)
+                result = await list_deals(ctx, stage=stage, asset_id=asset_id, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        return f"נמצאו {len(data)} עסקאות: {data}"
-                    return str(data)
+                    data = result.get("data", [])
+                    key_fields = fields or ["id", "stage", "asset_id", "updated_at"]
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1028,19 +1090,18 @@ class RealEstateAgent:
         )
         
         # CRM tools
-        async def list_contacts_tool_func() -> str:
+        async def list_contacts_tool_func(
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
             """List all CRM contacts."""
             try:
-                result = await list_contacts(ctx, page=1, page_size=1)
+                limit = _safe_limit(limit)
+                result = await list_contacts(ctx, page=1, page_size=limit, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    # Use count from pagination if available, otherwise use list length
-                    count = result.get("count")
                     data = result.get("data", [])
-                    if isinstance(data, list):
-                        if count is not None:
-                            return f"יש לך {count} לקוחות במערכת."
-                        return f"נמצאו {len(data)} אנשי קשר: {data}"
-                    return str(data)
+                    key_fields = fields or ["id", "name", "email", "phone"]
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1071,15 +1132,19 @@ class RealEstateAgent:
             description="יצירת איש קשר ב-CRM."
         )
         
-        async def list_leads_tool_func(status: Optional[str] = None) -> str:
+        async def list_leads_tool_func(
+            status: Optional[str] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
             """List all leads, optionally filtered by status."""
             try:
-                result = await list_leads(ctx, status)
+                limit = _safe_limit(limit)
+                result = await list_leads(ctx, status=status, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        return f"נמצאו {len(data)} לידים: {data}"
-                    return str(data)
+                    data = result.get("data", [])
+                    key_fields = fields or ["id", "status", "contact", "asset_id", "updated_at"]
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1106,15 +1171,19 @@ class RealEstateAgent:
             description="יצירת ליד חדש לנכס."
         )
         
-        async def list_tasks_tool_func(status: Optional[str] = None) -> str:
+        async def list_tasks_tool_func(
+            status: Optional[str] = None,
+            fields: Optional[List[str]] = None,
+            limit: Optional[int] = 5,
+        ) -> str:
             """List all CRM tasks, optionally filtered by status."""
             try:
-                result = await list_tasks(ctx, None, None, status)
+                limit = _safe_limit(limit)
+                result = await list_tasks(ctx, contact_id=None, lead_id=None, status=status, page=None, page_size=None, fields=fields, limit=limit, compact=True)
                 if isinstance(result, dict) and result.get("success"):
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        return f"נמצאו {len(data)} משימות: {data}"
-                    return str(data)
+                    data = result.get("data", [])
+                    key_fields = fields or ["id", "title", "status", "due_at"]
+                    return _fmt_list(data, key_fields, limit)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"
@@ -1130,8 +1199,7 @@ class RealEstateAgent:
             get_asset_filters_tool,
             get_asset_tool,
             create_asset_tool,
-            get_asset_transactions_tool,
-            get_asset_appraisal_tool,
+            get_asset_data_tool,
             list_deals_tool,
             create_deal_tool,
             get_offer_tool,
@@ -1655,11 +1723,15 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Real Estate Agent CLI")
+    # Get default provider from environment variable, fallback to "openai"
+    default_provider = os.getenv("LLM_DEFAULT_PROVIDER", "openai").lower()
+    if default_provider not in ["openai", "gemini", "groq"]:
+        default_provider = "openai"
     parser.add_argument(
         "--provider",
         choices=["openai", "gemini", "groq"],
-        default="openai",
-        help="LLM provider to use",
+        default=default_provider,
+        help=f"LLM provider to use (default: {default_provider} from LLM_DEFAULT_PROVIDER env var)",
     )
     parser.add_argument(
         "--api-url",

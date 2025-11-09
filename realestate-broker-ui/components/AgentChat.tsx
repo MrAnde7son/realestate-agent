@@ -4,6 +4,7 @@
 import * as React from "react"
 import { useState, useRef, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -282,14 +283,19 @@ export function AgentChat({
     },
     img: ({ src, alt, ...props }) => {
       if (!src) return null
+      const { ref, ...imageProps } = props as any
       return (
-        <img
-          src={src}
-          alt={alt || ""}
-          className="max-w-full h-auto rounded-lg my-2"
-          loading="lazy"
-          {...props}
-        />
+        <div className="relative w-full my-2 rounded-lg overflow-hidden" style={{ aspectRatio: 'auto', minHeight: '150px' }}>
+          <Image
+            src={src}
+            alt={alt || ""}
+            fill
+            className="object-contain rounded-lg"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            unoptimized
+            {...imageProps}
+          />
+        </div>
       )
     },
   }

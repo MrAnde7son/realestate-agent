@@ -19,6 +19,7 @@ from typing import List, Optional, Dict, Any
 logger = logging.getLogger(__name__)
 
 from .internet_fetcher import get_fetcher
+from .memory import ConversationMemory
 
 # LangChain imports
 from langchain_core.tools import BaseTool, StructuredTool
@@ -419,9 +420,12 @@ class RealEstateAgent:
         temperature: float = 0.3,
         user_api_key: Optional[str] = None,
         internet_enabled: bool = False,
+        enable_memory: bool = True,
+        memory_max_messages: int = 50,
+        memory: Optional[ConversationMemory] = None,
     ):
         """Initialize the Real Estate Agent.
-        
+
         Args:
             llm_provider: LLM provider to use ("openai", "gemini", or "groq")
             api_token: Optional API token for authenticated requests
@@ -430,6 +434,9 @@ class RealEstateAgent:
             user_api_key: Optional user's API key for LLM (overrides environment variables)
             internet_enabled: Enable Internet access (default: False). When enabled, allows
                              fetching web pages from whitelisted domains only.
+            enable_memory: Enable storing chat history in memory.
+            memory_max_messages: Maximum number of messages to keep in memory.
+            memory: Optional pre-configured memory object (overrides other memory settings).
         """
         self.api_token = api_token  # Use provided token (should be from authenticated user)
         self.api_url = api_url or os.getenv("REALESTATE_API_URL", "http://127.0.0.1:8000/api")
@@ -450,10 +457,51 @@ class RealEstateAgent:
         # Create tools
         self.tools = self._create_tools()
         logger.info("Created %d tools for agent", len(self.tools))
-        
+
+        # Configure memory
+        self.memory = None
+        if memory is not None:
+            self.memory = memory
+        elif enable_memory:
+            try:
+                self.memory = ConversationMemory(max_messages=memory_max_messages)
+            except Exception as exc:
+                logger.error("Failed to initialise conversation memory: %s", exc)
+                self.memory = None
+
         # Create agent
         self.agent_executor = self._create_agent_executor()
-    
+
+    def clear_memory(self) -> None:
+        """Clear stored conversation history."""
+        if self.memory is not None:
+            self.memory.clear()
+
+    def _sanitize_chat_history(self, chat_history: Optional[List[Dict[str, Any]]]) -> List[Dict[str, str]]:
+        """Return a sanitized copy of provided chat history."""
+        sanitized: List[Dict[str, str]] = []
+        if not chat_history:
+            return sanitized
+        for message in chat_history:
+            if not isinstance(message, dict):
+                continue
+            role = str(message.get("role", "user")).strip() or "user"
+            content = str(message.get("content", "")).strip()
+            sanitized.append({"role": role, "content": content})
+        return sanitized
+
+    def _build_chat_history(self, chat_history: Optional[List[Dict[str, Any]]]) -> List[Dict[str, str]]:
+        """Combine external chat history with internal memory if enabled."""
+        if self.memory is not None:
+            return self.memory.build_history(chat_history)
+        return self._sanitize_chat_history(chat_history)
+
+    def _record_interaction(self, user_message: str, agent_response: str) -> None:
+        """Persist the latest interaction to memory if available."""
+        if self.memory is None:
+            return
+        self.memory.append_interaction(user_message, agent_response)
+
     def _create_llm(self, provider: str, temperature: float, user_api_key: Optional[str] = None):
         """Create LLM instance based on provider."""
         # Helper to get API key from user key first, then env or Django settings
@@ -1194,8 +1242,8 @@ class RealEstateAgent:
         Raises:
             Exception: If agent execution fails, with a user-friendly error message
         """
-        history = chat_history or []
-        
+        history = self._build_chat_history(chat_history)
+
         try:
             if track_tool_calls:
                 callback = ToolCallTracker()
@@ -1207,8 +1255,10 @@ class RealEstateAgent:
                 # Translate tool names to Hebrew
                 for tool_call in tool_calls:
                     tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+                response_text = result.get("output", "")
+                self._record_interaction(message, response_text)
                 return {
-                    "response": result.get("output", ""),
+                    "response": response_text,
                     "tool_calls": tool_calls
                 }
             else:
@@ -1216,8 +1266,10 @@ class RealEstateAgent:
                     "input": message,
                     "chat_history": history,
                 })
+                response_text = result.get("output", "")
+                self._record_interaction(message, response_text)
                 return {
-                    "response": result.get("output", ""),
+                    "response": response_text,
                     "tool_calls": []
                 }
         except Exception as e:
@@ -1244,7 +1296,7 @@ class RealEstateAgent:
             - {'type': 'complete', 'response': str, 'tool_calls': list}
             - {'type': 'error', 'error': str}
         """
-        history = chat_history or []
+        history = self._build_chat_history(chat_history)
         callback = StreamingCallbackHandler()
         
         # Run agent execution in background task
@@ -1397,9 +1449,11 @@ class RealEstateAgent:
                 tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
             
             # Send completion event
+            final_response = callback.get_complete_response()
+            self._record_interaction(message, final_response)
             yield {
                 "type": "complete",
-                "response": callback.get_complete_response(),
+                "response": final_response,
                 "tool_calls": tool_calls
             }
         except Exception as e:

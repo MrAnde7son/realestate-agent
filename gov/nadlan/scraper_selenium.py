@@ -165,8 +165,32 @@ class NadlanDealsScraper:
         else:
             logger.warning("Chrome binary not found in common locations, relying on Selenium Manager")
 
-        # Let Selenium Manager fetch a matching chromedriver (no webdriver_manager, no explicit path)
-        service = Service()
+        # Find ChromeDriver path - prefer explicit installation over Selenium Manager
+        chromedriver_path = None
+        # Check environment variable first
+        chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
+        if chromedriver_path and os.path.isfile(chromedriver_path) and os.access(chromedriver_path, os.X_OK):
+            logger.debug(f"Using ChromeDriver from CHROMEDRIVER_PATH: {chromedriver_path}")
+        else:
+            # Check common locations
+            common_chromedriver_paths = [
+                '/usr/local/bin/chromedriver',
+                '/usr/bin/chromedriver',
+                '/opt/chromedriver/chromedriver',
+            ]
+            for path in common_chromedriver_paths:
+                if os.path.isfile(path) and os.access(path, os.X_OK):
+                    chromedriver_path = path
+                    logger.debug(f"Using ChromeDriver from common location: {chromedriver_path}")
+                    break
+        
+        # Use explicit ChromeDriver path if found, otherwise let Selenium Manager handle it
+        if chromedriver_path:
+            service = Service(executable_path=chromedriver_path)
+        else:
+            logger.debug("ChromeDriver not found in common locations, using Selenium Manager")
+            service = Service()
+        
         try:
             driver = webdriver.Chrome(service=service, options=opts)
         except WebDriverException as e:

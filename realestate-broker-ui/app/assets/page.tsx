@@ -930,6 +930,7 @@ export default function AssetsPage() {
     airConditioningFilter,
     storageRoomFilter,
     hasElevatorFilter,
+    recentDealFilter,
     pagination.pageIndex,
     pagination.pageSize,
     router,

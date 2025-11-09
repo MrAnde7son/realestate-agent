@@ -555,6 +555,7 @@ def translate_tool_name(tool_name: str) -> str:
         "get_asset_filters_tool": "קבלת אפשרויות סינון",
         "get_asset_tool": "קבלת פרטי נכס",
         "create_asset_tool": "יצירת נכס",
+        "calculate_deal_expenses_tool": "חישוב הוצאות עסקה",
         "get_asset_data_tool": "קבלת תת-משאב נכס",
         "list_deals_tool": "רשימת עסקאות",
         "create_deal_tool": "יצירת עסקה",
@@ -1357,7 +1358,11 @@ class RealEstateAgent:
         )
         
         async def get_cost_options_tool_func() -> str:
-            """Get available options for cost estimation (regions, qualities, scopes)."""
+            """Get available options for construction cost estimation only (regions, qualities, scopes).
+            
+            Only relevant for land properties (מגרשים) when estimating building costs.
+            Not needed for regular deal expense calculations.
+            """
             try:
                 result = await get_cost_options(ctx)
                 if isinstance(result, dict) and result.get("success"):
@@ -1369,7 +1374,7 @@ class RealEstateAgent:
         get_cost_options_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_cost_options_tool_func),
             name="get_cost_options_tool",
-            description="קבלת אפשרויות עלות זמינות."
+            description="קבלת אפשרויות עלות זמינות להערכת עלויות בנייה בלבד עבור מגרשים."
         )
         
         async def calculate_deal_expenses_tool_func(
@@ -1385,12 +1390,12 @@ class RealEstateAgent:
         ) -> str:
             """Calculate complete deal expenses including purchase tax, service costs, and construction costs.
             
-            If buyers are not specified, uses the current user as the default buyer with 100% share.
+            If buyers are not specified, uses the current logged-in user as the default buyer with 100% share.
+            Building expenses are only calculated for land property type (מגרשים).
             """
             try:
-                # Use default buyer if not provided or empty
-                if not buyers:
-                    buyers = [{"name": "User", "sharePct": 100}]
+                # The calculate_deal_expenses function in MCP server will handle default buyer logic
+                # No need to set default here as it's handled upstream
                 
                 result = await calculate_deal_expenses(
                     ctx, price, buyers, area, property_type, services, 
@@ -1430,6 +1435,72 @@ class RealEstateAgent:
         )
         
         # Mortgage tools
+        def _format_mortgage_analysis(data: Dict[str, Any]) -> str:
+            """Format mortgage analysis results in a user-friendly Hebrew format."""
+            if not isinstance(data, dict):
+                return str(data)
+            
+            lines = []
+            lines.append("📊 ניתוח משכנתא")
+            lines.append("")
+            
+            # Metrics section
+            metrics = data.get("metrics", {})
+            if metrics:
+                lines.append("📈 נתוני הכנסות והוצאות:")
+                med_income = metrics.get("median_monthly_income", 0)
+                med_expense = metrics.get("median_monthly_expense", 0)
+                surplus = metrics.get("monthly_surplus_estimate", 0)
+                
+                if med_income > 0:
+                    lines.append(f"  • הכנסה חודשית ממוצעת: ₪{med_income:,.0f}")
+                if med_expense > 0:
+                    lines.append(f"  • הוצאה חודשית ממוצעת: ₪{med_expense:,.0f}")
+                if surplus > 0:
+                    lines.append(f"  • עודף חודשי משוער: ₪{surplus:,.0f}")
+                lines.append("")
+            
+            # Recommendation section
+            recommendation = data.get("recommendation", {})
+            if recommendation:
+                lines.append("💡 המלצות:")
+                approved_loan = recommendation.get("approved_loan_ceiling", 0)
+                recommended_payment = recommendation.get("recommended_monthly_payment", 0)
+                cash_gap = recommendation.get("cash_gap_for_purchase", 0)
+                
+                # Always show approved loan amount
+                lines.append(f"  • סכום משכנתא מומלץ: ₪{approved_loan:,.0f}")
+                
+                # Show monthly payment
+                if recommended_payment > 0:
+                    # Check if this is estimated (based on LTV) or calculated from income
+                    max_loan_from_payment = recommendation.get("max_loan_from_payment", 0)
+                    if max_loan_from_payment == 0 and approved_loan > 0:
+                        # Estimated payment based on LTV loan
+                        lines.append(f"  • תשלום חודשי משוער: ₪{recommended_payment:,.0f} (מבוסס על LTV 70%)")
+                    else:
+                        # Calculated from actual income data
+                        lines.append(f"  • תשלום חודשי מומלץ: ₪{recommended_payment:,.0f}")
+                else:
+                    lines.append("  • תשלום חודשי מומלץ: ₪0 (לא ניתן לחשב ללא נתוני הכנסות)")
+                
+                # Show cash gap information
+                if cash_gap > 0:
+                    lines.append(f"  ⚠️  פער הון עצמי: ₪{cash_gap:,.0f} (חסר לקניית הנכס)")
+                elif cash_gap == 0 and approved_loan > 0:
+                    lines.append("  ✓ הון עצמי מספיק לקניית הנכס")
+                lines.append("")
+            
+            # Notes section
+            notes = data.get("notes", [])
+            if notes:
+                lines.append("ℹ️  הערות:")
+                for note in notes:
+                    lines.append(f"  • {note}")
+                lines.append("")
+            
+            return "\n".join(lines)
+        
         async def analyze_mortgage_tool_func(
             property_price: float,
             savings_total: float,
@@ -1440,7 +1511,8 @@ class RealEstateAgent:
             try:
                 result = await analyze_mortgage(ctx, property_price, savings_total, annual_rate_pct, term_years)
                 if isinstance(result, dict) and result.get("success"):
-                    return f"ניתוח משכנתא: {result.get('data', {})}"
+                    data = result.get("data", {})
+                    return _format_mortgage_analysis(data)
                 return str(result)
             except Exception as e:
                 return f"שגיאה: {str(e)}"

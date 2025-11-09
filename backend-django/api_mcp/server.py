@@ -331,6 +331,17 @@ def _get_api_token() -> Optional[str]:
     return _api_token
 
 
+def _get_user_profile(ctx: Context) -> Optional[Dict[str, Any]]:
+    """Get the current user's profile from the API."""
+    try:
+        result = _make_request(ctx, "GET", "/auth/profile")
+        if isinstance(result, dict) and result.get("success"):
+            return result.get("data", {}).get("user")
+    except Exception as e:
+        logger.warning(f"Failed to get user profile: {e}")
+    return None
+
+
 def _make_request(
     ctx: Context,
     method: str,
@@ -870,7 +881,7 @@ def register_cost_tools():
         
         return _make_request(ctx, "POST", "/cost/estimate/build", data=data)
 
-    @mcp.tool(description="Get cost options.")
+    @mcp.tool(description="Get cost options for construction cost estimation only. Only relevant for land properties (מגרשים) when estimating building costs. Not needed for regular deal expense calculations.")
     async def get_cost_options(
         ctx: Context,
     ) -> Dict[str, Any]:
@@ -880,7 +891,7 @@ def register_cost_tools():
     async def calculate_deal_expenses(
         ctx: Context,
         price: float,
-        buyers: List[Dict[str, Any]],
+        buyers: Optional[List[Dict[str, Any]]] = None,
         area: Optional[float] = None,
         property_type: Optional[str] = None,
         services: Optional[List[Dict[str, Any]]] = None,
@@ -894,7 +905,8 @@ def register_cost_tools():
         
         Args:
             price: Property price (required)
-            buyers: List of buyer dictionaries with sharePct and optional flags:
+            buyers: List of buyer dictionaries with sharePct and optional flags (optional).
+                If not provided, uses the logged-in user as the default buyer with 100% share:
                 - sharePct: Percentage share (0-100)
                 - isFirstHome: Boolean (optional)
                 - isReplacementHome: Boolean (optional)
@@ -903,15 +915,16 @@ def register_cost_tools():
                 - bereavedFamily: Boolean (optional)
                 - name: String (optional)
             area: Property area in square meters (optional, for price per sqm calculation)
-            property_type: "residential" or "land" (default: "residential")
+            property_type: "residential" or "land" (default: "residential").
+                Building expenses are only calculated for "land" property type.
             services: List of service cost dictionaries with:
                 - label: Service label
                 - percent: Percentage of price (optional)
                 - amount: Fixed amount (optional)
                 - includesVat: Boolean indicating if VAT is included
             vat_rate: VAT rate (default: 0.18 for 18%)
-            construction_area: Construction area in sqm (for land purchases)
-            construction_cost_per_sqm: Construction cost per sqm (for land purchases)
+            construction_area: Construction area in sqm (for land purchases only)
+            construction_cost_per_sqm: Construction cost per sqm (for land purchases only)
             construction_includes_vat: Whether construction cost includes VAT (default: True)
             
         Returns:
@@ -920,11 +933,27 @@ def register_cost_tools():
             - breakdown: Purchase tax breakdown per buyer
             - serviceTotal: Total service costs
             - serviceBreakdown: Service costs breakdown
-            - constructionCost: Construction cost (for land)
+            - constructionCost: Construction cost (only for land property type)
             - total: Total cost including all expenses
             - pricePerSqBefore: Price per sqm before expenses
             - pricePerSqAfter: Price per sqm after expenses
         """
+        # If no buyers provided, use logged-in user as default buyer with 100% share
+        if not buyers:
+            user_profile = _get_user_profile(ctx)
+            if user_profile:
+                # Use user's full name if available, otherwise use email
+                first_name = user_profile.get("first_name", "")
+                last_name = user_profile.get("last_name", "")
+                if first_name or last_name:
+                    user_name = f"{first_name} {last_name}".strip()
+                else:
+                    user_name = user_profile.get("email", "User")
+                buyers = [{"name": user_name, "sharePct": 100}]
+            else:
+                # Fallback if user profile cannot be retrieved
+                buyers = [{"name": "User", "sharePct": 100}]
+        
         data = {
             "price": price,
             "buyers": buyers,

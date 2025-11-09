@@ -1557,7 +1557,30 @@ def mortgage_analyze(request):
         recommended_payment, annual_rate_pct, term_years
     )
     max_loan_by_ltv = price * 0.70 if price > 0 else max_loan_from_payment
-    approved_loan_ceiling = min(max_loan_from_payment, max_loan_by_ltv)
+    
+    # If we have payment-based calculation, use the minimum of both
+    # Otherwise, use LTV-based calculation
+    if max_loan_from_payment > 0:
+        approved_loan_ceiling = min(max_loan_from_payment, max_loan_by_ltv)
+    else:
+        # No payment data available, use LTV-based calculation
+        approved_loan_ceiling = max_loan_by_ltv
+    
+    # Calculate estimated monthly payment for the approved loan
+    if approved_loan_ceiling > 0 and annual_rate_pct > 0:
+        r = (annual_rate_pct / 100.0) / 12.0
+        n = term_years * 12
+        if r > 0:
+            estimated_monthly_payment = approved_loan_ceiling * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+        else:
+            estimated_monthly_payment = approved_loan_ceiling / n
+    else:
+        estimated_monthly_payment = 0.0
+    
+    # Use estimated payment if we don't have payment-based recommendation
+    if recommended_payment == 0 and estimated_monthly_payment > 0:
+        recommended_payment = estimated_monthly_payment
+    
     cash_needed = max(0.0, price - approved_loan_ceiling)
     cash_gap = max(0.0, cash_needed - savings)
     logger.info(

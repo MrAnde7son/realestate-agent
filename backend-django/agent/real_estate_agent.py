@@ -11,7 +11,6 @@ import os
 import sys
 import importlib.util
 import asyncio
-import threading
 import time
 import logging
 from typing import List, Optional, Dict, Any
@@ -27,6 +26,8 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+from .tool_utils import wrap_async_tool
 
 # Add project root to path (after imports to satisfy linter)
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -559,51 +560,6 @@ class RealEstateAgent:
         
         ctx = MockContext()
         logger.debug("Creating tools with MockContext (dummy context object)")
-        
-        # Helper function to wrap async tool functions for LangChain
-        def wrap_async_tool(async_func):
-            """Wrap an async function to be used with LangChain tools."""
-            import functools
-            
-            @functools.wraps(async_func)
-            def sync_wrapper(*args, **kwargs):
-                """Synchronous wrapper that runs the async function."""
-                # Check if we're in an async context
-                try:
-                    # Try to get the running loop
-                    loop = asyncio.get_running_loop()
-                    # We're in an async context - need to run in a separate thread with its own loop
-                    result = None
-                    exception = None
-                    
-                    def run_in_new_loop():
-                        nonlocal result, exception
-                        try:
-                            # Create a new event loop in this thread
-                            new_loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(new_loop)
-                            try:
-                                result = new_loop.run_until_complete(async_func(*args, **kwargs))
-                            finally:
-                                new_loop.close()
-                        except Exception as e:
-                            exception = e
-                    
-                    thread = threading.Thread(target=run_in_new_loop, daemon=True)
-                    thread.start()
-                    thread.join(timeout=300)  # 5 minute timeout
-                    
-                    if thread.is_alive():
-                        raise TimeoutError("Tool execution timed out")
-                    
-                    if exception:
-                        raise exception
-                    return result
-                except RuntimeError:
-                    # No running loop - we can use asyncio.run directly
-                    return asyncio.run(async_func(*args, **kwargs))
-            
-            return sync_wrapper
         
         # Wrap MCP functions as LangChain tools
         # Assets tools

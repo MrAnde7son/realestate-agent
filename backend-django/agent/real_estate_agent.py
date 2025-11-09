@@ -432,10 +432,12 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
         """Called when a new token is generated."""
         self.complete_response += token
+        logger.debug("Received LLM token: %s (total length: %d)", token[:50], len(self.complete_response))
         # Put token in queue for async consumption
         try:
             self.chunk_queue.put_nowait({"type": "chunk", "content": token})
         except asyncio.QueueFull:
+            logger.warning("Chunk queue full, skipping token")
             pass  # Queue is full, skip this chunk
     
     def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
@@ -1547,6 +1549,47 @@ class RealEstateAgent:
                 for tool_call in tool_calls:
                     tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
                 response_text = result.get("output", "")
+                
+                # Format tool outputs to include in response
+                tool_outputs_section = []
+                for tool_call in tool_calls:
+                    if tool_call.get("output"):
+                        tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
+                        output = tool_call["output"]
+                        
+                        # Format tool output nicely
+                        tool_outputs_section.append(f"**{tool_hebrew}:**")
+                        # For list_assets_tool, show the actual results
+                        if tool_call.get("tool") == "list_assets_tool" and output:
+                            # Show the actual output (property IDs, etc.)
+                            tool_outputs_section.append("```")
+                            tool_outputs_section.append(output)
+                            tool_outputs_section.append("```")
+                        else:
+                            # For other tools, show output (may be compressed)
+                            tool_outputs_section.append(output)
+                        tool_outputs_section.append("")  # Empty line between tools
+                
+                # Always include tool outputs in the response
+                if tool_outputs_section:
+                    tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                    
+                    if not response_text:
+                        # No LLM response, use tool outputs
+                        logger.info("No LLM response, using tool outputs")
+                        response_text = tool_outputs_text
+                    else:
+                        # Check if response already includes tool outputs
+                        has_tool_outputs = any(
+                            keyword in response_text for keyword in ["id:", "נמצאו", "property", "נכס"]
+                        )
+                        # If response doesn't include tool outputs, append them
+                        if not has_tool_outputs:
+                            logger.info("Appending tool outputs to response")
+                            response_text = f"{response_text}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                        else:
+                            logger.info("Response already includes tool outputs")
+                
                 self._record_interaction(message, response_text)
                 return {
                     "response": response_text,
@@ -1598,26 +1641,96 @@ class RealEstateAgent:
                 # Stream agent execution with timeout
                 # AgentExecutor.astream yields intermediate steps, not final output
                 # The callback handler will receive LLM tokens via on_llm_new_token
+                final_output = None
+                last_chunk_keys = set()  # Track what keys we've seen in chunks
+                
                 async def stream_with_timeout():
+                    nonlocal final_output, last_chunk_keys
+                    chunk_count = 0
+                    last_chunk = None
                     async for chunk in self.agent_executor.astream(
                         {"input": message, "chat_history": prepared_history},
                         config={"callbacks": [callback]}
                     ):
+                        chunk_count += 1
+                        last_chunk = chunk  # Keep track of last chunk
                         # Log chunks for debugging (astream yields intermediate agent steps)
-                        logger.debug("Agent step received: %s", str(chunk)[:200])
-                        # The actual LLM output is handled by the callback's on_llm_new_token
-                        # But we can also check for final output in chunks
+                        logger.debug("Agent step %d received: %s", chunk_count, str(chunk)[:200])
+                        
+                        # Track chunk structure
                         if isinstance(chunk, dict):
-                            # Some agent executors yield final output as "output" key
-                            if "output" in chunk:
-                                output = chunk["output"]
-                                if isinstance(output, str) and output:
-                                    # If we get final output, ensure it's sent
-                                    if output not in callback.complete_response:
-                                        callback.on_llm_new_token(output)
+                            last_chunk_keys.update(chunk.keys())
+                            # Check for output in various possible keys
+                            for key in ["output", "messages", "agent_outcome", "return_values"]:
+                                if key in chunk:
+                                    value = chunk[key]
+                                    # Handle different value types
+                                    if isinstance(value, str) and value:
+                                        final_output = value
+                                        logger.info("Found final output in chunk[%s]: %s", key, value[:100])
+                                        break
+                                    elif isinstance(value, list) and value:
+                                        # Sometimes output is in a list of messages
+                                        for msg in value:
+                                            if hasattr(msg, 'content') and msg.content:
+                                                final_output = str(msg.content)
+                                                logger.info("Found final output in chunk[%s] message: %s", key, final_output[:100])
+                                                break
+                                        if final_output:
+                                            break
+                            
+                            # If we found final output, ensure it's captured
+                            if final_output and final_output not in callback.complete_response:
+                                logger.info("Final output not in callback, adding it directly")
+                                callback.complete_response = final_output
+                                # Send as a single chunk event
+                                try:
+                                    callback.chunk_queue.put_nowait({"type": "chunk", "content": final_output})
+                                except asyncio.QueueFull:
+                                    # If queue is full, at least ensure response is captured
+                                    pass
+                    
+                    logger.info("Agent astream finished. Total chunks: %d, Last chunk keys: %s", 
+                              chunk_count, last_chunk_keys)
+                    logger.info("Last chunk content: %s", str(last_chunk)[:500] if last_chunk else "None")
+                    # If astream finished but we have no response, the agent executor is done
+                    # but the LLM might not have generated a final response
+                    if not callback.complete_response and not final_output:
+                        logger.warning("Agent executor finished but no LLM response was generated")
+                        # Try to extract from last chunk one more time
+                        if last_chunk and isinstance(last_chunk, dict):
+                            logger.info("Attempting to extract output from last chunk: %s", list(last_chunk.keys()))
                 
                 await asyncio.wait_for(stream_with_timeout(), timeout=300.0)  # 5 minute timeout
-                logger.info("Agent execution completed successfully")
+                logger.info("Agent execution completed successfully. Final output from chunks: %s", final_output)
+                logger.info("Callback complete_response length: %d", len(callback.complete_response))
+                logger.info("Callback complete_response content: %s", callback.complete_response[:500] if callback.complete_response else "Empty")
+                
+                # Wait a bit for any remaining tokens to come through the callback
+                # Sometimes tokens arrive slightly after astream finishes
+                await asyncio.sleep(0.5)  # Wait 500ms for any delayed tokens
+                logger.info("After wait, callback complete_response length: %d", len(callback.complete_response))
+                
+                # Note: We don't call ainvoke here to avoid duplicate execution
+                # The response should be captured via on_llm_new_token callback
+                # If it's not, we'll use the fallback response generation below
+                
+                # Ensure final output is captured if it wasn't streamed via tokens
+                # The final_output from chunks might contain the complete response
+                if final_output:
+                    # If final_output is longer or different, use it
+                    if len(final_output) > len(callback.complete_response):
+                        logger.info("Final output from chunks is longer, updating callback response")
+                        callback.complete_response = final_output
+                    elif final_output not in callback.complete_response:
+                        logger.info("Final output not in callback response, appending it")
+                        callback.complete_response += final_output
+                
+                # If we still have no response but tools were called, that's okay
+                # We'll send the complete event anyway with an empty response
+                logger.info("Final callback response length after processing: %d", len(callback.complete_response))
+                logger.info("Final callback response preview: %s", callback.complete_response[:200] if callback.complete_response else "Empty")
+                logger.info("Tool calls count: %d", len(callback.get_tool_calls()))
                 callback.mark_finished()
             except asyncio.TimeoutError:
                 logger.error("Agent execution timed out after 5 minutes")
@@ -1650,15 +1763,21 @@ class RealEstateAgent:
             max_wait_time = 300  # Maximum 5 minutes total wait time
             start_time = time.time()
             consecutive_timeouts = 0
-            max_consecutive_timeouts = 50  # Stop after 5 seconds of no events (50 * 0.1s)
+            max_consecutive_timeouts = 20  # Stop after 2 seconds of no events (20 * 0.1s)
+            # Reduced from 50 to 20 because if agent executor finishes, we should break quickly
+            
+            agent_finished = False
+            error_occurred = False
             
             while True:
                 # Check if agent task is done
                 if agent_task.done():
+                    agent_finished = True
                     # Check if task raised an exception
                     if agent_task.exception():
                         exception = agent_task.exception()
                         logger.exception("Agent task raised exception: %s", exception)
+                        error_occurred = True
                         # Send error event if not already sent
                         error_sent = False
                         while not callback.chunk_queue.empty():
@@ -1680,6 +1799,7 @@ class RealEstateAgent:
                             yield {"type": "error", "error": error_msg}
                     else:
                         # Agent finished successfully, drain remaining events
+                        # Make sure to yield all chunks and tool events before breaking
                         while not callback.chunk_queue.empty():
                             try:
                                 event = callback.chunk_queue.get_nowait()
@@ -1699,6 +1819,7 @@ class RealEstateAgent:
                         "type": "error",
                         "error": "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
                     }
+                    error_occurred = True
                     break
                 
                 # Get next event
@@ -1706,6 +1827,7 @@ class RealEstateAgent:
                 if event:
                     consecutive_timeouts = 0  # Reset timeout counter
                     if event.get("type") == "finished":
+                        agent_finished = True
                         break
                     # Add Hebrew translation for tool events
                     if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
@@ -1714,40 +1836,107 @@ class RealEstateAgent:
                 else:
                     # No event received (timeout)
                     consecutive_timeouts += 1
-                    if consecutive_timeouts >= max_consecutive_timeouts:
-                        # Check if agent is still running
-                        if agent_task.done():
-                            break
-                        # If agent is still running but no events, log warning and continue
-                        logger.warning("No events received for %s seconds, but agent still running", 
+                    # Check if agent task is done first (before hitting max timeouts)
+                    if agent_task.done():
+                        agent_finished = True
+                        logger.info("Agent task finished, breaking from event loop")
+                        break
+                    elif consecutive_timeouts >= max_consecutive_timeouts:
+                        # If agent is still running but no events for a while, check if it's actually stuck
+                        logger.warning("No events received for %s seconds, but agent still running. Checking task status...", 
                                      consecutive_timeouts * 0.1)
-                        consecutive_timeouts = 0  # Reset to allow more time
+                        # Check one more time if task is done
+                        if agent_task.done():
+                            agent_finished = True
+                            logger.info("Agent task finished during timeout check, breaking")
+                            break
+                        # If still running, reset counter but log more frequently
+                        logger.warning("Agent task still running, continuing to wait...")
+                        consecutive_timeouts = 0  # Reset to allow more time, but log more frequently
             
-            # Wait for agent to finish (with timeout)
-            try:
-                await asyncio.wait_for(agent_task, timeout=5.0)
-            except asyncio.TimeoutError:
-                logger.warning("Agent task did not finish within timeout")
-                # Send error event
-                yield {
-                    "type": "error",
-                    "error": "הסוכן לא סיים את המשימה בזמן. ייתכן שהתהליך תקוע."
+            # Wait for agent to finish (with timeout) if not already done
+            if not agent_finished:
+                try:
+                    await asyncio.wait_for(agent_task, timeout=5.0)
+                    agent_finished = True
+                except asyncio.TimeoutError:
+                    logger.warning("Agent task did not finish within timeout")
+                    # Send error event
+                    yield {
+                        "type": "error",
+                        "error": "הסוכן לא סיים את המשימה בזמן. ייתכן שהתהליך תקוע."
+                    }
+                    return
+            
+            # Only send completion event if no error occurred
+            if not error_occurred and agent_finished:
+                # Get final tool calls and translate
+                tool_calls = callback.get_tool_calls()
+                for tool_call in tool_calls:
+                    tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
+                
+                # Send completion event
+                final_response = callback.get_complete_response()
+                logger.info("Agent finished. Response length: %d, Tool calls: %d", 
+                          len(final_response) if final_response else 0, len(tool_calls))
+                logger.info("Final response content (first 200 chars): %s", 
+                          (final_response or "")[:200])
+                
+                # Format tool outputs to include in response
+                tool_outputs_section = []
+                for tool_call in tool_calls:
+                    if tool_call.get("output"):
+                        tool_hebrew = tool_call.get("tool_hebrew", tool_call.get("tool", ""))
+                        output = tool_call["output"]
+                        
+                        # Format tool output nicely
+                        tool_outputs_section.append(f"**{tool_hebrew}:**")
+                        # For list_assets_tool, show the actual results
+                        if tool_call.get("tool") == "list_assets_tool" and output:
+                            # Show the actual output (property IDs, etc.)
+                            tool_outputs_section.append("```")
+                            tool_outputs_section.append(output)
+                            tool_outputs_section.append("```")
+                        else:
+                            # For other tools, show output (may be compressed)
+                            tool_outputs_section.append(output)
+                        tool_outputs_section.append("")  # Empty line between tools
+                
+                # Always include tool outputs in the response
+                if tool_outputs_section:
+                    tool_outputs_text = "\n".join(tool_outputs_section).strip()
+                    
+                    if not final_response:
+                        # No LLM response, use tool outputs
+                        logger.info("No LLM response in stream, using tool outputs")
+                        final_response = tool_outputs_text
+                    else:
+                        # Check if response already includes tool outputs
+                        has_tool_outputs = any(
+                            keyword in final_response for keyword in ["id:", "נמצאו", "property", "נכס"]
+                        )
+                        # If response doesn't include tool outputs, append them
+                        if not has_tool_outputs:
+                            logger.info("Appending tool outputs to streamed response")
+                            final_response = f"{final_response}\n\n---\n\n**תוצאות החיפוש:**\n{tool_outputs_text}"
+                        else:
+                            logger.info("Streamed response already includes tool outputs")
+                
+                # Always send complete event if agent finished successfully
+                # Even if response is empty, we should send the event with tool calls
+                complete_event = {
+                    "type": "complete",
+                    "response": final_response or "",
+                    "tool_calls": tool_calls
                 }
-                return
-            
-            # Get final tool calls and translate
-            tool_calls = callback.get_tool_calls()
-            for tool_call in tool_calls:
-                tool_call["tool_hebrew"] = translate_tool_name(tool_call["tool"])
-            
-            # Send completion event
-            final_response = callback.get_complete_response()
-            self._record_interaction(message, final_response)
-            yield {
-                "type": "complete",
-                "response": final_response,
-                "tool_calls": tool_calls
-            }
+                logger.info("Sending complete event with response length: %d", 
+                          len(complete_event["response"]))
+                self._record_interaction(message, final_response or "")
+                yield complete_event
+            elif error_occurred:
+                logger.warning("Agent finished with error, not sending complete event")
+            else:
+                logger.warning("Agent did not finish properly")
         except Exception as e:
             yield {
                 "type": "error",

@@ -314,8 +314,11 @@ function createColumns({
   },
   {
     header: 'סוג מפרסם',
-    id: 'adType',
-    accessorFn: row => row.adType ?? row.primaryListing?.adType ?? null,
+    id: 'sellerType',
+    accessorFn: row => {
+      // Use sellerType for סוג מפרסם
+      return row.sellerType ?? row.primaryListing?.sellerType ?? null;
+    },
     cell: info => {
       const value = info.getValue() as string | null | undefined
       return <Badge>{formatAdTypeLabel(value)}</Badge>
@@ -646,7 +649,7 @@ interface AssetsTableProps {
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
     }
-    adType?: {
+    sellerType?: {
       value: string
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
@@ -828,7 +831,7 @@ const ALL_COLUMN_IDS = [
   'totalFloors',
   'assetStatus',
   'recentDeal',
-  'adType',
+  'sellerType',
   'contact',
   'price',
   'rentPrice',
@@ -1308,13 +1311,13 @@ export default function AssetsTable({
       })
     }
 
-      if (filters.adType) {
+      if (filters.sellerType) {
         items.push({
-          key: 'adType',
+          key: 'sellerType',
           label: 'סוג מפרסם',
           type: 'select',
-          value: filters.adType.value,
-          options: (filters.adType.options || []).map(option => ({ value: option.value, label: option.label }))
+          value: filters.sellerType.value,
+          options: (filters.sellerType.options || []).map((option: { value: string; label: string }) => ({ value: option.value, label: option.label }))
         })
       }
 
@@ -1637,9 +1640,9 @@ export default function AssetsTable({
           filters.rentalSale?.onChange(value)
           trackString('rentalSale', value)
           break
-        case 'adType':
-          filters.adType?.onChange(value)
-          trackString('adType', value)
+        case 'sellerType':
+          filters.sellerType?.onChange(value)
+          trackString('sellerType', value)
           break
         case 'commercial':
           filters.commercial?.onChange(value)

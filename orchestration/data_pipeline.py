@@ -487,6 +487,8 @@ class DataPipeline:
                     block=block,
                     parcel=parcel,
                     subparcel=subparcel,
+                    x_itm=location.x_itm,
+                    y_itm=location.y_itm,
                 )
 
             logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
@@ -520,6 +522,8 @@ class DataPipeline:
                             block=block,
                             parcel=parcel,
                             subparcel=subparcel,
+                            x_itm=location.x_itm,
+                            y_itm=location.y_itm,
                         )
                         logger.info(f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}'")
                     else:
@@ -536,6 +540,8 @@ class DataPipeline:
                                 block=block,
                                 parcel=parcel,
                                 subparcel=subparcel,
+                                x_itm=location.x_itm,
+                                y_itm=location.y_itm,
                             )
                             logger.info(f"📍 Updated location (simple parse): street='{street_part}', city='{city_part}'")
                         else:
@@ -577,6 +583,8 @@ class DataPipeline:
                             block=block,
                             parcel=parcel,
                             subparcel=subparcel,
+                            x_itm=location.x_itm,
+                            y_itm=location.y_itm,
                         )
                         logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
                 except Exception as e:
@@ -681,6 +689,8 @@ class DataPipeline:
                             block=block,
                             parcel=parcel,
                             subparcel=subparcel,
+                            x_itm=location.x_itm,
+                            y_itm=location.y_itm,
                         )
                         logger.info(f"Updated location for Yad2 search: {location.street} {location.house_number}, {location.city}")
                 

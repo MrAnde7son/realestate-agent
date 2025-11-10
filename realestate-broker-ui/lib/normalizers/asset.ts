@@ -96,6 +96,7 @@ export type Asset = {
     propertyType?: string | null;
     listingType?: string | null;
     adType?: string | null;
+    sellerType?: string | null;
     description?: string | null;
     floor?: string | number | null;
     contactName?: string | null;
@@ -116,6 +117,7 @@ export type Asset = {
   } | null;
   listingType?: string | null;
   adType?: string | null;
+  sellerType?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
   recentDeal?: boolean | null;
@@ -534,6 +536,16 @@ export function normalizeFromBackend(row: any): Asset {
     const isRentalListing =
       typeof listing.listingType === 'string' && listing.listingType.toLowerCase() === 'rent'
 
+    // Extract seller_type from various possible locations
+    const sellerTypeRaw = 
+      listing.seller_type ??
+      listing.sellerType ??
+      (listing.features && typeof listing.features === 'object' && !Array.isArray(listing.features) ? (listing.features as any).seller_type : null) ??
+      (listing.meta && typeof listing.meta === 'object' ? (listing.meta as any).seller_type : null);
+    
+    const sellerType = sellerTypeRaw ?? null;
+    const adType = listing.adType ?? listing.ad_type ?? null;
+
     return {
       id: listing.id ?? listing.external_id ?? null,
       source: coerceString(listing.source) ?? null,
@@ -547,7 +559,8 @@ export function normalizeFromBackend(row: any): Asset {
       size,
       propertyType,
       listingType: listing.listingType ?? listing.listing_type ?? null,
-      adType: listing.adType ?? listing.ad_type ?? null,
+      adType,
+      sellerType,
       description,
       floor,
       contactName: contactName ?? null,
@@ -573,8 +586,23 @@ export function normalizeFromBackend(row: any): Asset {
   const listingType =
     row.listingType ?? row.listing_type ?? primaryListing?.listingType ?? null;
 
+  // Extract sellerType from various possible locations
+  const sellerTypeRaw = 
+    row.seller_type ??
+    row.sellerType ??
+    (row.features && typeof row.features === 'object' && !Array.isArray(row.features) ? (row.features as any).seller_type : null) ??
+    (row.meta && typeof row.meta === 'object' ? (row.meta as any).seller_type : null) ??
+    (primaryListing as any)?.sellerType ??
+    (primaryListing as any)?.seller_type ??
+    (primaryListing && typeof primaryListing === 'object' && primaryListing.features && typeof primaryListing.features === 'object' && !Array.isArray(primaryListing.features) ? (primaryListing.features as any).seller_type : null);
+  
+  const sellerType = sellerTypeRaw ?? null;
+  
   const adType =
-    row.adType ?? row.ad_type ?? primaryListing?.adType ?? null;
+    row.adType ??
+    row.ad_type ??
+    primaryListing?.adType ??
+    null;
 
   const normalizedListingTypeValue =
     typeof listingType === 'string' ? listingType.toLowerCase() : null;
@@ -839,6 +867,7 @@ export function normalizeFromBackend(row: any): Asset {
     primaryListing,
     listingType,
     adType,
+    sellerType,
     contactName,
     contactPhone,
     recentDeal,

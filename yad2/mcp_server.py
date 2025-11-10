@@ -29,7 +29,7 @@ Usage Examples:
 
 import os
 import sys
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 from fastmcp import Context, FastMCP
 
@@ -37,7 +37,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "", "..")
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from yad2.core import Yad2ParameterReference, Yad2SearchParameters, RealEstateListing
+from yad2.core import Yad2ParameterReference, Yad2SearchParameters
 from yad2.core.utils import DataUtils
 from yad2.api_client import Yad2APIClient, ListingType
 from yad2.utils.property_types import PropertyTypeUtils

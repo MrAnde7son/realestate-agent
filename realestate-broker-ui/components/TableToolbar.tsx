@@ -222,7 +222,7 @@ interface TableToolbarFilters {
     onChange: (value: string) => void;
     options: Array<{ value: string; label: string }>;
   };
-  adType?: {
+  sellerType?: {
     value: string;
     onChange: (value: string) => void;
     options: Array<{ value: string; label: string }>;
@@ -351,14 +351,14 @@ export default function TableToolbar({
   const remainingRightsMinFilter = filters?.remainingRightsMin;
   const remainingRightsMaxFilter = filters?.remainingRightsMax;
   const rentalSaleFilter = filters?.rentalSale;
-  const adTypeFilter = filters?.adType;
+  const sellerTypeFilter = filters?.sellerType;
   const commercialFilter = filters?.commercial;
   const userAssetsQuickFilter = filters?.userAssets;
   const [pricePopoverOpen, setPricePopoverOpen] = useState(false);
   const [areaPopoverOpen, setAreaPopoverOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [rentalSaleMenuOpen, setRentalSaleMenuOpen] = useState(false);
-  const [adTypeMenuOpen, setAdTypeMenuOpen] = useState(false);
+  const [sellerTypeMenuOpen, setSellerTypeMenuOpen] = useState(false);
   const [commercialMenuOpen, setCommercialMenuOpen] = useState(false);
   const [userAssetsMenuOpen, setUserAssetsMenuOpen] = useState(false);
   const { matches: isSmAndUp } = useMediaQuery("(min-width: 640px)", {
@@ -478,13 +478,13 @@ export default function TableToolbar({
     );
   })();
 
-  const adTypeDefaultLabel = 'סוג מפרסם';
+  const sellerTypeDefaultLabel = 'סוג מפרסם';
 
-  const adTypeSelectedLabel = (() => {
-    if (!adTypeFilter || adTypeFilter.value === 'all') return adTypeDefaultLabel;
+  const sellerTypeSelectedLabel = (() => {
+    if (!sellerTypeFilter || sellerTypeFilter.value === 'all') return sellerTypeDefaultLabel;
     return (
-      adTypeFilter.options.find(option => option.value === adTypeFilter.value)?.label ||
-      adTypeDefaultLabel
+      sellerTypeFilter.options.find(option => option.value === sellerTypeFilter.value)?.label ||
+      sellerTypeDefaultLabel
     );
   })();
 
@@ -543,7 +543,7 @@ export default function TableToolbar({
   const remainingRightsMinValue = remainingRightsMinFilter?.value;
   const remainingRightsMaxValue = remainingRightsMaxFilter?.value;
   const rentalSaleValue = rentalSaleFilter?.value ?? 'all';
-  const adTypeValue = adTypeFilter?.value ?? 'all';
+  const sellerTypeValue = sellerTypeFilter?.value ?? 'all';
   const commercialValue = commercialFilter?.value ?? 'all';
   const statusValue = statusFilters?.value ?? 'all';
   const dateRangeFrom = dateRange?.from;
@@ -563,7 +563,7 @@ export default function TableToolbar({
     if (remainingRightsMinValue !== undefined) count++;
     if (remainingRightsMaxValue !== undefined) count++;
     if (rentalSaleValue !== 'all') count++;
-    if (adTypeValue !== 'all') count++;
+    if (sellerTypeValue !== 'all') count++;
     if (commercialValue !== 'all') count++;
     if (statusValue !== 'all') count++;
     if (dateRangeFrom || dateRangeTo) count++;
@@ -585,7 +585,7 @@ export default function TableToolbar({
     remainingRightsMinValue,
     remainingRightsMaxValue,
     rentalSaleValue,
-    adTypeValue,
+    sellerTypeValue,
     commercialValue,
     statusValue,
     dateRangeFrom,
@@ -753,7 +753,7 @@ export default function TableToolbar({
     dateRange?.onChange(undefined, undefined);
     if (!onAdditionalFilterChange) {
       rentalSaleFilter?.onChange('all');
-      adTypeFilter?.onChange('all');
+      sellerTypeFilter?.onChange('all');
       commercialFilter?.onChange('all');
       userAssetsQuickFilter?.onChange('all');
     }
@@ -1674,16 +1674,16 @@ export default function TableToolbar({
               </DropdownMenu>
             )}
 
-            {adTypeFilter && (
-              <DropdownMenu open={adTypeMenuOpen} onOpenChange={setAdTypeMenuOpen}>
+            {sellerTypeFilter && (
+              <DropdownMenu open={sellerTypeMenuOpen} onOpenChange={setSellerTypeMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
-                    variant={adTypeFilter.value !== 'all' ? 'default' : 'outline'}
+                    variant={sellerTypeFilter.value !== 'all' ? 'default' : 'outline'}
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span className="hidden sm:inline">{adTypeSelectedLabel}</span>
+                    <span className="hidden sm:inline">{sellerTypeSelectedLabel}</span>
                     <span className="sm:hidden">מפרסם</span>
                     <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
@@ -1692,18 +1692,18 @@ export default function TableToolbar({
                   <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג מפרסם</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuRadioGroup
-                    value={adTypeFilter.value}
+                    value={sellerTypeFilter.value}
                     onValueChange={(value) => {
                       if (onAdditionalFilterChange) {
-                        onAdditionalFilterChange('adType', value);
+                        onAdditionalFilterChange('sellerType', value);
                       } else {
-                        adTypeFilter.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'adType', value });
+                        sellerTypeFilter.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'sellerType', value });
                       }
                     }}
                   >
                     <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
-                    {adTypeFilter.options.map(option => (
+                    {sellerTypeFilter.options.map(option => (
                       <DropdownMenuRadioItem key={option.value} value={option.value}>
                         {option.label}
                       </DropdownMenuRadioItem>

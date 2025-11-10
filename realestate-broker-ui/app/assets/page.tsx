@@ -164,7 +164,7 @@ export default function AssetsPage() {
   const [documentsFilter, setDocumentsFilter] = useState<string>(() => searchParams.get("documents") ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
   const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("rentalSale") ?? "all");
-  const [adTypeFilter, setAdTypeFilter] = useState<string>(() => searchParams.get("adType") ?? "all");
+  const [sellerTypeFilter, setSellerTypeFilter] = useState<string>(() => searchParams.get("sellerType") ?? searchParams.get("adType") ?? "all");
   const [commercialFilter, setCommercialFilter] = useState<string>(() => searchParams.get("commercial") ?? "all");
   const [userAssetsFilter, setUserAssetsFilter] = useState<string>(() => searchParams.get("userAssets") ?? "all");
   const [buildingTypeFilter, setBuildingTypeFilter] = useState<string>(() => searchParams.get("buildingType") ?? "all");
@@ -492,7 +492,7 @@ export default function AssetsPage() {
     setDocumentsFilter(searchParams.get("documents") ?? "all");
     setStatusFilter(searchParams.get("status") ?? "all");
     setRentalSaleFilter(searchParams.get("rentalSale") ?? "all");
-    setAdTypeFilter(searchParams.get("adType") ?? "all");
+    setSellerTypeFilter(searchParams.get("sellerType") ?? searchParams.get("adType") ?? "all");
     setCommercialFilter(searchParams.get("commercial") ?? "all");
     setUserAssetsFilter(searchParams.get("userAssets") ?? "all");
     setBuildingTypeFilter(searchParams.get("buildingType") ?? "all");
@@ -638,10 +638,11 @@ export default function AssetsPage() {
     } else {
       params.delete("rentalSale");
     }
-    if (adTypeFilter && adTypeFilter !== "all") {
-      params.set("adType", adTypeFilter);
+    if (sellerTypeFilter && sellerTypeFilter !== "all") {
+      params.set("sellerType", sellerTypeFilter);
     } else {
-      params.delete("adType");
+      params.delete("sellerType");
+      params.delete("adType"); // Remove old param for backward compatibility
     }
     if (commercialFilter && commercialFilter !== "all") {
       params.set("commercial", commercialFilter);
@@ -887,7 +888,7 @@ export default function AssetsPage() {
     documentsFilter,
     statusFilter,
     rentalSaleFilter,
-    adTypeFilter,
+    sellerTypeFilter,
     commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
@@ -952,7 +953,7 @@ export default function AssetsPage() {
     documentsFilter,
     statusFilter,
     rentalSaleFilter,
-    adTypeFilter,
+    sellerTypeFilter,
     commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
@@ -1012,7 +1013,7 @@ export default function AssetsPage() {
     if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
     if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
-    if (adTypeFilter && adTypeFilter !== "all") params.set("adType", adTypeFilter);
+    if (sellerTypeFilter && sellerTypeFilter !== "all") params.set("sellerType", sellerTypeFilter);
     if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
     if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);
     if (buildingTypeFilter && buildingTypeFilter !== "all") params.set("buildingType", buildingTypeFilter);
@@ -1070,7 +1071,7 @@ export default function AssetsPage() {
     documentsFilter,
     statusFilter,
     rentalSaleFilter,
-    adTypeFilter,
+    sellerTypeFilter,
     commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
@@ -1968,7 +1969,7 @@ export default function AssetsPage() {
       documents: documentsFilter,
       status: statusFilter,
       rentalSale: rentalSaleFilter,
-      adType: adTypeFilter,
+      sellerType: sellerTypeFilter,
       commercial: commercialFilter,
       userAssets: userAssetsFilter,
       buildingType: buildingTypeFilter,
@@ -2014,7 +2015,7 @@ export default function AssetsPage() {
     };
   }, [
     debouncedSearch, city, typeFilter, priceMin, priceMax, neighborhood, zoning, riskFilter,
-    documentsFilter, statusFilter, rentalSaleFilter, adTypeFilter, commercialFilter,
+    documentsFilter, statusFilter, rentalSaleFilter, sellerTypeFilter, commercialFilter,
     userAssetsFilter, buildingTypeFilter, floorMin, floorMax, areaMin, areaMax,
     bedroomsMin, bedroomsMax, bathroomsMin, bathroomsMax, totalFloorsMin, totalFloorsMax,
     totalAreaMin, totalAreaMax, balconyAreaMin, balconyAreaMax, parkingSpacesMin, parkingSpacesMax,
@@ -2041,7 +2042,8 @@ export default function AssetsPage() {
     if (filterData.documents !== undefined) setDocumentsFilter(filterData.documents || 'all');
     if (filterData.status !== undefined) setStatusFilter(filterData.status || 'all');
     if (filterData.rentalSale !== undefined) setRentalSaleFilter(filterData.rentalSale || 'all');
-    if (filterData.adType !== undefined) setAdTypeFilter(filterData.adType || 'all');
+    if (filterData.sellerType !== undefined) setSellerTypeFilter(filterData.sellerType || 'all');
+    if (filterData.adType !== undefined) setSellerTypeFilter(filterData.adType || 'all'); // Backward compatibility
     if (filterData.commercial !== undefined) setCommercialFilter(filterData.commercial || 'all');
     if (filterData.userAssets !== undefined) setUserAssetsFilter(filterData.userAssets || 'all');
     if (filterData.buildingType !== undefined) setBuildingTypeFilter(filterData.buildingType || 'all');
@@ -2243,7 +2245,7 @@ export default function AssetsPage() {
     []
   );
 
-  const adTypeFilterOptions = React.useMemo(
+  const sellerTypeFilterOptions = React.useMemo(
     () => [
       { value: "private", label: "פרטי" },
       { value: "broker", label: "מתווך" },
@@ -2627,10 +2629,10 @@ export default function AssetsPage() {
                   onChange: setRentalSaleFilter,
                   options: rentalSaleFilterOptions
                 },
-                adType: {
-                  value: adTypeFilter,
-                  onChange: setAdTypeFilter,
-                  options: adTypeFilterOptions
+                sellerType: {
+                  value: sellerTypeFilter,
+                  onChange: setSellerTypeFilter,
+                  options: sellerTypeFilterOptions
                 },
                 commercial: {
                   value: commercialFilter,

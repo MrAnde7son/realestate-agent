@@ -356,6 +356,72 @@ export default function AssetsPage() {
     const value = searchParams.get("schoolsWithin500m");
     return value ?? "all";
   });
+  // High Priority Filters
+  const [priceDroppedFilter, setPriceDroppedFilter] = useState<string>(() => {
+    const value = searchParams.get("priceDropped");
+    return value ?? "all";
+  });
+  const [shelterFilter, setShelterFilter] = useState<string>(() => {
+    const value = searchParams.get("shelter");
+    return value ?? "all";
+  });
+  const [accessibilityFilter, setAccessibilityFilter] = useState<string>(() => {
+    const value = searchParams.get("accessibility");
+    return value ?? "all";
+  });
+  const [buildingClassFilter, setBuildingClassFilter] = useState<string>(() => {
+    const value = searchParams.get("buildingClass");
+    return value ?? "all";
+  });
+  const [generalConditionFilter, setGeneralConditionFilter] = useState<string>(() => {
+    const value = searchParams.get("generalCondition");
+    return value ?? "all";
+  });
+  const [investmentYieldMin, setInvestmentYieldMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("investmentYieldMin");
+    return val ? Number(val) : undefined;
+  });
+  const [investmentYieldMax, setInvestmentYieldMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("investmentYieldMax");
+    return val ? Number(val) : undefined;
+  });
+  const [approximateRentMin, setApproximateRentMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("approximateRentMin");
+    return val ? Number(val) : undefined;
+  });
+  const [approximateRentMax, setApproximateRentMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("approximateRentMax");
+    return val ? Number(val) : undefined;
+  });
+  const [commuteTimeMin, setCommuteTimeMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("commuteTimeMin");
+    return val ? Number(val) : undefined;
+  });
+  const [commuteTimeMax, setCommuteTimeMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("commuteTimeMax");
+    return val ? Number(val) : undefined;
+  });
+  const [publishedDaysMax, setPublishedDaysMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("publishedDaysMax");
+    return val ? Number(val) : undefined;
+  });
+  // Madlan Tags
+  const [tagBestSchoolFilter, setTagBestSchoolFilter] = useState<string>(() => {
+    const value = searchParams.get("tagBestSchool");
+    return value ?? "all";
+  });
+  const [tagSafetyFilter, setTagSafetyFilter] = useState<string>(() => {
+    const value = searchParams.get("tagSafety");
+    return value ?? "all";
+  });
+  const [tagFamilyFriendlyFilter, setTagFamilyFriendlyFilter] = useState<string>(() => {
+    const value = searchParams.get("tagFamilyFriendly");
+    return value ?? "all";
+  });
+  const [tagLightRailFilter, setTagLightRailFilter] = useState<string>(() => {
+    const value = searchParams.get("tagLightRail");
+    return value ?? "all";
+  });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>(() => {
     const urlViewMode = searchParams.get("view");
     if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
@@ -1086,6 +1152,22 @@ export default function AssetsPage() {
     airConditioningFilter,
     storageRoomFilter,
     hasElevatorFilter,
+    priceDroppedFilter,
+    shelterFilter,
+    accessibilityFilter,
+    buildingClassFilter,
+    generalConditionFilter,
+    investmentYieldMin,
+    investmentYieldMax,
+    approximateRentMin,
+    approximateRentMax,
+    commuteTimeMin,
+    commuteTimeMax,
+    publishedDaysMax,
+    tagBestSchoolFilter,
+    tagSafetyFilter,
+    tagFamilyFriendlyFilter,
+    tagLightRailFilter,
   ]);
 
   // Function to fetch assets
@@ -1157,6 +1239,23 @@ export default function AssetsPage() {
     if (noiseLevelMax != null) params.set("noiseLevelMax", String(noiseLevelMax));
     if (greenWithin300mFilter && greenWithin300mFilter !== "all") params.set("greenWithin300m", greenWithin300mFilter);
     if (schoolsWithin500mFilter && schoolsWithin500mFilter !== "all") params.set("schoolsWithin500m", schoolsWithin500mFilter);
+    // High Priority Filters
+    if (priceDroppedFilter && priceDroppedFilter !== "all") params.set("priceDropped", priceDroppedFilter);
+    if (shelterFilter && shelterFilter !== "all") params.set("shelter", shelterFilter);
+    if (accessibilityFilter && accessibilityFilter !== "all") params.set("accessibility", accessibilityFilter);
+    if (buildingClassFilter && buildingClassFilter !== "all") params.set("buildingClass", buildingClassFilter);
+    if (generalConditionFilter && generalConditionFilter !== "all") params.set("generalCondition", generalConditionFilter);
+    if (investmentYieldMin != null) params.set("investmentYieldMin", String(investmentYieldMin));
+    if (investmentYieldMax != null) params.set("investmentYieldMax", String(investmentYieldMax));
+    if (approximateRentMin != null) params.set("approximateRentMin", String(approximateRentMin));
+    if (approximateRentMax != null) params.set("approximateRentMax", String(approximateRentMax));
+    if (commuteTimeMin != null) params.set("commuteTimeMin", String(commuteTimeMin));
+    if (commuteTimeMax != null) params.set("commuteTimeMax", String(commuteTimeMax));
+    if (publishedDaysMax != null) params.set("publishedDaysMax", String(publishedDaysMax));
+    if (tagBestSchoolFilter && tagBestSchoolFilter !== "all") params.set("tagBestSchool", tagBestSchoolFilter);
+    if (tagSafetyFilter && tagSafetyFilter !== "all") params.set("tagSafety", tagSafetyFilter);
+    if (tagFamilyFriendlyFilter && tagFamilyFriendlyFilter !== "all") params.set("tagFamilyFriendly", tagFamilyFriendlyFilter);
+    if (tagLightRailFilter && tagLightRailFilter !== "all") params.set("tagLightRail", tagLightRailFilter);
 
     return params;
   }, [
@@ -1225,6 +1324,22 @@ export default function AssetsPage() {
     noiseLevelMax,
     greenWithin300mFilter,
     schoolsWithin500mFilter,
+    priceDroppedFilter,
+    shelterFilter,
+    accessibilityFilter,
+    buildingClassFilter,
+    generalConditionFilter,
+    investmentYieldMin,
+    investmentYieldMax,
+    approximateRentMin,
+    approximateRentMax,
+    commuteTimeMin,
+    commuteTimeMax,
+    publishedDaysMax,
+    tagBestSchoolFilter,
+    tagSafetyFilter,
+    tagFamilyFriendlyFilter,
+    tagLightRailFilter,
   ]);
 
   const fetchAssets = React.useCallback(async () => {
@@ -2777,7 +2892,7 @@ export default function AssetsPage() {
                 },
                 bedrooms: {
                   value: { min: bedroomsMin, max: bedroomsMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setBedroomsMin(min);
                     setBedroomsMax(max);
                   },
@@ -2786,7 +2901,7 @@ export default function AssetsPage() {
                 },
                 bathrooms: {
                   value: { min: bathroomsMin, max: bathroomsMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setBathroomsMin(min);
                     setBathroomsMax(max);
                   },
@@ -2795,7 +2910,7 @@ export default function AssetsPage() {
                 },
                 totalFloors: {
                   value: { min: totalFloorsMin, max: totalFloorsMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setTotalFloorsMin(min);
                     setTotalFloorsMax(max);
                   },
@@ -2804,7 +2919,7 @@ export default function AssetsPage() {
                 },
                 totalArea: {
                   value: { min: totalAreaMin, max: totalAreaMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setTotalAreaMin(min);
                     setTotalAreaMax(max);
                   },
@@ -2813,7 +2928,7 @@ export default function AssetsPage() {
                 },
                 balconyArea: {
                   value: { min: balconyAreaMin, max: balconyAreaMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setBalconyAreaMin(min);
                     setBalconyAreaMax(max);
                   },
@@ -2822,7 +2937,7 @@ export default function AssetsPage() {
                 },
                 parkingSpaces: {
                   value: { min: parkingSpacesMin, max: parkingSpacesMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setParkingSpacesMin(min);
                     setParkingSpacesMax(max);
                   },
@@ -2831,7 +2946,7 @@ export default function AssetsPage() {
                 },
                 yearBuilt: {
                   value: { min: yearBuiltMin, max: yearBuiltMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setYearBuiltMin(min);
                     setYearBuiltMax(max);
                   },
@@ -2841,7 +2956,7 @@ export default function AssetsPage() {
                 },
                 rentPrice: {
                   value: { min: rentPriceMin, max: rentPriceMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setRentPriceMin(min);
                     setRentPriceMax(max);
                   },
@@ -2850,7 +2965,7 @@ export default function AssetsPage() {
                 },
                 rentEstimate: {
                   value: { min: rentEstimateMin, max: rentEstimateMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setRentEstimateMin(min);
                     setRentEstimateMax(max);
                   },
@@ -2859,7 +2974,7 @@ export default function AssetsPage() {
                 },
                 priceGapPct: {
                   value: { min: priceGapPctMin, max: priceGapPctMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setPriceGapPctMin(min);
                     setPriceGapPctMax(max);
                   },
@@ -2869,7 +2984,7 @@ export default function AssetsPage() {
                 },
                 capRatePct: {
                   value: { min: capRatePctMin, max: capRatePctMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setCapRatePctMin(min);
                     setCapRatePctMax(max);
                   },
@@ -2943,7 +3058,7 @@ export default function AssetsPage() {
                 },
                 modelPrice: {
                   value: { min: modelPriceMin, max: modelPriceMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setModelPriceMin(min);
                     setModelPriceMax(max);
                   },
@@ -2952,7 +3067,7 @@ export default function AssetsPage() {
                 },
                 antennaDistanceM: {
                   value: { min: antennaDistanceMin, max: antennaDistanceMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setAntennaDistanceMin(min);
                     setAntennaDistanceMax(max);
                   },
@@ -2961,7 +3076,7 @@ export default function AssetsPage() {
                 },
                 shelterDistanceM: {
                   value: { min: shelterDistanceMin, max: shelterDistanceMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setShelterDistanceMin(min);
                     setShelterDistanceMax(max);
                   },
@@ -2970,7 +3085,7 @@ export default function AssetsPage() {
                 },
                 noiseLevel: {
                   value: { min: noiseLevelMin, max: noiseLevelMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setNoiseLevelMin(min);
                     setNoiseLevelMax(max);
                   },
@@ -2996,7 +3111,119 @@ export default function AssetsPage() {
                     { value: 'false', label: 'לא' },
                   ]
                 },
-              }}
+                // High Priority Filters
+                priceDropped: {
+                  value: priceDroppedFilter,
+                  onChange: setPriceDroppedFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'יש הורדת מחיר' },
+                    { value: 'false', label: 'ללא הורדת מחיר' },
+                  ]
+                },
+                shelter: {
+                  value: shelterFilter,
+                  onChange: setShelterFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'עם מקלט' },
+                    { value: 'false', label: 'ללא מקלט' },
+                  ]
+                },
+                accessibility: {
+                  value: accessibilityFilter,
+                  onChange: setAccessibilityFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'נגיש' },
+                    { value: 'false', label: 'לא נגיש' },
+                  ]
+                },
+                buildingClass: {
+                  value: buildingClassFilter,
+                  onChange: setBuildingClassFilter,
+                  options: [] // Will be populated from filterMetadata
+                },
+                generalCondition: {
+                  value: generalConditionFilter,
+                  onChange: setGeneralConditionFilter,
+                  options: [] // Will be populated from filterMetadata
+                },
+                investmentYield: {
+                  value: { min: investmentYieldMin, max: investmentYieldMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setInvestmentYieldMin(min);
+                    setInvestmentYieldMax(max);
+                  },
+                  minPlaceholder: 'תשואה מינ %',
+                  maxPlaceholder: 'תשואה מקס %',
+                  step: 0.1,
+                },
+                approximateRent: {
+                  value: { min: approximateRentMin, max: approximateRentMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setApproximateRentMin(min);
+                    setApproximateRentMax(max);
+                  },
+                  minPlaceholder: 'שכירות משוערת מינ',
+                  maxPlaceholder: 'שכירות משוערת מקס',
+                },
+                commuteTime: {
+                  value: { min: commuteTimeMin, max: commuteTimeMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setCommuteTimeMin(min);
+                    setCommuteTimeMax(max);
+                  },
+                  minPlaceholder: 'זמן נסיעה מינ (דקות)',
+                  maxPlaceholder: 'זמן נסיעה מקס (דקות)',
+                  step: 1,
+                },
+                publishedDays: {
+                  value: { min: undefined, max: publishedDaysMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setPublishedDaysMax(max);
+                  },
+                  minPlaceholder: '',
+                  maxPlaceholder: 'פורסם ב-X ימים האחרונים',
+                  step: 1,
+                },
+                tagBestSchool: {
+                  value: tagBestSchoolFilter,
+                  onChange: setTagBestSchoolFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'ליד בתי ספר מצוינים' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                tagSafety: {
+                  value: tagSafetyFilter,
+                  onChange: setTagSafetyFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'בטוח' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                tagFamilyFriendly: {
+                  value: tagFamilyFriendlyFilter,
+                  onChange: setTagFamilyFriendlyFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'ידידותי למשפחה' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                tagLightRail: {
+                  value: tagLightRailFilter,
+                  onChange: setTagLightRailFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'ליד רכבת קלה' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+              } as any}
               onRefresh={fetchAssets}
               onAddNew={() => {
                 if (isAuthenticated) {

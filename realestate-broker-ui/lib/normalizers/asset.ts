@@ -123,6 +123,29 @@ export type Asset = {
   recentDeal?: boolean | null;
   videoUrl?: string | null;
   
+  // High Priority Fields from Yad2 & Madlan
+  priceDropped?: boolean | null; // Has price drop
+  previousPrice?: number | null; // Previous price before drop
+  shelter?: boolean | null; // Has safe room (מקלט)
+  accessibility?: boolean | null; // Has accessibility features
+  buildingClass?: string | null; // Building class/quality (Madlan)
+  generalCondition?: string | null; // Property condition (Madlan)
+  investmentYield?: number | null; // Yield % (Madlan investorsData.yield)
+  approximateRent?: number | null; // Approximate rent (Madlan investorsData.approximateRent)
+  commuteTime?: number | null; // Commute time in minutes (Madlan)
+  publishedDays?: number | null; // Days since published
+  datePosted?: string | null; // Date when listing was posted
+  // Madlan Tags
+  tagBestSchool?: boolean | null;
+  tagSafety?: boolean | null;
+  tagFamilyFriendly?: boolean | null;
+  tagLightRail?: boolean | null;
+  tagParkAccess?: boolean | null;
+  tagQuietStreet?: boolean | null;
+  tagCommute?: boolean | null;
+  // Exclusivity
+  exclusive?: boolean | null;
+  
   // GIS Collector Data Fields
   parcelArea?: number | null;
   parcelRegisteredArea?: number | null;
@@ -546,6 +569,65 @@ export function normalizeFromBackend(row: any): Asset {
     const sellerType = sellerTypeRaw ?? null;
     const adType = listing.adType ?? listing.ad_type ?? null;
 
+    // Extract high priority fields
+    const featuresObj = listing.features && typeof listing.features === 'object' && !Array.isArray(listing.features) ? listing.features : {};
+    const metaObj = listing.meta && typeof listing.meta === 'object' ? listing.meta : {};
+    
+    // Extract shelter and accessibility from features
+    const shelter = featuresObj.shelter ?? featuresObj.hasShelter ?? metaObj.shelter ?? null;
+    const accessibility = featuresObj.accessibility ?? featuresObj.hasAccessibility ?? metaObj.accessibility ?? null;
+    
+    // Extract Madlan-specific fields
+    const buildingClass = metaObj.buildingClass ?? metaObj.building_class ?? null;
+    const generalCondition = metaObj.generalCondition ?? metaObj.general_condition ?? null;
+    const investorsData = metaObj.investorsData ?? metaObj.investors_data ?? {};
+    const investmentYield = investorsData.yield ? parseNumeric(investorsData.yield) : null;
+    const approximateRent = investorsData.approximateRent ?? investorsData.approximate_rent ? parseNumeric(investorsData.approximateRent ?? investorsData.approximate_rent) : null;
+    const commuteTime = metaObj.commuteTime ?? metaObj.commute_time ? parseNumeric(metaObj.commuteTime ?? metaObj.commute_time) : null;
+    
+    // Extract tags
+    const tags = metaObj.tags && typeof metaObj.tags === 'object' ? metaObj.tags : {};
+    const tagBestSchool = tags.bestSchool ?? tags.best_school ?? null;
+    const tagSafety = tags.safety ?? null;
+    const tagFamilyFriendly = tags.familyFriendly ?? tags.family_friendly ?? null;
+    const tagLightRail = tags.lightRail ?? tags.light_rail ?? null;
+    const tagParkAccess = tags.parkAccess ?? tags.park_access ?? null;
+    const tagQuietStreet = tags.quietStreet ?? tags.quiet_street ?? null;
+    const tagCommute = tags.commute ?? null;
+    
+    // Extract exclusivity - check both Madlan and Yad2 sources
+    const poc = metaObj.poc && typeof metaObj.poc === 'object' ? metaObj.poc : {};
+    const exclusivity = poc.exclusivity && typeof poc.exclusivity === 'object' ? poc.exclusivity : {};
+    const madlanExclusive = exclusivity.exclusive ?? null;
+    
+    // Yad2 exclusivity: check inProperty.isAssetExclusive
+    const rawListing = listing.raw ?? listing.meta?.raw ?? metaObj.raw ?? {};
+    const inProperty = rawListing.inProperty && typeof rawListing.inProperty === 'object' ? rawListing.inProperty : {};
+    const yad2Exclusive = inProperty.isAssetExclusive ?? null;
+    
+    // Prefer Yad2 exclusive flag, fallback to Madlan
+    const exclusive = yad2Exclusive !== null ? (typeof yad2Exclusive === 'boolean' ? yad2Exclusive : null) : 
+                     (madlanExclusive !== null ? (typeof madlanExclusive === 'boolean' ? madlanExclusive : null) : null);
+    
+    // Calculate priceDropped flag
+    const priceDropped = previousPrice != null && price != null && previousPrice > price;
+    
+    // Calculate publishedDays if datePosted is available
+    let publishedDays: number | null = null;
+    if (datePosted) {
+      try {
+        const postedDate = new Date(datePosted);
+        if (!Number.isNaN(postedDate.getTime())) {
+          const now = new Date();
+          const diffTime = now.getTime() - postedDate.getTime();
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          publishedDays = diffDays >= 0 ? diffDays : null;
+        }
+      } catch {
+        // Ignore date parsing errors
+      }
+    }
+
     return {
       id: listing.id ?? listing.external_id ?? null,
       source: coerceString(listing.source) ?? null,
@@ -572,6 +654,25 @@ export function normalizeFromBackend(row: any): Asset {
       url,
       features: features.length ? features : null,
       datePosted,
+      // High priority fields
+      priceDropped,
+      previousPrice,
+      shelter: typeof shelter === 'boolean' ? shelter : null,
+      accessibility: typeof accessibility === 'boolean' ? accessibility : null,
+      buildingClass: coerceString(buildingClass),
+      generalCondition: coerceString(generalCondition),
+      investmentYield,
+      approximateRent,
+      commuteTime,
+      publishedDays,
+      tagBestSchool: typeof tagBestSchool === 'boolean' ? tagBestSchool : null,
+      tagSafety: typeof tagSafety === 'boolean' ? tagSafety : null,
+      tagFamilyFriendly: typeof tagFamilyFriendly === 'boolean' ? tagFamilyFriendly : null,
+      tagLightRail: typeof tagLightRail === 'boolean' ? tagLightRail : null,
+      tagParkAccess: typeof tagParkAccess === 'boolean' ? tagParkAccess : null,
+      tagQuietStreet: typeof tagQuietStreet === 'boolean' ? tagQuietStreet : null,
+      tagCommute: typeof tagCommute === 'boolean' ? tagCommute : null,
+      exclusive: typeof exclusive === 'boolean' ? exclusive : null,
     };
   };
 
@@ -872,6 +973,27 @@ export function normalizeFromBackend(row: any): Asset {
     contactPhone,
     recentDeal,
     videoUrl,
+    
+    // High Priority Fields - prefer from primaryListing, fallback to row
+    priceDropped: primaryListing?.priceDropped ?? (row.priceDropped ?? row.price_dropped ?? null),
+    previousPrice: primaryListing?.previousPrice ?? (row.previousPrice ?? row.previous_price ?? null),
+    shelter: primaryListing?.shelter ?? (row.shelter ?? null),
+    accessibility: primaryListing?.accessibility ?? (row.accessibility ?? null),
+    buildingClass: primaryListing?.buildingClass ?? (row.buildingClass ?? row.building_class ?? null),
+    generalCondition: primaryListing?.generalCondition ?? (row.generalCondition ?? row.general_condition ?? null),
+    investmentYield: primaryListing?.investmentYield ?? (row.investmentYield ?? row.investment_yield ?? null),
+    approximateRent: primaryListing?.approximateRent ?? (row.approximateRent ?? row.approximate_rent ?? null),
+    commuteTime: primaryListing?.commuteTime ?? (row.commuteTime ?? row.commute_time ?? null),
+    publishedDays: primaryListing?.publishedDays ?? (row.publishedDays ?? row.published_days ?? null),
+    datePosted: primaryListing?.datePosted ?? (row.datePosted ?? row.date_posted ?? null),
+    tagBestSchool: primaryListing?.tagBestSchool ?? (row.tagBestSchool ?? row.tag_best_school ?? null),
+    tagSafety: primaryListing?.tagSafety ?? (row.tagSafety ?? row.tag_safety ?? null),
+    tagFamilyFriendly: primaryListing?.tagFamilyFriendly ?? (row.tagFamilyFriendly ?? row.tag_family_friendly ?? null),
+    tagLightRail: primaryListing?.tagLightRail ?? (row.tagLightRail ?? row.tag_light_rail ?? null),
+    tagParkAccess: primaryListing?.tagParkAccess ?? (row.tagParkAccess ?? row.tag_park_access ?? null),
+    tagQuietStreet: primaryListing?.tagQuietStreet ?? (row.tagQuietStreet ?? row.tag_quiet_street ?? null),
+    tagCommute: primaryListing?.tagCommute ?? (row.tagCommute ?? row.tag_commute ?? null),
+    exclusive: primaryListing?.exclusive ?? (row.exclusive ?? null),
     
     // GIS Collector Data Fields
     parcelArea: row.parcelArea ?? row.parcel_area ?? null,

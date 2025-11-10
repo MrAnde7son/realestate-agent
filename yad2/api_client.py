@@ -886,7 +886,8 @@ class Yad2APIClient:
         listing.rooms = deal_entry.get("rooms")
         listing.floor = deal_entry.get("floor")
         listing.size = deal_entry.get("buildingMR")
-        listing.date_posted = deal_entry.get("saleDate")
+        # date_posted is not applicable for completed deals (these are historical sales, not posted listings)
+        listing.date_posted = None
         listing.recent_deal = True
 
         # Preserve supporting data for downstream consumers.

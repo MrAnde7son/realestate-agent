@@ -66,6 +66,7 @@ class Yad2SearchParameters:
             'order': None,        # Sort order
             'dealType': None,     # Deal type (sale/rent)
             'priceOnly': None,    # Show price only assets (1/0)
+            'priceDropped': None, # Show only properties with price drops (1/0)
             'saleType': None,     # Sale type
             'exclusive': None,    # Exclusive assets only (1/0)
             'publishedDays': None, # Published within X days
@@ -97,7 +98,7 @@ class Yad2SearchParameters:
                         raise ValueError("Parameter '{}' must be a number".format(key))
                 elif key in ['elevator', 'balcony', 'renovated', 'accessibility', 
                            'airCondition', 'bars', 'mamad', 'storage', 'terrace', 
-                           'garden', 'pets', 'furniture', 'priceOnly', 'exclusive']:
+                           'garden', 'pets', 'furniture', 'priceOnly', 'priceDropped', 'exclusive']:
                     # Boolean parameters
                     if str(value).lower() in ['true', '1', 'yes', 'y']:
                         self.parameters[key] = 1
@@ -286,6 +287,11 @@ class Yad2ParameterReference:
         },
         'renovated': {
             'description': 'Is renovated',
+            'example': '1 (yes), 0 (no)',
+            'type': 'boolean'
+        },
+        'priceDropped': {
+            'description': 'Show only properties with price drops',
             'example': '1 (yes), 0 (no)',
             'type': 'boolean'
         },

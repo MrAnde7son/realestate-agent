@@ -53,24 +53,66 @@ _last_search_results = []
 @mcp.tool()
 async def fetch_listings(
     ctx: Context,
+    # Price parameters
     maxPrice: Optional[int | str] = None,
     minPrice: Optional[int | str] = None,
+    # Location parameters
     topArea: Optional[int | str] = None,
     area: Optional[int | str] = None,
     city: Optional[int | str] = None,
     neighborhood: Optional[int | str] = None,
     street: Optional[str] = None,
+    # Property type
     property: Optional[str] = None,
+    # Property details
     rooms: Optional[str] = None,
     minRooms: Optional[int | str] = None,
     maxRooms: Optional[int | str] = None,
+    floor: Optional[str] = None,
+    size: Optional[str] = None,
     minSize: Optional[int | str] = None,
     maxSize: Optional[int | str] = None,
+    # Features
+    parking: Optional[int | str] = None,
+    elevator: Optional[int | str | bool] = None,
+    balcony: Optional[int | str | bool] = None,
+    renovated: Optional[int | str | bool] = None,
+    accessibility: Optional[int | str | bool] = None,
+    airCondition: Optional[int | str | bool] = None,
+    bars: Optional[int | str | bool] = None,
+    mamad: Optional[int | str | bool] = None,
+    storage: Optional[int | str | bool] = None,
+    terrace: Optional[int | str | bool] = None,
+    garden: Optional[int | str | bool] = None,
+    pets: Optional[int | str | bool] = None,
+    furniture: Optional[int | str | bool] = None,
+    # Building details
+    buildingFloors: Optional[int | str] = None,
+    entranceDate: Optional[str] = None,
+    propertyCondition: Optional[str] = None,
+    # Search parameters
+    page: Optional[int | str] = None,
+    order: Optional[str] = None,
+    dealType: Optional[str] = None,
+    priceOnly: Optional[int | str | bool] = None,
+    priceDropped: Optional[int | str | bool] = None,
+    saleType: Optional[str] = None,
+    exclusive: Optional[int | str | bool] = None,
+    publishedDays: Optional[int | str] = None,
+    # Advanced filters
+    fromFloor: Optional[int | str] = None,
+    toFloor: Optional[int | str] = None,
+    yearBuilt: Optional[int | str] = None,
+    minYear: Optional[int | str] = None,
+    maxYear: Optional[int | str] = None,
+    # API options
     zoom: Optional[int] = None,
     listing_type: str = ListingType.ALL,
     pull_contacts: bool = False,
 ) -> Dict[str, Any]:
     """Fetch active listings via Yad2's public map feed API.
+    
+    Supports all Yad2 search parameters. Boolean parameters accept: 1/0, true/false, yes/no.
     
     Args:
         maxPrice: Maximum price filter
@@ -81,11 +123,42 @@ async def fetch_listings(
         neighborhood: Neighborhood ID
         street: Street name or ID
         property: Property type code or Hebrew name (e.g., "1" or "דירה")
-        rooms: Number of rooms
-        minRooms: Minimum rooms
-        maxRooms: Maximum rooms
+        rooms: Number of rooms (e.g., "3-4", "4+")
+        minRooms: Minimum number of rooms
+        maxRooms: Maximum number of rooms
+        floor: Floor range (e.g., "1-3", "4+")
+        size: Property size in sqm (e.g., "80-120")
         minSize: Minimum size in sqm
         maxSize: Maximum size in sqm
+        parking: Number of parking spaces
+        elevator: Has elevator (1/0, true/false)
+        balcony: Has balcony (1/0, true/false)
+        renovated: Is renovated (1/0, true/false)
+        accessibility: Has accessibility features (1/0, true/false)
+        airCondition: Has air conditioning (1/0, true/false)
+        bars: Has security bars (1/0, true/false)
+        mamad: Has safe room (1/0, true/false)
+        storage: Has storage (1/0, true/false)
+        terrace: Has terrace (1/0, true/false)
+        garden: Has garden (1/0, true/false)
+        pets: Pets allowed (1/0, true/false)
+        furniture: Is furnished (1/0, true/false)
+        buildingFloors: Total building floors
+        entranceDate: Move-in date
+        propertyCondition: Property condition
+        page: Page number
+        order: Sort order (date, price_asc, price_desc, size_asc, size_desc)
+        dealType: Deal type (sale/rent)
+        priceOnly: Show price only assets (1/0, true/false)
+        priceDropped: Filter for properties with price drops (1/0, true/false)
+        saleType: Sale type
+        exclusive: Exclusive assets only (1/0, true/false)
+        publishedDays: Published within X days
+        fromFloor: From floor
+        toFloor: To floor
+        yearBuilt: Year built
+        minYear: Minimum year built
+        maxYear: Maximum year built
         zoom: Zoom level (defaults to 15)
         listing_type: Type of listing - "sale", "rent", "commercial", or "all"
         pull_contacts: Whether to fetch contact information for listings
@@ -109,8 +182,39 @@ async def fetch_listings(
             rooms=rooms,
             minRooms=minRooms,
             maxRooms=maxRooms,
+            floor=floor,
+            size=size,
             minSize=minSize,
             maxSize=maxSize,
+            parking=parking,
+            elevator=elevator,
+            balcony=balcony,
+            renovated=renovated,
+            accessibility=accessibility,
+            airCondition=airCondition,
+            bars=bars,
+            mamad=mamad,
+            storage=storage,
+            terrace=terrace,
+            garden=garden,
+            pets=pets,
+            furniture=furniture,
+            buildingFloors=buildingFloors,
+            entranceDate=entranceDate,
+            propertyCondition=propertyCondition,
+            page=page,
+            order=order,
+            dealType=dealType,
+            priceOnly=priceOnly,
+            priceDropped=priceDropped,
+            saleType=saleType,
+            exclusive=exclusive,
+            publishedDays=publishedDays,
+            fromFloor=fromFloor,
+            toFloor=toFloor,
+            yearBuilt=yearBuilt,
+            minYear=minYear,
+            maxYear=maxYear,
         ).items()
         if v is not None
     }
@@ -274,10 +378,12 @@ async def fetch_location_autocomplete(ctx: Context, search_text: str) -> Dict[st
     try:
         location_params = _api_client.fetch_location_autocomplete(search_text)
         if location_params:
+            # Convert Yad2SearchParameters to dictionary for JSON serialization
+            params_dict = location_params.get_active_parameters()
             return {
                 "success": True,
                 "search_text": search_text,
-                "search_parameters": location_params,
+                "search_parameters": params_dict,
             }
         else:
             return {
@@ -377,22 +483,62 @@ async def fetch_latest_deals(
 @mcp.tool()
 async def build_search_url(
     ctx: Context,
+    # Price parameters
     maxPrice: Optional[int | str] = None,
     minPrice: Optional[int | str] = None,
+    # Location parameters
     topArea: Optional[int | str] = None,
     area: Optional[int | str] = None,
     city: Optional[int | str] = None,
     neighborhood: Optional[int | str] = None,
+    street: Optional[str] = None,
+    # Property type
     property: Optional[str] = None,
+    # Property details
     rooms: Optional[str] = None,
     minRooms: Optional[int | str] = None,
     maxRooms: Optional[int | str] = None,
+    floor: Optional[str] = None,
+    size: Optional[str] = None,
+    minSize: Optional[int | str] = None,
+    maxSize: Optional[int | str] = None,
+    # Features
     parking: Optional[int | str] = None,
-    elevator: Optional[int | str] = None,
-    balcony: Optional[int | str] = None,
-    renovated: Optional[int | str] = None,
+    elevator: Optional[int | str | bool] = None,
+    balcony: Optional[int | str | bool] = None,
+    renovated: Optional[int | str | bool] = None,
+    accessibility: Optional[int | str | bool] = None,
+    airCondition: Optional[int | str | bool] = None,
+    bars: Optional[int | str | bool] = None,
+    mamad: Optional[int | str | bool] = None,
+    storage: Optional[int | str | bool] = None,
+    terrace: Optional[int | str | bool] = None,
+    garden: Optional[int | str | bool] = None,
+    pets: Optional[int | str | bool] = None,
+    furniture: Optional[int | str | bool] = None,
+    # Building details
+    buildingFloors: Optional[int | str] = None,
+    entranceDate: Optional[str] = None,
+    propertyCondition: Optional[str] = None,
+    # Search parameters
+    page: Optional[int | str] = None,
+    order: Optional[str] = None,
+    dealType: Optional[str] = None,
+    priceOnly: Optional[int | str | bool] = None,
+    priceDropped: Optional[int | str | bool] = None,
+    saleType: Optional[str] = None,
+    exclusive: Optional[int | str | bool] = None,
+    publishedDays: Optional[int | str] = None,
+    # Advanced filters
+    fromFloor: Optional[int | str] = None,
+    toFloor: Optional[int | str] = None,
+    yearBuilt: Optional[int | str] = None,
+    minYear: Optional[int | str] = None,
+    maxYear: Optional[int | str] = None,
 ):
     """Build a Yad2 search URL for the given parameters.
+    
+    Supports all Yad2 search parameters. Boolean parameters accept: 1/0, true/false, yes/no.
     
     The 'property' parameter accepts both Yad2 codes (e.g., "5") and Hebrew names (e.g., "בית פרטי").
     Hebrew names are automatically converted to their corresponding Yad2 codes.
@@ -412,14 +558,44 @@ async def build_search_url(
             area=area,
             city=city,
             neighborhood=neighborhood,
+            street=street,
             property=property,
             rooms=rooms,
             minRooms=minRooms,
             maxRooms=maxRooms,
+            floor=floor,
+            size=size,
+            minSize=minSize,
+            maxSize=maxSize,
             parking=parking,
             elevator=elevator,
             balcony=balcony,
             renovated=renovated,
+            accessibility=accessibility,
+            airCondition=airCondition,
+            bars=bars,
+            mamad=mamad,
+            storage=storage,
+            terrace=terrace,
+            garden=garden,
+            pets=pets,
+            furniture=furniture,
+            buildingFloors=buildingFloors,
+            entranceDate=entranceDate,
+            propertyCondition=propertyCondition,
+            page=page,
+            order=order,
+            dealType=dealType,
+            priceOnly=priceOnly,
+            priceDropped=priceDropped,
+            saleType=saleType,
+            exclusive=exclusive,
+            publishedDays=publishedDays,
+            fromFloor=fromFloor,
+            toFloor=toFloor,
+            yearBuilt=yearBuilt,
+            minYear=minYear,
+            maxYear=maxYear,
         ).items()
         if v is not None
     }
@@ -486,7 +662,7 @@ async def get_search_parameters_reference(ctx: Context):
             "airCondition", "bars", "mamad", "storage", "terrace", "garden",
             "pets", "furniture",
         ],
-        "Search Options": ["page", "order", "dealType", "priceOnly", "exclusive", "publishedDays"],
+        "Search Options": ["page", "order", "dealType", "priceOnly", "priceDropped", "exclusive", "publishedDays"],
     }
 
     result = {"categories": {}, "all_parameters": params}

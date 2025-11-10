@@ -1843,8 +1843,7 @@ def register_madlan_tools():
     try:
         from madlan.mcp_server import (
             get_addresses as _madlan_get_addresses,
-            search_real_estate as _madlan_search_real_estate,
-            fetch_listings as _madlan_fetch_listings,
+            madlan_search_real_estate as _madlan_search_real_estate,
         )
         
         @mcp.tool(description="Autocomplete addresses and get address details from Madlan.")
@@ -1860,17 +1859,22 @@ def register_madlan_tools():
             ctx: Context,
             location_doc_id: Optional[str] = None,
             deal_type: str = "unitBuy",
-            price_range: Optional[List[Optional[int]]] = None,
-            rooms_range: Optional[List[Optional[float]]] = None,
-            area_range: Optional[List[Optional[int]]] = None,
-            floor_range: Optional[List[Optional[int]]] = None,
-            baths_range: Optional[List[Optional[float]]] = None,
-            building_class: Optional[List[str]] = None,
-            general_condition: Optional[List[str]] = None,
-            seller_type: Optional[List[str]] = None,
+            min_price: Optional[int | str] = None,
+            max_price: Optional[int | str] = None,
+            min_rooms: Optional[float | str] = None,
+            max_rooms: Optional[float | str] = None,
+            min_area: Optional[int | str] = None,
+            max_area: Optional[int | str] = None,
+            min_floor: Optional[int | str] = None,
+            max_floor: Optional[int | str] = None,
+            min_baths: Optional[float | str] = None,
+            max_baths: Optional[float | str] = None,
+            building_class: Optional[str] = None,
+            general_condition: Optional[str] = None,
+            seller_type: Optional[str] = None,
             amenities: Optional[Dict[str, Any]] = None,
-            limit: int = 50,
-            offset: int = 0,
+            limit: int | str = 50,
+            offset: int | str = 0,
             no_fee: bool = False,
             price_drop: bool = False,
             under_price_estimation: bool = False,
@@ -1879,25 +1883,14 @@ def register_madlan_tools():
             is_commercial_real_estate: bool = False,
         ):
             return await _madlan_search_real_estate(
-                ctx, location_doc_id, deal_type, price_range, rooms_range,
-                area_range, floor_range, baths_range, building_class,
+                ctx, location_doc_id, deal_type, min_price, max_price,
+                min_rooms, max_rooms, min_area, max_area, min_floor,
+                max_floor, min_baths, max_baths, building_class,
                 general_condition, seller_type, amenities, limit, offset,
                 no_fee, price_drop, under_price_estimation, discounted_projects,
                 only_immediate, is_commercial_real_estate
             )
         
-        @mcp.tool(description="Fetch real estate listings by location document ID.")
-        async def madlan_fetch_listings(
-            ctx: Context,
-            location_doc_id: str,
-            deal_type: str = "unitBuy",
-            price_range: Optional[List[Optional[int]]] = None,
-            rooms_range: Optional[List[Optional[float]]] = None,
-            limit: int = 50,
-        ):
-            return await _madlan_fetch_listings(ctx, location_doc_id, deal_type, price_range, rooms_range, limit)
-        
-        logger.info("Madlan tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Madlan tools: {e}")
 

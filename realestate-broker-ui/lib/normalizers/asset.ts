@@ -688,18 +688,6 @@ export function normalizeFromBackend(row: any): Asset {
 
   const primaryListingRaw = row.primaryListing ?? row.primary_listing;
   const primaryListing = normalizeListing(primaryListingRaw);
-  
-  // Debug: log primary listing exclusivity for troubleshooting
-  if (primaryListingRaw && typeof primaryListingRaw === 'object') {
-    console.log('[Exclusivity Debug] Primary Listing:', {
-      hasExclusive: 'exclusive' in primaryListingRaw,
-      exclusiveValue: primaryListingRaw.exclusive,
-      hasRaw: !!primaryListingRaw.raw,
-      hasMeta: !!primaryListingRaw.meta,
-      normalizedExclusive: primaryListing?.exclusive,
-      listingKeys: Object.keys(primaryListingRaw).slice(0, 20),
-    });
-  }
 
   const rawContactInfo = row.contactInfo ?? row.contact_info;
   const baseContactInfo =

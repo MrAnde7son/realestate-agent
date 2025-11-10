@@ -32,14 +32,6 @@ from .scrapers import Yad2Scraper
 # API Client
 from .api_client import Yad2APIClient, ListingType
 
-# Smart Search functionality (new)
-from .search_helper import (
-    Yad2SearchHelper,
-    search_apartments_in_city,
-    search_houses_in_neighborhood,
-    search_property_by_type_and_location,
-)
-
 __version__ = "1.0.0"
 __author__ = "Yad2 Scraper Team"
 __email__ = "support@yad2scraper.com"

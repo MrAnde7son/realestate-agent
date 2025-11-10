@@ -1102,6 +1102,7 @@ if __name__ == "__main__":
                 listings = client.fetch_listings(
                     location_doc_id=doc_id,
                     limit=10,
+                    price_range=[5000000, 10000000],
                 )
                 print(listings)
             except MadlanAPIError as e:

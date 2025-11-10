@@ -301,9 +301,6 @@ python -m mavat.mcp_server     # National planning portal (port 8004)
 
 #### 🔍 Search Real Estate (CLI)
 ```bash
-# Interactive demo
-python -m yad2.examples.demo
-
 # Interactive CLI
 python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"
 ```
@@ -802,7 +799,6 @@ The codebase is organized into logical modules:
 
 ### Entry Points
 
-- Run Demo: `python -m yad2.examples.demo`
 - Start MCP server: `python -m yad2.mcp_server `
 - Run tests: `python -m yad2.tests.test_core`
 - Interactive CLI: `python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"`

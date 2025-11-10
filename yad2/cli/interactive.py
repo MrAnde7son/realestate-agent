@@ -230,7 +230,7 @@ class InteractiveCLI:
             'Property Details': ['rooms', 'floor', 'size', 'minSize', 'maxSize'],
             'Features & Amenities': [
                 'parking', 'elevator', 'balcony', 'renovated', 'accessibility',
-                'airCondition', 'bars', 'mamad', 'storage', 'terrace', 'garden',
+                'airCondition', 'bars', 'shelter', 'storage', 'terrace', 'garden',
                 'pets', 'furniture'
             ],
             'Building Details': ['buildingFloors', 'entranceDate', 'propertyCondition'],

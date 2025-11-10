@@ -30,6 +30,7 @@ import {
   Trash2,
   CheckSquare,
   DownloadCloud,
+  Building,
 } from 'lucide-react';
 import {
   Contact,
@@ -53,6 +54,53 @@ interface CombinedCrmTableProps {
   contacts: Contact[];
   leads: Lead[];
   onRefresh: () => Promise<void>;
+}
+
+/**
+ * Builds a URL with query parameters for filtering assets based on contact criteria
+ */
+function buildAssetsFilterUrl(contact: Contact): string {
+  const params = new URLSearchParams();
+  
+  // City filter
+  if (contact.city && contact.city.trim() !== '') {
+    params.set('city', contact.city);
+  }
+  
+  // Asset type filter
+  if (contact.asset_type && contact.asset_type.trim() !== '') {
+    params.set('type', contact.asset_type);
+  }
+  
+  // Area range filters
+  if (contact.area_min !== null && contact.area_min !== undefined) {
+    params.set('areaMin', contact.area_min.toString());
+  }
+  if (contact.area_max !== null && contact.area_max !== undefined) {
+    params.set('areaMax', contact.area_max.toString());
+  }
+  
+  // Price filter (using equity as max budget)
+  if (contact.equity !== null && contact.equity !== undefined && contact.equity > 0) {
+    params.set('priceMax', contact.equity.toString());
+  }
+  
+  // Streets filter (use in search)
+  if (contact.streets && contact.streets.trim() !== '') {
+    params.set('search', contact.streets);
+  }
+  
+  // Floor filter (if it's a number or range)
+  if (contact.floor && contact.floor.trim() !== '') {
+    const floorMatch = contact.floor.match(/(\d+)/);
+    if (floorMatch) {
+      const floorNum = parseInt(floorMatch[1], 10);
+      params.set('floorMin', floorNum.toString());
+    }
+  }
+  
+  const queryString = params.toString();
+  return queryString ? `/assets?${queryString}` : '/assets';
 }
 
 type CombinedRow = {
@@ -571,6 +619,17 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
                             variant="outline"
                             size="sm"
                             onClick={() => {
+                              const url = buildAssetsFilterUrl(contact);
+                              window.open(url, '_blank');
+                            }}
+                            title="צפה בנכסים התואמים לקריטריונים של הלקוח"
+                          >
+                            <Building className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" /> נכסים
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
                               setEditingContact(contact);
                               setIsCreateDialogOpen(false);
                             }}
@@ -645,13 +704,26 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
                             <section className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <h3 className="font-semibold text-base">נכסים משויכים</h3>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open('/assets', '_blank')}
-                                >
-                                  <Plus className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" /> מצא נכס ללקוח
-                                </Button>
+                                <div className="flex gap-2 rtl:flex-row-reverse">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const url = buildAssetsFilterUrl(contact);
+                                      window.open(url, '_blank');
+                                    }}
+                                    title="צפה בנכסים התואמים לקריטריונים של הלקוח"
+                                  >
+                                    <Building className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" /> נכסים תואמים
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => window.open('/assets', '_blank')}
+                                  >
+                                    <Plus className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" /> מצא נכס ללקוח
+                                  </Button>
+                                </div>
                               </div>
 
                               {contactLeads.length === 0 ? (

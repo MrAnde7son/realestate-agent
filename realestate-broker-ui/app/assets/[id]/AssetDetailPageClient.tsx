@@ -740,7 +740,13 @@ const normalizePrimaryListing = (listing: any) => {
     size: sizeValue ?? null,
     propertyType: toStringOrNull(listing.propertyType ?? listing.property_type) ?? null,
     listingType: listing.listingType ?? listing.listing_type ?? null,
-    adType: listing.adType ?? listing.ad_type ?? listing.seller_type ?? null,
+    adType: listing.adType ?? listing.ad_type ?? null,
+    // Extract sellerType from various possible locations
+    sellerType: listing.seller_type ?? 
+                listing.sellerType ??
+                (listing.features && typeof listing.features === 'object' && !Array.isArray(listing.features) ? (listing.features as any).seller_type : null) ??
+                (listing.meta && typeof listing.meta === 'object' ? (listing.meta as any).seller_type : null) ??
+                null,
     description:
       toStringOrNull(
         listing.description ??
@@ -2475,8 +2481,8 @@ useDedupedEffect(() => {
 
   const listingTypeValueRaw = firstNonEmpty(primaryListing?.listingType, asset.listingType, asset?.listing_type)
   const listingTypeValue = listingTypeValueRaw || null
-  const adTypeValueRaw = firstNonEmpty(asset.adType, asset?.ad_type, primaryListing?.adType)
-  const adTypeValue = adTypeValueRaw || null
+  // Use sellerType for סוג מפרסם
+  const sellerTypeValue = asset.sellerType ?? asset.seller_type ?? primaryListing?.sellerType ?? null
   const listingPropertyTypeValueRaw = firstNonEmpty(
     primaryListing?.propertyType,
     asset.type,
@@ -2632,7 +2638,7 @@ useDedupedEffect(() => {
   )
   const hasListingDetails = Boolean(
     listingTypeValue ||
-      adTypeValue ||
+      sellerTypeValue ||
       contactNameValue ||
       primaryPhoneValue ||
       secondaryPhoneValue ||
@@ -3304,8 +3310,8 @@ useDedupedEffect(() => {
                   <div className="text-sm text-muted-foreground">סוג מפרסם</div>
                   <div className="font-medium">
                     {renderValue(
-                      adTypeValue ? <Badge>{formatAdTypeLabel(adTypeValue)}</Badge> : undefined,
-                      'adType'
+                      sellerTypeValue ? <Badge>{formatAdTypeLabel(sellerTypeValue)}</Badge> : undefined,
+                      'sellerType'
                     )}
                   </div>
                 </div>
@@ -3331,6 +3337,17 @@ useDedupedEffect(() => {
                   <div className="text-sm text-muted-foreground">פורסם ב</div>
                   <div className="font-medium">
                     {renderValue(listingDatePostedDisplay || undefined, 'primaryListing.datePosted')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">בלעדיות</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      <Badge variant={asset.exclusive === true ? 'success' : 'neutral'}>
+                        {asset.exclusive === true ? '✓' : '—'}
+                      </Badge>,
+                      'exclusive'
+                    )}
                   </div>
                 </div>
               </div>
@@ -3490,7 +3507,7 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">מחיר מודל:</span>
+                    <span className="text-muted-foreground">מחיר שוק:</span>
                     <span>{formatCurrency(asset.modelPrice) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between">

@@ -2320,6 +2320,96 @@ def _apply_asset_filters(queryset, params, user):
     if elevator_filter is not None:
         queryset = queryset.filter(elevator=elevator_filter)
 
+    recent_deal_filter = _parse_bool(params.get("recentDeal"))
+    if recent_deal_filter is not None:
+        matching_asset_ids = set(
+            AssetListing.objects.filter(
+                listing__recent_deal=recent_deal_filter
+            ).values_list("asset_id", flat=True)
+        )
+        
+        candidate_ids = list(queryset.values_list("id", flat=True))
+        if candidate_ids:
+            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
+                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                for listing in yad2_listings:
+                    if not isinstance(listing, dict):
+                        continue
+                    recent_deal_value = listing.get("recent_deal") or listing.get("recentDeal")
+                    if isinstance(recent_deal_value, bool) and recent_deal_value == recent_deal_filter:
+                        matching_asset_ids.add(asset.id)
+                        break
+        
+        if matching_asset_ids:
+            queryset = queryset.filter(id__in=matching_asset_ids).distinct()
+        else:
+            queryset = queryset.none()
+
+    model_price_min = _parse_optional_number(params.get("modelPriceMin"), int)
+    if model_price_min is not None:
+        queryset = queryset.filter(model_price__gte=model_price_min)
+
+    model_price_max = _parse_optional_number(params.get("modelPriceMax"), int)
+    if model_price_max is not None:
+        queryset = queryset.filter(model_price__lte=model_price_max)
+
+    antenna_distance_min = _parse_optional_number(params.get("antennaDistanceMin"))
+    if antenna_distance_min is not None:
+        # Try both direct value and wrapped value structure
+        queryset = queryset.filter(
+            Q(meta__antennaDistanceM__value__gte=antenna_distance_min) |
+            Q(meta__antennaDistanceM__gte=antenna_distance_min)
+        )
+
+    antenna_distance_max = _parse_optional_number(params.get("antennaDistanceMax"))
+    if antenna_distance_max is not None:
+        queryset = queryset.filter(
+            Q(meta__antennaDistanceM__value__lte=antenna_distance_max) |
+            Q(meta__antennaDistanceM__lte=antenna_distance_max)
+        )
+
+    shelter_distance_min = _parse_optional_number(params.get("shelterDistanceMin"))
+    if shelter_distance_min is not None:
+        queryset = queryset.filter(
+            Q(meta__shelterDistanceM__value__gte=shelter_distance_min) |
+            Q(meta__shelterDistanceM__gte=shelter_distance_min)
+        )
+
+    shelter_distance_max = _parse_optional_number(params.get("shelterDistanceMax"))
+    if shelter_distance_max is not None:
+        queryset = queryset.filter(
+            Q(meta__shelterDistanceM__value__lte=shelter_distance_max) |
+            Q(meta__shelterDistanceM__lte=shelter_distance_max)
+        )
+
+    noise_level_min = _parse_optional_number(params.get("noiseLevelMin"))
+    if noise_level_min is not None:
+        queryset = queryset.filter(
+            Q(meta__noiseLevel__value__gte=noise_level_min) |
+            Q(meta__noiseLevel__gte=noise_level_min)
+        )
+
+    noise_level_max = _parse_optional_number(params.get("noiseLevelMax"))
+    if noise_level_max is not None:
+        queryset = queryset.filter(
+            Q(meta__noiseLevel__value__lte=noise_level_max) |
+            Q(meta__noiseLevel__lte=noise_level_max)
+        )
+
+    green_within_300m_filter = _parse_bool(params.get("greenWithin300m"))
+    if green_within_300m_filter is not None:
+        queryset = queryset.filter(
+            Q(meta__greenWithin300m__value=green_within_300m_filter) |
+            Q(meta__greenWithin300m=green_within_300m_filter)
+        )
+
+    schools_within_500m_filter = _parse_bool(params.get("schoolsWithin500m"))
+    if schools_within_500m_filter is not None:
+        queryset = queryset.filter(
+            Q(meta__schoolsWithin500m__value=schools_within_500m_filter) |
+            Q(meta__schoolsWithin500m=schools_within_500m_filter)
+        )
+
     return queryset.distinct()
 
 

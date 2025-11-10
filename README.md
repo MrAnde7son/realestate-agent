@@ -197,10 +197,10 @@ redis-server
 
 # Terminal 2: Celery worker
 cd backend-django
-CELERY_BROKER_URL=redis://localhost:6379/0 celery -A broker_backend worker -l info
+celery -A broker_backend worker -l info
 
 # Terminal 3: Celery beat scheduler
-CELERY_BROKER_URL=redis://localhost:6379/0 celery -A broker_backend beat -l info
+celery -A broker_backend beat -l info
 ```
 
 Add environment variables to `backend-django/.env`:
@@ -468,7 +468,7 @@ rami_plans/
 - `balcony`: Requires balcony (1=yes, 0=no)
 - `renovated`: Must be renovated (1=yes, 0=no)
 - `airCondition`: Has air conditioning (1=yes, 0=no)
-- `mamad`: Has safe room (1=yes, 0=no)
+- `shelter`: Has safe room (1=yes, 0=no)
 
 ## 📚 Usage Examples
 

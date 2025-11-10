@@ -164,7 +164,7 @@ export default function AssetsPage() {
   const [documentsFilter, setDocumentsFilter] = useState<string>(() => searchParams.get("documents") ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
   const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("rentalSale") ?? "all");
-  const [adTypeFilter, setAdTypeFilter] = useState<string>(() => searchParams.get("adType") ?? "all");
+  const [sellerTypeFilter, setSellerTypeFilter] = useState<string>(() => searchParams.get("sellerType") ?? searchParams.get("adType") ?? "all");
   const [commercialFilter, setCommercialFilter] = useState<string>(() => searchParams.get("commercial") ?? "all");
   const [userAssetsFilter, setUserAssetsFilter] = useState<string>(() => searchParams.get("userAssets") ?? "all");
   const [buildingTypeFilter, setBuildingTypeFilter] = useState<string>(() => searchParams.get("buildingType") ?? "all");
@@ -312,6 +312,120 @@ export default function AssetsPage() {
     const value = searchParams.get("hasElevator");
     return value ?? "all";
   });
+  const [recentDealFilter, setRecentDealFilter] = useState<string>(() => {
+    const value = searchParams.get("recentDeal");
+    return value ?? "all";
+  });
+  const [modelPriceMin, setModelPriceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("modelPriceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [modelPriceMax, setModelPriceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("modelPriceMax");
+    return val ? Number(val) : undefined;
+  });
+  const [antennaDistanceMin, setAntennaDistanceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("antennaDistanceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [antennaDistanceMax, setAntennaDistanceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("antennaDistanceMax");
+    return val ? Number(val) : undefined;
+  });
+  const [shelterDistanceMin, setShelterDistanceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("shelterDistanceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [shelterDistanceMax, setShelterDistanceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("shelterDistanceMax");
+    return val ? Number(val) : undefined;
+  });
+  const [noiseLevelMin, setNoiseLevelMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("noiseLevelMin");
+    return val ? Number(val) : undefined;
+  });
+  const [noiseLevelMax, setNoiseLevelMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("noiseLevelMax");
+    return val ? Number(val) : undefined;
+  });
+  const [greenWithin300mFilter, setGreenWithin300mFilter] = useState<string>(() => {
+    const value = searchParams.get("greenWithin300m");
+    return value ?? "all";
+  });
+  const [schoolsWithin500mFilter, setSchoolsWithin500mFilter] = useState<string>(() => {
+    const value = searchParams.get("schoolsWithin500m");
+    return value ?? "all";
+  });
+  // High Priority Filters
+  const [priceDroppedFilter, setPriceDroppedFilter] = useState<string>(() => {
+    const value = searchParams.get("priceDropped");
+    return value ?? "all";
+  });
+  const [shelterFilter, setShelterFilter] = useState<string>(() => {
+    const value = searchParams.get("shelter");
+    return value ?? "all";
+  });
+  const [accessibilityFilter, setAccessibilityFilter] = useState<string>(() => {
+    const value = searchParams.get("accessibility");
+    return value ?? "all";
+  });
+  const [buildingClassFilter, setBuildingClassFilter] = useState<string>(() => {
+    const value = searchParams.get("buildingClass");
+    return value ?? "all";
+  });
+  const [generalConditionFilter, setGeneralConditionFilter] = useState<string>(() => {
+    const value = searchParams.get("generalCondition");
+    return value ?? "all";
+  });
+  const [investmentYieldMin, setInvestmentYieldMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("investmentYieldMin");
+    return val ? Number(val) : undefined;
+  });
+  const [investmentYieldMax, setInvestmentYieldMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("investmentYieldMax");
+    return val ? Number(val) : undefined;
+  });
+  const [approximateRentMin, setApproximateRentMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("approximateRentMin");
+    return val ? Number(val) : undefined;
+  });
+  const [approximateRentMax, setApproximateRentMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("approximateRentMax");
+    return val ? Number(val) : undefined;
+  });
+  const [commuteTimeMin, setCommuteTimeMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("commuteTimeMin");
+    return val ? Number(val) : undefined;
+  });
+  const [commuteTimeMax, setCommuteTimeMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("commuteTimeMax");
+    return val ? Number(val) : undefined;
+  });
+  const [publishedDaysMax, setPublishedDaysMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("publishedDaysMax");
+    return val ? Number(val) : undefined;
+  });
+  // Madlan Tags
+  const [tagBestSchoolFilter, setTagBestSchoolFilter] = useState<string>(() => {
+    const value = searchParams.get("tagBestSchool");
+    return value ?? "all";
+  });
+  const [tagSafetyFilter, setTagSafetyFilter] = useState<string>(() => {
+    const value = searchParams.get("tagSafety");
+    return value ?? "all";
+  });
+  const [tagFamilyFriendlyFilter, setTagFamilyFriendlyFilter] = useState<string>(() => {
+    const value = searchParams.get("tagFamilyFriendly");
+    return value ?? "all";
+  });
+  const [tagLightRailFilter, setTagLightRailFilter] = useState<string>(() => {
+    const value = searchParams.get("tagLightRail");
+    return value ?? "all";
+  });
+  const [exclusiveFilter, setExclusiveFilter] = useState<string>(() => {
+    const value = searchParams.get("exclusive");
+    return value ?? "all";
+  });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>(() => {
     const urlViewMode = searchParams.get("view");
     if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
@@ -379,6 +493,51 @@ export default function AssetsPage() {
       setViewMode('table')
     }
   }, [isDesktop, isViewportReady, setViewMode, viewMode, viewModeManuallySet, searchParams])
+
+  // Track previous pathname and search params to detect navigation clicks
+  const prevPathnameRef = React.useRef<string | null>(null);
+  const prevSearchParamsRef = React.useRef<string>('');
+  const isNavigatingFromAssetsRef = React.useRef(false);
+
+  // Detect when user clicks navigation (including assets nav while on assets)
+  React.useEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    const currentPathname = pathname;
+    const currentSearchParams = searchParams.toString();
+    const prevSearchParams = prevSearchParamsRef.current;
+    
+    // Initialize on mount
+    if (prevPathname === null) {
+      prevPathnameRef.current = currentPathname;
+      prevSearchParamsRef.current = currentSearchParams;
+      return;
+    }
+
+    // Detect navigation away from /assets
+    const isNavigatingAway = prevPathname === '/assets' && currentPathname !== '/assets';
+    
+    // Detect clicking assets nav while on assets (URL changes from /assets?filters to /assets)
+    const hadFilterParams = prevSearchParams && Array.from(new URLSearchParams(prevSearchParams).keys()).some(
+      key => key !== 'view'
+    );
+    const isClickingAssetsNav = prevPathname === '/assets' && 
+                                 currentPathname === '/assets' &&
+                                 prevSearchParams !== currentSearchParams &&
+                                 hadFilterParams &&
+                                 !Array.from(searchParams.keys()).some(key => key !== 'view');
+    
+    if (isNavigatingAway || isClickingAssetsNav) {
+      isNavigatingFromAssetsRef.current = true;
+      // Reset flag after a short delay
+      setTimeout(() => {
+        isNavigatingFromAssetsRef.current = false;
+      }, 100);
+    }
+    
+    prevPathnameRef.current = currentPathname;
+    prevSearchParamsRef.current = currentSearchParams;
+  }, [pathname, searchParams]);
+
   const { user, isAuthenticated, refreshUser } = useAuth();
   const isAdmin = user?.role === 'admin';
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
@@ -488,7 +647,7 @@ export default function AssetsPage() {
     setDocumentsFilter(searchParams.get("documents") ?? "all");
     setStatusFilter(searchParams.get("status") ?? "all");
     setRentalSaleFilter(searchParams.get("rentalSale") ?? "all");
-    setAdTypeFilter(searchParams.get("adType") ?? "all");
+    setSellerTypeFilter(searchParams.get("sellerType") ?? "all");
     setCommercialFilter(searchParams.get("commercial") ?? "all");
     setUserAssetsFilter(searchParams.get("userAssets") ?? "all");
     setBuildingTypeFilter(searchParams.get("buildingType") ?? "all");
@@ -561,6 +720,7 @@ export default function AssetsPage() {
     setAirConditioningFilter(searchParams.get("airConditioning") ?? "all");
     setStorageRoomFilter(searchParams.get("storageRoom") ?? "all");
     setHasElevatorFilter(searchParams.get("hasElevator") ?? "all");
+    setRecentDealFilter(searchParams.get("recentDeal") ?? "all");
     const pageParam = searchParams.get("page");
     const pageSizeParam = searchParams.get("pageSize");
     setPagination(prev => {
@@ -577,6 +737,11 @@ export default function AssetsPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    // Skip updating URL if we're navigating from assets (prevents loop)
+    if (isNavigatingFromAssetsRef.current) {
+      return;
+    }
+    
     const params = new URLSearchParams(searchParams.toString());
     if (debouncedSearch) {
       params.set("search", debouncedSearch);
@@ -633,10 +798,11 @@ export default function AssetsPage() {
     } else {
       params.delete("rentalSale");
     }
-    if (adTypeFilter && adTypeFilter !== "all") {
-      params.set("adType", adTypeFilter);
+    if (sellerTypeFilter && sellerTypeFilter !== "all") {
+      params.set("sellerType", sellerTypeFilter);
     } else {
-      params.delete("adType");
+      params.delete("sellerType");
+      params.delete("adType"); // Remove old param for backward compatibility
     }
     if (commercialFilter && commercialFilter !== "all") {
       params.set("commercial", commercialFilter);
@@ -848,6 +1014,147 @@ export default function AssetsPage() {
     } else {
       params.delete("hasElevator");
     }
+    if (recentDealFilter && recentDealFilter !== "all") {
+      params.set("recentDeal", recentDealFilter);
+    } else {
+      params.delete("recentDeal");
+    }
+    if (modelPriceMin !== undefined) {
+      params.set("modelPriceMin", modelPriceMin.toString());
+    } else {
+      params.delete("modelPriceMin");
+    }
+    if (modelPriceMax !== undefined) {
+      params.set("modelPriceMax", modelPriceMax.toString());
+    } else {
+      params.delete("modelPriceMax");
+    }
+    if (antennaDistanceMin !== undefined) {
+      params.set("antennaDistanceMin", antennaDistanceMin.toString());
+    } else {
+      params.delete("antennaDistanceMin");
+    }
+    if (antennaDistanceMax !== undefined) {
+      params.set("antennaDistanceMax", antennaDistanceMax.toString());
+    } else {
+      params.delete("antennaDistanceMax");
+    }
+    if (shelterDistanceMin !== undefined) {
+      params.set("shelterDistanceMin", shelterDistanceMin.toString());
+    } else {
+      params.delete("shelterDistanceMin");
+    }
+    if (shelterDistanceMax !== undefined) {
+      params.set("shelterDistanceMax", shelterDistanceMax.toString());
+    } else {
+      params.delete("shelterDistanceMax");
+    }
+    if (noiseLevelMin !== undefined) {
+      params.set("noiseLevelMin", noiseLevelMin.toString());
+    } else {
+      params.delete("noiseLevelMin");
+    }
+    if (noiseLevelMax !== undefined) {
+      params.set("noiseLevelMax", noiseLevelMax.toString());
+    } else {
+      params.delete("noiseLevelMax");
+    }
+    if (greenWithin300mFilter && greenWithin300mFilter !== "all") {
+      params.set("greenWithin300m", greenWithin300mFilter);
+    } else {
+      params.delete("greenWithin300m");
+    }
+    if (schoolsWithin500mFilter && schoolsWithin500mFilter !== "all") {
+      params.set("schoolsWithin500m", schoolsWithin500mFilter);
+    } else {
+      params.delete("schoolsWithin500m");
+    }
+    // High Priority Filters
+    if (priceDroppedFilter && priceDroppedFilter !== "all") {
+      params.set("priceDropped", priceDroppedFilter);
+    } else {
+      params.delete("priceDropped");
+    }
+    if (shelterFilter && shelterFilter !== "all") {
+      params.set("shelter", shelterFilter);
+    } else {
+      params.delete("shelter");
+    }
+    if (accessibilityFilter && accessibilityFilter !== "all") {
+      params.set("accessibility", accessibilityFilter);
+    } else {
+      params.delete("accessibility");
+    }
+    if (buildingClassFilter && buildingClassFilter !== "all") {
+      params.set("buildingClass", buildingClassFilter);
+    } else {
+      params.delete("buildingClass");
+    }
+    if (generalConditionFilter && generalConditionFilter !== "all") {
+      params.set("generalCondition", generalConditionFilter);
+    } else {
+      params.delete("generalCondition");
+    }
+    if (investmentYieldMin !== undefined) {
+      params.set("investmentYieldMin", investmentYieldMin.toString());
+    } else {
+      params.delete("investmentYieldMin");
+    }
+    if (investmentYieldMax !== undefined) {
+      params.set("investmentYieldMax", investmentYieldMax.toString());
+    } else {
+      params.delete("investmentYieldMax");
+    }
+    if (approximateRentMin !== undefined) {
+      params.set("approximateRentMin", approximateRentMin.toString());
+    } else {
+      params.delete("approximateRentMin");
+    }
+    if (approximateRentMax !== undefined) {
+      params.set("approximateRentMax", approximateRentMax.toString());
+    } else {
+      params.delete("approximateRentMax");
+    }
+    if (commuteTimeMin !== undefined) {
+      params.set("commuteTimeMin", commuteTimeMin.toString());
+    } else {
+      params.delete("commuteTimeMin");
+    }
+    if (commuteTimeMax !== undefined) {
+      params.set("commuteTimeMax", commuteTimeMax.toString());
+    } else {
+      params.delete("commuteTimeMax");
+    }
+    if (publishedDaysMax !== undefined) {
+      params.set("publishedDaysMax", publishedDaysMax.toString());
+    } else {
+      params.delete("publishedDaysMax");
+    }
+    if (tagBestSchoolFilter && tagBestSchoolFilter !== "all") {
+      params.set("tagBestSchool", tagBestSchoolFilter);
+    } else {
+      params.delete("tagBestSchool");
+    }
+    if (tagSafetyFilter && tagSafetyFilter !== "all") {
+      params.set("tagSafety", tagSafetyFilter);
+    } else {
+      params.delete("tagSafety");
+    }
+    if (tagFamilyFriendlyFilter && tagFamilyFriendlyFilter !== "all") {
+      params.set("tagFamilyFriendly", tagFamilyFriendlyFilter);
+    } else {
+      params.delete("tagFamilyFriendly");
+    }
+    if (tagLightRailFilter && tagLightRailFilter !== "all") {
+      params.set("tagLightRail", tagLightRailFilter);
+    } else {
+      params.delete("tagLightRail");
+    }
+    if (exclusiveFilter && exclusiveFilter !== "all") {
+      params.set("exclusive", exclusiveFilter);
+    } else {
+      params.delete("exclusive");
+    }
     if (pagination.pageIndex > 0) {
       params.set("page", String(pagination.pageIndex + 1));
     } else {
@@ -877,7 +1184,7 @@ export default function AssetsPage() {
     documentsFilter,
     statusFilter,
     rentalSaleFilter,
-    adTypeFilter,
+    sellerTypeFilter,
     commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
@@ -920,6 +1227,34 @@ export default function AssetsPage() {
     airConditioningFilter,
     storageRoomFilter,
     hasElevatorFilter,
+    recentDealFilter,
+    modelPriceMin,
+    modelPriceMax,
+    antennaDistanceMin,
+    antennaDistanceMax,
+    shelterDistanceMin,
+    shelterDistanceMax,
+    noiseLevelMin,
+    noiseLevelMax,
+    greenWithin300mFilter,
+    schoolsWithin500mFilter,
+    priceDroppedFilter,
+    shelterFilter,
+    accessibilityFilter,
+    buildingClassFilter,
+    generalConditionFilter,
+    investmentYieldMin,
+    investmentYieldMax,
+    approximateRentMin,
+    approximateRentMax,
+    commuteTimeMin,
+    commuteTimeMax,
+    publishedDaysMax,
+    tagBestSchoolFilter,
+    tagSafetyFilter,
+    tagFamilyFriendlyFilter,
+    tagLightRailFilter,
+    exclusiveFilter,
     pagination.pageIndex,
     pagination.pageSize,
     router,
@@ -941,7 +1276,7 @@ export default function AssetsPage() {
     documentsFilter,
     statusFilter,
     rentalSaleFilter,
-    adTypeFilter,
+    sellerTypeFilter,
     commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
@@ -984,6 +1319,23 @@ export default function AssetsPage() {
     airConditioningFilter,
     storageRoomFilter,
     hasElevatorFilter,
+    priceDroppedFilter,
+    shelterFilter,
+    accessibilityFilter,
+    buildingClassFilter,
+    generalConditionFilter,
+    investmentYieldMin,
+    investmentYieldMax,
+    approximateRentMin,
+    approximateRentMax,
+    commuteTimeMin,
+    commuteTimeMax,
+    publishedDaysMax,
+    tagBestSchoolFilter,
+    tagSafetyFilter,
+    tagFamilyFriendlyFilter,
+    tagLightRailFilter,
+    exclusiveFilter,
   ]);
 
   // Function to fetch assets
@@ -1001,7 +1353,7 @@ export default function AssetsPage() {
     if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
     if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
-    if (adTypeFilter && adTypeFilter !== "all") params.set("adType", adTypeFilter);
+    if (sellerTypeFilter && sellerTypeFilter !== "all") params.set("sellerType", sellerTypeFilter);
     if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
     if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);
     if (buildingTypeFilter && buildingTypeFilter !== "all") params.set("buildingType", buildingTypeFilter);
@@ -1044,6 +1396,35 @@ export default function AssetsPage() {
     if (airConditioningFilter && airConditioningFilter !== "all") params.set("airConditioning", airConditioningFilter);
     if (storageRoomFilter && storageRoomFilter !== "all") params.set("storageRoom", storageRoomFilter);
     if (hasElevatorFilter && hasElevatorFilter !== "all") params.set("hasElevator", hasElevatorFilter);
+    if (recentDealFilter && recentDealFilter !== "all") params.set("recentDeal", recentDealFilter);
+    if (modelPriceMin != null) params.set("modelPriceMin", String(modelPriceMin));
+    if (modelPriceMax != null) params.set("modelPriceMax", String(modelPriceMax));
+    if (antennaDistanceMin != null) params.set("antennaDistanceMin", String(antennaDistanceMin));
+    if (antennaDistanceMax != null) params.set("antennaDistanceMax", String(antennaDistanceMax));
+    if (shelterDistanceMin != null) params.set("shelterDistanceMin", String(shelterDistanceMin));
+    if (shelterDistanceMax != null) params.set("shelterDistanceMax", String(shelterDistanceMax));
+    if (noiseLevelMin != null) params.set("noiseLevelMin", String(noiseLevelMin));
+    if (noiseLevelMax != null) params.set("noiseLevelMax", String(noiseLevelMax));
+    if (greenWithin300mFilter && greenWithin300mFilter !== "all") params.set("greenWithin300m", greenWithin300mFilter);
+    if (schoolsWithin500mFilter && schoolsWithin500mFilter !== "all") params.set("schoolsWithin500m", schoolsWithin500mFilter);
+    // High Priority Filters
+    if (priceDroppedFilter && priceDroppedFilter !== "all") params.set("priceDropped", priceDroppedFilter);
+    if (shelterFilter && shelterFilter !== "all") params.set("shelter", shelterFilter);
+    if (accessibilityFilter && accessibilityFilter !== "all") params.set("accessibility", accessibilityFilter);
+    if (buildingClassFilter && buildingClassFilter !== "all") params.set("buildingClass", buildingClassFilter);
+    if (generalConditionFilter && generalConditionFilter !== "all") params.set("generalCondition", generalConditionFilter);
+    if (investmentYieldMin != null) params.set("investmentYieldMin", String(investmentYieldMin));
+    if (investmentYieldMax != null) params.set("investmentYieldMax", String(investmentYieldMax));
+    if (approximateRentMin != null) params.set("approximateRentMin", String(approximateRentMin));
+    if (approximateRentMax != null) params.set("approximateRentMax", String(approximateRentMax));
+    if (commuteTimeMin != null) params.set("commuteTimeMin", String(commuteTimeMin));
+    if (commuteTimeMax != null) params.set("commuteTimeMax", String(commuteTimeMax));
+    if (publishedDaysMax != null) params.set("publishedDaysMax", String(publishedDaysMax));
+    if (tagBestSchoolFilter && tagBestSchoolFilter !== "all") params.set("tagBestSchool", tagBestSchoolFilter);
+    if (tagSafetyFilter && tagSafetyFilter !== "all") params.set("tagSafety", tagSafetyFilter);
+    if (tagFamilyFriendlyFilter && tagFamilyFriendlyFilter !== "all") params.set("tagFamilyFriendly", tagFamilyFriendlyFilter);
+    if (tagLightRailFilter && tagLightRailFilter !== "all") params.set("tagLightRail", tagLightRailFilter);
+    if (exclusiveFilter && exclusiveFilter !== "all") params.set("exclusive", exclusiveFilter);
 
     return params;
   }, [
@@ -1058,7 +1439,7 @@ export default function AssetsPage() {
     documentsFilter,
     statusFilter,
     rentalSaleFilter,
-    adTypeFilter,
+    sellerTypeFilter,
     commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
@@ -1101,6 +1482,34 @@ export default function AssetsPage() {
     airConditioningFilter,
     storageRoomFilter,
     hasElevatorFilter,
+    recentDealFilter,
+    modelPriceMin,
+    modelPriceMax,
+    antennaDistanceMin,
+    antennaDistanceMax,
+    shelterDistanceMin,
+    shelterDistanceMax,
+    noiseLevelMin,
+    noiseLevelMax,
+    greenWithin300mFilter,
+    schoolsWithin500mFilter,
+    priceDroppedFilter,
+    shelterFilter,
+    accessibilityFilter,
+    buildingClassFilter,
+    generalConditionFilter,
+    investmentYieldMin,
+    investmentYieldMax,
+    approximateRentMin,
+    approximateRentMax,
+    commuteTimeMin,
+    commuteTimeMax,
+    publishedDaysMax,
+    tagBestSchoolFilter,
+    tagSafetyFilter,
+    tagFamilyFriendlyFilter,
+    tagLightRailFilter,
+    exclusiveFilter,
   ]);
 
   const fetchAssets = React.useCallback(async () => {
@@ -1955,7 +2364,7 @@ export default function AssetsPage() {
       documents: documentsFilter,
       status: statusFilter,
       rentalSale: rentalSaleFilter,
-      adType: adTypeFilter,
+      sellerType: sellerTypeFilter,
       commercial: commercialFilter,
       userAssets: userAssetsFilter,
       buildingType: buildingTypeFilter,
@@ -2001,7 +2410,7 @@ export default function AssetsPage() {
     };
   }, [
     debouncedSearch, city, typeFilter, priceMin, priceMax, neighborhood, zoning, riskFilter,
-    documentsFilter, statusFilter, rentalSaleFilter, adTypeFilter, commercialFilter,
+    documentsFilter, statusFilter, rentalSaleFilter, sellerTypeFilter, commercialFilter,
     userAssetsFilter, buildingTypeFilter, floorMin, floorMax, areaMin, areaMax,
     bedroomsMin, bedroomsMax, bathroomsMin, bathroomsMax, totalFloorsMin, totalFloorsMax,
     totalAreaMin, totalAreaMax, balconyAreaMin, balconyAreaMax, parkingSpacesMin, parkingSpacesMax,
@@ -2028,7 +2437,8 @@ export default function AssetsPage() {
     if (filterData.documents !== undefined) setDocumentsFilter(filterData.documents || 'all');
     if (filterData.status !== undefined) setStatusFilter(filterData.status || 'all');
     if (filterData.rentalSale !== undefined) setRentalSaleFilter(filterData.rentalSale || 'all');
-    if (filterData.adType !== undefined) setAdTypeFilter(filterData.adType || 'all');
+    if (filterData.sellerType !== undefined) setSellerTypeFilter(filterData.sellerType || 'all');
+    if (filterData.adType !== undefined) setSellerTypeFilter(filterData.adType || 'all'); // Backward compatibility
     if (filterData.commercial !== undefined) setCommercialFilter(filterData.commercial || 'all');
     if (filterData.userAssets !== undefined) setUserAssetsFilter(filterData.userAssets || 'all');
     if (filterData.buildingType !== undefined) setBuildingTypeFilter(filterData.buildingType || 'all');
@@ -2230,7 +2640,7 @@ export default function AssetsPage() {
     []
   );
 
-  const adTypeFilterOptions = React.useMemo(
+  const sellerTypeFilterOptions = React.useMemo(
     () => [
       { value: "private", label: "פרטי" },
       { value: "broker", label: "מתווך" },
@@ -2614,10 +3024,10 @@ export default function AssetsPage() {
                   onChange: setRentalSaleFilter,
                   options: rentalSaleFilterOptions
                 },
-                adType: {
-                  value: adTypeFilter,
-                  onChange: setAdTypeFilter,
-                  options: adTypeFilterOptions
+                sellerType: {
+                  value: sellerTypeFilter,
+                  onChange: setSellerTypeFilter,
+                  options: sellerTypeFilterOptions
                 },
                 commercial: {
                   value: commercialFilter,
@@ -2652,7 +3062,7 @@ export default function AssetsPage() {
                 },
                 bedrooms: {
                   value: { min: bedroomsMin, max: bedroomsMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setBedroomsMin(min);
                     setBedroomsMax(max);
                   },
@@ -2661,7 +3071,7 @@ export default function AssetsPage() {
                 },
                 bathrooms: {
                   value: { min: bathroomsMin, max: bathroomsMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setBathroomsMin(min);
                     setBathroomsMax(max);
                   },
@@ -2670,7 +3080,7 @@ export default function AssetsPage() {
                 },
                 totalFloors: {
                   value: { min: totalFloorsMin, max: totalFloorsMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setTotalFloorsMin(min);
                     setTotalFloorsMax(max);
                   },
@@ -2679,7 +3089,7 @@ export default function AssetsPage() {
                 },
                 totalArea: {
                   value: { min: totalAreaMin, max: totalAreaMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setTotalAreaMin(min);
                     setTotalAreaMax(max);
                   },
@@ -2688,7 +3098,7 @@ export default function AssetsPage() {
                 },
                 balconyArea: {
                   value: { min: balconyAreaMin, max: balconyAreaMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setBalconyAreaMin(min);
                     setBalconyAreaMax(max);
                   },
@@ -2697,7 +3107,7 @@ export default function AssetsPage() {
                 },
                 parkingSpaces: {
                   value: { min: parkingSpacesMin, max: parkingSpacesMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setParkingSpacesMin(min);
                     setParkingSpacesMax(max);
                   },
@@ -2706,7 +3116,7 @@ export default function AssetsPage() {
                 },
                 yearBuilt: {
                   value: { min: yearBuiltMin, max: yearBuiltMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setYearBuiltMin(min);
                     setYearBuiltMax(max);
                   },
@@ -2716,7 +3126,7 @@ export default function AssetsPage() {
                 },
                 rentPrice: {
                   value: { min: rentPriceMin, max: rentPriceMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setRentPriceMin(min);
                     setRentPriceMax(max);
                   },
@@ -2725,7 +3135,7 @@ export default function AssetsPage() {
                 },
                 rentEstimate: {
                   value: { min: rentEstimateMin, max: rentEstimateMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setRentEstimateMin(min);
                     setRentEstimateMax(max);
                   },
@@ -2734,7 +3144,7 @@ export default function AssetsPage() {
                 },
                 priceGapPct: {
                   value: { min: priceGapPctMin, max: priceGapPctMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setPriceGapPctMin(min);
                     setPriceGapPctMax(max);
                   },
@@ -2744,7 +3154,7 @@ export default function AssetsPage() {
                 },
                 capRatePct: {
                   value: { min: capRatePctMin, max: capRatePctMax },
-                  onChange: ({ min, max }) => {
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
                     setCapRatePctMin(min);
                     setCapRatePctMax(max);
                   },
@@ -2807,7 +3217,192 @@ export default function AssetsPage() {
                     { value: 'false', label: 'ללא מעלית' },
                   ]
                 },
-              }}
+                recentDeal: {
+                  value: recentDealFilter,
+                  onChange: setRecentDealFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'כן' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                modelPrice: {
+                  value: { min: modelPriceMin, max: modelPriceMax },
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
+                    setModelPriceMin(min);
+                    setModelPriceMax(max);
+                  },
+                  minPlaceholder: 'מחיר שוק מינ',
+                  maxPlaceholder: 'מחיר שוק מקס',
+                },
+                antennaDistanceM: {
+                  value: { min: antennaDistanceMin, max: antennaDistanceMax },
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
+                    setAntennaDistanceMin(min);
+                    setAntennaDistanceMax(max);
+                  },
+                  minPlaceholder: 'מרחק מינ (מ")',
+                  maxPlaceholder: 'מרחק מקס (מ")',
+                },
+                shelterDistanceM: {
+                  value: { min: shelterDistanceMin, max: shelterDistanceMax },
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
+                    setShelterDistanceMin(min);
+                    setShelterDistanceMax(max);
+                  },
+                  minPlaceholder: 'מרחק מינ (מ")',
+                  maxPlaceholder: 'מרחק מקס (מ")',
+                },
+                noiseLevel: {
+                  value: { min: noiseLevelMin, max: noiseLevelMax },
+                  onChange: ({ min, max }: { min: number | undefined, max: number | undefined }) => {
+                    setNoiseLevelMin(min);
+                    setNoiseLevelMax(max);
+                  },
+                  minPlaceholder: 'רמת רעש מינ (0-5)',
+                  maxPlaceholder: 'רמת רעש מקס (0-5)',
+                  step: 0.5,
+                },
+                greenWithin300m: {
+                  value: greenWithin300mFilter,
+                  onChange: setGreenWithin300mFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'כן' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                schoolsWithin500m: {
+                  value: schoolsWithin500mFilter,
+                  onChange: setSchoolsWithin500mFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'כן' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                // High Priority Filters
+                priceDropped: {
+                  value: priceDroppedFilter,
+                  onChange: setPriceDroppedFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'יש הורדת מחיר' },
+                    { value: 'false', label: 'ללא הורדת מחיר' },
+                  ]
+                },
+                shelter: {
+                  value: shelterFilter,
+                  onChange: setShelterFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'עם מקלט' },
+                    { value: 'false', label: 'ללא מקלט' },
+                  ]
+                },
+                accessibility: {
+                  value: accessibilityFilter,
+                  onChange: setAccessibilityFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'נגיש' },
+                    { value: 'false', label: 'לא נגיש' },
+                  ]
+                },
+                buildingClass: {
+                  value: buildingClassFilter,
+                  onChange: setBuildingClassFilter,
+                  options: [] // Will be populated from filterMetadata
+                },
+                generalCondition: {
+                  value: generalConditionFilter,
+                  onChange: setGeneralConditionFilter,
+                  options: [] // Will be populated from filterMetadata
+                },
+                investmentYield: {
+                  value: { min: investmentYieldMin, max: investmentYieldMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setInvestmentYieldMin(min);
+                    setInvestmentYieldMax(max);
+                  },
+                  minPlaceholder: 'תשואה מינ %',
+                  maxPlaceholder: 'תשואה מקס %',
+                  step: 0.1,
+                },
+                approximateRent: {
+                  value: { min: approximateRentMin, max: approximateRentMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setApproximateRentMin(min);
+                    setApproximateRentMax(max);
+                  },
+                  minPlaceholder: 'שכירות משוערת מינ',
+                  maxPlaceholder: 'שכירות משוערת מקס',
+                },
+                commuteTime: {
+                  value: { min: commuteTimeMin, max: commuteTimeMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setCommuteTimeMin(min);
+                    setCommuteTimeMax(max);
+                  },
+                  minPlaceholder: 'זמן נסיעה מינ (דקות)',
+                  maxPlaceholder: 'זמן נסיעה מקס (דקות)',
+                  step: 1,
+                },
+                publishedDays: {
+                  value: { min: undefined, max: publishedDaysMax },
+                  onChange: ({ min, max }: { min?: number; max?: number }) => {
+                    setPublishedDaysMax(max);
+                  },
+                  minPlaceholder: '',
+                  maxPlaceholder: 'פורסם ב-X ימים האחרונים',
+                  step: 1,
+                },
+                tagBestSchool: {
+                  value: tagBestSchoolFilter,
+                  onChange: setTagBestSchoolFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'ליד בתי ספר מצוינים' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                tagSafety: {
+                  value: tagSafetyFilter,
+                  onChange: setTagSafetyFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'בטוח' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                tagFamilyFriendly: {
+                  value: tagFamilyFriendlyFilter,
+                  onChange: setTagFamilyFriendlyFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'ידידותי למשפחה' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                tagLightRail: {
+                  value: tagLightRailFilter,
+                  onChange: setTagLightRailFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'ליד רכבת קלה' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                exclusive: {
+                  value: exclusiveFilter,
+                  onChange: setExclusiveFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'בלעדי' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+              } as any}
               onRefresh={fetchAssets}
               onAddNew={() => {
                 if (isAuthenticated) {

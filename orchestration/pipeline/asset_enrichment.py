@@ -1371,11 +1371,32 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         (value for value in recent_deal_candidates if value is not None),
                         None,
                     )
+                    # Extract ad_type from multiple possible locations
+                    ad_type_value = (
+                        listing.get('ad_type') or 
+                        listing.get('adType') or
+                        listing_meta.get('ad_type') or
+                        listing_meta.get('adType') or
+                        (listing_meta.get('raw') or {}).get('adType') if isinstance(listing_meta.get('raw'), dict) else None
+                    )
+                    
+                    # Fallback: infer ad_type from other fields if missing
+                    if not ad_type_value:
+                        contact_info = listing.get('contact_info') or listing.get('contactInfo') or {}
+                        features = listing.get('features') or {}
+                        has_agency = (
+                            bool(contact_info.get('agent')) or
+                            bool(features.get('agency')) or
+                            bool(listing_meta.get('customer', {}).get('agencyName') if isinstance(listing_meta.get('customer'), dict) else None)
+                        )
+                        if has_agency:
+                            ad_type_value = 'broker'
+                    
                     listing_defaults = {
                         'title': listing.get('title'),
                         'url': listing.get('url'),
                         'raw': listing,
-                        'status': listing.get('status') or (listing.get('meta') or {}).get('status') or 'active',
+                        'status': listing.get('status') or listing_meta.get('status') or 'active',
                         'price': listing.get('price'),
                         'rooms': listing.get('rooms'),
                         'area': listing.get('area'),
@@ -1383,7 +1404,7 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         'recent_deal': bool(recent_deal_value) if recent_deal_value is not None else False,
                         # Persist commonly used fields for UI/filters
                         'listing_type': listing.get('listing_type') or listing.get('listingType'),
-                        'ad_type': listing.get('ad_type') or listing.get('adType'),
+                        'ad_type': ad_type_value,
                         'contact_name': listing.get('contact_name') or listing.get('contactName') or ((listing.get('contact_info') or {}).get('name') if isinstance(listing.get('contact_info'), dict) else None),
                         'contact_phone': (listing.get('contact_phone') or listing.get('contactPhone') or ((listing.get('contact_info') or {}).get('phone') if isinstance(listing.get('contact_info'), dict) else None) or ((listing.get('contact_info') or {}).get('brokerPhone') if isinstance(listing.get('contact_info'), dict) else None)),
                         'photos': listing.get('photos') or listing.get('images') or [],
@@ -2017,6 +2038,64 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         asset.ad_type = ad_type
         update_fields.add('ad_type')
 
+    # Extract all high-priority fields from best listing (same fields as frontend expects)
+    # These fields are already normalized in best_listing, but we extract them for primary_listing_source
+    
+    # Price-related fields
+    price_dropped = best_listing.get('priceDropped') or best_listing.get('price_dropped')
+    previous_price = best_listing.get('previousPrice') or best_listing.get('previous_price')
+    
+    # Property features
+    shelter = best_listing.get('shelter')
+    accessibility = best_listing.get('accessibility')
+    
+    # Property condition and class
+    building_class = best_listing.get('buildingClass') or best_listing.get('building_class')
+    general_condition = best_listing.get('generalCondition') or best_listing.get('general_condition')
+    
+    # Investment data
+    investment_yield = best_listing.get('investmentYield') or best_listing.get('investment_yield')
+    approximate_rent = best_listing.get('approximateRent') or best_listing.get('approximate_rent')
+    commute_time = best_listing.get('commuteTime') or best_listing.get('commute_time')
+    
+    # Date fields
+    published_days = best_listing.get('publishedDays') or best_listing.get('published_days')
+    date_posted = best_listing.get('datePosted') or best_listing.get('date_posted')
+    
+    # Tags
+    tag_best_school = best_listing.get('tagBestSchool') or best_listing.get('tag_best_school')
+    tag_safety = best_listing.get('tagSafety') or best_listing.get('tag_safety')
+    tag_family_friendly = best_listing.get('tagFamilyFriendly') or best_listing.get('tag_family_friendly')
+    tag_light_rail = best_listing.get('tagLightRail') or best_listing.get('tag_light_rail')
+    tag_park_access = best_listing.get('tagParkAccess') or best_listing.get('tag_park_access')
+    tag_quiet_street = best_listing.get('tagQuietStreet') or best_listing.get('tag_quiet_street')
+    tag_commute = best_listing.get('tagCommute') or best_listing.get('tag_commute')
+    
+    # Extract exclusivity from best listing
+    # First check if already normalized in the listing
+    exclusive = best_listing.get('exclusive')
+    if exclusive is None:
+        # Fallback: extract from raw data (same logic as backend normalization)
+        listing_meta = best_listing.get('meta', {})
+        if isinstance(listing_meta, dict):
+            # Check Madlan exclusivity
+            poc = listing_meta.get('poc', {})
+            if isinstance(poc, dict):
+                exclusivity = poc.get('exclusivity', {})
+                if isinstance(exclusivity, dict):
+                    madlan_exclusive = exclusivity.get('exclusive')
+                    if madlan_exclusive is not None:
+                        exclusive = bool(madlan_exclusive)
+            
+            # Check Yad2 exclusivity (preferred over Madlan)
+            raw_data = best_listing.get('raw') or listing_meta.get('raw', {})
+            if isinstance(raw_data, dict):
+                in_property = raw_data.get('inProperty', {})
+                if isinstance(in_property, dict):
+                    yad2_exclusive = in_property.get('isAssetExclusive')
+                    if yad2_exclusive is not None:
+                        exclusive = bool(yad2_exclusive)
+
     # Store source information in meta
     if asset.meta is None:
         asset.meta = {}
@@ -2040,6 +2119,48 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
             primary_listing_source['rent_price'] = listing_price
         else:
             primary_listing_source['price'] = listing_price
+    
+    # Store all high-priority fields from listing in primary_listing_source
+    # These will be used by the serializer to enhance the normalized listing data
+    if price_dropped is not None:
+        primary_listing_source['priceDropped'] = bool(price_dropped) if isinstance(price_dropped, bool) else price_dropped
+    if previous_price is not None:
+        primary_listing_source['previousPrice'] = previous_price
+    if shelter is not None:
+        primary_listing_source['shelter'] = bool(shelter) if isinstance(shelter, bool) else shelter
+    if accessibility is not None:
+        primary_listing_source['accessibility'] = bool(accessibility) if isinstance(accessibility, bool) else accessibility
+    if building_class is not None:
+        primary_listing_source['buildingClass'] = building_class
+    if general_condition is not None:
+        primary_listing_source['generalCondition'] = general_condition
+    if investment_yield is not None:
+        primary_listing_source['investmentYield'] = investment_yield
+    if approximate_rent is not None:
+        primary_listing_source['approximateRent'] = approximate_rent
+    if commute_time is not None:
+        primary_listing_source['commuteTime'] = commute_time
+    if published_days is not None:
+        primary_listing_source['publishedDays'] = published_days
+    if date_posted is not None:
+        primary_listing_source['datePosted'] = date_posted
+    if tag_best_school is not None:
+        primary_listing_source['tagBestSchool'] = bool(tag_best_school) if isinstance(tag_best_school, bool) else tag_best_school
+    if tag_safety is not None:
+        primary_listing_source['tagSafety'] = bool(tag_safety) if isinstance(tag_safety, bool) else tag_safety
+    if tag_family_friendly is not None:
+        primary_listing_source['tagFamilyFriendly'] = bool(tag_family_friendly) if isinstance(tag_family_friendly, bool) else tag_family_friendly
+    if tag_light_rail is not None:
+        primary_listing_source['tagLightRail'] = bool(tag_light_rail) if isinstance(tag_light_rail, bool) else tag_light_rail
+    if tag_park_access is not None:
+        primary_listing_source['tagParkAccess'] = bool(tag_park_access) if isinstance(tag_park_access, bool) else tag_park_access
+    if tag_quiet_street is not None:
+        primary_listing_source['tagQuietStreet'] = bool(tag_quiet_street) if isinstance(tag_quiet_street, bool) else tag_quiet_street
+    if tag_commute is not None:
+        primary_listing_source['tagCommute'] = bool(tag_commute) if isinstance(tag_commute, bool) else tag_commute
+    if exclusive is not None:
+        primary_listing_source['exclusive'] = bool(exclusive)
+        logger.debug('[ASSET_FIELDS] Set exclusive from listing: %s', exclusive)
 
     asset.meta['primary_listing_source'] = primary_listing_source
     update_fields.add('meta')

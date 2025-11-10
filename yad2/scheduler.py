@@ -7,7 +7,7 @@ from typing import Iterable, Optional
 
 from orchestration.alerts import Notifier
 from orchestration.scheduler import create_scheduler
-from yad2.scrapers.yad2_scraper import Yad2Scraper
+from yad2.api_client import Yad2APIClient
 
 # Import Django models if available
 try:
@@ -175,8 +175,8 @@ def fetch_and_store(
     """Fetch assets from Yad2 and store them in the database."""
     
     try:
-        scraper = Yad2Scraper()
-        assets = scraper.fetch_listings()
+        client = Yad2APIClient()
+        assets = client.fetch_listings()
         _store_assets(assets, notifier=notifier)
     except Exception as e:
         print(f"Error fetching Yad2 data: {e}")

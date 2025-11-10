@@ -18,21 +18,27 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Import MCP server functions (only the ones that actually exist)
+# Import MCP server functions
 from yad2.mcp_server import (
     build_search_url,
     get_all_property_types,
     get_search_parameters_reference,
-    search_locations,
-    search_real_estate,
+    fetch_listings,
+    fetch_contact_info,
+    fetch_project_autocomplete,
+    fetch_location_autocomplete,
+    fetch_latest_deals,
 )
 
 # Extract the underlying functions from the FastMCP tools
 get_all_property_types_func = get_all_property_types.fn
-search_locations_func = search_locations.fn
 get_search_parameters_reference_func = get_search_parameters_reference.fn
 build_search_url_func = build_search_url.fn
-search_real_estate_func = search_real_estate.fn
+fetch_listings_func = fetch_listings.fn
+fetch_contact_info_func = fetch_contact_info.fn
+fetch_project_autocomplete_func = fetch_project_autocomplete.fn
+fetch_location_autocomplete_func = fetch_location_autocomplete.fn
+fetch_latest_deals_func = fetch_latest_deals.fn
 
 # Mock context for testing
 class MockContext:
@@ -43,12 +49,60 @@ class MockContext:
     
     async def error(self, message):
         print(f"ERROR: {message}")
+    
+    async def warning(self, message):
+        print(f"WARNING: {message}")
 
 
 @pytest.fixture
 def mock_ctx():
     """Provide mock context for tests."""
     return MockContext()
+
+
+@pytest.fixture
+def mock_listing():
+    """Create a mock RealEstateListing object."""
+    listing = Mock()
+    listing.title = "Test Apartment"
+    listing.price = 2000000
+    listing.address = "Test Street 1, Tel Aviv"
+    listing.rooms = 3
+    listing.size = 80
+    listing.floor = 5
+    listing.property_type = "דירה"
+    listing.url = "https://yad2.co.il/item/test123"
+    listing.listing_id = "test123"
+    listing.contact_info = None
+    return listing
+
+
+@pytest.fixture
+def mock_contact_info():
+    """Create a mock ContactInfo object."""
+    contact = Mock()
+    contact.to_dict = Mock(return_value={
+        "name": "Test Broker",
+        "phone": "050-1234567",
+        "agencyName": "Test Agency"
+    })
+    return contact
+
+
+@pytest.fixture
+def mock_deal():
+    """Create a mock deal object."""
+    deal = Mock()
+    deal.title = "Test Deal"
+    deal.price = 1800000
+    deal.address = "Test Street 1, Tel Aviv"
+    deal.rooms = 3
+    deal.size = 80
+    deal.floor = 5
+    deal.property_type = "דירה"
+    deal.date_posted = "2024-01-01"
+    deal.recent_deal = True
+    return deal
 
 
 class TestPropertyTypeFunctionality:
@@ -72,35 +126,6 @@ class TestPropertyTypeFunctionality:
             assert "english" in prop_type
             assert "code" in prop_type
             assert prop_type["code"] == code
-
-
-class TestLocationServices:
-    """Test location service functions."""
-
-    @pytest.mark.asyncio
-    async def test_search_locations(self, mock_ctx):
-        """Test location search."""
-        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
-            mock_scraper = Mock()
-            mock_scraper.fetch_location_data.return_value = {
-                "cities": ["רמת גן", "רמת השרון"],
-                "neighborhoods": ["רמת החייל", "רמת אביב"]
-            }
-            mock_scraper_class.return_value = mock_scraper
-            
-            result = await search_locations_func(mock_ctx, search_text="רמת")
-
-            assert result["success"] is True
-            assert "locations" in result
-            assert "search_text" in result
-            assert result["search_text"] == "רמת"
-
-            # Should have some location data
-            locations = result["locations"]
-            assert isinstance(locations, dict)
-            
-            # Verify the mock was called correctly
-            mock_scraper.fetch_location_data.assert_called_once_with("רמת")
 
 
 class TestSearchFunctionality:
@@ -155,151 +180,314 @@ class TestSearchFunctionality:
         # Should convert Hebrew to code
         params = result["parameters"]
         assert "property" in params
+
+
+class TestFetchListings:
+    """Test fetch_listings functionality."""
     
     @pytest.mark.asyncio
-    async def test_search_real_estate(self, mock_ctx):
-        """Test real estate search."""
-        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
-            mock_scraper = Mock()
-            mock_scraper.get_search_summary.return_value = {
-                "search_url": "https://www.yad2.co.il/realestate/forsale?property=5&city=5000",
-                "parameters": {"property": "5", "city": "5000"},
-                "parameter_descriptions": {"property": "Property Type", "city": "City"}
-            }
-            # Create mock asset objects with the required attributes
-            mock_asset1 = Mock()
-            mock_asset1.title = "Test Property 1"
-            mock_asset1.price = "1000000"
-            mock_asset1.address = "Test Address 1"
-            mock_asset1.rooms = "3"
-            mock_asset1.size = "80"
-            mock_asset1.floor = "2"
-            mock_asset1.url = "https://example.com/property1"
-            
-            mock_asset2 = Mock()
-            mock_asset2.title = "Test Property 2"
-            mock_asset2.price = "1500000"
-            mock_asset2.address = "Test Address 2"
-            mock_asset2.rooms = "4"
-            mock_asset2.size = "100"
-            mock_asset2.floor = "1"
-            mock_asset2.url = "https://example.com/property2"
-            
-            mock_scraper.scrape_all_pages.return_value = [mock_asset1, mock_asset2]
-            mock_scraper_class.return_value = mock_scraper
-            
-            # Test with basic search
-            result = await search_real_estate_func(
-                mock_ctx,
-                property="5",
-                city="5000",
-                neighborhood="203",
-                max_pages=1
-            )
-
-            assert result["success"] is True
-            assert "total_assets" in result
-            assert "assets_preview" in result
-            assert "search_url" in result
-
-            # Should have some results
-            assert result["total_assets"] >= 0
-            assert isinstance(result["assets_preview"], list)
-            
-            # Verify the mock was called
-            mock_scraper.scrape_all_pages.assert_called_once_with(max_pages=1, delay=1)
-
-
-class TestIntegration:
-    """Integration tests for complex workflows."""
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_listings_success(self, mock_api_client, mock_ctx, mock_listing):
+        """Test successful fetch_listings call."""
+        # Setup mock
+        mock_api_client.fetch_listings.return_value = [mock_listing]
+        
+        # Call function
+        result = await fetch_listings_func(
+            mock_ctx,
+            city="5000",
+            property="1",
+            listing_type="sale"
+        )
+        
+        # Verify results
+        assert result["success"] is True
+        assert result["total_listings"] == 1
+        assert "listings_preview" in result
+        assert "parameters" in result
+        assert len(result["listings_preview"]) == 1
+        assert result["listings_preview"][0]["title"] == "Test Apartment"
+        assert result["listings_preview"][0]["price"] == 2000000
+        
+        # Verify API was called correctly
+        mock_api_client.fetch_listings.assert_called_once()
+        call_kwargs = mock_api_client.fetch_listings.call_args[1]
+        assert call_kwargs["listing_type"] == "sale"
     
     @pytest.mark.asyncio
-    async def test_property_search_workflow(self, mock_ctx):
-        """Test a complete property search workflow."""
-        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
-            mock_scraper = Mock()
-            mock_scraper.get_property_types.return_value = {
-                1: "דירה",
-                5: "בית פרטי",
-                6: "נטהאוס"
-            }
-            mock_scraper.get_search_summary.return_value = {
-                "search_url": "https://www.yad2.co.il/realestate/forsale?property=5&city=5000",
-                "parameters": {"property": "5", "city": "5000"},
-                "parameter_descriptions": {"property": "Property Type", "city": "City"}
-            }
-            # Create mock asset object with the required attributes
-            mock_asset = Mock()
-            mock_asset.title = "Test Property 1"
-            mock_asset.price = "1000000"
-            mock_asset.address = "Test Address 1"
-            mock_asset.rooms = "3"
-            mock_asset.size = "80"
-            mock_asset.floor = "2"
-            mock_asset.url = "https://example.com/property1"
-            
-            mock_scraper.scrape_all_pages.return_value = [mock_asset]
-            mock_scraper_class.return_value = mock_scraper
-            
-            # Step 1: Get all property types
-            all_types = await get_all_property_types_func(mock_ctx)
-            assert all_types["success"] is True
-            
-            # Step 2: Get search parameters reference
-            params_ref = await get_search_parameters_reference_func(mock_ctx)
-            # This function doesn't return a 'success' key
-            assert "categories" in params_ref
-            
-            # Step 3: Build a search URL
-            search_url = await build_search_url_func(
-                mock_ctx,
-                property="5",
-                city="5000"
-            )
-            assert search_url["success"] is True
-            
-            # Step 4: Perform a search
-            search_results = await search_real_estate_func(
-                mock_ctx,
-                property="5",
-                city="5000",
-                max_pages=1
-            )
-            assert search_results["success"] is True
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_listings_no_results(self, mock_api_client, mock_ctx):
+        """Test fetch_listings with no results."""
+        # Setup mock
+        mock_api_client.fetch_listings.return_value = []
+        
+        # Call function
+        result = await fetch_listings_func(
+            mock_ctx,
+            city="5000"
+        )
+        
+        # Verify results
+        assert result["success"] is False
+        assert "message" in result
+        assert "No listings found" in result["message"]
+        assert "parameters" in result
     
     @pytest.mark.asyncio
-    async def test_location_workflow(self, mock_ctx):
-        """Test a complete location workflow."""
-        with patch('yad2.mcp_server.Yad2Scraper') as mock_scraper_class:
-            mock_scraper = Mock()
-            mock_scraper.fetch_location_data.return_value = {
-                "cities": ["רמת גן", "רמת השרון"],
-                "neighborhoods": ["רמת החייל", "רמת אביב"],
-                "hoods": [
-                    {"cityId": "5000", "hoodId": "203", "name": "רמת החייל"}
-                ]
-            }
-            mock_scraper_class.return_value = mock_scraper
-            
-            # Step 1: Search for locations
-            locations = await search_locations_func(mock_ctx, search_text="רמת")
-            assert locations["success"] is True
-            
-            # Step 2: Use location in search
-            if locations["locations"].get("hoods"):
-                # Get first neighborhood
-                first_hood = locations["locations"]["hoods"][0]
-                city_id = first_hood["cityId"]
-                hood_id = first_hood["hoodId"]
-                
-                # Build search URL with found location
-                search_url = await build_search_url_func(
-                    mock_ctx,
-                    property="5",
-                    city=city_id,
-                    neighborhood=hood_id
-                )
-                assert search_url["success"] is True
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_listings_with_hebrew_property(self, mock_api_client, mock_ctx, mock_listing):
+        """Test fetch_listings with Hebrew property name."""
+        # Setup mock
+        mock_api_client.fetch_listings.return_value = [mock_listing]
+        
+        # Call function with Hebrew property name
+        result = await fetch_listings_func(
+            mock_ctx,
+            property="דירה",
+            city="5000"
+        )
+        
+        # Verify results
+        assert result["success"] is True
+        assert result["total_listings"] == 1
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_listings_error(self, mock_api_client, mock_ctx):
+        """Test fetch_listings error handling."""
+        # Setup mock to raise exception
+        mock_api_client.fetch_listings.side_effect = Exception("API Error")
+        
+        # Call function
+        result = await fetch_listings_func(
+            mock_ctx,
+            city="5000"
+        )
+        
+        # Verify error handling
+        assert result["success"] is False
+        assert "error" in result
+        assert "API Error" in result["error"]
+
+
+class TestFetchContactInfo:
+    """Test fetch_contact_info functionality."""
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_contact_info_success(self, mock_api_client, mock_ctx, mock_contact_info):
+        """Test successful fetch_contact_info call."""
+        # Setup mock
+        mock_api_client.fetch_contact_info.return_value = mock_contact_info
+        
+        # Call function
+        result = await fetch_contact_info_func(mock_ctx, token="test123")
+        
+        # Verify results
+        assert result["success"] is True
+        assert "contact" in result
+        assert result["contact"]["name"] == "Test Broker"
+        assert result["contact"]["phone"] == "050-1234567"
+        
+        # Verify API was called correctly
+        mock_api_client.fetch_contact_info.assert_called_once_with("test123")
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_contact_info_not_found(self, mock_api_client, mock_ctx):
+        """Test fetch_contact_info when contact not found."""
+        # Setup mock
+        mock_api_client.fetch_contact_info.return_value = None
+        
+        # Call function
+        result = await fetch_contact_info_func(mock_ctx, token="test123")
+        
+        # Verify results
+        assert result["success"] is False
+        assert "message" in result
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_contact_info_error(self, mock_api_client, mock_ctx):
+        """Test fetch_contact_info error handling."""
+        # Setup mock to raise exception
+        mock_api_client.fetch_contact_info.side_effect = Exception("API Error")
+        
+        # Call function
+        result = await fetch_contact_info_func(mock_ctx, token="test123")
+        
+        # Verify error handling
+        assert result["success"] is False
+        assert "error" in result
+
+
+class TestFetchProjectAutocomplete:
+    """Test fetch_project_autocomplete functionality."""
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_project_autocomplete_success(self, mock_api_client, mock_ctx):
+        """Test successful fetch_project_autocomplete call."""
+        # Setup mock
+        mock_project = {"id": "123", "name": "Test Project"}
+        mock_api_client.fetch_project_autocomplete.return_value = mock_project
+        
+        # Call function
+        result = await fetch_project_autocomplete_func(mock_ctx, phrase="Test Project")
+        
+        # Verify results
+        assert result["success"] is True
+        assert "project" in result
+        assert result["project"]["name"] == "Test Project"
+        
+        # Verify API was called correctly
+        mock_api_client.fetch_project_autocomplete.assert_called_once_with("Test Project")
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_project_autocomplete_not_found(self, mock_api_client, mock_ctx):
+        """Test fetch_project_autocomplete when project not found."""
+        # Setup mock
+        mock_api_client.fetch_project_autocomplete.return_value = None
+        
+        # Call function
+        result = await fetch_project_autocomplete_func(mock_ctx, phrase="Nonexistent")
+        
+        # Verify results
+        assert result["success"] is False
+        assert "message" in result
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_project_autocomplete_error(self, mock_api_client, mock_ctx):
+        """Test fetch_project_autocomplete error handling."""
+        # Setup mock to raise exception
+        mock_api_client.fetch_project_autocomplete.side_effect = Exception("API Error")
+        
+        # Call function
+        result = await fetch_project_autocomplete_func(mock_ctx, phrase="Test")
+        
+        # Verify error handling
+        assert result["success"] is False
+        assert "error" in result
+
+
+class TestFetchLocationAutocomplete:
+    """Test fetch_location_autocomplete functionality."""
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_location_autocomplete_success(self, mock_api_client, mock_ctx):
+        """Test successful fetch_location_autocomplete call."""
+        # Setup mock
+        from yad2.core import Yad2SearchParameters
+        mock_params = Yad2SearchParameters()
+        mock_params.set_parameter("city", 5000)
+        mock_params.set_parameter("neighborhood", 203)
+        mock_params.get_active_parameters = Mock(return_value={"city": 5000, "neighborhood": 203})
+        mock_api_client.fetch_location_autocomplete.return_value = mock_params
+        
+        # Call function
+        result = await fetch_location_autocomplete_func(mock_ctx, search_text="רמת החייל")
+        
+        # Verify results
+        assert result["success"] is True
+        assert "search_text" in result
+        assert result["search_text"] == "רמת החייל"
+        assert "search_parameters" in result
+        assert result["search_parameters"]["city"] == 5000
+        
+        # Verify API was called correctly
+        mock_api_client.fetch_location_autocomplete.assert_called_once_with("רמת החייל")
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_location_autocomplete_not_found(self, mock_api_client, mock_ctx):
+        """Test fetch_location_autocomplete when location not found."""
+        # Setup mock
+        mock_api_client.fetch_location_autocomplete.return_value = None
+        
+        # Call function
+        result = await fetch_location_autocomplete_func(mock_ctx, search_text="Nonexistent Location")
+        
+        # Verify results
+        assert result["success"] is False
+        assert "message" in result
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_location_autocomplete_error(self, mock_api_client, mock_ctx):
+        """Test fetch_location_autocomplete error handling."""
+        # Setup mock to raise exception
+        mock_api_client.fetch_location_autocomplete.side_effect = Exception("API Error")
+        
+        # Call function
+        result = await fetch_location_autocomplete_func(mock_ctx, search_text="Test")
+        
+        # Verify error handling
+        assert result["success"] is False
+        assert "error" in result
+
+
+class TestFetchLatestDeals:
+    """Test fetch_latest_deals functionality."""
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_latest_deals_success(self, mock_api_client, mock_ctx, mock_deal):
+        """Test successful fetch_latest_deals call."""
+        # Setup mock
+        mock_api_client.fetch_latest_deals.return_value = [mock_deal]
+        
+        # Call function
+        result = await fetch_latest_deals_func(
+            mock_ctx,
+            city=5000,
+            limit=10
+        )
+        
+        # Verify results
+        assert result["success"] is True
+        assert "total_deals" in result
+        assert result["total_deals"] == 1
+        assert "deals_preview" in result
+        assert len(result["deals_preview"]) == 1
+        assert result["deals_preview"][0]["title"] == "Test Deal"
+        
+        # Verify API was called correctly
+        mock_api_client.fetch_latest_deals.assert_called_once()
+        call_kwargs = mock_api_client.fetch_latest_deals.call_args[1]
+        assert call_kwargs["city"] == 5000
+        assert call_kwargs["limit"] == 10
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_latest_deals_no_results(self, mock_api_client, mock_ctx):
+        """Test fetch_latest_deals with no results."""
+        # Setup mock
+        mock_api_client.fetch_latest_deals.return_value = []
+        
+        # Call function
+        result = await fetch_latest_deals_func(mock_ctx, city=5000)
+        
+        # Verify results
+        assert result["success"] is False
+        assert "message" in result
+        assert "No deals found" in result["message"]
+    
+    @pytest.mark.asyncio
+    @patch('yad2.mcp_server._api_client')
+    async def test_fetch_latest_deals_error(self, mock_api_client, mock_ctx):
+        """Test fetch_latest_deals error handling."""
+        # Setup mock to raise exception
+        mock_api_client.fetch_latest_deals.side_effect = Exception("API Error")
+        
+        # Call function
+        result = await fetch_latest_deals_func(mock_ctx, city=5000)
+        
+        # Verify error handling
+        assert result["success"] is False
+        assert "error" in result
 
 
 def test_mock_context():
@@ -310,6 +498,7 @@ def test_mock_context():
     async def test_async():
         await ctx.info("Test message")
         await ctx.error("Test error")
+        await ctx.warning("Test warning")
     
     asyncio.run(test_async())
 

@@ -613,7 +613,7 @@ class HebrewPDFGenerator:
         x = 450 if self.report_font == "HebrewFont" else 50
 
         self.draw_hebrew_label(
-            c, "מחיר מודל", f"₪{self.safe_get(listing, 'modelPrice', 0):,}", x, y
+            c, "מחיר שוק", f"₪{self.safe_get(listing, 'modelPrice', 0):,}", x, y
         )
         y -= 20
         self.draw_hebrew_label(

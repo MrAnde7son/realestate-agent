@@ -49,7 +49,7 @@ class Yad2SearchParameters:
             'accessibility': None, # Accessibility features (1/0)
             'airCondition': None, # Has air conditioning (1/0)
             'bars': None,         # Has security bars (1/0)
-            'mamad': None,        # Has safe room (1/0)
+            'shelter': None,        # Has safe room (1/0)
             'storage': None,      # Has storage (1/0)
             'terrace': None,      # Has terrace (1/0)
             'garden': None,       # Has garden (1/0)
@@ -66,6 +66,7 @@ class Yad2SearchParameters:
             'order': None,        # Sort order
             'dealType': None,     # Deal type (sale/rent)
             'priceOnly': None,    # Show price only assets (1/0)
+            'priceDropped': None, # Show only properties with price drops (1/0)
             'saleType': None,     # Sale type
             'exclusive': None,    # Exclusive assets only (1/0)
             'publishedDays': None, # Published within X days
@@ -96,8 +97,8 @@ class Yad2SearchParameters:
                     except ValueError:
                         raise ValueError("Parameter '{}' must be a number".format(key))
                 elif key in ['elevator', 'balcony', 'renovated', 'accessibility', 
-                           'airCondition', 'bars', 'mamad', 'storage', 'terrace', 
-                           'garden', 'pets', 'furniture', 'priceOnly', 'exclusive']:
+                           'airCondition', 'bars', 'shelter', 'storage', 'terrace', 
+                           'garden', 'pets', 'furniture', 'priceOnly', 'priceDropped', 'exclusive']:
                     # Boolean parameters
                     if str(value).lower() in ['true', '1', 'yes', 'y']:
                         self.parameters[key] = 1
@@ -130,7 +131,25 @@ class Yad2SearchParameters:
         if active_params:
             return "{}?{}".format(base_url, urlencode(active_params))
         return base_url
-
+    
+    def keys(self):
+        """Return an iterable of parameter keys (for dict unpacking support with **)."""
+        return self.get_active_parameters().keys()
+    
+    def __getitem__(self, key):
+        """Allow dictionary-style access (for dict unpacking support with **)."""
+        active_params = self.get_active_parameters()
+        if key in active_params:
+            return active_params[key]
+        raise KeyError(f"Parameter '{key}' not found or not set")
+    
+    def __iter__(self):
+        """Allow iteration over active parameters (for dict unpacking support with **)."""
+        return iter(self.get_active_parameters())
+    
+    def __contains__(self, key):
+        """Check if a parameter is set (for 'in' operator support)."""
+        return key in self.get_active_parameters()
 
 class Yad2ParameterReference:
     """
@@ -268,6 +287,11 @@ class Yad2ParameterReference:
         },
         'renovated': {
             'description': 'Is renovated',
+            'example': '1 (yes), 0 (no)',
+            'type': 'boolean'
+        },
+        'priceDropped': {
+            'description': 'Show only properties with price drops',
             'example': '1 (yes), 0 (no)',
             'type': 'boolean'
         },

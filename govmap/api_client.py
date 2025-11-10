@@ -825,7 +825,7 @@ class GovMapClient:
 
 if __name__ == "__main__":
     api_client = GovMapClient()
-    result = api_client.autocomplete("הירקון 319 תל אביב")
+    result = api_client.autocomplete("אוגרית 2 תל אביב - יפו")
     if result.get("results"):
         first = result["results"][0]
         coords = api_client.extract_coordinates_from_shapes(first)

@@ -78,7 +78,7 @@ This document contains all Hebrew text, labels, and microcopy used throughout th
 
 ### Financial Analysis
 - **אנליזה פיננסית** - Financial Analysis
-- **מחיר מודל** - Model Price
+- **מחיר שוק** - Model Price
 - **פער למחיר** - Price Gap
 - **הערכת שכירות** - Rent Estimate
 - **תשואה שנתית** - Annual Yield

@@ -54,7 +54,7 @@ const createFilters = (): FiltersConfig => ({
       { value: "sale", label: "מכירה" },
     ],
   },
-  adType: {
+  sellerType: {
     value: "all",
     onChange: vi.fn(),
     options: [
@@ -127,8 +127,11 @@ const openDropdownMenu = (trigger: HTMLElement) => {
   fireEvent.keyUp(trigger, { key: "Enter" });
 };
 
-const getQuickFilterButton = (label: string) =>
-  screen.getByRole("button", { name: (name) => name?.includes(label) ?? false });
+const getQuickFilterButton = (label: string) => {
+  // Escape special regex characters and create a pattern that matches buttons containing the label
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return screen.getByRole("button", { name: new RegExp(escapedLabel) });
+};
 
 describe("TableToolbar quick filters", () => {
   beforeEach(() => {
@@ -325,7 +328,7 @@ describe("TableToolbar quick filters", () => {
     const privateOption = screen.getByRole("menuitemradio", { name: "פרטי" });
     fireEvent.click(privateOption);
 
-    expect(props.onAdditionalFilterChange).toHaveBeenCalledWith("adType", "private");
+    expect(props.onAdditionalFilterChange).toHaveBeenCalledWith("sellerType", "private");
   });
 
   it("updates price range from the quick filter popover", () => {
@@ -336,10 +339,10 @@ describe("TableToolbar quick filters", () => {
     fireEvent.click(getQuickFilterButton("מחיר"));
 
     fireEvent.change(screen.getByLabelText("מחיר מינימלי"), { target: { value: "1200000" } });
-    expect(filters.priceMin.onChange).toHaveBeenCalledWith(1200000);
+    expect(filters.priceMin!.onChange).toHaveBeenCalledWith(1200000);
 
     fireEvent.change(screen.getByLabelText("מחיר מקסימלי"), { target: { value: "3200000" } });
-    expect(filters.priceMax.onChange).toHaveBeenCalledWith(3200000);
+    expect(filters.priceMax!.onChange).toHaveBeenCalledWith(3200000);
   });
 
   it("places the price popover below the trigger without covering nearby controls", () => {
@@ -367,10 +370,10 @@ describe("TableToolbar quick filters", () => {
     fireEvent.click(getQuickFilterButton("שטח"));
 
     fireEvent.change(screen.getByLabelText("שטח מינימלי"), { target: { value: "80" } });
-    expect(filters.areaMin.onChange).toHaveBeenCalledWith(80);
+    expect(filters.areaMin!.onChange).toHaveBeenCalledWith(80);
 
     fireEvent.change(screen.getByLabelText("שטח מקסימלי"), { target: { value: "120" } });
-    expect(filters.areaMax.onChange).toHaveBeenCalledWith(120);
+    expect(filters.areaMax!.onChange).toHaveBeenCalledWith(120);
   });
 
   it("places the area popover below the trigger without covering nearby controls", () => {
@@ -399,6 +402,6 @@ describe("TableToolbar quick filters", () => {
     openDropdownMenu(trigger);
     fireEvent.click(screen.getByRole("menuitemradio", { name: "דירה" }));
 
-    expect(filters.type.onChange).toHaveBeenCalledWith("דירה");
+    expect(filters.type!.onChange).toHaveBeenCalledWith("דירה");
   });
 });

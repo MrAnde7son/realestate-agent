@@ -16,7 +16,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "", "..")
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from govmap.api_client import GovMapClient, itm_to_wgs84, wgs84_to_itm  # noqa: E402
+from govmap.api_client import GovMapClient, DealType, itm_to_wgs84, wgs84_to_itm  # noqa: E402
 
 # Create an MCP server
 mcp = FastMCP(
@@ -118,6 +118,106 @@ async def entities_by_point(
     client = _get_client()
     await ctx.info(f"Getting entities at point ({x}, {y}) for {len(layer_ids)} layers")
     return client.entities_by_point(x, y, layer_ids, tolerance_m=tolerance_m)
+
+
+@mcp.tool()
+async def get_deals_by_location(
+    ctx: Context,
+    x: float,
+    y: float,
+    start_date: str = "1998-01",
+    end_date: str = "2025-11",
+    radius: float = 100.0,
+    deal_type: str = "street",
+    limit: int = 9,
+    offset: int = 0,
+) -> List[Dict[str, Any]]:
+    """Get real estate deals for a specific location and radius.
+    
+    Returns standardized Deal objects with address, deal_date, deal_amount, rooms, 
+    floor, asset_type, area, neighborhood, parcel information, etc.
+    
+    Parameters:
+    -----------
+    x : float
+        ITM X coordinate (EPSG:2039)
+    y : float
+        ITM Y coordinate (EPSG:2039)
+    start_date : str
+        Start date in format "YYYY-MM" (e.g., "1998-01")
+    end_date : str
+        End date in format "YYYY-MM" (e.g., "2025-11")
+    radius : float
+        Radius in meters to search for deals (default: 100.0)
+    deal_type : str
+        Type of deals: "street", "neighborhood", or "settlement" (default: "street")
+    limit : int
+        Maximum number of deals to return per polygon (default: 9)
+    offset : int
+        Offset for pagination (default: 0)
+    
+    Returns:
+    --------
+    List[Dict[str, Any]]
+        List of Deal objects as dictionaries, each containing:
+        - address: Property address
+        - deal_date: Date of the deal (DD/MM/YYYY format)
+        - deal_amount: Deal amount in ILS
+        - rooms: Number of rooms (can be None)
+        - floor: Floor number (Hebrew text)
+        - asset_type: Type of asset (e.g., "דירה", "בנין")
+        - area: Area in square meters
+        - neighborhood: Neighborhood name
+        - parcel_block: Block number (גוש)
+        - parcel_parcel: Parcel number (חלקה)
+        - parcel_sub_parcel: Sub-parcel number (תת-חלקה)
+        - raw: Raw data from the API
+    """
+    client = _get_client()
+    
+    # Convert deal_type string to DealType enum
+    deal_type_enum = DealType.STREET
+    if deal_type.lower() == "neighborhood":
+        deal_type_enum = DealType.NEIGHBORHOOD
+    elif deal_type.lower() == "settlement":
+        deal_type_enum = DealType.SETTLEMENT
+    
+    await ctx.info(f"Getting deals by location at ({x}, {y}) with radius {radius}m")
+    
+    # Get deals from GovMap
+    deals = client.get_deals_by_location(
+        x=x,
+        y=y,
+        start_date=start_date,
+        end_date=end_date,
+        radius=radius,
+        deal_type=deal_type_enum,
+        limit=limit,
+        offset=offset,
+    )
+    
+    # Convert Deal objects to dictionaries
+    result = []
+    for deal in deals:
+        deal_dict = {
+            "address": deal.address,
+            "deal_date": deal.deal_date,
+            "deal_amount": deal.deal_amount,
+            "rooms": deal.rooms,
+            "floor": deal.floor,
+            "asset_type": deal.asset_type,
+            "year_built": deal.year_built,
+            "area": deal.area,
+            "neighborhood": deal.neighborhood,
+            "parcel_block": deal.parcel_block,
+            "parcel_parcel": deal.parcel_parcel,
+            "parcel_sub_parcel": deal.parcel_sub_parcel,
+            "raw": deal.raw,
+        }
+        result.append(deal_dict)
+    
+    await ctx.info(f"Found {len(result)} deals")
+    return result
 
 
 if __name__ == "__main__":

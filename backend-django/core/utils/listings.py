@@ -197,32 +197,141 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         "email": contact_info.get("email"),
     }
 
+    # Extract high priority fields from raw data
+    features_obj = raw.get("features", {})
+    if not isinstance(features_obj, dict):
+        features_obj = {}
+    
+    meta_obj = raw.get("meta", {})
+    if not isinstance(meta_obj, dict):
+        meta_obj = {}
+    
+    # Extract shelter and accessibility from features
+    shelter = features_obj.get("shelter") or features_obj.get("hasShelter") or meta_obj.get("shelter")
+    accessibility = features_obj.get("accessibility") or features_obj.get("hasAccessibility") or meta_obj.get("accessibility")
+    
+    # Extract Madlan-specific fields
+    building_class = meta_obj.get("buildingClass") or meta_obj.get("building_class")
+    general_condition = meta_obj.get("generalCondition") or meta_obj.get("general_condition")
+    
+    investors_data = meta_obj.get("investorsData") or meta_obj.get("investors_data") or {}
+    if not isinstance(investors_data, dict):
+        investors_data = {}
+    investment_yield = parse_float(investors_data.get("yield"))
+    approximate_rent = parse_int(investors_data.get("approximateRent") or investors_data.get("approximate_rent"))
+    commute_time = parse_int(meta_obj.get("commuteTime") or meta_obj.get("commute_time"))
+    
+    # Extract tags
+    tags = meta_obj.get("tags", {})
+    if not isinstance(tags, dict):
+        tags = {}
+    tag_best_school = tags.get("bestSchool") or tags.get("best_school")
+    tag_safety = tags.get("safety")
+    tag_family_friendly = tags.get("familyFriendly") or tags.get("family_friendly")
+    tag_light_rail = tags.get("lightRail") or tags.get("light_rail")
+    tag_park_access = tags.get("parkAccess") or tags.get("park_access")
+    tag_quiet_street = tags.get("quietStreet") or tags.get("quiet_street")
+    tag_commute = tags.get("commute")
+    
+    # Extract exclusivity - check both Madlan and Yad2 sources
+    poc = meta_obj.get("poc", {})
+    if not isinstance(poc, dict):
+        poc = {}
+    exclusivity = poc.get("exclusivity", {})
+    if not isinstance(exclusivity, dict):
+        exclusivity = {}
+    madlan_exclusive = exclusivity.get("exclusive")
+    
+    # Yad2 exclusivity: check inProperty.isAssetExclusive
+    in_property = raw.get("inProperty", {})
+    if not isinstance(in_property, dict):
+        in_property = {}
+    yad2_exclusive = in_property.get("isAssetExclusive")
+    
+    # Prefer Yad2 exclusive flag, fallback to Madlan
+    exclusive = yad2_exclusive if yad2_exclusive is not None else madlan_exclusive
+    
+    # Extract previous price and calculate priceDropped
+    previous_price = parse_int(
+        raw.get("previous_price")
+        or raw.get("previousPrice")
+        or raw.get("priceBeforeTag")
+        or raw.get("price_before_tag")
+    )
+    price_dropped = (
+        previous_price is not None
+        and price is not None
+        and previous_price > price
+    )
+    
+    # Calculate publishedDays if date_posted is available
+    published_days = None
+    if date_posted:
+        try:
+            posted_date = parse_date_value(date_posted)
+            if posted_date:
+                now = timezone.now()
+                diff_time = now - posted_date
+                diff_days = diff_time.days
+                published_days = diff_days if diff_days >= 0 else None
+        except Exception:
+            pass
+
     normalized = {
         "id": f"{listing_obj.source}:{listing_obj.external_id}",
         "source": listing_obj.source or raw.get("source") or "external",
         "external_id": listing_obj.external_id,
         "title": listing_obj.title or raw.get("title") or "",
         "price": parse_int(price, None),
+        "previous_price": previous_price,
         "address": listing_obj.address or raw.get("address") or "",
         "rooms": parse_float(rooms_value),
         "rooms_display": format_rooms_value(rooms_value),
+        "roomsDisplay": format_rooms_value(rooms_value),  # Also include camelCase for frontend compatibility
         "size": parse_float(area),
         "property_type": raw.get("property_type") or raw.get("propertyType"),
         "url": listing_obj.url or raw.get("url"),
         "date_posted": date_posted,
+        "datePosted": date_posted,  # Also include camelCase for frontend compatibility
         "images": photos,
         "photos": photos,
         "description": raw.get("description") or "",
         "floor": raw.get("floor"),
         "features": raw.get("features", []),
         "listing_type": listing_type,
+        "listingType": listing_type,  # Also include camelCase for frontend compatibility
         "ad_type": ad_type,
+        "adType": ad_type,  # Also include camelCase for frontend compatibility
         "contact_name": contact_name,
+        "contactName": contact_name,  # Also include camelCase for frontend compatibility
         "contact_phone": contact_phone,
+        "contactPhone": contact_phone,  # Also include camelCase for frontend compatibility
         "contact_info": normalized_contact_info,
+        "contactInfo": normalized_contact_info,  # Also include camelCase for frontend compatibility
         "recent_deal": recent_deal,
+        "recentDeal": recent_deal,  # Also include camelCase for frontend compatibility
         "video_url": video_url,
+        "videoUrl": video_url,  # Also include camelCase for frontend compatibility
         "video": video_url,
+        # High priority fields
+        "priceDropped": price_dropped,
+        "previousPrice": previous_price,
+        "shelter": bool(shelter) if shelter is not None else None,
+        "accessibility": bool(accessibility) if accessibility is not None else None,
+        "buildingClass": building_class,
+        "generalCondition": general_condition,
+        "investmentYield": investment_yield,
+        "approximateRent": approximate_rent,
+        "commuteTime": commute_time,
+        "publishedDays": published_days,
+        "tagBestSchool": bool(tag_best_school) if tag_best_school is not None else None,
+        "tagSafety": bool(tag_safety) if tag_safety is not None else None,
+        "tagFamilyFriendly": bool(tag_family_friendly) if tag_family_friendly is not None else None,
+        "tagLightRail": bool(tag_light_rail) if tag_light_rail is not None else None,
+        "tagParkAccess": bool(tag_park_access) if tag_park_access is not None else None,
+        "tagQuietStreet": bool(tag_quiet_street) if tag_quiet_street is not None else None,
+        "tagCommute": bool(tag_commute) if tag_commute is not None else None,
+        "exclusive": bool(exclusive) if exclusive is not None else None,
     }
     return normalized
 

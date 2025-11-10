@@ -158,24 +158,24 @@ const FilterSection = ({
   }
 
   return (
-    <div className="surface-panel-muted">
+    <div className="surface-panel-muted rounded-lg overflow-hidden shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm font-medium"
+        className="flex w-full items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base font-medium hover:bg-muted/50 transition-colors"
         aria-expanded={open}
         aria-controls={`${id}-content`}
       >
-        <span>{title}</span>
+        <span className="text-right">{title}</span>
         <ChevronDown
-          className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           aria-hidden="true"
         />
       </button>
       {open && (
-        <div id={`${id}-content`} className="space-y-3 px-3 pb-3 pt-1">
+        <div id={`${id}-content`} className="space-y-3 sm:space-y-4 px-3 sm:px-4 pb-3 sm:pb-4 pt-2">
           {description && (
-            <p className="text-xs text-muted-foreground">{description}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{description}</p>
           )}
           {childArray.map((child, index) => (
             <React.Fragment key={index}>{child}</React.Fragment>
@@ -681,6 +681,43 @@ export default function TableToolbar({
   const transactionAdditionalFilters = groupedAdditionalFilters.transaction;
   const advancedAdditionalFilters = groupedAdditionalFilters.advanced;
 
+  // Filter individual filters within sections based on search
+  const filterAdditionalFilters = React.useCallback((filters: AdditionalFilterConfig[]) => {
+    if (!filterSearch.trim()) {
+      return filters;
+    }
+    const searchLower = filterSearch.toLowerCase().trim();
+    return filters.filter(filter => 
+      filter.label.toLowerCase().includes(searchLower)
+    );
+  }, [filterSearch]);
+
+  const filteredPrimaryAdditionalFilters = React.useMemo(
+    () => filterAdditionalFilters(primaryAdditionalFilters),
+    [primaryAdditionalFilters, filterAdditionalFilters]
+  );
+
+  const filteredPropertyAdditionalFilters = React.useMemo(
+    () => filterAdditionalFilters(propertyAdditionalFilters),
+    [propertyAdditionalFilters, filterAdditionalFilters]
+  );
+
+  const filteredTransactionAdditionalFilters = React.useMemo(
+    () => filterAdditionalFilters(transactionAdditionalFilters),
+    [transactionAdditionalFilters, filterAdditionalFilters]
+  );
+
+  const filteredAdvancedAdditionalFilters = React.useMemo(
+    () => filterAdditionalFilters(advancedAdditionalFilters),
+    [advancedAdditionalFilters, filterAdditionalFilters]
+  );
+
+  // Determine which filters to use based on search
+  const activePrimaryAdditionalFilters = filterSearch.trim() ? filteredPrimaryAdditionalFilters : primaryAdditionalFilters;
+  const activePropertyAdditionalFilters = filterSearch.trim() ? filteredPropertyAdditionalFilters : propertyAdditionalFilters;
+  const activeTransactionAdditionalFilters = filterSearch.trim() ? filteredTransactionAdditionalFilters : transactionAdditionalFilters;
+  const activeAdvancedAdditionalFilters = filterSearch.trim() ? filteredAdvancedAdditionalFilters : advancedAdditionalFilters;
+
   const clearAllFilters = () => {
     if (cityFilter) {
       const nextValue = cityFilter.showAllOption === false ? (cityFilter.options[0] ?? '') : 'all';
@@ -731,16 +768,16 @@ export default function TableToolbar({
 
     if (filter.type === 'number-range') {
       return (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">מינימום</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs sm:text-sm text-muted-foreground">מינימום</Label>
             <Input
               type="number"
               value={filter.value.min ?? ''}
               placeholder={filter.minPlaceholder ?? ''}
               step={filter.step}
               inputMode="numeric"
-              className="text-left"
+              className="text-left h-9 sm:h-10 text-sm sm:text-base"
               onChange={(e) => {
                 const parsed = e.target.value ? Number(e.target.value) : undefined;
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, min: parsed });
@@ -749,15 +786,15 @@ export default function TableToolbar({
               aria-label={`${filter.label} - מינימום`}
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">מקסימום</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs sm:text-sm text-muted-foreground">מקסימום</Label>
             <Input
               type="number"
               value={filter.value.max ?? ''}
               placeholder={filter.maxPlaceholder ?? ''}
               step={filter.step}
               inputMode="numeric"
-              className="text-left"
+              className="text-left h-9 sm:h-10 text-sm sm:text-base"
               onChange={(e) => {
                 const parsed = e.target.value ? Number(e.target.value) : undefined;
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, max: parsed });
@@ -772,13 +809,14 @@ export default function TableToolbar({
 
     if (filter.type === 'date-range') {
       return (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">מתאריך</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs sm:text-sm text-muted-foreground">מתאריך</Label>
             <Input
               type="date"
               value={filter.value.from ?? ''}
               placeholder={filter.fromPlaceholder}
+              className="h-9 sm:h-10 text-sm sm:text-base"
               onChange={(e) => {
                 const value = e.target.value || undefined;
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, from: value });
@@ -787,12 +825,13 @@ export default function TableToolbar({
               aria-label={`${filter.label} - מתאריך`}
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">עד תאריך</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs sm:text-sm text-muted-foreground">עד תאריך</Label>
             <Input
               type="date"
               value={filter.value.to ?? ''}
               placeholder={filter.toPlaceholder}
+              className="h-9 sm:h-10 text-sm sm:text-base"
               onChange={(e) => {
                 const value = e.target.value || undefined;
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, to: value });
@@ -810,6 +849,7 @@ export default function TableToolbar({
         <Input
           value={filter.value}
           placeholder={filter.placeholder}
+          className="h-9 sm:h-10 text-sm sm:text-base"
           onChange={(e) => {
             const value = e.target.value;
             onAdditionalFilterChange?.(filter.key, value);
@@ -828,7 +868,7 @@ export default function TableToolbar({
           track({ value });
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
           <SelectValue placeholder={filter.placeholder ?? `בחר ${filter.label.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent className="z-[110]">
@@ -855,13 +895,13 @@ export default function TableToolbar({
     );
   };
 
-  const primarySectionItems: Array<{ key: string; node: React.ReactNode }> = [];
+  const primarySectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
   const primaryLocationNodes: React.ReactNode[] = [];
 
   if (cityFilter && (cityFilter.alwaysVisible || cityFilter.options.length > 0)) {
     primaryLocationNodes.push(
-      <div key="city-filter" className="space-y-1">
-        <Label htmlFor="city-filter" className="text-sm">
+      <div key="city-filter" className="space-y-1.5 sm:space-y-2">
+        <Label htmlFor="city-filter" className="text-sm sm:text-base font-medium">
           {cityFilter.label ?? 'עיר'}
         </Label>
         <Select
@@ -874,7 +914,7 @@ export default function TableToolbar({
             });
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
             <SelectValue placeholder={cityFilter.placeholder ?? 'כל הערים'} />
           </SelectTrigger>
           <SelectContent className="z-[110]">
@@ -892,35 +932,48 @@ export default function TableToolbar({
     );
   }
 
-  primaryAdditionalFilters.forEach((filter) => {
+  activePrimaryAdditionalFilters.forEach((filter) => {
     primaryLocationNodes.push(
-      <div key={`primary-${filter.key}`} className="space-y-1">
-        <Label className="text-sm">{filter.label}</Label>
+      <div key={`primary-${filter.key}`} className="space-y-1.5 sm:space-y-2">
+        <Label className="text-sm sm:text-base font-medium">{filter.label}</Label>
         {renderAdditionalFilterControl(filter)}
       </div>,
     );
   });
 
   if (primaryLocationNodes.length > 0) {
+    const locationSearchText = [
+      cityFilter?.label ?? 'עיר',
+      ...activePrimaryAdditionalFilters.map(f => f.label)
+    ].join(' ');
+    
     primarySectionItems.push({
       key: 'primary-location',
-      node: <div className="grid gap-3 sm:grid-cols-2">{primaryLocationNodes}</div>,
+      node: <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">{primaryLocationNodes}</div>,
+      searchText: locationSearchText,
     });
   }
 
   if (priceMinFilter || priceMaxFilter) {
+    const budgetSearchText = [
+      'תקציב', // legend text
+      priceMinFilter?.label,
+      priceMaxFilter?.label
+    ].filter(Boolean).join(' ');
+    
     primarySectionItems.push({
       key: 'primary-budget',
+      searchText: budgetSearchText,
       node: (
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-foreground">תקציב</legend>
-          <p className="text-xs text-muted-foreground">
+        <fieldset className="space-y-2 sm:space-y-3">
+          <legend className="text-sm sm:text-base font-medium text-foreground">תקציב</legend>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
             בחר טווח מחיר כדי לצמצם תוצאות שלא מתאימות למסגרת התקציב שלך.
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {priceMinFilter && (
-              <div className="space-y-1">
-                <Label htmlFor="price-min" className="text-sm">
+              <div className="space-y-1.5">
+                <Label htmlFor="price-min" className="text-sm sm:text-base">
                   {priceMinFilter.label ?? 'מחיר מינימלי'}
                 </Label>
                 <Input
@@ -930,7 +983,7 @@ export default function TableToolbar({
                   value={priceMinFilter.value ?? ''}
                   dir="ltr"
                   inputMode="numeric"
-                  className="text-left"
+                  className="text-left h-9 sm:h-10 text-sm sm:text-base"
                   onChange={(e) => {
                     const value = e.target.value ? Number(e.target.value) : undefined;
                     priceMinFilter.onChange(value);
@@ -944,8 +997,8 @@ export default function TableToolbar({
               </div>
             )}
             {priceMaxFilter && (
-              <div className="space-y-1">
-                <Label htmlFor="price-max" className="text-sm">
+              <div className="space-y-1.5">
+                <Label htmlFor="price-max" className="text-sm sm:text-base">
                   {priceMaxFilter.label ?? 'מחיר מקסימלי'}
                 </Label>
                 <Input
@@ -955,7 +1008,7 @@ export default function TableToolbar({
                   value={priceMaxFilter.value ?? ''}
                   dir="ltr"
                   inputMode="numeric"
-                  className="text-left"
+                  className="text-left h-9 sm:h-10 text-sm sm:text-base"
                   onChange={(e) => {
                     const value = e.target.value ? Number(e.target.value) : undefined;
                     priceMaxFilter.onChange(value);
@@ -974,14 +1027,15 @@ export default function TableToolbar({
     });
   }
 
-  const propertySectionItems: Array<{ key: string; node: React.ReactNode }> = [];
+  const propertySectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
 
   if (typeFilter && (typeFilter.alwaysVisible || typeFilter.options.length > 0)) {
     propertySectionItems.push({
       key: 'property-type',
+      searchText: typeFilter.label ?? 'סוג נכס',
       node: (
-        <div className="space-y-1">
-          <Label htmlFor="type-filter" className="text-sm">
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="type-filter" className="text-sm sm:text-base font-medium">
             {typeFilter.label ?? 'סוג נכס'}
           </Label>
           <Select
@@ -994,7 +1048,7 @@ export default function TableToolbar({
               });
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
               <SelectValue placeholder={typeFilter.placeholder ?? 'כל הסוגים'} />
             </SelectTrigger>
             <SelectContent className="z-[110]">
@@ -1014,18 +1068,25 @@ export default function TableToolbar({
   }
 
   if (areaMinFilter || areaMaxFilter) {
+    const areaSearchText = [
+      'גודל הנכס', // legend text
+      areaMinFilter?.label,
+      areaMaxFilter?.label
+    ].filter(Boolean).join(' ');
+    
     propertySectionItems.push({
       key: 'property-area',
+      searchText: areaSearchText,
       node: (
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-foreground">גודל הנכס</legend>
-          <p className="text-xs text-muted-foreground">
+        <fieldset className="space-y-2 sm:space-y-3">
+          <legend className="text-sm sm:text-base font-medium text-foreground">גודל הנכס</legend>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
             ציין טווח שטח כדי להתמקד בנכסים בגודל המתאים.
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {areaMinFilter && (
-              <div className="space-y-1">
-                <Label htmlFor="area-min" className="text-sm">
+              <div className="space-y-1.5">
+                <Label htmlFor="area-min" className="text-sm sm:text-base">
                   שטח מינימלי
                 </Label>
                 <Input
@@ -1033,7 +1094,7 @@ export default function TableToolbar({
                   type="number"
                   inputMode="numeric"
                   dir="ltr"
-                  className="text-left"
+                  className="text-left h-9 sm:h-10 text-sm sm:text-base"
                   value={areaMinFilter.value ?? ''}
                   placeholder={areaMinFilter.placeholder ?? 'מ"ר'}
                   onChange={(event) => {
@@ -1049,8 +1110,8 @@ export default function TableToolbar({
               </div>
             )}
             {areaMaxFilter && (
-              <div className="space-y-1">
-                <Label htmlFor="area-max" className="text-sm">
+              <div className="space-y-1.5">
+                <Label htmlFor="area-max" className="text-sm sm:text-base">
                   שטח מקסימלי
                 </Label>
                 <Input
@@ -1058,7 +1119,7 @@ export default function TableToolbar({
                   type="number"
                   inputMode="numeric"
                   dir="ltr"
-                  className="text-left"
+                  className="text-left h-9 sm:h-10 text-sm sm:text-base"
                   value={areaMaxFilter.value ?? ''}
                   placeholder={areaMaxFilter.placeholder ?? 'מ"ר'}
                   onChange={(event) => {
@@ -1079,14 +1140,17 @@ export default function TableToolbar({
     });
   }
 
-  if (propertyAdditionalFilters.length > 0) {
+  if (activePropertyAdditionalFilters.length > 0) {
+    const propertyAdditionalSearchText = activePropertyAdditionalFilters.map(f => f.label).join(' ');
+    
     propertySectionItems.push({
       key: 'property-additional',
+      searchText: propertyAdditionalSearchText,
       node: (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {propertyAdditionalFilters.map((filter) => (
-            <div key={`property-${filter.key}`} className="space-y-1">
-              <Label className="text-sm">{filter.label}</Label>
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
+          {activePropertyAdditionalFilters.map((filter) => (
+            <div key={`property-${filter.key}`} className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base font-medium">{filter.label}</Label>
               {renderAdditionalFilterControl(filter)}
             </div>
           ))}
@@ -1095,16 +1159,19 @@ export default function TableToolbar({
     });
   }
 
-  const transactionSectionItems: Array<{ key: string; node: React.ReactNode }> = [];
+  const transactionSectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
 
-  if (transactionAdditionalFilters.length > 0) {
+  if (activeTransactionAdditionalFilters.length > 0) {
+    const transactionAdditionalSearchText = activeTransactionAdditionalFilters.map(f => f.label).join(' ');
+    
     transactionSectionItems.push({
       key: 'transaction-additional',
+      searchText: transactionAdditionalSearchText,
       node: (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {transactionAdditionalFilters.map((filter) => (
-            <div key={`transaction-${filter.key}`} className="space-y-1">
-              <Label className="text-sm">{filter.label}</Label>
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
+          {activeTransactionAdditionalFilters.map((filter) => (
+            <div key={`transaction-${filter.key}`} className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base font-medium">{filter.label}</Label>
               {renderAdditionalFilterControl(filter)}
             </div>
           ))}
@@ -1116,11 +1183,12 @@ export default function TableToolbar({
   if (statusFilters) {
     transactionSectionItems.push({
       key: 'transaction-status',
+      searchText: 'סטטוס',
       node: (
-        <div className="space-y-1">
-          <Label className="text-sm">סטטוס</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label className="text-sm sm:text-base font-medium">סטטוס</Label>
           <Select value={statusFilters.value} onValueChange={statusFilters.onChange}>
-            <SelectTrigger>
+            <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
               <SelectValue placeholder="כל הסטטוסים" />
             </SelectTrigger>
             <SelectContent className="z-[110]">
@@ -1143,6 +1211,7 @@ export default function TableToolbar({
   if (dateRange) {
     transactionSectionItems.push({
       key: 'transaction-date-range',
+      searchText: 'טווח תאריכים תאריך',
       node: (
         <div className="space-y-1">
           <Label className="text-sm">טווח תאריכים</Label>
@@ -1177,11 +1246,18 @@ export default function TableToolbar({
     });
   }
 
-  const advancedSectionItems: Array<{ key: string; node: React.ReactNode }> = [];
+  const advancedSectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
 
   if (pricePerSqmMinFilter || pricePerSqmMaxFilter) {
+    const pricePerSqmSearchText = [
+      'מחיר למ״ר', // legend text
+      pricePerSqmMinFilter?.label,
+      pricePerSqmMaxFilter?.label
+    ].filter(Boolean).join(' ');
+    
     advancedSectionItems.push({
       key: 'advanced-price-per-sqm',
+      searchText: pricePerSqmSearchText,
       node: (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-foreground">מחיר למ״ר</legend>
@@ -1243,8 +1319,15 @@ export default function TableToolbar({
   }
 
   if (remainingRightsMinFilter || remainingRightsMaxFilter) {
+    const remainingRightsSearchText = [
+      'יתרת זכויות', // legend text
+      remainingRightsMinFilter?.label,
+      remainingRightsMaxFilter?.label
+    ].filter(Boolean).join(' ');
+    
     advancedSectionItems.push({
       key: 'advanced-remaining-rights',
+      searchText: remainingRightsSearchText,
       node: (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-foreground">יתרת זכויות</legend>
@@ -1305,14 +1388,17 @@ export default function TableToolbar({
     });
   }
 
-  if (advancedAdditionalFilters.length > 0) {
+  if (activeAdvancedAdditionalFilters.length > 0) {
+    const advancedAdditionalSearchText = activeAdvancedAdditionalFilters.map(f => f.label).join(' ');
+    
     advancedSectionItems.push({
       key: 'advanced-additional',
+      searchText: advancedAdditionalSearchText,
       node: (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {advancedAdditionalFilters.map((filter) => (
-            <div key={`advanced-${filter.key}`} className="space-y-1">
-              <Label className="text-sm">{filter.label}</Label>
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
+          {activeAdvancedAdditionalFilters.map((filter) => (
+            <div key={`advanced-${filter.key}`} className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base font-medium">{filter.label}</Label>
               {renderAdditionalFilterControl(filter)}
             </div>
           ))}
@@ -1321,28 +1407,41 @@ export default function TableToolbar({
     });
   }
 
+  // Helper to check if section has matching filters for search
+  const sectionHasMatchingFilters = React.useCallback((sectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }>, sectionTitle: string): boolean => {
+    if (!filterSearch.trim()) return false;
+    const searchLower = filterSearch.toLowerCase().trim();
+    if (sectionTitle.toLowerCase().includes(searchLower)) return true;
+    return sectionItems.some(({ searchText }) => 
+      searchText && searchText.toLowerCase().includes(searchLower)
+    );
+  }, [filterSearch]);
+
   const propertySectionDefaultOpen =
     propertySectionItems.length > 0 &&
-    (typeHasValue ||
+    (sectionHasMatchingFilters(propertySectionItems, 'מאפייני נכס') ||
+      typeHasValue ||
       areaHasValue ||
       propertyAdditionalFilters.some(isAdditionalFilterActive));
 
   const transactionSectionDefaultOpen =
     transactionSectionItems.length > 0 &&
-    ((statusFilters && statusFilters.value !== 'all') ||
+    (sectionHasMatchingFilters(transactionSectionItems, 'סטטוס ומקור') ||
+      (statusFilters && statusFilters.value !== 'all') ||
       Boolean(dateRange && (dateRange.from || dateRange.to)) ||
       transactionAdditionalFilters.some(isAdditionalFilterActive));
 
   const advancedSectionDefaultOpen =
     advancedSectionItems.length > 0 &&
-    ((pricePerSqmMinFilter && pricePerSqmMinFilter.value !== undefined) ||
+    (sectionHasMatchingFilters(advancedSectionItems, 'סינון מתקדם') ||
+      (pricePerSqmMinFilter && pricePerSqmMinFilter.value !== undefined) ||
       (pricePerSqmMaxFilter && pricePerSqmMaxFilter.value !== undefined) ||
       (remainingRightsMinFilter && remainingRightsMinFilter.value !== undefined) ||
       (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
       advancedAdditionalFilters.some(isAdditionalFilterActive));
 
-  // Filter sections based on search query
-  const filterSectionBySearch = React.useCallback((sectionItems: Array<{ key: string; node: React.ReactNode }>, sectionTitle: string) => {
+  // Filter sections based on search query - searches through filter labels
+  const filterSectionBySearch = React.useCallback((sectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }>, sectionTitle: string) => {
     if (!filterSearch.trim()) {
       return sectionItems;
     }
@@ -1355,63 +1454,12 @@ export default function TableToolbar({
       return sectionItems;
     }
 
-    // Filter items by checking their labels and keys
-    return sectionItems.filter(({ key, node }) => {
-      // Extract label from node if possible (for additional filters)
-      const keyMatches = key.toLowerCase().includes(searchLower);
-      
-      // Try to find label in the node structure
-      // This is a simplified check - we'll look for common patterns
-      if (keyMatches) {
-        return true;
-      }
-
-      // For additional filters, check if the filter label matches
-      const filter = additionalFilters?.find(f => f.key === key);
-      if (filter && filter.label.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-
-      // Check common filter labels
-      const commonLabels: Record<string, string> = {
-        'city': 'עיר',
-        'neighborhood': 'שכונה',
-        'type': 'סוג נכס',
-        'price': 'מחיר',
-        'area': 'שטח',
-        'rooms': 'חדרים',
-        'bedrooms': 'חדרי שינה',
-        'bathrooms': 'חדרי רחצה',
-        'floor': 'קומה',
-        'totalFloors': 'קומות בבניין',
-        'parkingSpaces': 'חניות',
-        'renovated': 'שיפוץ',
-        'furnished': 'ריהוט',
-        'hasElevator': 'מעלית',
-        'airConditioning': 'מיזוג אוויר',
-        'storageRoom': 'מחסן',
-        'balconyArea': 'שטח מרפסות',
-        'yearBuilt': 'שנת בנייה',
-        'rentPrice': 'מחיר שכירות',
-        'rentEstimate': 'שכירות משוערת',
-        'priceGapPct': 'פער מחיר',
-        'capRatePct': 'תשואה',
-        'zoning': 'ייעוד',
-        'risk': 'סיכון',
-        'documents': 'מסמכים',
-        'rentalSale': 'השכרה/מכירה',
-        'adType': 'סוג מפרסם',
-        'commercial': 'ייעוד נכס',
-        'status': 'סטטוס',
-        'block': 'גוש',
-        'parcel': 'חלקה',
-        'recentDeal': 'נמכר לאחרונה',
-      };
-
-      const label = commonLabels[key] || filter?.label || key;
-      return label.toLowerCase().includes(searchLower);
+    // Filter items by checking if their searchText (which contains all filter labels) contains the search term
+    return sectionItems.filter(({ searchText }) => {
+      if (!searchText) return false;
+      return searchText.toLowerCase().includes(searchLower);
     });
-  }, [filterSearch, additionalFilters]);
+  }, [filterSearch]);
 
   const filteredPrimarySectionItems = React.useMemo(
     () => filterSectionBySearch(primarySectionItems, 'מיקום ותקציב'),
@@ -1433,8 +1481,45 @@ export default function TableToolbar({
     [advancedSectionItems, filterSectionBySearch]
   );
 
+  // Count total number of individual filters (not section items)
+  const totalFilterCount = React.useMemo(() => {
+    let count = 0;
+    // Count individual filters in primary section
+    if (cityFilter && (cityFilter.alwaysVisible || cityFilter.options.length > 0)) count++;
+    count += primaryAdditionalFilters.length;
+    if (priceMinFilter || priceMaxFilter) count += (priceMinFilter ? 1 : 0) + (priceMaxFilter ? 1 : 0);
+    
+    // Count individual filters in property section
+    if (typeFilter && (typeFilter.alwaysVisible || typeFilter.options.length > 0)) count++;
+    if (areaMinFilter || areaMaxFilter) count += (areaMinFilter ? 1 : 0) + (areaMaxFilter ? 1 : 0);
+    count += propertyAdditionalFilters.length;
+    
+    // Count individual filters in transaction section
+    count += transactionAdditionalFilters.length;
+    if (statusFilters) count++;
+    if (dateRange) count++;
+    
+    // Count individual filters in advanced section
+    if (pricePerSqmMinFilter || pricePerSqmMaxFilter) count += (pricePerSqmMinFilter ? 1 : 0) + (pricePerSqmMaxFilter ? 1 : 0);
+    if (remainingRightsMinFilter || remainingRightsMaxFilter) count += (remainingRightsMinFilter ? 1 : 0) + (remainingRightsMaxFilter ? 1 : 0);
+    count += advancedAdditionalFilters.length;
+    
+    // Count userAssetsAdditionalFilter if present
+    if (userAssetsAdditionalFilter) count++;
+    
+    return count;
+  }, [
+    cityFilter, priceMinFilter, priceMaxFilter, primaryAdditionalFilters.length,
+    typeFilter, areaMinFilter, areaMaxFilter, propertyAdditionalFilters.length,
+    transactionAdditionalFilters.length, statusFilters, dateRange,
+    pricePerSqmMinFilter, pricePerSqmMaxFilter, remainingRightsMinFilter, remainingRightsMaxFilter,
+    advancedAdditionalFilters.length, userAssetsAdditionalFilter
+  ]);
+
+  const shouldShowFilterSearch = totalFilterCount > 10;
+
   return (
-    <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
+    <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 bg-muted/30 rtl" dir="rtl">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3" dir="rtl">
         <div className="relative flex min-w-[180px] flex-1">
           <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" aria-hidden="true" />
@@ -1932,62 +2017,63 @@ export default function TableToolbar({
                   )}
                 </Button>
               </SheetTrigger>
-                <SheetContent className="w-full sm:w-80 max-w-[95vw]" side="right">
-                  <SheetHeader>
-                    <SheetTitle>אפשרויות סינון</SheetTitle>
+                <SheetContent className="w-full sm:w-96 md:w-[420px] max-w-[95vw] overflow-hidden flex flex-col" side="right">
+                  <SheetHeader className="flex-shrink-0 pb-3 sm:pb-4">
+                    <SheetTitle className="text-lg sm:text-xl">אפשרויות סינון</SheetTitle>
                     <SheetDescription className="sr-only">
                       תפריט סינון מתקדם עם אפשרויות למיקום, תקציב, מאפייני נכס, סטטוס ומקור
                     </SheetDescription>
                   </SheetHeader>
-                  <div className="space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
-                    {/* Filter Search */}
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                        <Input
-                          placeholder="חיפוש מסננים..."
-                          value={filterSearch}
-                          onChange={(e) => setFilterSearch(e.target.value)}
-                          className="pe-8 text-sm h-9"
-                          dir="rtl"
-                          aria-label="חיפוש מסננים"
-                        />
-                        {filterSearch && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFilterSearch('')}
-                            className="absolute start-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                            aria-label="נקה חיפוש"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between rtl:flex-row-reverse">
-                      {hasActiveFilters && (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {activeFilterCount} סינונים פעילים
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={clearAllFilters}
-                            className="h-8 rounded-full px-3"
-                            aria-label="נקה את כל המסננים"
-                          >
-                            <X className="h-3 w-3 me-1" />
-                            נקה הכל
-                          </Button>
+                  <div className="flex-1 overflow-y-auto pe-2 -me-2 space-y-3 sm:space-y-4 pt-3 sm:pt-4">
+                    {/* Filter Search - Only show if more than 10 filters */}
+                    {shouldShowFilterSearch && (
+                      <div className="flex-shrink-0 sticky top-0 bg-background z-10 pb-2 -mt-3 sm:-mt-4 pt-3 sm:pt-4">
+                        <div className="relative">
+                          <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                          <Input
+                            placeholder="חיפוש מסננים..."
+                            value={filterSearch}
+                            onChange={(e) => setFilterSearch(e.target.value)}
+                            className="pe-9 sm:pe-10 ps-9 sm:ps-10 text-sm h-9 sm:h-10 w-full"
+                            dir="rtl"
+                            aria-label="חיפוש מסננים"
+                          />
+                          {filterSearch && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setFilterSearch('')}
+                              className="absolute start-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-muted"
+                              aria-label="נקה חיפוש"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {/* Active Filters Badge and Clear Button */}
+                    {hasActiveFilters && (
+                      <div className="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 pb-3 mb-3">
+                        <Badge variant="secondary" className="text-xs px-2 py-1 shadow-xs">
+                          {activeFilterCount} סינונים פעילים
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearAllFilters}
+                          className="h-8 rounded-full px-3 text-xs sm:text-sm w-full sm:w-auto"
+                          aria-label="נקה את כל המסננים"
+                        >
+                          <X className="h-3.5 w-3.5 me-1.5" />
+                          נקה הכל
+                        </Button>
+                      </div>
+                    )}
 
                     {userAssetsAdditionalFilter && (
-                      <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
+                      <div className="space-y-2 rounded-lg bg-muted/50 p-3 shadow-sm">
                         <Label className="text-sm font-medium">הצג נכסים לפי</Label>
                         <Select
                           value={userAssetsAdditionalFilter.value ?? 'all'}
@@ -2020,7 +2106,7 @@ export default function TableToolbar({
                         id="primary-filters"
                         title="מיקום ותקציב"
                         description="התחל בבחירת מיקום ותקציב כדי להתמקד בתוצאות במהירות."
-                        defaultOpen
+                        defaultOpen={filterSearch.trim() ? sectionHasMatchingFilters(primarySectionItems, 'מיקום ותקציב') : true}
                       >
                         <div className="space-y-4">
                           {filteredPrimarySectionItems.map(({ key, node }) => (

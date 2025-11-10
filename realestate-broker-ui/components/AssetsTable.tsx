@@ -762,6 +762,20 @@ interface AssetsTableProps {
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
     }
+    modelPrice?: NumberRangeFilterConfig
+    antennaDistanceM?: NumberRangeFilterConfig
+    shelterDistanceM?: NumberRangeFilterConfig
+    noiseLevel?: NumberRangeFilterConfig
+    greenWithin300m?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    schoolsWithin500m?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
   }
   onRefresh?: () => void
   onAddNew?: () => void
@@ -1600,6 +1614,80 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.modelPrice) {
+      items.push({
+        key: 'modelPrice',
+        label: 'מחיר שוק',
+        type: 'number-range',
+        value: filters.modelPrice.value,
+        minPlaceholder: filters.modelPrice.minPlaceholder,
+        maxPlaceholder: filters.modelPrice.maxPlaceholder,
+        step: filters.modelPrice.step,
+        analyticsKey: 'model_price'
+      })
+    }
+
+    if (filters.antennaDistanceM) {
+      items.push({
+        key: 'antennaDistanceM',
+        label: 'מרחק אנטנה',
+        type: 'number-range',
+        value: filters.antennaDistanceM.value,
+        minPlaceholder: filters.antennaDistanceM.minPlaceholder,
+        maxPlaceholder: filters.antennaDistanceM.maxPlaceholder,
+        step: filters.antennaDistanceM.step,
+        analyticsKey: 'antenna_distance'
+      })
+    }
+
+    if (filters.shelterDistanceM) {
+      items.push({
+        key: 'shelterDistanceM',
+        label: 'מרחק מקלט',
+        type: 'number-range',
+        value: filters.shelterDistanceM.value,
+        minPlaceholder: filters.shelterDistanceM.minPlaceholder,
+        maxPlaceholder: filters.shelterDistanceM.maxPlaceholder,
+        step: filters.shelterDistanceM.step,
+        analyticsKey: 'shelter_distance'
+      })
+    }
+
+    if (filters.noiseLevel) {
+      items.push({
+        key: 'noiseLevel',
+        label: 'רמת רעש',
+        type: 'number-range',
+        value: filters.noiseLevel.value,
+        minPlaceholder: filters.noiseLevel.minPlaceholder,
+        maxPlaceholder: filters.noiseLevel.maxPlaceholder,
+        step: filters.noiseLevel.step,
+        analyticsKey: 'noise_level'
+      })
+    }
+
+    if (filters.greenWithin300m) {
+      items.push({
+        key: 'greenWithin300m',
+        label: 'שטחי ציבור ≤300מ"',
+        type: 'select',
+        value: filters.greenWithin300m.value,
+        options: (filters.greenWithin300m.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'green_within_300m'
+      })
+    }
+
+    if (filters.schoolsWithin500m) {
+      items.push({
+        key: 'schoolsWithin500m',
+        label: 'בתי ספר ≤500מ"',
+        type: 'select',
+        value: filters.schoolsWithin500m.value,
+        options: (filters.schoolsWithin500m.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'schools_within_500m'
+      })
+    }
+
     return items
   }, [filters])
 
@@ -1696,6 +1784,14 @@ export default function AssetsTable({
           filters.recentDeal?.onChange(value)
           trackString('recent_deal', value)
           break
+        case 'greenWithin300m':
+          filters.greenWithin300m?.onChange(value)
+          trackString('green_within_300m', value)
+          break
+        case 'schoolsWithin500m':
+          filters.schoolsWithin500m?.onChange(value)
+          trackString('schools_within_500m', value)
+          break
         default:
           break
       }
@@ -1748,6 +1844,22 @@ export default function AssetsTable({
         case 'capRatePct':
           filters.capRatePct?.onChange(rangeValue)
           trackRange('cap_rate_pct', rangeValue)
+          break
+        case 'modelPrice':
+          filters.modelPrice?.onChange(rangeValue)
+          trackRange('model_price', rangeValue)
+          break
+        case 'antennaDistanceM':
+          filters.antennaDistanceM?.onChange(rangeValue)
+          trackRange('antenna_distance', rangeValue)
+          break
+        case 'shelterDistanceM':
+          filters.shelterDistanceM?.onChange(rangeValue)
+          trackRange('shelter_distance', rangeValue)
+          break
+        case 'noiseLevel':
+          filters.noiseLevel?.onChange(rangeValue)
+          trackRange('noise_level', rangeValue)
           break
         default:
           break

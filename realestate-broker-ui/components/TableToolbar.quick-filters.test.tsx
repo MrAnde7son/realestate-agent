@@ -128,7 +128,7 @@ const openDropdownMenu = (trigger: HTMLElement) => {
 };
 
 const getQuickFilterButton = (label: string) =>
-  screen.getByRole("button", { name: (name) => name?.includes(label) ?? false });
+  screen.getByRole("button", { name: new RegExp(label) });
 
 describe("TableToolbar quick filters", () => {
   beforeEach(() => {

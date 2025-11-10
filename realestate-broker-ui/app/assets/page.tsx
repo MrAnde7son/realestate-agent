@@ -316,6 +316,46 @@ export default function AssetsPage() {
     const value = searchParams.get("recentDeal");
     return value ?? "all";
   });
+  const [modelPriceMin, setModelPriceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("modelPriceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [modelPriceMax, setModelPriceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("modelPriceMax");
+    return val ? Number(val) : undefined;
+  });
+  const [antennaDistanceMin, setAntennaDistanceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("antennaDistanceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [antennaDistanceMax, setAntennaDistanceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("antennaDistanceMax");
+    return val ? Number(val) : undefined;
+  });
+  const [shelterDistanceMin, setShelterDistanceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("shelterDistanceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [shelterDistanceMax, setShelterDistanceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("shelterDistanceMax");
+    return val ? Number(val) : undefined;
+  });
+  const [noiseLevelMin, setNoiseLevelMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("noiseLevelMin");
+    return val ? Number(val) : undefined;
+  });
+  const [noiseLevelMax, setNoiseLevelMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("noiseLevelMax");
+    return val ? Number(val) : undefined;
+  });
+  const [greenWithin300mFilter, setGreenWithin300mFilter] = useState<string>(() => {
+    const value = searchParams.get("greenWithin300m");
+    return value ?? "all";
+  });
+  const [schoolsWithin500mFilter, setSchoolsWithin500mFilter] = useState<string>(() => {
+    const value = searchParams.get("schoolsWithin500m");
+    return value ?? "all";
+  });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>(() => {
     const urlViewMode = searchParams.get("view");
     if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
@@ -1107,6 +1147,16 @@ export default function AssetsPage() {
     if (storageRoomFilter && storageRoomFilter !== "all") params.set("storageRoom", storageRoomFilter);
     if (hasElevatorFilter && hasElevatorFilter !== "all") params.set("hasElevator", hasElevatorFilter);
     if (recentDealFilter && recentDealFilter !== "all") params.set("recentDeal", recentDealFilter);
+    if (modelPriceMin != null) params.set("modelPriceMin", String(modelPriceMin));
+    if (modelPriceMax != null) params.set("modelPriceMax", String(modelPriceMax));
+    if (antennaDistanceMin != null) params.set("antennaDistanceMin", String(antennaDistanceMin));
+    if (antennaDistanceMax != null) params.set("antennaDistanceMax", String(antennaDistanceMax));
+    if (shelterDistanceMin != null) params.set("shelterDistanceMin", String(shelterDistanceMin));
+    if (shelterDistanceMax != null) params.set("shelterDistanceMax", String(shelterDistanceMax));
+    if (noiseLevelMin != null) params.set("noiseLevelMin", String(noiseLevelMin));
+    if (noiseLevelMax != null) params.set("noiseLevelMax", String(noiseLevelMax));
+    if (greenWithin300mFilter && greenWithin300mFilter !== "all") params.set("greenWithin300m", greenWithin300mFilter);
+    if (schoolsWithin500mFilter && schoolsWithin500mFilter !== "all") params.set("schoolsWithin500m", schoolsWithin500mFilter);
 
     return params;
   }, [
@@ -1165,6 +1215,16 @@ export default function AssetsPage() {
     storageRoomFilter,
     hasElevatorFilter,
     recentDealFilter,
+    modelPriceMin,
+    modelPriceMax,
+    antennaDistanceMin,
+    antennaDistanceMax,
+    shelterDistanceMin,
+    shelterDistanceMax,
+    noiseLevelMin,
+    noiseLevelMax,
+    greenWithin300mFilter,
+    schoolsWithin500mFilter,
   ]);
 
   const fetchAssets = React.useCallback(async () => {
@@ -2875,6 +2935,61 @@ export default function AssetsPage() {
                 recentDeal: {
                   value: recentDealFilter,
                   onChange: setRecentDealFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'כן' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                modelPrice: {
+                  value: { min: modelPriceMin, max: modelPriceMax },
+                  onChange: ({ min, max }) => {
+                    setModelPriceMin(min);
+                    setModelPriceMax(max);
+                  },
+                  minPlaceholder: 'מחיר שוק מינ',
+                  maxPlaceholder: 'מחיר שוק מקס',
+                },
+                antennaDistanceM: {
+                  value: { min: antennaDistanceMin, max: antennaDistanceMax },
+                  onChange: ({ min, max }) => {
+                    setAntennaDistanceMin(min);
+                    setAntennaDistanceMax(max);
+                  },
+                  minPlaceholder: 'מרחק מינ (מ")',
+                  maxPlaceholder: 'מרחק מקס (מ")',
+                },
+                shelterDistanceM: {
+                  value: { min: shelterDistanceMin, max: shelterDistanceMax },
+                  onChange: ({ min, max }) => {
+                    setShelterDistanceMin(min);
+                    setShelterDistanceMax(max);
+                  },
+                  minPlaceholder: 'מרחק מינ (מ")',
+                  maxPlaceholder: 'מרחק מקס (מ")',
+                },
+                noiseLevel: {
+                  value: { min: noiseLevelMin, max: noiseLevelMax },
+                  onChange: ({ min, max }) => {
+                    setNoiseLevelMin(min);
+                    setNoiseLevelMax(max);
+                  },
+                  minPlaceholder: 'רמת רעש מינ (0-5)',
+                  maxPlaceholder: 'רמת רעש מקס (0-5)',
+                  step: 0.5,
+                },
+                greenWithin300m: {
+                  value: greenWithin300mFilter,
+                  onChange: setGreenWithin300mFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'כן' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                schoolsWithin500m: {
+                  value: schoolsWithin500mFilter,
+                  onChange: setSchoolsWithin500mFilter,
                   options: [
                     { value: 'all', label: 'הכל' },
                     { value: 'true', label: 'כן' },

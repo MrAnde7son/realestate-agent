@@ -109,6 +109,7 @@ async def fetch_listings(
     zoom: Optional[int] = None,
     listing_type: str = ListingType.ALL,
     pull_contacts: bool = False,
+    limit: Optional[int | str] = None,
 ) -> Dict[str, Any]:
     """Fetch active listings via Yad2's public map feed API.
     
@@ -162,6 +163,7 @@ async def fetch_listings(
         zoom: Zoom level (defaults to 15)
         listing_type: Type of listing - "sale", "rent", "commercial", or "all"
         pull_contacts: Whether to fetch contact information for listings
+        limit: Maximum number of listings to return (applied after fetching)
     
     Returns:
         Dictionary with listings data and statistics
@@ -265,9 +267,21 @@ async def fetch_listings(
                 "parameters": search_params.get_active_parameters(),
             }
 
-        # Format listings for output (limit to first 20 for brevity)
+        # Apply limit if specified (convert string to int if needed)
+        limit_int = None
+        if limit is not None:
+            try:
+                limit_int = int(limit) if isinstance(limit, str) else limit
+                if limit_int > 0:
+                    listings = listings[:limit_int]
+            except (ValueError, TypeError):
+                await ctx.warning(f"Invalid limit value: {limit}, ignoring limit")
+                limit_int = None
+
+        # Format listings for output (limit to first 20 for brevity in preview)
+        preview_limit = min(20, len(listings))
         formatted = []
-        for l in listings[:20]:
+        for l in listings[:preview_limit]:
             formatted.append({
                 "title": l.title,
                 "price": l.price,
@@ -286,6 +300,8 @@ async def fetch_listings(
         return {
             "success": True,
             "total_listings": len(listings),
+            "total_fetched": len(_last_search_results) if _last_search_results else len(listings),
+            "limit_applied": limit_int,
             "parameters": search_params.get_active_parameters(),
             "listings_preview": formatted,
             "price_stats": price_stats,

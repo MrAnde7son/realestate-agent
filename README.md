@@ -468,7 +468,7 @@ rami_plans/
 - `balcony`: Requires balcony (1=yes, 0=no)
 - `renovated`: Must be renovated (1=yes, 0=no)
 - `airCondition`: Has air conditioning (1=yes, 0=no)
-- `mamad`: Has safe room (1=yes, 0=no)
+- `shelter`: Has safe room (1=yes, 0=no)
 
 ## 📚 Usage Examples
 

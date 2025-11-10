@@ -6,7 +6,7 @@ from typing import List, Optional
 from yad2.api_client import Yad2APIClient, RealEstateListing
 from orchestration.location import LocationQuery, ensure_location_query
 
-from .base_collector import BaseCollector
+from orchestration.collectors.base_collector import BaseCollector
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,11 @@ class Yad2Collector(BaseCollector):
             if map_listings:
                 listings.extend(map_listings)
 
-            latest_deals = self.client.fetch_latest_deals()
-            listings.extend(latest_deals)
+            if len(listings) > 0:
+                search_params.set_parameter('neighborhood', listings[0].neighborhood)
+                self.client.set_search_parameters(search_params)
+                latest_deals = self.client.fetch_latest_deals()
+                listings.extend(latest_deals)
 
         except Exception as e:
             logger.error(f"Yad2 collector failed: {e}")

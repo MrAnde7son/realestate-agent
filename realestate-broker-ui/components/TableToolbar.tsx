@@ -338,6 +338,7 @@ export default function TableToolbar({
   const { trackFeatureUsage } = useAnalytics()
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
+  const [filterSearch, setFilterSearch] = useState('');
   const [isClient, setIsClient] = useState(false);
   const cityFilter = filters?.city;
   const typeFilter = filters?.type;
@@ -631,6 +632,11 @@ export default function TableToolbar({
         'balcony',
         'condition',
         'age',
+        'renovated',
+        'renovation',
+        'furnished',
+        'furniture',
+        'elevator',
       ].some((keyword) => normalizedKey.includes(keyword))
     ) {
       return 'property' as const;
@@ -1335,6 +1341,98 @@ export default function TableToolbar({
       (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
       advancedAdditionalFilters.some(isAdditionalFilterActive));
 
+  // Filter sections based on search query
+  const filterSectionBySearch = React.useCallback((sectionItems: Array<{ key: string; node: React.ReactNode }>, sectionTitle: string) => {
+    if (!filterSearch.trim()) {
+      return sectionItems;
+    }
+
+    const searchLower = filterSearch.toLowerCase().trim();
+    const sectionTitleMatches = sectionTitle.toLowerCase().includes(searchLower);
+
+    // Check if section title matches
+    if (sectionTitleMatches) {
+      return sectionItems;
+    }
+
+    // Filter items by checking their labels and keys
+    return sectionItems.filter(({ key, node }) => {
+      // Extract label from node if possible (for additional filters)
+      const keyMatches = key.toLowerCase().includes(searchLower);
+      
+      // Try to find label in the node structure
+      // This is a simplified check - we'll look for common patterns
+      if (keyMatches) {
+        return true;
+      }
+
+      // For additional filters, check if the filter label matches
+      const filter = additionalFilters?.find(f => f.key === key);
+      if (filter && filter.label.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+
+      // Check common filter labels
+      const commonLabels: Record<string, string> = {
+        'city': 'עיר',
+        'neighborhood': 'שכונה',
+        'type': 'סוג נכס',
+        'price': 'מחיר',
+        'area': 'שטח',
+        'rooms': 'חדרים',
+        'bedrooms': 'חדרי שינה',
+        'bathrooms': 'חדרי רחצה',
+        'floor': 'קומה',
+        'totalFloors': 'קומות בבניין',
+        'parkingSpaces': 'חניות',
+        'renovated': 'שיפוץ',
+        'furnished': 'ריהוט',
+        'hasElevator': 'מעלית',
+        'airConditioning': 'מיזוג אוויר',
+        'storageRoom': 'מחסן',
+        'balconyArea': 'שטח מרפסות',
+        'yearBuilt': 'שנת בנייה',
+        'rentPrice': 'מחיר שכירות',
+        'rentEstimate': 'שכירות משוערת',
+        'priceGapPct': 'פער מחיר',
+        'capRatePct': 'תשואה',
+        'zoning': 'ייעוד',
+        'risk': 'סיכון',
+        'documents': 'מסמכים',
+        'rentalSale': 'השכרה/מכירה',
+        'adType': 'סוג מפרסם',
+        'commercial': 'ייעוד נכס',
+        'status': 'סטטוס',
+        'block': 'גוש',
+        'parcel': 'חלקה',
+        'recentDeal': 'נמכר לאחרונה',
+      };
+
+      const label = commonLabels[key] || filter?.label || key;
+      return label.toLowerCase().includes(searchLower);
+    });
+  }, [filterSearch, additionalFilters]);
+
+  const filteredPrimarySectionItems = React.useMemo(
+    () => filterSectionBySearch(primarySectionItems, 'מיקום ותקציב'),
+    [primarySectionItems, filterSectionBySearch]
+  );
+
+  const filteredPropertySectionItems = React.useMemo(
+    () => filterSectionBySearch(propertySectionItems, 'מאפייני נכס'),
+    [propertySectionItems, filterSectionBySearch]
+  );
+
+  const filteredTransactionSectionItems = React.useMemo(
+    () => filterSectionBySearch(transactionSectionItems, 'סטטוס ומקור'),
+    [transactionSectionItems, filterSectionBySearch]
+  );
+
+  const filteredAdvancedSectionItems = React.useMemo(
+    () => filterSectionBySearch(advancedSectionItems, 'סינון מתקדם'),
+    [advancedSectionItems, filterSectionBySearch]
+  );
+
   return (
     <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3" dir="rtl">
@@ -1817,7 +1915,12 @@ export default function TableToolbar({
               </DropdownMenu>
             )}
 
-            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <Sheet open={filtersOpen} onOpenChange={(open) => {
+              setFiltersOpen(open);
+              if (!open) {
+                setFilterSearch('');
+              }
+            }}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES}>
                   <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
@@ -1837,6 +1940,32 @@ export default function TableToolbar({
                     </SheetDescription>
                   </SheetHeader>
                   <div className="space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
+                    {/* Filter Search */}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        <Input
+                          placeholder="חיפוש מסננים..."
+                          value={filterSearch}
+                          onChange={(e) => setFilterSearch(e.target.value)}
+                          className="pe-8 text-sm h-9"
+                          dir="rtl"
+                          aria-label="חיפוש מסננים"
+                        />
+                        {filterSearch && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setFilterSearch('')}
+                            className="absolute start-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                            aria-label="נקה חיפוש"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between rtl:flex-row-reverse">
                       {hasActiveFilters && (
                         <div className="flex items-center gap-2">
@@ -1886,7 +2015,7 @@ export default function TableToolbar({
                       </div>
                     )}
 
-                    {primarySectionItems.length > 0 && (
+                    {filteredPrimarySectionItems.length > 0 && (
                       <FilterSection
                         id="primary-filters"
                         title="מיקום ותקציב"
@@ -1894,14 +2023,14 @@ export default function TableToolbar({
                         defaultOpen
                       >
                         <div className="space-y-4">
-                          {primarySectionItems.map(({ key, node }) => (
+                          {filteredPrimarySectionItems.map(({ key, node }) => (
                             <React.Fragment key={key}>{node}</React.Fragment>
                           ))}
                         </div>
                       </FilterSection>
                     )}
 
-                    {propertySectionItems.length > 0 && (
+                    {filteredPropertySectionItems.length > 0 && (
                       <FilterSection
                         id="property-filters"
                         title="מאפייני נכס"
@@ -1909,14 +2038,14 @@ export default function TableToolbar({
                         defaultOpen={propertySectionDefaultOpen}
                       >
                         <div className="space-y-3">
-                          {propertySectionItems.map(({ key, node }) => (
+                          {filteredPropertySectionItems.map(({ key, node }) => (
                             <React.Fragment key={key}>{node}</React.Fragment>
                           ))}
                         </div>
                       </FilterSection>
                     )}
 
-                    {transactionSectionItems.length > 0 && (
+                    {filteredTransactionSectionItems.length > 0 && (
                       <FilterSection
                         id="transaction-filters"
                         title="סטטוס ומקור"
@@ -1924,14 +2053,14 @@ export default function TableToolbar({
                         defaultOpen={transactionSectionDefaultOpen}
                       >
                         <div className="space-y-3">
-                          {transactionSectionItems.map(({ key, node }) => (
+                          {filteredTransactionSectionItems.map(({ key, node }) => (
                             <React.Fragment key={key}>{node}</React.Fragment>
                           ))}
                         </div>
                       </FilterSection>
                     )}
 
-                    {advancedSectionItems.length > 0 && (
+                    {filteredAdvancedSectionItems.length > 0 && (
                       <FilterSection
                         id="advanced-filters"
                         title="סינון מתקדם"
@@ -1939,11 +2068,22 @@ export default function TableToolbar({
                         defaultOpen={advancedSectionDefaultOpen}
                       >
                         <div className="space-y-3">
-                          {advancedSectionItems.map(({ key, node }) => (
+                          {filteredAdvancedSectionItems.map(({ key, node }) => (
                             <React.Fragment key={key}>{node}</React.Fragment>
                           ))}
                         </div>
                       </FilterSection>
+                    )}
+
+                    {filterSearch.trim() && 
+                     filteredPrimarySectionItems.length === 0 &&
+                     filteredPropertySectionItems.length === 0 &&
+                     filteredTransactionSectionItems.length === 0 &&
+                     filteredAdvancedSectionItems.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm">לא נמצאו מסננים התואמים לחיפוש</p>
+                        <p className="text-xs mt-1">נסה לבדוק את האיות או להשתמש במילים אחרות</p>
+                      </div>
                     )}
                   </div>
                 </SheetContent>

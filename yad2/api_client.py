@@ -424,7 +424,7 @@ class Yad2APIClient:
 
     def fetch_latest_deals(
         self,
-        search_params: Yad2SearchParameters,
+        search_params: Optional[Yad2SearchParameters] = None,
         limit: int = 8,
         page: int = 1,
         sort_by: str = "saleDate",
@@ -861,7 +861,7 @@ class Yad2APIClient:
         street_line_parts = [part for part in [street, str(house_number) if house_number else None] if part]
         street_line = " ".join(street_line_parts) if street_line_parts else None
 
-        address_parts = [part for part in [street_line, neighborhood, city] if part]
+        address_parts = [part for part in [street_line, city] if part]
         listing.address = ", ".join(address_parts) if address_parts else None
         if neighborhood:
             listing.meta["neighborhood"] = neighborhood
@@ -898,9 +898,9 @@ class Yad2APIClient:
 
 if __name__ == "__main__":
     client = Yad2APIClient()
-    search_params = client.fetch_location_autocomplete("רוזוב תל אביב")
+    search_params = client.fetch_location_autocomplete("רמת החייל תל אביב")
     client.set_search_parameters(search_params)
-    listings = client.fetch_listings(search_params)
-    print(listings)
-    # latest_deals = client.fetch_latest_deals(search_params)
-    # print(latest_deals)
+    # listings = client.fetch_listings(search_params)
+    # print(listings)
+    latest_deals = client.fetch_latest_deals(search_params)
+    print(latest_deals)

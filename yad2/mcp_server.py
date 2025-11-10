@@ -80,7 +80,7 @@ async def fetch_listings(
     accessibility: Optional[int | str | bool] = None,
     airCondition: Optional[int | str | bool] = None,
     bars: Optional[int | str | bool] = None,
-    mamad: Optional[int | str | bool] = None,
+    shelter: Optional[int | str | bool] = None,
     storage: Optional[int | str | bool] = None,
     terrace: Optional[int | str | bool] = None,
     garden: Optional[int | str | bool] = None,
@@ -137,7 +137,7 @@ async def fetch_listings(
         accessibility: Has accessibility features (1/0, true/false)
         airCondition: Has air conditioning (1/0, true/false)
         bars: Has security bars (1/0, true/false)
-        mamad: Has safe room (1/0, true/false)
+        shelter: Has safe room (1/0, true/false)
         storage: Has storage (1/0, true/false)
         terrace: Has terrace (1/0, true/false)
         garden: Has garden (1/0, true/false)
@@ -193,7 +193,7 @@ async def fetch_listings(
             accessibility=accessibility,
             airCondition=airCondition,
             bars=bars,
-            mamad=mamad,
+            shelter=shelter,
             storage=storage,
             terrace=terrace,
             garden=garden,
@@ -510,7 +510,7 @@ async def build_search_url(
     accessibility: Optional[int | str | bool] = None,
     airCondition: Optional[int | str | bool] = None,
     bars: Optional[int | str | bool] = None,
-    mamad: Optional[int | str | bool] = None,
+    shelter: Optional[int | str | bool] = None,
     storage: Optional[int | str | bool] = None,
     terrace: Optional[int | str | bool] = None,
     garden: Optional[int | str | bool] = None,
@@ -574,7 +574,7 @@ async def build_search_url(
             accessibility=accessibility,
             airCondition=airCondition,
             bars=bars,
-            mamad=mamad,
+            shelter=shelter,
             storage=storage,
             terrace=terrace,
             garden=garden,
@@ -659,7 +659,7 @@ async def get_search_parameters_reference(ctx: Context):
         "Property Details": ["rooms", "floor", "size", "minSize", "maxSize"],
         "Features & Amenities": [
             "parking", "elevator", "balcony", "renovated", "accessibility",
-            "airCondition", "bars", "mamad", "storage", "terrace", "garden",
+            "airCondition", "bars", "shelter", "storage", "terrace", "garden",
             "pets", "furniture",
         ],
         "Search Options": ["page", "order", "dealType", "priceOnly", "priceDropped", "exclusive", "publishedDays"],

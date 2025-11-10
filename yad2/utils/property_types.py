@@ -113,7 +113,7 @@ class PropertyTypeUtils:
             'mini penthouse': 6,          # Penthouse
             'loft': 7,                    # Duplex
             'vacation apartment': 25,     # Hotel
-            'mamad': 61,                  # Safe house
+            'shelter': 61,                  # Safe house
         }
         return english_to_code.get(english_name.lower(), None)
     

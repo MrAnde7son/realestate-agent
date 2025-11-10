@@ -49,7 +49,7 @@ class Yad2SearchParameters:
             'accessibility': None, # Accessibility features (1/0)
             'airCondition': None, # Has air conditioning (1/0)
             'bars': None,         # Has security bars (1/0)
-            'mamad': None,        # Has safe room (1/0)
+            'shelter': None,        # Has safe room (1/0)
             'storage': None,      # Has storage (1/0)
             'terrace': None,      # Has terrace (1/0)
             'garden': None,       # Has garden (1/0)
@@ -97,7 +97,7 @@ class Yad2SearchParameters:
                     except ValueError:
                         raise ValueError("Parameter '{}' must be a number".format(key))
                 elif key in ['elevator', 'balcony', 'renovated', 'accessibility', 
-                           'airCondition', 'bars', 'mamad', 'storage', 'terrace', 
+                           'airCondition', 'bars', 'shelter', 'storage', 'terrace', 
                            'garden', 'pets', 'furniture', 'priceOnly', 'priceDropped', 'exclusive']:
                     # Boolean parameters
                     if str(value).lower() in ['true', '1', 'yes', 'y']:

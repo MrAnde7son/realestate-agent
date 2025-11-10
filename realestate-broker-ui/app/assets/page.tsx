@@ -1509,6 +1509,7 @@ export default function AssetsPage() {
     tagSafetyFilter,
     tagFamilyFriendlyFilter,
     tagLightRailFilter,
+    exclusiveFilter,
   ]);
 
   const fetchAssets = React.useCallback(async () => {

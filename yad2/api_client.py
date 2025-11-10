@@ -71,6 +71,11 @@ class Yad2APIClient:
         self._project_autocomplete_cache: Dict[str, Dict[str, Any]] = {}
         self._project_autocomplete_fetcher = None  # Will be set by scraper if needed
 
+    def _get_active_params(self, search_params: Yad2SearchParameters) -> Dict[str, Any]:
+        if self.search_params or search_params:
+            return self.search_params and self.search_params.get_active_parameters() or search_params.get_active_parameters()
+        return {}
+
     def set_search_parameters(self, search_params: Yad2SearchParameters):
         """Set or update search parameters."""
         self.search_params = search_params
@@ -99,7 +104,7 @@ class Yad2APIClient:
         Returns:
             List of :class:`RealEstateListing` instances.
         """
-        active = self.search_params and self.search_params.get_active_parameters() or search_params.get_active_parameters()
+        active = self._get_active_params(search_params)
 
         params: Dict[str, Any] = active
 
@@ -464,7 +469,7 @@ class Yad2APIClient:
                 "coords": coords,
             }
 
-            active = search_params.get_active_parameters()
+            active = self._get_active_params(search_params)
 
             def _choose(value, fallback_key):
                 return value if value is not None else active.get(fallback_key)
@@ -652,7 +657,7 @@ class Yad2APIClient:
     def _convert_map_marker(
         self,
         marker: Dict[str, Any],
-        listing_type: str = ListingType.RENT,
+        listing_type: ListingType = ListingType.RENT,
         marker_type: str = "yad2",
         project_autocomplete_fetcher=None
     ) -> Optional[RealEstateListing]:
@@ -663,7 +668,7 @@ class Yad2APIClient:
 
         try:
             listing = RealEstateListing()
-            listing.listing_type = listing_type
+            listing.listing_type = listing_type.value
 
             address = marker.get("address") or {}
             city = self._extract_nested_text(address, "city")

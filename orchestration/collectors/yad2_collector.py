@@ -48,8 +48,9 @@ class Yad2Collector(BaseCollector):
                 listings.extend(map_listings)
 
             if len(listings) > 0:
-                search_params.set_parameter('neighborhood', listings[0].neighborhood)
-                self.client.set_search_parameters(search_params)
+                search_params = self.client.fetch_location_autocomplete(f"{listings[0].meta['neighborhood']} {listings[0].meta['city']}")
+                if search_params:
+                    self.client.set_search_parameters(search_params)
                 latest_deals = self.client.fetch_latest_deals()
                 listings.extend(latest_deals)
 

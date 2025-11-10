@@ -537,7 +537,7 @@ export default function AssetsPage() {
     setDocumentsFilter(searchParams.get("documents") ?? "all");
     setStatusFilter(searchParams.get("status") ?? "all");
     setRentalSaleFilter(searchParams.get("rentalSale") ?? "all");
-    setSellerTypeFilter(searchParams.get("sellerType") ?? searchParams.get("adType") ?? "all");
+    setSellerTypeFilter(searchParams.get("sellerType") ?? "all");
     setCommercialFilter(searchParams.get("commercial") ?? "all");
     setUserAssetsFilter(searchParams.get("userAssets") ?? "all");
     setBuildingTypeFilter(searchParams.get("buildingType") ?? "all");

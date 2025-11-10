@@ -5,8 +5,16 @@ from core.models import Asset, Listing
 
 class AssetListingsUiTests(TestCase):
     def setUp(self):
-        self.asset_rent = Asset.objects.create(scope_type="address", city="Tel Aviv")
-        self.asset_sale = Asset.objects.create(scope_type="address", city="Tel Aviv")
+        self.asset_rent = Asset.objects.create(
+            scope_type="address",
+            city="Tel Aviv",
+            normalized_address="test street 1",
+        )
+        self.asset_sale = Asset.objects.create(
+            scope_type="address",
+            city="Tel Aviv",
+            normalized_address="test street 2",
+        )
 
         self.listing_rent = Listing.objects.create(
             source="yad2",
@@ -19,6 +27,7 @@ class AssetListingsUiTests(TestCase):
             recent_deal=True,
             photos=["http://example.com/photo.jpg"],
             video_url="http://example.com/video.mp4",
+            address="test street 1",
         )
         self.listing_rent.assets.add(self.asset_rent)
 
@@ -31,6 +40,7 @@ class AssetListingsUiTests(TestCase):
             contact_name="Ronen",
             contact_phone="050-7654321",
             recent_deal=False,
+            address="test street 2",
         )
         self.listing_sale.assets.add(self.asset_sale)
 

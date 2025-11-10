@@ -91,10 +91,12 @@ class GovMapCollector(BaseCollector):
                     logger.info(f"  Result {i+1}: '{result_text}' (type: {result_type})")
                 
                 coords = self.client.extract_coordinates_from_shapes(results[0])
+                logger.info(f"🔍 GovMap collector: extract_coordinates_from_shapes returned: {coords}")
                 if coords:
                     x, y = coords
                     out["x"] = x
                     out["y"] = y
+                    logger.info(f"📍 GovMap collector: Set coordinates in output dict: x={x}, y={y}")
 
                     # Get parcel data using the extracted coordinates
                     try:
@@ -167,7 +169,7 @@ class GovMapCollector(BaseCollector):
                         logger.warning(f"Failed to get entities by point: {e}")
 
                 else:
-                    logger.warning("Could not extract coordinates from autocomplete result")
+                    logger.warning(f"⚠️ Could not extract coordinates from autocomplete result. First result: {results[0] if results else 'No results'}")
             else:
                 logger.warning("Autocomplete response did not contain results")
         except Exception as e:

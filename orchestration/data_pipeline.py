@@ -452,6 +452,7 @@ class DataPipeline:
                 track("collector_success", source="govmap")
                 
                 # Extract coordinates from GovMap result
+                logger.info(f"🔍 GovMap data has 'x': {'x' in govmap_data}, has 'y': {'y' in govmap_data}")
                 if "x" in govmap_data and "y" in govmap_data:
                     x_itm = govmap_data["x"]
                     y_itm = govmap_data["y"]
@@ -461,7 +462,7 @@ class DataPipeline:
                     lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
                     logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
                 else:
-                    logger.warning("⚠️ No coordinates found in GovMap response")
+                    logger.warning(f"⚠️ No coordinates found in GovMap response. Available keys: {list(govmap_data.keys())}")
                     
             except Exception as e:
                 govmap_data = {}
@@ -480,6 +481,7 @@ class DataPipeline:
 
                 block = parcel_props.get("gushnumber", "")
                 parcel = parcel_props.get("parcelnumber", "")
+                logger.debug(f"🔍 Updating location with block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                 location = LocationQuery(
                     city=location.city,
                     street=location.street,
@@ -515,6 +517,7 @@ class DataPipeline:
                         city_part = match.group(3).strip() if match.group(3) else location.city
                         
                         # Update the location object with corrected address components
+                        logger.debug(f"🔍 Updating location with corrected address. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                         location = LocationQuery(
                             street=street_part,
                             house_number=house_number,
@@ -525,7 +528,7 @@ class DataPipeline:
                             x_itm=location.x_itm,
                             y_itm=location.y_itm,
                         )
-                        logger.info(f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}'")
+                        logger.info(f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}', x_itm={location.x_itm}, y_itm={location.y_itm}")
                     else:
                         # If parsing fails, try to extract just the street name
                         # Split by space and take the first part as street, rest as city
@@ -533,6 +536,7 @@ class DataPipeline:
                         if len(parts) >= 2:
                             street_part = parts[0].strip()
                             city_part = parts[1].strip()
+                            logger.debug(f"🔍 Updating location with corrected address (simple parse). Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                             location = LocationQuery(
                                 street=street_part,
                                 house_number=location.house_number,
@@ -543,7 +547,6 @@ class DataPipeline:
                                 x_itm=location.x_itm,
                                 y_itm=location.y_itm,
                             )
-                            logger.info(f"📍 Updated location (simple parse): street='{street_part}', city='{city_part}'")
                         else:
                             logger.info("📍 Could not parse corrected address, keeping original location")
                 except Exception as e:
@@ -614,9 +617,16 @@ class DataPipeline:
 
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
-            if block and parcel:
+            has_coordinates = location.x_itm is not None and location.y_itm is not None
+            has_block_parcel = bool(block and parcel)
+            
+            if has_coordinates or has_block_parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
+                    if has_coordinates:
+                        logger.info(f"📍 Using coordinates for GovMap deals: ITM({location.x_itm}, {location.y_itm})")
+                    if has_block_parcel:
+                        logger.info(f"📍 Using block/parcel for decisive appraisals: block={block}, parcel={parcel}")
                     # GovCollector will use coordinates from LocationQuery if available
                     gov_data = self._collect_with_observability(
                         "gov",
@@ -632,6 +642,8 @@ class DataPipeline:
                     gov_data = {"decisive": [], "transactions": []}
                     track("collector_fail", source="gov", error_code=str(e))
                     logger.warning(f"⚠️ Government data collection failed: {e}")
+            else:
+                logger.info("⚠️ Skipping government data collection: no coordinates or block/parcel available")
             
             # Get RAMI plans once for the address
             plans = []

@@ -61,7 +61,10 @@ class GovCollector(BaseCollector):
         # Collect GovMap deals if coordinates are available in LocationQuery
         govmap_transactions = []
         if query.x_itm is not None and query.y_itm is not None:
+            logger.info(f"📍 GovCollector: Coordinates available - ITM({query.x_itm}, {query.y_itm}), collecting GovMap deals...")
             govmap_transactions = self._collect_govmap_deals(query.x_itm, query.y_itm, max_age_days)
+        else:
+            logger.warning(f"⚠️ GovCollector: No coordinates available (x_itm={query.x_itm}, y_itm={query.y_itm}), skipping GovMap deals collection")
         
         # Merge and deduplicate transactions (prefer Nadlan when duplicates exist)
         all_transactions = self._merge_and_deduplicate_transactions(

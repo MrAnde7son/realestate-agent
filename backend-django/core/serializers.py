@@ -1,3 +1,4 @@
+from typing import Tuple, Optional
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
@@ -28,7 +29,6 @@ from .services.asset_links import (
     asset_permits_all,
     asset_plans_all,
 )
-from .utils.listings import normalize_listing_from_model
 from .utils.listings import normalize_listing_from_model
 
 User = get_user_model()
@@ -336,6 +336,109 @@ class AssetSerializer(MetaSerializerMixin):
         except (AttributeError, OSError, OverflowError, ValueError):  # pragma: no cover - safety
             return (-1, 0, 0)
 
+    def _extract_street_and_number(self, address: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extract street name and house number from an address.
+        Returns (street_name, house_number) or (None, None) if not found.
+        
+        Tries to extract just the street name word(s) directly before the house number,
+        ignoring prefixes like "מרתף/ פרטר -" or "דירה".
+        
+        Examples:
+        - "ארלוזורוב 59, תל אביב" -> ("ארלוזורוב", "59")
+        - "רוזוב 14" -> ("רוזוב", "14")
+        - "מרתף/ פרטר - ארלוזורוב 156" -> ("ארלוזורוב", "156")
+        - "street name" -> (None, None) if no number found
+        """
+        if not address or not isinstance(address, str):
+            return None, None
+        
+        address = address.strip().lower()
+        if not address:
+            return None, None
+        
+        # Split by spaces and look for a digit (house number)
+        parts = address.split()
+        if len(parts) < 2:
+            return None, None
+        
+        # Find the first numeric part (house number)
+        # We need to ensure we extract complete, standalone numeric tokens
+        for i in range(len(parts) - 1):
+            # Check if the next part is a complete numeric token (house number)
+            next_part = parts[i + 1].strip()
+            # Remove common separators like commas, dashes, periods from both ends
+            next_part_clean = next_part.strip(',-–—.')
+            
+            # Ensure it's a complete numeric token (all digits, no partial matches)
+            # This ensures "2" doesn't get confused with "22" or "222"
+            if next_part_clean and next_part_clean.isdigit():
+                # Try to extract just the street name (the word directly before the number)
+                # In cases like "מרתף/ פרטר - ארלוזורוב 156", we want "ארלוזורוב"
+                # Look backwards from the number to find the street name word
+                street_name = None
+                street_parts = []
+                for j in range(i, -1, -1):
+                    candidate = parts[j].strip().rstrip('/-–—,')
+                    # Skip empty strings and common separators/prefixes
+                    if not candidate or candidate in ['/', '-', '–', '—', ',']:
+                        continue
+                    # Skip if it's a digit
+                    if candidate.isdigit():
+                        break
+                    # If this looks like a street name (non-numeric, not too short)
+                    if len(candidate) > 1:
+                        street_parts.insert(0, candidate)
+                        # Take up to 2 words as street name (handles "רחוב דיזנגוף" or "ארלוזורוב")
+                        if len(street_parts) >= 2:
+                            break
+                
+                if street_parts:
+                    street_name = ' '.join(street_parts)
+                    return street_name, next_part_clean
+                
+                # Fallback: use everything before the number (cleaned)
+                # Only if we couldn't find a clean street name
+                all_before = ' '.join(parts[:i + 1]).strip().rstrip('/-–—,')
+                if all_before:
+                    return all_before, next_part_clean
+        
+        return None, None
+
+    def _matches_street_and_number(self, address1: str, address2: str) -> bool:
+        """
+        Check if two addresses have the same street name and house number.
+        Only returns True if both street name and number match exactly.
+        This ensures "2" doesn't match "22" or "222".
+        """
+        street1, num1 = self._extract_street_and_number(address1)
+        street2, num2 = self._extract_street_and_number(address2)
+        
+        # Both must have street and number
+        if not (street1 and num1 and street2 and num2):
+            return False
+        
+        # Street names must match exactly
+        if street1 != street2:
+            return False
+        
+        # Numbers must match exactly as strings
+        # This ensures "2" != "22" (different string lengths)
+        if num1 != num2:
+            return False
+        
+        # Additional safeguard: compare as integers to catch any edge cases
+        # This double-checks that numeric values are truly equal
+        try:
+            int1, int2 = int(num1), int(num2)
+            if int1 != int2:
+                return False
+        except (ValueError, TypeError):
+            # If conversion fails, string comparison above is sufficient
+            pass
+        
+        return True
+
     def _get_primary_listing_instance(self, obj):
         if hasattr(obj, "_primary_listing_instance_cache"):
             return obj._primary_listing_instance_cache
@@ -352,48 +455,35 @@ class AssetSerializer(MetaSerializerMixin):
             obj._primary_listing_instance_cache = None
             return None
 
-        # Get asset address for matching
+        # Get asset address for matching - same logic as _find_best_listing
         normalized_addr = getattr(obj, "normalized_address", "") or ""
-        asset_address = normalized_addr.lower() if normalized_addr else None
-        
-        # Find listings with exact or partial address match
-        matched_listings = []
-        for listing in listings:
-            if hasattr(listing, "address"):
-                listing_addr = getattr(listing, "address", "") or ""
-                listing_address = listing_addr.lower() if listing_addr else ""
-            else:
-                listing_address = ""
-            
-            if not asset_address or not listing_address:
-                continue
-            
-            # Check for exact match
-            if asset_address == listing_address:
-                matched_listings.append((1, listing))  # Priority 1 = exact match
-                continue
-            
-            # Check for street+number match
-            asset_parts = asset_address.split()
-            if len(asset_parts) >= 2 and asset_parts[1].isdigit():
-                street_number = f"{asset_parts[0]} {asset_parts[1]}"
-                if street_number in listing_address:
-                    matched_listings.append((0.5, listing))  # Priority 0.5 = partial match
-        
-        if not matched_listings:
-            # No address match found - fall back to first listing (for assets without addresses)
-            if listings:
-                primary = listings[0]
-                obj._primary_listing_instance_cache = primary
-                return primary
+        if not normalized_addr:
             obj._primary_listing_instance_cache = None
             return None
         
-        # Sort by priority only (exact matches first)
-        matched_listings.sort(key=lambda x: x[0], reverse=True)
-        primary = matched_listings[0][1]
-        obj._primary_listing_instance_cache = primary
-        return primary
+        asset_address = normalized_addr.lower()
+        
+        # Find the best matching listing - same logic as _find_best_listing
+        for listing in listings:
+            listing_addr = getattr(listing, "address", "") or ""
+            listing_address = listing_addr.lower() if listing_addr else ""
+            
+            if not listing_address:
+                continue
+            
+            # Check for exact match with full address
+            if asset_address == listing_address:
+                obj._primary_listing_instance_cache = listing
+                return listing
+            
+            # Check for exact street + number match (e.g., "ארלוזורוב 59")
+            if self._matches_street_and_number(asset_address, listing_address):
+                obj._primary_listing_instance_cache = listing
+                return listing
+        
+        # No match found - return None (same as _find_best_listing)
+        obj._primary_listing_instance_cache = None
+        return None
 
     def _get_primary_listing_data(self, obj):
         if hasattr(obj, "_primary_listing_data_cache"):

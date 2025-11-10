@@ -71,9 +71,11 @@ class Yad2APIClient:
         self._project_autocomplete_cache: Dict[str, Dict[str, Any]] = {}
         self._project_autocomplete_fetcher = None  # Will be set by scraper if needed
 
-    def _get_active_params(self, search_params: Yad2SearchParameters) -> Dict[str, Any]:
-        if self.search_params or search_params:
-            return self.search_params and self.search_params.get_active_parameters() or search_params.get_active_parameters()
+    def _get_active_params(self, search_params: Optional[Yad2SearchParameters] = None) -> Dict[str, Any]:
+        if search_params:
+            return search_params.get_active_parameters()
+        elif self.search_params:
+            return self.search_params.get_active_parameters()
         return {}
 
     def set_search_parameters(self, search_params: Yad2SearchParameters):

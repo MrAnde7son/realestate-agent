@@ -907,7 +907,7 @@ class Yad2APIClient:
 if __name__ == "__main__":
     client = Yad2APIClient()
     search_params = client.fetch_location_autocomplete("רמת החייל תל אביב")
-    client.set_search_parameters(search_params)
+    client.set_search_parameters({"maxPrice": 9000000, "topArea": 2, "area": 3, "neighborhood": 8600, "zoom": 15})
     # listings = client.fetch_listings(search_params)
     # print(listings)
     latest_deals = client.fetch_latest_deals(search_params)

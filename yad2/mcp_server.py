@@ -29,7 +29,9 @@ Usage Examples:
 
 import os
 import sys
-from typing import Optional, Dict, Any
+import traceback
+import logging
+from typing import Literal, Optional, Dict, Any
 
 from fastmcp import Context, FastMCP
 
@@ -41,6 +43,8 @@ from yad2.core import Yad2ParameterReference, Yad2SearchParameters
 from yad2.core.utils import DataUtils
 from yad2.api_client import Yad2APIClient, ListingType
 from yad2.utils.property_types import PropertyTypeUtils
+
+logger = logging.getLogger(__name__)
 
 # Create an MCP server
 mcp = FastMCP("Yad2RealEstate", dependencies=["requests", "beautifulsoup4", "lxml", "pandas"]) 
@@ -93,7 +97,6 @@ async def fetch_listings(
     # Search parameters
     page: Optional[int | str] = None,
     order: Optional[str] = None,
-    dealType: Optional[str] = None,
     priceOnly: Optional[int | str | bool] = None,
     priceDropped: Optional[int | str | bool] = None,
     saleType: Optional[str] = None,
@@ -149,7 +152,6 @@ async def fetch_listings(
         propertyCondition: Property condition
         page: Page number
         order: Sort order (date, price_asc, price_desc, size_asc, size_desc)
-        dealType: Deal type (sale/rent)
         priceOnly: Show price only assets (1/0, true/false)
         priceDropped: Filter for properties with price drops (1/0, true/false)
         saleType: Sale type
@@ -206,7 +208,6 @@ async def fetch_listings(
             propertyCondition=propertyCondition,
             page=page,
             order=order,
-            dealType=dealType,
             priceOnly=priceOnly,
             priceDropped=priceDropped,
             saleType=saleType,
@@ -243,6 +244,7 @@ async def fetch_listings(
                 else:
                     await ctx.warning(f"Could not convert property type '{property_value}' to code. Using as-is.")
 
+    
     search_params = Yad2SearchParameters()
     for key, value in params.items():
         try:
@@ -250,7 +252,10 @@ async def fetch_listings(
         except ValueError:
             search_params.parameters[key] = value
 
+
     await ctx.info("Fetching listings from Yad2 API...")
+    await ctx.info(f"Search parameters: {search_params.get_active_parameters()}")
+    await ctx.info(f"Fetching map listings from Yad2 map feed API (listing_type={listing_type}, zoom={zoom})...")
     try:
         listings = _api_client.fetch_listings(
             search_params=search_params,
@@ -259,6 +264,8 @@ async def fetch_listings(
             pull_contacts=pull_contacts
         )
         _last_search_results = listings
+        
+        await ctx.info(f"Fetched {len(listings)} listings from Yad2 map endpoint")
 
         if not listings:
             return {
@@ -307,10 +314,19 @@ async def fetch_listings(
             "price_stats": price_stats,
         }
     except Exception as e:
+        error_traceback = traceback.format_exc()
         await ctx.error(f"Error fetching listings: {str(e)}")
+        await ctx.error(f"Traceback: {error_traceback}")
+        logger.error(
+            "Exception in fetch_listings handler. Params: %s, Error: %s",
+            search_params.get_active_parameters(),
+            error_traceback,
+            exc_info=True
+        )
         return {
             "success": False,
             "error": str(e),
+            "error_type": type(e).__name__,
             "parameters": search_params.get_active_parameters(),
         }
 

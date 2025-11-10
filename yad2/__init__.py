@@ -29,6 +29,9 @@ from .core import (
 # Scrapers
 from .scrapers import Yad2Scraper
 
+# API Client
+from .api_client import Yad2APIClient, ListingType
+
 # Smart Search functionality (new)
 from .search_helper import (
     Yad2SearchHelper,
@@ -49,6 +52,9 @@ __all__ = [
     "URLUtils",
     # Scrapers
     "Yad2Scraper",
+    # API Client
+    "Yad2APIClient",
+    "ListingType",
     # CLI
     "InteractiveCLI",
     # Smart Search (new)

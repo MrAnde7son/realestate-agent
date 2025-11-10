@@ -88,6 +88,7 @@ export type Asset = {
     source?: string | null;
     title?: string | null;
     price?: number | null;
+    previous_price?: number | null;
     address?: string | null;
     rooms?: number | null;
     roomsDisplay?: string | null;
@@ -447,6 +448,14 @@ export function normalizeFromBackend(row: any): Asset {
         listing.price_value
       );
 
+    const previousPrice =
+      parseNumeric(
+        listing.previous_price ??
+        listing.previousPrice ??
+        listing.priceBeforeTag ??
+        listing.price_before_tag
+      );
+
     const size =
       parseNumeric(
         listing.size ??
@@ -530,6 +539,7 @@ export function normalizeFromBackend(row: any): Asset {
       source: coerceString(listing.source) ?? null,
       title,
       price,
+      previous_price: previousPrice ?? null,
       rentPrice: isRentalListing ? price : (listing as any).rentPrice ?? (listing as any).rent_price ?? null,
       address,
       rooms: rooms ?? null,

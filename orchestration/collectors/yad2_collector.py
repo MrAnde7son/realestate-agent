@@ -1,10 +1,9 @@
 """Yad2 data collector implementation."""
 import logging
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from yad2.scrapers.yad2_scraper import RealEstateListing, Yad2Scraper
-
+from yad2.api_client import Yad2APIClient, RealEstateListing
 from orchestration.location import LocationQuery, ensure_location_query
 
 from .base_collector import BaseCollector
@@ -15,8 +14,8 @@ logger = logging.getLogger(__name__)
 class Yad2Collector(BaseCollector):
     """Wrapper around :class:`Yad2Scraper` implementing a simple interface."""
 
-    def __init__(self, client: Optional[Yad2Scraper] = None) -> None:
-        self.client = client or Yad2Scraper()
+    def __init__(self, client: Optional[Yad2APIClient] = None) -> None:
+        self.client = client or Yad2APIClient()
 
 
     def collect(
@@ -42,18 +41,17 @@ class Yad2Collector(BaseCollector):
         try:
             search_params = self.client.fetch_location_autocomplete(address)
             if search_params:
-                self.client.set_search_parameters(**search_params)
+                self.client.set_search_parameters(search_params)
 
             map_listings = self.client.fetch_listings(pull_contacts=True)
             if map_listings:
                 listings.extend(map_listings)
-            else:
-                listings.extend(self.client.scrape_all_pages(delay=0))
 
-            listings.extend(self.client.fetch_latest_deals())
+            latest_deals = self.client.fetch_latest_deals()
+            listings.extend(latest_deals)
 
         except Exception as e:
-            logger.error(f"Yad2 scraping failed: {e}")
+            logger.error(f"Yad2 collector failed: {e}")
 
         return listings
 
@@ -61,3 +59,8 @@ class Yad2Collector(BaseCollector):
         """Validate the parameters for Yad2 collection."""
         location = kwargs.get("location")
         return isinstance(location, LocationQuery) and not location.is_empty()
+
+if __name__ == "__main__":
+    collector = Yad2Collector()
+    listings = collector.collect(location=LocationQuery(city="תל אביב יפו", street="רוזוב", house_number=14))
+    print(listings)

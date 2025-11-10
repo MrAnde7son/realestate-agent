@@ -130,7 +130,25 @@ class Yad2SearchParameters:
         if active_params:
             return "{}?{}".format(base_url, urlencode(active_params))
         return base_url
-
+    
+    def keys(self):
+        """Return an iterable of parameter keys (for dict unpacking support with **)."""
+        return self.get_active_parameters().keys()
+    
+    def __getitem__(self, key):
+        """Allow dictionary-style access (for dict unpacking support with **)."""
+        active_params = self.get_active_parameters()
+        if key in active_params:
+            return active_params[key]
+        raise KeyError(f"Parameter '{key}' not found or not set")
+    
+    def __iter__(self):
+        """Allow iteration over active parameters (for dict unpacking support with **)."""
+        return iter(self.get_active_parameters())
+    
+    def __contains__(self, key):
+        """Check if a parameter is set (for 'in' operator support)."""
+        return key in self.get_active_parameters()
 
 class Yad2ParameterReference:
     """

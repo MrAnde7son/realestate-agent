@@ -16,6 +16,7 @@ class RealEstateListing:
     def __init__(self, **kwargs):
         self.title = kwargs.get('title')
         self.price = kwargs.get('price')
+        self.previous_price = kwargs.get('previous_price')
         self.address = kwargs.get('address')
         self.rooms = kwargs.get('rooms')
         self.floor = kwargs.get('floor')
@@ -108,6 +109,7 @@ class RealEstateListing:
         return {
             'title': self.title,
             'price': self.price,
+            'previous_price': self.previous_price,
             'address': self.address,
             'rooms': self.rooms,
             'floor': self.floor,

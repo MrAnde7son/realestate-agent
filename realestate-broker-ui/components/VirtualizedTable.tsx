@@ -186,7 +186,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     const label = status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
     return <Badge variant={variant}>{label}</Badge>
   }},
-  { header:'מחיר מודל', accessorKey:'modelPrice', enableHiding: true, cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
+  { header:'מחיר שוק', accessorKey:'modelPrice', enableHiding: true, cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'פער למחיר', accessorKey:'priceGapPct', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge variant={typeof value === 'number' && value > 0 ? 'warning' : 'success'}>{fmtPct(value)}</Badge>

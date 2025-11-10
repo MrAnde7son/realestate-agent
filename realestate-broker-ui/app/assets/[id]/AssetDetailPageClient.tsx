@@ -3490,7 +3490,7 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">מחיר מודל:</span>
+                    <span className="text-muted-foreground">מחיר שוק:</span>
                     <span>{formatCurrency(asset.modelPrice) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between">

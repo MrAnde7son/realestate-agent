@@ -383,6 +383,51 @@ export default function AssetsPage() {
       setViewMode('table')
     }
   }, [isDesktop, isViewportReady, setViewMode, viewMode, viewModeManuallySet, searchParams])
+
+  // Track previous pathname and search params to detect navigation clicks
+  const prevPathnameRef = React.useRef<string | null>(null);
+  const prevSearchParamsRef = React.useRef<string>('');
+  const isNavigatingFromAssetsRef = React.useRef(false);
+
+  // Detect when user clicks navigation (including assets nav while on assets)
+  React.useEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    const currentPathname = pathname;
+    const currentSearchParams = searchParams.toString();
+    const prevSearchParams = prevSearchParamsRef.current;
+    
+    // Initialize on mount
+    if (prevPathname === null) {
+      prevPathnameRef.current = currentPathname;
+      prevSearchParamsRef.current = currentSearchParams;
+      return;
+    }
+
+    // Detect navigation away from /assets
+    const isNavigatingAway = prevPathname === '/assets' && currentPathname !== '/assets';
+    
+    // Detect clicking assets nav while on assets (URL changes from /assets?filters to /assets)
+    const hadFilterParams = prevSearchParams && Array.from(new URLSearchParams(prevSearchParams).keys()).some(
+      key => key !== 'view'
+    );
+    const isClickingAssetsNav = prevPathname === '/assets' && 
+                                 currentPathname === '/assets' &&
+                                 prevSearchParams !== currentSearchParams &&
+                                 hadFilterParams &&
+                                 !Array.from(searchParams.keys()).some(key => key !== 'view');
+    
+    if (isNavigatingAway || isClickingAssetsNav) {
+      isNavigatingFromAssetsRef.current = true;
+      // Reset flag after a short delay
+      setTimeout(() => {
+        isNavigatingFromAssetsRef.current = false;
+      }, 100);
+    }
+    
+    prevPathnameRef.current = currentPathname;
+    prevSearchParamsRef.current = currentSearchParams;
+  }, [pathname, searchParams]);
+
   const { user, isAuthenticated, refreshUser } = useAuth();
   const isAdmin = user?.role === 'admin';
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
@@ -582,6 +627,11 @@ export default function AssetsPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    // Skip updating URL if we're navigating from assets (prevents loop)
+    if (isNavigatingFromAssetsRef.current) {
+      return;
+    }
+    
     const params = new URLSearchParams(searchParams.toString());
     if (debouncedSearch) {
       params.set("search", debouncedSearch);

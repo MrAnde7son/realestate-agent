@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 from yad2.core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
-from yad2.api_client import Yad2APIClient, ListingType
+from yad2.api_client import Yad2APIClient
 
 logger = logging.getLogger(__name__)
 

@@ -1,21 +1,19 @@
 import json
-import os
 
-from bs4 import BeautifulSoup
-
-from yad2.core import RealEstateListing, Yad2SearchParameters
+from yad2.core import Yad2SearchParameters
 from yad2.api_client import Yad2APIClient
+from yad2.scrapers import Yad2Scraper
 
 
 def test_build_search_url_and_from_url():
     params = Yad2SearchParameters(maxPrice=1000000, city=5000)
-    scraper = Yad2APIClient(params)
+    scraper = Yad2Scraper(params)
     url = scraper.build_search_url(page=2)
     assert "maxPrice=1000000" in url
     assert "city=5000" in url
     assert "page=2" in url
 
-    cloned = Yad2APIClient.from_url(url)
+    cloned = Yad2Scraper.from_url(url)
     original = {k: str(v) for k, v in scraper.search_params.get_active_parameters().items()}
     assert cloned.search_params.get_active_parameters() == original
 

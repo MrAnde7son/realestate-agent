@@ -405,6 +405,25 @@ class AssetSerializer(MetaSerializerMixin):
             return None
 
         data = normalize_listing_from_model(listing)
+        
+        # Enhance with fields from asset.meta if available (from enrichment pipeline)
+        # These fields were extracted during enrichment and stored in primary_listing_source
+        if obj.meta and isinstance(obj.meta, dict):
+            primary_listing_source = obj.meta.get('primary_listing_source', {})
+            if isinstance(primary_listing_source, dict):
+                # List of high-priority fields to merge from enrichment pipeline
+                # Only merge if not already set in normalized data
+                enrichment_fields = [
+                    'priceDropped', 'previousPrice', 'shelter', 'accessibility',
+                    'buildingClass', 'generalCondition', 'investmentYield', 'approximateRent',
+                    'commuteTime', 'publishedDays', 'datePosted',
+                    'tagBestSchool', 'tagSafety', 'tagFamilyFriendly', 'tagLightRail',
+                    'tagParkAccess', 'tagQuietStreet', 'tagCommute', 'exclusive'
+                ]
+                for field in enrichment_fields:
+                    if field in primary_listing_source and data.get(field) is None:
+                        data[field] = primary_listing_source[field]
+        
         obj._primary_listing_data_cache = data
         return data
 

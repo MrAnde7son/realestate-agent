@@ -422,6 +422,10 @@ export default function AssetsPage() {
     const value = searchParams.get("tagLightRail");
     return value ?? "all";
   });
+  const [exclusiveFilter, setExclusiveFilter] = useState<string>(() => {
+    const value = searchParams.get("exclusive");
+    return value ?? "all";
+  });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>(() => {
     const urlViewMode = searchParams.get("view");
     if (urlViewMode === 'table' || urlViewMode === 'cards' || urlViewMode === 'map') {
@@ -1015,6 +1019,142 @@ export default function AssetsPage() {
     } else {
       params.delete("recentDeal");
     }
+    if (modelPriceMin !== undefined) {
+      params.set("modelPriceMin", modelPriceMin.toString());
+    } else {
+      params.delete("modelPriceMin");
+    }
+    if (modelPriceMax !== undefined) {
+      params.set("modelPriceMax", modelPriceMax.toString());
+    } else {
+      params.delete("modelPriceMax");
+    }
+    if (antennaDistanceMin !== undefined) {
+      params.set("antennaDistanceMin", antennaDistanceMin.toString());
+    } else {
+      params.delete("antennaDistanceMin");
+    }
+    if (antennaDistanceMax !== undefined) {
+      params.set("antennaDistanceMax", antennaDistanceMax.toString());
+    } else {
+      params.delete("antennaDistanceMax");
+    }
+    if (shelterDistanceMin !== undefined) {
+      params.set("shelterDistanceMin", shelterDistanceMin.toString());
+    } else {
+      params.delete("shelterDistanceMin");
+    }
+    if (shelterDistanceMax !== undefined) {
+      params.set("shelterDistanceMax", shelterDistanceMax.toString());
+    } else {
+      params.delete("shelterDistanceMax");
+    }
+    if (noiseLevelMin !== undefined) {
+      params.set("noiseLevelMin", noiseLevelMin.toString());
+    } else {
+      params.delete("noiseLevelMin");
+    }
+    if (noiseLevelMax !== undefined) {
+      params.set("noiseLevelMax", noiseLevelMax.toString());
+    } else {
+      params.delete("noiseLevelMax");
+    }
+    if (greenWithin300mFilter && greenWithin300mFilter !== "all") {
+      params.set("greenWithin300m", greenWithin300mFilter);
+    } else {
+      params.delete("greenWithin300m");
+    }
+    if (schoolsWithin500mFilter && schoolsWithin500mFilter !== "all") {
+      params.set("schoolsWithin500m", schoolsWithin500mFilter);
+    } else {
+      params.delete("schoolsWithin500m");
+    }
+    // High Priority Filters
+    if (priceDroppedFilter && priceDroppedFilter !== "all") {
+      params.set("priceDropped", priceDroppedFilter);
+    } else {
+      params.delete("priceDropped");
+    }
+    if (shelterFilter && shelterFilter !== "all") {
+      params.set("shelter", shelterFilter);
+    } else {
+      params.delete("shelter");
+    }
+    if (accessibilityFilter && accessibilityFilter !== "all") {
+      params.set("accessibility", accessibilityFilter);
+    } else {
+      params.delete("accessibility");
+    }
+    if (buildingClassFilter && buildingClassFilter !== "all") {
+      params.set("buildingClass", buildingClassFilter);
+    } else {
+      params.delete("buildingClass");
+    }
+    if (generalConditionFilter && generalConditionFilter !== "all") {
+      params.set("generalCondition", generalConditionFilter);
+    } else {
+      params.delete("generalCondition");
+    }
+    if (investmentYieldMin !== undefined) {
+      params.set("investmentYieldMin", investmentYieldMin.toString());
+    } else {
+      params.delete("investmentYieldMin");
+    }
+    if (investmentYieldMax !== undefined) {
+      params.set("investmentYieldMax", investmentYieldMax.toString());
+    } else {
+      params.delete("investmentYieldMax");
+    }
+    if (approximateRentMin !== undefined) {
+      params.set("approximateRentMin", approximateRentMin.toString());
+    } else {
+      params.delete("approximateRentMin");
+    }
+    if (approximateRentMax !== undefined) {
+      params.set("approximateRentMax", approximateRentMax.toString());
+    } else {
+      params.delete("approximateRentMax");
+    }
+    if (commuteTimeMin !== undefined) {
+      params.set("commuteTimeMin", commuteTimeMin.toString());
+    } else {
+      params.delete("commuteTimeMin");
+    }
+    if (commuteTimeMax !== undefined) {
+      params.set("commuteTimeMax", commuteTimeMax.toString());
+    } else {
+      params.delete("commuteTimeMax");
+    }
+    if (publishedDaysMax !== undefined) {
+      params.set("publishedDaysMax", publishedDaysMax.toString());
+    } else {
+      params.delete("publishedDaysMax");
+    }
+    if (tagBestSchoolFilter && tagBestSchoolFilter !== "all") {
+      params.set("tagBestSchool", tagBestSchoolFilter);
+    } else {
+      params.delete("tagBestSchool");
+    }
+    if (tagSafetyFilter && tagSafetyFilter !== "all") {
+      params.set("tagSafety", tagSafetyFilter);
+    } else {
+      params.delete("tagSafety");
+    }
+    if (tagFamilyFriendlyFilter && tagFamilyFriendlyFilter !== "all") {
+      params.set("tagFamilyFriendly", tagFamilyFriendlyFilter);
+    } else {
+      params.delete("tagFamilyFriendly");
+    }
+    if (tagLightRailFilter && tagLightRailFilter !== "all") {
+      params.set("tagLightRail", tagLightRailFilter);
+    } else {
+      params.delete("tagLightRail");
+    }
+    if (exclusiveFilter && exclusiveFilter !== "all") {
+      params.set("exclusive", exclusiveFilter);
+    } else {
+      params.delete("exclusive");
+    }
     if (pagination.pageIndex > 0) {
       params.set("page", String(pagination.pageIndex + 1));
     } else {
@@ -1088,6 +1228,33 @@ export default function AssetsPage() {
     storageRoomFilter,
     hasElevatorFilter,
     recentDealFilter,
+    modelPriceMin,
+    modelPriceMax,
+    antennaDistanceMin,
+    antennaDistanceMax,
+    shelterDistanceMin,
+    shelterDistanceMax,
+    noiseLevelMin,
+    noiseLevelMax,
+    greenWithin300mFilter,
+    schoolsWithin500mFilter,
+    priceDroppedFilter,
+    shelterFilter,
+    accessibilityFilter,
+    buildingClassFilter,
+    generalConditionFilter,
+    investmentYieldMin,
+    investmentYieldMax,
+    approximateRentMin,
+    approximateRentMax,
+    commuteTimeMin,
+    commuteTimeMax,
+    publishedDaysMax,
+    tagBestSchoolFilter,
+    tagSafetyFilter,
+    tagFamilyFriendlyFilter,
+    tagLightRailFilter,
+    exclusiveFilter,
     pagination.pageIndex,
     pagination.pageSize,
     router,
@@ -1168,6 +1335,7 @@ export default function AssetsPage() {
     tagSafetyFilter,
     tagFamilyFriendlyFilter,
     tagLightRailFilter,
+    exclusiveFilter,
   ]);
 
   // Function to fetch assets
@@ -1256,6 +1424,7 @@ export default function AssetsPage() {
     if (tagSafetyFilter && tagSafetyFilter !== "all") params.set("tagSafety", tagSafetyFilter);
     if (tagFamilyFriendlyFilter && tagFamilyFriendlyFilter !== "all") params.set("tagFamilyFriendly", tagFamilyFriendlyFilter);
     if (tagLightRailFilter && tagLightRailFilter !== "all") params.set("tagLightRail", tagLightRailFilter);
+    if (exclusiveFilter && exclusiveFilter !== "all") params.set("exclusive", exclusiveFilter);
 
     return params;
   }, [
@@ -3220,6 +3389,15 @@ export default function AssetsPage() {
                   options: [
                     { value: 'all', label: 'הכל' },
                     { value: 'true', label: 'ליד רכבת קלה' },
+                    { value: 'false', label: 'לא' },
+                  ]
+                },
+                exclusive: {
+                  value: exclusiveFilter,
+                  onChange: setExclusiveFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'בלעדי' },
                     { value: 'false', label: 'לא' },
                   ]
                 },

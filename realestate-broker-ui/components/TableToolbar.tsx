@@ -340,6 +340,7 @@ export default function TableToolbar({
   const [columnSearch, setColumnSearch] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const columnSearchInputRef = React.useRef<HTMLInputElement>(null);
   const cityFilter = filters?.city;
   const typeFilter = filters?.type;
   const priceMinFilter = filters?.priceMin;
@@ -384,9 +385,12 @@ export default function TableToolbar({
     setIsClient(true);
   }, []);
 
-  // Filter columns based on search
-  const filteredColumns = columns.filter(column =>
-    column.header.toLowerCase().includes(columnSearch.toLowerCase())
+  // Filter columns based on search - memoized to prevent re-renders that cause focus loss
+  const filteredColumns = React.useMemo(() => 
+    columns.filter(column =>
+      column.header.toLowerCase().includes(columnSearch.toLowerCase())
+    ),
+    [columns, columnSearch]
   );
   const userAssetsAdditionalFilter = additionalFilters.find(
     (filter): filter is SelectAdditionalFilter =>
@@ -2214,7 +2218,19 @@ export default function TableToolbar({
             className="inline-flex flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:justify-end"
           >
         {/* Column selection */}
-        <DropdownMenu>
+        <DropdownMenu
+          onOpenChange={(open) => {
+            if (open && columnSearchInputRef.current) {
+              // Focus the input when dropdown opens
+              setTimeout(() => {
+                columnSearchInputRef.current?.focus();
+              }, 0);
+            } else {
+              // Clear search when dropdown closes
+              setColumnSearch('');
+            }
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
@@ -2225,27 +2241,52 @@ export default function TableToolbar({
               <span className="hidden sm:inline">עמודות</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 bg-white max-h-80">
-            <DropdownMenuLabel className="bg-white text-foreground sticky top-0 z-10 bg-background border-b">
+          <DropdownMenuContent 
+            align="start" 
+            className="w-64 bg-white flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 8rem)' }}
+            onEscapeKeyDown={(e) => {
+              if (columnSearch) {
+                // Clear search on escape if there's text
+                e.preventDefault();
+                setColumnSearch('');
+                columnSearchInputRef.current?.focus();
+              }
+            }}
+          >
+            <DropdownMenuLabel className="bg-white text-foreground sticky top-0 z-10 bg-background border-b flex-shrink-0">
               בחר עמודות
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="p-2 border-b">
+            <DropdownMenuSeparator className="flex-shrink-0" />
+            <div className="p-2 border-b flex-shrink-0">
               <div className="relative">
                 <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
                 <Input
+                  ref={columnSearchInputRef}
                   placeholder="חיפוש עמודות..."
                   value={columnSearch}
-                  onChange={(e) => setColumnSearch(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setColumnSearch(value);
+                  }}
+                  onKeyDown={(e) => {
+                    // Prevent dropdown from closing when typing
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    // Prevent dropdown from closing when clicking input
+                    e.stopPropagation();
+                  }}
                   className="pe-8 text-start text-sm h-8"
                   dir="rtl"
                   aria-label="חיפוש עמודות"
+                  autoFocus
                 />
               </div>
             </div>
-            <div className="max-h-60 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0 ps-2" style={{ maxHeight: 'calc(100vh - 20rem)' }}>
               {/* Quick actions */}
-              <div className="p-2 border-b bg-muted/30">
+              <div className="p-2 border-b bg-muted/30 flex-shrink-0">
                 <div className="flex gap-2">
                   <Button
                     variant="ghost"

@@ -480,6 +480,67 @@ function createColumns({
       const value = info.getValue() as number | undefined
       return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>
     } },
+    // High Priority Fields - Display Columns
+    { header:'הורדת מחיר', accessorKey:'priceDropped', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : '—'}</Badge>
+    } },
+    { header:'מחיר קודם', accessorKey:'previousPrice', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
+    { header:'מקלט', accessorKey:'shelter', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : value === false ? '✗' : '—'}</Badge>
+    } },
+    { header:'נגיש', accessorKey:'accessibility', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : value === false ? '✗' : '—'}</Badge>
+    } },
+    { header:'דרגת בניין', accessorKey:'buildingClass', cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+    { header:'מצב כללי', accessorKey:'generalCondition', cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+    { header:'תשואה השקעה', accessorKey:'investmentYield', cell: info => {
+      const value = info.getValue() as number | null | undefined
+      return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>
+    } },
+    { header:'שכירות משוערת', accessorKey:'approximateRent', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
+    { header:'זמן נסיעה', accessorKey:'commuteTime', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : `${fmtNumber(v)} דק'`}</span>
+    } },
+    { header:'פורסם לפני', accessorKey:'publishedDays', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : `${fmtNumber(v)} ימים`}</span>
+    } },
+    { header:'בית ספר מצוין', accessorKey:'tagBestSchool', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : '—'}</Badge>
+    } },
+    { header:'בטיחות', accessorKey:'tagSafety', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : '—'}</Badge>
+    } },
+    { header:'ידידותי למשפחה', accessorKey:'tagFamilyFriendly', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : '—'}</Badge>
+    } },
+    { header:'רכבת קלה', accessorKey:'tagLightRail', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : '—'}</Badge>
+    } },
+    { header:'בלעדיות', accessorKey:'exclusive', cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      return <Badge variant={value === true ? 'success' : 'neutral'}>{value === true ? '✓' : '—'}</Badge>
+    } },
     { 
       header:'—', 
       id:'actions', 
@@ -776,6 +837,61 @@ interface AssetsTableProps {
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
     }
+    // High Priority Filters
+    priceDropped?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    shelter?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    accessibility?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    buildingClass?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    generalCondition?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    investmentYield?: NumberRangeFilterConfig
+    approximateRent?: NumberRangeFilterConfig
+    commuteTime?: NumberRangeFilterConfig
+    publishedDays?: NumberRangeFilterConfig
+    tagBestSchool?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    tagSafety?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    tagFamilyFriendly?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    tagLightRail?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    exclusive?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
   }
   onRefresh?: () => void
   onAddNew?: () => void
@@ -868,6 +984,21 @@ const ALL_COLUMN_IDS = [
   'priceGapPct',
   'confidencePct',
   'capRatePct',
+  'priceDropped',
+  'previousPrice',
+  'shelter',
+  'accessibility',
+  'buildingClass',
+  'generalCondition',
+  'investmentYield',
+  'approximateRent',
+  'commuteTime',
+  'publishedDays',
+  'tagBestSchool',
+  'tagSafety',
+  'tagFamilyFriendly',
+  'tagLightRail',
+  'exclusive',
   'actions',
   'videoUrl'
 ] as const
@@ -1688,6 +1819,169 @@ export default function AssetsTable({
       })
     }
 
+    // High Priority Filters
+    if (filters.priceDropped) {
+      items.push({
+        key: 'priceDropped',
+        label: 'הורדת מחיר',
+        type: 'select',
+        value: filters.priceDropped.value,
+        options: (filters.priceDropped.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'price_dropped'
+      })
+    }
+
+    if (filters.shelter) {
+      items.push({
+        key: 'shelter',
+        label: 'מקלט',
+        type: 'select',
+        value: filters.shelter.value,
+        options: (filters.shelter.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'shelter'
+      })
+    }
+
+    if (filters.accessibility) {
+      items.push({
+        key: 'accessibility',
+        label: 'נגישות',
+        type: 'select',
+        value: filters.accessibility.value,
+        options: (filters.accessibility.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'accessibility'
+      })
+    }
+
+    if (filters.buildingClass) {
+      items.push({
+        key: 'buildingClass',
+        label: 'דרגת בניין',
+        type: 'select',
+        value: filters.buildingClass.value,
+        options: (filters.buildingClass.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'building_class'
+      })
+    }
+
+    if (filters.generalCondition) {
+      items.push({
+        key: 'generalCondition',
+        label: 'מצב כללי',
+        type: 'select',
+        value: filters.generalCondition.value,
+        options: (filters.generalCondition.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'general_condition'
+      })
+    }
+
+    if (filters.investmentYield) {
+      items.push({
+        key: 'investmentYield',
+        label: 'תשואה %',
+        type: 'number-range',
+        value: filters.investmentYield.value,
+        minPlaceholder: filters.investmentYield.minPlaceholder,
+        maxPlaceholder: filters.investmentYield.maxPlaceholder,
+        step: filters.investmentYield.step,
+        analyticsKey: 'investment_yield'
+      })
+    }
+
+    if (filters.approximateRent) {
+      items.push({
+        key: 'approximateRent',
+        label: 'שכירות משוערת',
+        type: 'number-range',
+        value: filters.approximateRent.value,
+        minPlaceholder: filters.approximateRent.minPlaceholder,
+        maxPlaceholder: filters.approximateRent.maxPlaceholder,
+        step: filters.approximateRent.step,
+        analyticsKey: 'approximate_rent'
+      })
+    }
+
+    if (filters.commuteTime) {
+      items.push({
+        key: 'commuteTime',
+        label: 'זמן נסיעה',
+        type: 'number-range',
+        value: filters.commuteTime.value,
+        minPlaceholder: filters.commuteTime.minPlaceholder,
+        maxPlaceholder: filters.commuteTime.maxPlaceholder,
+        step: filters.commuteTime.step,
+        analyticsKey: 'commute_time'
+      })
+    }
+
+    if (filters.publishedDays) {
+      items.push({
+        key: 'publishedDays',
+        label: 'פורסם לאחרונה',
+        type: 'number-range',
+        value: filters.publishedDays.value,
+        minPlaceholder: filters.publishedDays.minPlaceholder,
+        maxPlaceholder: filters.publishedDays.maxPlaceholder,
+        step: filters.publishedDays.step,
+        analyticsKey: 'published_days'
+      })
+    }
+
+    if (filters.tagBestSchool) {
+      items.push({
+        key: 'tagBestSchool',
+        label: 'ליד בתי ספר מצוינים',
+        type: 'select',
+        value: filters.tagBestSchool.value,
+        options: (filters.tagBestSchool.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'tag_best_school'
+      })
+    }
+
+    if (filters.tagSafety) {
+      items.push({
+        key: 'tagSafety',
+        label: 'בטיחות',
+        type: 'select',
+        value: filters.tagSafety.value,
+        options: (filters.tagSafety.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'tag_safety'
+      })
+    }
+
+    if (filters.tagFamilyFriendly) {
+      items.push({
+        key: 'tagFamilyFriendly',
+        label: 'ידידותי למשפחה',
+        type: 'select',
+        value: filters.tagFamilyFriendly.value,
+        options: (filters.tagFamilyFriendly.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'tag_family_friendly'
+      })
+    }
+
+    if (filters.tagLightRail) {
+      items.push({
+        key: 'tagLightRail',
+        label: 'ליד רכבת קלה',
+        type: 'select',
+        value: filters.tagLightRail.value,
+        options: (filters.tagLightRail.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'tag_light_rail'
+      })
+    }
+
+    if (filters.exclusive) {
+      items.push({
+        key: 'exclusive',
+        label: 'בלעדיות',
+        type: 'select',
+        value: filters.exclusive.value,
+        options: (filters.exclusive.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'exclusive'
+      })
+    }
+
     return items
   }, [filters])
 
@@ -1792,6 +2086,46 @@ export default function AssetsTable({
           filters.schoolsWithin500m?.onChange(value)
           trackString('schools_within_500m', value)
           break
+        case 'priceDropped':
+          filters.priceDropped?.onChange(value)
+          trackString('price_dropped', value)
+          break
+        case 'shelter':
+          filters.shelter?.onChange(value)
+          trackString('shelter', value)
+          break
+        case 'accessibility':
+          filters.accessibility?.onChange(value)
+          trackString('accessibility', value)
+          break
+        case 'buildingClass':
+          filters.buildingClass?.onChange(value)
+          trackString('building_class', value)
+          break
+        case 'generalCondition':
+          filters.generalCondition?.onChange(value)
+          trackString('general_condition', value)
+          break
+        case 'tagBestSchool':
+          filters.tagBestSchool?.onChange(value)
+          trackString('tag_best_school', value)
+          break
+        case 'tagSafety':
+          filters.tagSafety?.onChange(value)
+          trackString('tag_safety', value)
+          break
+        case 'tagFamilyFriendly':
+          filters.tagFamilyFriendly?.onChange(value)
+          trackString('tag_family_friendly', value)
+          break
+        case 'tagLightRail':
+          filters.tagLightRail?.onChange(value)
+          trackString('tag_light_rail', value)
+          break
+        case 'exclusive':
+          filters.exclusive?.onChange(value)
+          trackString('exclusive', value)
+          break
         default:
           break
       }
@@ -1860,6 +2194,22 @@ export default function AssetsTable({
         case 'noiseLevel':
           filters.noiseLevel?.onChange(rangeValue)
           trackRange('noise_level', rangeValue)
+          break
+        case 'investmentYield':
+          filters.investmentYield?.onChange(rangeValue)
+          trackRange('investment_yield', rangeValue)
+          break
+        case 'approximateRent':
+          filters.approximateRent?.onChange(rangeValue)
+          trackRange('approximate_rent', rangeValue)
+          break
+        case 'commuteTime':
+          filters.commuteTime?.onChange(rangeValue)
+          trackRange('commute_time', rangeValue)
+          break
+        case 'publishedDays':
+          filters.publishedDays?.onChange(rangeValue)
+          trackRange('published_days', rangeValue)
           break
         default:
           break

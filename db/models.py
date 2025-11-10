@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
@@ -44,7 +44,7 @@ class Listing(Base):
     recent_deal = Column(Boolean, default=False)
     photos = Column(JSON, default=list)
     video_url = Column(String(500))
-    scraped_at = Column(DateTime, default=datetime.utcnow)
+    scraped_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     sources = relationship("SourceRecord", back_populates="listing", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="listing", cascade="all, delete-orphan")
@@ -59,7 +59,7 @@ class SourceRecord(Base):
     listing_id = Column(Integer, ForeignKey("listings.id"), index=True)
     source = Column(String(50), index=True)
     data = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     listing = relationship("Listing", back_populates="sources")
 
@@ -79,7 +79,7 @@ class Transaction(Base):
     year_built = Column(String(50))
     area = Column(Float)
     raw = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     listing = relationship("Listing", back_populates="transactions")
 

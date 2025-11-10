@@ -595,19 +595,29 @@ export function normalizeFromBackend(row: any): Asset {
     const tagQuietStreet = tags.quietStreet ?? tags.quiet_street ?? null;
     const tagCommute = tags.commute ?? null;
     
-    // Extract exclusivity - check both Madlan and Yad2 sources
-    const poc = metaObj.poc && typeof metaObj.poc === 'object' ? metaObj.poc : {};
-    const exclusivity = poc.exclusivity && typeof poc.exclusivity === 'object' ? poc.exclusivity : {};
-    const madlanExclusive = exclusivity.exclusive ?? null;
+    // Extract exclusivity - first check if backend already normalized it
+    // Otherwise extract from raw data (Madlan and Yad2 sources)
+    let exclusive: boolean | null = null;
     
-    // Yad2 exclusivity: check inProperty.isAssetExclusive
-    const rawListing = listing.raw ?? listing.meta?.raw ?? metaObj.raw ?? {};
-    const inProperty = rawListing.inProperty && typeof rawListing.inProperty === 'object' ? rawListing.inProperty : {};
-    const yad2Exclusive = inProperty.isAssetExclusive ?? null;
-    
-    // Prefer Yad2 exclusive flag, fallback to Madlan
-    const exclusive = yad2Exclusive !== null ? (typeof yad2Exclusive === 'boolean' ? yad2Exclusive : null) : 
-                     (madlanExclusive !== null ? (typeof madlanExclusive === 'boolean' ? madlanExclusive : null) : null);
+    // First, check if backend already provided the normalized exclusive field
+    // Use it if it's explicitly a boolean (true or false), otherwise try to extract from raw
+    if (typeof listing.exclusive === 'boolean') {
+      exclusive = listing.exclusive;
+    } else if (listing.exclusive === null || listing.exclusive === undefined) {
+      // Backend returned null/undefined, try to extract from raw data as fallback
+      const poc = metaObj.poc && typeof metaObj.poc === 'object' ? metaObj.poc : {};
+      const exclusivity = poc.exclusivity && typeof poc.exclusivity === 'object' ? poc.exclusivity : {};
+      const madlanExclusive = exclusivity.exclusive ?? null;
+      
+      // Yad2 exclusivity: check inProperty.isAssetExclusive
+      const rawListing = listing.raw ?? listing.meta?.raw ?? metaObj.raw ?? {};
+      const inProperty = rawListing.inProperty && typeof rawListing.inProperty === 'object' ? rawListing.inProperty : {};
+      const yad2Exclusive = inProperty.isAssetExclusive ?? null;
+      
+      // Prefer Yad2 exclusive flag, fallback to Madlan
+      exclusive = yad2Exclusive !== null ? (typeof yad2Exclusive === 'boolean' ? yad2Exclusive : null) : 
+                   (madlanExclusive !== null ? (typeof madlanExclusive === 'boolean' ? madlanExclusive : null) : null);
+    }
     
     // Calculate priceDropped flag
     const priceDropped = previousPrice != null && price != null && previousPrice > price;
@@ -676,7 +686,20 @@ export function normalizeFromBackend(row: any): Asset {
     };
   };
 
-  const primaryListing = normalizeListing(row.primaryListing ?? row.primary_listing);
+  const primaryListingRaw = row.primaryListing ?? row.primary_listing;
+  const primaryListing = normalizeListing(primaryListingRaw);
+  
+  // Debug: log primary listing exclusivity for troubleshooting
+  if (primaryListingRaw && typeof primaryListingRaw === 'object') {
+    console.log('[Exclusivity Debug] Primary Listing:', {
+      hasExclusive: 'exclusive' in primaryListingRaw,
+      exclusiveValue: primaryListingRaw.exclusive,
+      hasRaw: !!primaryListingRaw.raw,
+      hasMeta: !!primaryListingRaw.meta,
+      normalizedExclusive: primaryListing?.exclusive,
+      listingKeys: Object.keys(primaryListingRaw).slice(0, 20),
+    });
+  }
 
   const rawContactInfo = row.contactInfo ?? row.contact_info;
   const baseContactInfo =

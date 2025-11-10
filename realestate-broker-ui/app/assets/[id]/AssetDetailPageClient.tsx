@@ -3339,6 +3339,17 @@ useDedupedEffect(() => {
                     {renderValue(listingDatePostedDisplay || undefined, 'primaryListing.datePosted')}
                   </div>
                 </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">בלעדיות</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      <Badge variant={asset.exclusive === true ? 'success' : 'neutral'}>
+                        {asset.exclusive === true ? '✓' : '—'}
+                      </Badge>,
+                      'exclusive'
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">

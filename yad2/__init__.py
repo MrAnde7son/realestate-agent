@@ -9,15 +9,6 @@ A comprehensive, flexible real estate scraper for Yad2.co.il with MCP server int
 # CLI interface
 from .cli import InteractiveCLI
 
-# Configuration utilities (new)
-from .config import (
-    get_city_code,
-    get_neighborhood_code,
-    get_property_type_code,
-    get_search_preset,
-    validate_search_params,
-)
-
 # Core functionality
 from .core import (
     RealEstateListing,

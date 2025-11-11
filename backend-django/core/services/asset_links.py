@@ -6,7 +6,9 @@ from django.db.models import Q
 def asset_documents_all(asset):
     from ..models import Document
 
-    return Document.objects.filter(Q(asset=asset) | Q(assets=asset)).distinct()
+    return Document.objects.select_related('asset', 'user').prefetch_related('assets').filter(
+        Q(asset=asset) | Q(assets=asset)
+    ).distinct()
 
 
 def asset_transactions_all(asset):

@@ -359,24 +359,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
             except (TypeError, ValueError):
                 offset = 0
 
-            ordering = request.query_params.get('ordering', '-document_date')
-            ordering_map = {
-                'title': 'title',
-                'document_type': 'document_type',
-                'status': 'status',
-                'source': 'source',
-                'document_date': 'document_date',
-                'uploaded_at': 'uploaded_at',
-            }
-
-            if ordering.lstrip('-') in ordering_map:
-                mapped = ordering_map[ordering.lstrip('-')]
-                if ordering.startswith('-'):
-                    mapped = f'-{mapped}'
-                queryset = queryset.order_by(mapped, '-id')
-            else:
-                queryset = queryset.order_by('-document_date', '-id')
-
             # Get total count first - can use database indexes efficiently
             total_count = queryset.count()
 
@@ -426,7 +408,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 'count': total_count,
                 'limit': limit,
                 'offset': offset,
-                'ordering': ordering,
                 'filters': filters,
             })
 

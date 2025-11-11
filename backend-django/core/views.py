@@ -1999,7 +1999,7 @@ def _apply_asset_filters(queryset, params, user):
         track_search(
             query=search,
             user=user if user and getattr(user, "is_authenticated", False) else None,
-            results_count=queryset.count(),
+            results_count=None,
             meta={"source": "assets_list"}
         )
 
@@ -2072,10 +2072,15 @@ def _apply_asset_filters(queryset, params, user):
         )
 
         if normalized_rental_sale in {"rent", "sale"}:
+            # Optimize: fetch all candidate assets with meta in one query instead of N+1
             candidate_ids = list(queryset.values_list("id", flat=True))
             if candidate_ids:
-                for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
-                    yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+                for asset in candidate_assets:
+                    meta = getattr(asset, "meta", {}) or {}
+                    yad2_listings = meta.get("yad2_listings", []) or []
+                    if not isinstance(yad2_listings, list):
+                        continue
                     for listing in yad2_listings:
                         if not isinstance(listing, dict):
                             continue
@@ -2106,8 +2111,12 @@ def _apply_asset_filters(queryset, params, user):
 
         candidate_ids = list(queryset.values_list("id", flat=True))
         if candidate_ids:
-            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
-                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+            for asset in candidate_assets:
+                meta = getattr(asset, "meta", {}) or {}
+                yad2_listings = meta.get("yad2_listings", []) or []
+                if not isinstance(yad2_listings, list):
+                    continue
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
@@ -2330,8 +2339,13 @@ def _apply_asset_filters(queryset, params, user):
         
         candidate_ids = list(queryset.values_list("id", flat=True))
         if candidate_ids:
-            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
-                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+            # Optimize: fetch all candidate assets with meta in one query instead of N+1
+            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+            for asset in candidate_assets:
+                meta = getattr(asset, "meta", {}) or {}
+                yad2_listings = meta.get("yad2_listings", []) or []
+                if not isinstance(yad2_listings, list):
+                    continue
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
@@ -2414,6 +2428,12 @@ def _apply_asset_filters(queryset, params, user):
 
 
 def _get_asset_filter_metadata():
+    """Get asset filter metadata with caching for performance."""
+    cache_key = "asset_filter_metadata"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return cached_data
+    
     base_qs = Asset.objects.all()
 
     def _distinct(field):
@@ -2491,7 +2511,7 @@ def _get_asset_filter_metadata():
             return {"min": None, "max": None}
         return {"min": min_value, "max": max_value}
 
-    return {
+    result = {
         "cities": sorted(set(_distinct("city"))),
         "types": sorted(property_types),
         "neighborhoods": sorted(set(_distinct("neighborhood"))),
@@ -2549,6 +2569,10 @@ def _get_asset_filter_metadata():
         "parkingSpaceRange": _range_dict("parking_spaces_min", "parking_spaces_max"),
         "balconyAreaRange": _range_dict("balcony_area_min", "balcony_area_max"),
     }
+    
+    # Cache for 1 hour (3600 seconds) to improve performance
+    cache.set(cache_key, result, 3600)
+    return result
 
 
 def _get_assets_list(request):
@@ -2564,6 +2588,8 @@ def _get_assets_list(request):
 
     try:
         user = getattr(request, "user", None)
+        # Optimize: prefetch listings_m2m to avoid N+1 queries
+        # Note: listings_m2m already returns Listing objects directly (not AssetListing)
         queryset = Asset.objects.all().prefetch_related("listings_m2m")
 
         if user and getattr(user, "is_authenticated", False):

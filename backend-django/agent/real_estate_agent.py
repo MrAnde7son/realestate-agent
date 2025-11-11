@@ -1069,7 +1069,7 @@ class RealEstateAgent:
             - seller_type: Filter by seller type - "broker", "private", or "all" (default: "all")
             - commercial: Filter by property type - "commercial", "residential", or "all" (default: "all")
             - type: Property type filter
-            - rental_sale: CRITICAL - Filter by rental/sale type. Use "rent" for rental properties (נכסים להשכרה), 
+            - rental_sale: Filter by rental/sale type. Use "rent" for rental properties (נכסים להשכרה), 
               "sale" for properties for sale (נכסים למכירה), "all" for both (default: "all").
               When user mentions "rentals", "for rent", "השכרה" - ALWAYS use rental_sale="rent".
             - status: Filter by asset status - "done", "enriching", "failed", "pending", or "all" (default: "all")

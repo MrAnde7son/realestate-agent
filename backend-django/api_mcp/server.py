@@ -1493,14 +1493,6 @@ def register_mavat_tools():
             search_plans as _mavat_search_plans,
             get_plan_details as _mavat_get_plan_details,
             get_plan_documents as _mavat_get_plan_documents,
-            search_by_location as _mavat_search_by_location,
-            search_by_block_parcel as _mavat_search_by_block_parcel,
-            get_lookup_tables as _mavat_get_lookup_tables,
-            get_districts as _mavat_get_districts,
-            get_cities as _mavat_get_cities,
-            get_streets as _mavat_get_streets,
-            search_lookup as _mavat_search_lookup,
-            get_plan_summary as _mavat_get_plan_summary,
         )
         
         @mcp.tool(description="Search for plans using various criteria.")
@@ -1529,55 +1521,6 @@ def register_mavat_tools():
         @mcp.tool(description="Get documents associated with a specific plan.")
         async def mavat_get_plan_documents(ctx: Context, plan_id: str, entity_name: Optional[str] = None):
             return await _mavat_get_plan_documents(ctx, plan_id, entity_name)
-        
-        @mcp.tool(description="Search for plans by location criteria.")
-        async def mavat_search_by_location(
-            ctx: Context,
-            city: str,
-            district: Optional[str] = None,
-            plan_area: Optional[str] = None,
-            street: Optional[str] = None,
-            limit: int = 20
-        ):
-            return await _mavat_search_by_location(ctx, city, district, plan_area, street, limit)
-        
-        @mcp.tool(description="Search for plans by block and parcel numbers.")
-        async def mavat_search_by_block_parcel(
-            ctx: Context,
-            block_number: str,
-            parcel_number: str,
-            limit: int = 20
-        ):
-            return await _mavat_search_by_block_parcel(ctx, block_number, parcel_number, limit)
-        
-        @mcp.tool(description="Get all available lookup tables for districts, cities, streets, etc.")
-        async def mavat_get_lookup_tables(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_lookup_tables(ctx, force_refresh)
-        
-        @mcp.tool(description="Get available districts.")
-        async def mavat_get_districts(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_districts(ctx, force_refresh)
-        
-        @mcp.tool(description="Get available cities.")
-        async def mavat_get_cities(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_cities(ctx, force_refresh)
-        
-        @mcp.tool(description="Get available streets.")
-        async def mavat_get_streets(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_streets(ctx, force_refresh)
-        
-        @mcp.tool(description="Search lookup tables by text.")
-        async def mavat_search_lookup(
-            ctx: Context,
-            search_text: str,
-            table_type: Optional[str] = None,
-            force_refresh: bool = False
-        ):
-            return await _mavat_search_lookup(ctx, search_text, table_type, force_refresh)
-        
-        @mcp.tool(description="Get a comprehensive summary of a plan including details and documents.")
-        async def mavat_get_plan_summary(ctx: Context, plan_id: str):
-            return await _mavat_get_plan_summary(ctx, plan_id)
         
         logger.info("Mavat tools registered successfully")
     except ImportError as e:

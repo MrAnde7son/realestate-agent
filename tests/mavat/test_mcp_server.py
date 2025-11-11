@@ -14,9 +14,6 @@ from fastmcp import Context
 from mavat.mcp_server import (
     get_plan_details,
     get_plan_documents,
-    get_plan_summary,
-    search_by_block_parcel,
-    search_by_location,
     search_plans,
 )
 
@@ -24,9 +21,6 @@ from mavat.mcp_server import (
 search_plans_func = search_plans.fn
 get_plan_details_func = get_plan_details.fn
 get_plan_documents_func = get_plan_documents.fn
-search_by_location_func = search_by_location.fn
-search_by_block_parcel_func = search_by_block_parcel.fn
-get_plan_summary_func = get_plan_summary.fn
 
 
 @pytest.fixture
@@ -224,118 +218,6 @@ class TestGetPlanDocuments:
             assert result["success"] is True
             assert result["entity_name"] == "Sample Plan"
             mock_client.get_plan_attachments.assert_called_once_with("12345", "Sample Plan")
-
-
-class TestSearchByLocation:
-    """Test the search_by_location function."""
-
-    @pytest.mark.asyncio
-    async def test_search_by_location_success(self, mock_context):
-        """Test successful location-based search."""
-        with patch('mavat.mcp_server.MavatAPIClient') as mock_client_class:
-            mock_client = Mock()
-            mock_client.search_plans.return_value = []
-            mock_client_class.return_value = mock_client
-            
-            result = await search_by_location_func(
-                mock_context, 
-                city="תל אביב", 
-                street="הירקון"
-            )
-
-
-
-            assert result["success"] is True
-            assert result["search_type"] == "location"
-            assert result["location_criteria"]["city"] == "תל אביב"
-            assert result["location_criteria"]["street"] == "הירקון"
-
-    @pytest.mark.asyncio
-    async def test_search_by_location_failure(self, mock_context):
-        """Test location search failure."""
-        with patch('mavat.mcp_server.search_plans') as mock_search:
-            mock_search.side_effect = Exception("Search failed")
-            
-            result = await search_by_location_func(mock_context, city="תל אביב")
-            
-            assert result["success"] is False
-            assert result["error"] == "Location search failed"
-
-
-class TestSearchByBlockParcel:
-    """Test the search_by_block_parcel function."""
-
-    @pytest.mark.asyncio
-    async def test_search_by_block_parcel_success(self, mock_context):
-        """Test successful block/parcel search."""
-        with patch.object(search_plans, 'fn') as mock_search:
-            mock_search.return_value = {
-                "success": True,
-                "plans": [{"plan_id": "12345"}],
-                "source": "mavat.iplan.gov.il REST API"
-            }
-            
-            result = await search_by_block_parcel_func(
-                mock_context, 
-                block_number="666", 
-                parcel_number="1"
-            )
-            
-            assert result["success"] is True
-            assert result["search_type"] == "cadastral"
-            assert result["cadastral_criteria"]["block_number"] == "666"
-            assert result["cadastral_criteria"]["parcel_number"] == "1"
-
-    @pytest.mark.asyncio
-    async def test_search_by_block_parcel_failure(self, mock_context):
-        """Test block/parcel search failure."""
-        with patch('mavat.mcp_server.search_plans') as mock_search:
-            mock_search.side_effect = Exception("Search failed")
-            
-            result = await search_by_block_parcel_func(
-                mock_context, 
-                block_number="666", 
-                parcel_number="1"
-            )
-            
-            assert result["success"] is False
-            assert result["error"] == "Block/parcel search failed"
-
-
-class TestGetPlanSummary:
-    """Test the get_plan_summary function."""
-
-    @pytest.mark.asyncio
-    async def test_get_plan_summary_success(self, mock_context):
-        """Test successful plan summary generation."""
-        with patch.object(get_plan_details, 'fn') as mock_get_details, \
-             patch.object(get_plan_documents, 'fn') as mock_get_docs:
-            
-            mock_get_details.return_value = {"success": True, "plan": {"id": "12345"}}
-            mock_get_docs.return_value = {"success": True, "documents": [{"name": "doc1"}]}
-            
-            result = await get_plan_summary_func(mock_context, "12345")
-            
-            assert result["success"] is True
-            assert result["plan_id"] == "12345"
-            assert "summary" in result
-            assert "details" in result["summary"]
-            assert "documents" in result["summary"]
-            mock_context.info.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_get_plan_summary_partial_failure(self, mock_context):
-        """Test plan summary when some operations fail."""
-        with patch.object(get_plan_details, 'fn') as mock_get_details, \
-             patch.object(get_plan_documents, 'fn') as mock_get_docs:
-            
-            mock_get_details.return_value = {"success": True, "plan": {"id": "12345"}}
-            mock_get_docs.return_value = {"success": False, "error": "Failed"}
-            
-            result = await get_plan_summary_func(mock_context, "12345")
-            
-            assert result["success"] is False
-            assert result["error"] == "Failed to retrieve complete plan information"
 
 
 if __name__ == "__main__":

@@ -591,7 +591,6 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - **`search_plans`** — Search for planning documents by various criteria
 - **`get_plan_details`** — Get detailed information for specific plans
 - **`get_plan_documents`** — Download plan documents and attachments
-- **`search_by_location`** — Location-based plan searches
 - **`search_by_block_parcel`** — Cadastral-based searches
 - **`get_lookup_tables`** — Access reference data (districts, cities, streets)
 - **`get_plan_summary`** — Comprehensive plan summaries

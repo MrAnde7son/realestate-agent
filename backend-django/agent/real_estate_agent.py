@@ -535,11 +535,35 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     
     def mark_finished(self):
         """Mark streaming as finished."""
+        logger.info("StreamingCallbackHandler.mark_finished() called")
         self._finished = True
         try:
             self.chunk_queue.put_nowait({"type": "finished"})
+            logger.info("Finished event added to queue successfully")
         except asyncio.QueueFull:
-            pass
+            logger.warning("Queue full when trying to add finished event, attempting to make space")
+            # Try to make space by removing a non-critical event
+            try:
+                # Remove one non-finished event to make space
+                temp_events = []
+                while not self.chunk_queue.empty() and len(temp_events) < 10:
+                    try:
+                        event = self.chunk_queue.get_nowait()
+                        if event.get("type") != "finished":
+                            temp_events.append(event)
+                    except Exception:
+                        break
+                # Put finished event
+                self.chunk_queue.put_nowait({"type": "finished"})
+                # Put back other events
+                for event in temp_events:
+                    try:
+                        self.chunk_queue.put_nowait(event)
+                    except Exception:
+                        pass  # If still full, drop the event
+                logger.info("Made space and added finished event")
+            except Exception as e:
+                logger.error("Failed to add finished event even after making space: %s", e)
     
     async def get_next_event(self, timeout: float = 0.1):
         """Get next event from queue."""
@@ -2168,6 +2192,27 @@ class RealEstateAgent:
                     logger.info("Agent astream finished. Total chunks: %d, Last chunk keys: %s", 
                               chunk_count, last_chunk_keys)
                     logger.info("Last chunk content: %s", str(last_chunk)[:500] if last_chunk else "None")
+                    
+                    # Check if we have tool output - if so, mark finished immediately
+                    tool_calls = callback.get_tool_calls()
+                    list_tool_names = ["list_assets_tool", "list_contacts_tool", "list_tasks_tool", 
+                                      "list_leads_tool", "list_deals_tool"]
+                    has_tool_output = False
+                    for tool_call in tool_calls:
+                        tool_name = tool_call.get("tool", "")
+                        if tool_name in list_tool_names:
+                            output = tool_call.get("output", "")
+                            if output and ("₪" in output or "מחיר:" in output or "**" in output or 
+                                         "סטטוס:" in output or "•" in output):
+                                has_tool_output = True
+                                if not callback.complete_response:
+                                    logger.info("Setting complete_response from tool output after astream finished")
+                                    callback.complete_response = output
+                                # Mark finished immediately since we have tool output
+                                logger.info("Have tool output after astream finished, marking finished immediately")
+                                callback.mark_finished()
+                                break
+                    
                     # Signal that astream has finished - this helps the outer loop detect completion
                     # even if we're still doing post-processing
                     try:
@@ -2179,9 +2224,10 @@ class RealEstateAgent:
                             callback.chunk_queue.put_nowait({"type": "astream_finished"})
                         except:
                             pass
+                    
                     # If astream finished but we have no response, the agent executor is done
                     # but the LLM might not have generated a final response
-                    if not callback.complete_response and not final_output:
+                    if not callback.complete_response and not final_output and not has_tool_output:
                         logger.warning("Agent executor finished but no LLM response was generated")
                         # Try to extract from last chunk one more time
                         if last_chunk and isinstance(last_chunk, dict):
@@ -2222,12 +2268,20 @@ class RealEstateAgent:
                                          "סטטוס:" in output or "•" in output):
                                 logger.info("No LLM response but have formatted tool output - using it")
                                 callback.complete_response = output
+                                # Mark finished immediately when we have tool output, don't wait for LLM
+                                logger.info("Have tool output, marking finished immediately")
+                                callback.mark_finished()
                                 break
                 
                 logger.info("Final callback response length after processing: %d", len(callback.complete_response))
                 logger.info("Final callback response preview: %s", callback.complete_response[:200] if callback.complete_response else "Empty")
                 logger.info("Tool calls count: %d", len(callback.get_tool_calls()))
-                callback.mark_finished()
+                
+                # Mark as finished if not already marked (in case we have LLM response instead of tool output)
+                if not callback._finished:
+                    logger.info("Marking callback as finished (have LLM response)")
+                    callback.mark_finished()
+                logger.info("Callback marked as finished, _finished=%s", callback._finished)
             except asyncio.TimeoutError:
                 logger.error("Agent execution timed out after 5 minutes")
                 try:

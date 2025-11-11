@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -6,6 +7,10 @@ from core.models import Asset, AssetWatchlistEntry
 
 
 class AssetFilterExtensionTests(TestCase):
+    def setUp(self):
+        """Clear cache before each test to ensure fresh metadata."""
+        cache.clear()
+
     @classmethod
     def setUpTestData(cls):
         cls.asset_basic = Asset.objects.create(

@@ -218,10 +218,9 @@ async def get_deals_by_location(
             "year_built": deal.year_built,
             "area": deal.area,
             "neighborhood": deal.neighborhood,
-            "parcel_block": deal.parcel_block,
-            "parcel_parcel": deal.parcel_parcel,
-            "parcel_sub_parcel": deal.parcel_sub_parcel,
-            "raw": deal.raw,
+            "block": deal.parcel_block,
+            "parcel": deal.parcel_parcel,
+            "sub_parcel": deal.parcel_sub_parcel,
         }
         result.append(deal_dict)
     

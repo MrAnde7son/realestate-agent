@@ -524,7 +524,6 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - **`get_search_parameters_reference`** — Complete parameter documentation
 - **`analyze_search_results`** — Price trends, location analysis, property distributions
 - **`save_search_results`** — Export to JSON with metadata
-- **`build_search_url`** — Generate URLs without scraping
 
 **Example Queries:**
 - *"Find 4-room apartments in Tel Aviv under 8M NIS with parking and elevator"*

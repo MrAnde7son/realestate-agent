@@ -1353,7 +1353,6 @@ def register_yad2_tools():
     try:
         from yad2.mcp_server import (
             fetch_listings as _yad2_fetch_listings,
-            build_search_url as _yad2_build_search_url,
             get_search_parameters_reference as _yad2_get_search_parameters_reference,
             get_all_property_types as _yad2_get_all_property_types,
             fetch_location_autocomplete as _yad2_fetch_location_autocomplete,
@@ -1469,111 +1468,7 @@ def register_yad2_tools():
                 listing_type=listing_type,
                 pull_contacts=pull_contacts,
             )
-        
-        @mcp.tool(description="Build a Yad2 search URL for the given parameters. Supports all Yad2 search parameters.")
-        async def yad2_build_search_url(
-            ctx: Context,
-            # Price parameters
-            maxPrice: Optional[int | str] = None,
-            minPrice: Optional[int | str] = None,
-            # Location parameters
-            topArea: Optional[int | str] = None,
-            area: Optional[int | str] = None,
-            city: Optional[int | str] = None,
-            neighborhood: Optional[int | str] = None,
-            street: Optional[str] = None,
-            # Property type
-            property: Optional[str] = None,
-            # Property details
-            rooms: Optional[str] = None,
-            minRooms: Optional[int | str] = None,
-            maxRooms: Optional[int | str] = None,
-            floor: Optional[str] = None,
-            size: Optional[str] = None,
-            minSize: Optional[int | str] = None,
-            maxSize: Optional[int | str] = None,
-            # Features
-            parking: Optional[int | str] = None,
-            elevator: Optional[int | str | bool] = None,
-            balcony: Optional[int | str | bool] = None,
-            renovated: Optional[int | str | bool] = None,
-            accessibility: Optional[int | str | bool] = None,
-            airCondition: Optional[int | str | bool] = None,
-            bars: Optional[int | str | bool] = None,
-            shelter: Optional[int | str | bool] = None,
-            storage: Optional[int | str | bool] = None,
-            terrace: Optional[int | str | bool] = None,
-            garden: Optional[int | str | bool] = None,
-            pets: Optional[int | str | bool] = None,
-            furniture: Optional[int | str | bool] = None,
-            # Building details
-            buildingFloors: Optional[int | str] = None,
-            entranceDate: Optional[str] = None,
-            propertyCondition: Optional[str] = None,
-            # Search parameters
-            page: Optional[int | str] = None,
-            order: Optional[str] = None,
-            dealType: Optional[str] = None,
-            priceOnly: Optional[int | str | bool] = None,
-            priceDropped: Optional[int | str | bool] = None,
-            saleType: Optional[str] = None,
-            exclusive: Optional[int | str | bool] = None,
-            publishedDays: Optional[int | str] = None,
-            # Advanced filters
-            fromFloor: Optional[int | str] = None,
-            toFloor: Optional[int | str] = None,
-            yearBuilt: Optional[int | str] = None,
-            minYear: Optional[int | str] = None,
-            maxYear: Optional[int | str] = None,
-        ):
-            return await _yad2_build_search_url(
-                ctx,
-                maxPrice=maxPrice,
-                minPrice=minPrice,
-                topArea=topArea,
-                area=area,
-                city=city,
-                neighborhood=neighborhood,
-                street=street,
-                property=property,
-                rooms=rooms,
-                minRooms=minRooms,
-                maxRooms=maxRooms,
-                floor=floor,
-                size=size,
-                minSize=minSize,
-                maxSize=maxSize,
-                parking=parking,
-                elevator=elevator,
-                balcony=balcony,
-                renovated=renovated,
-                accessibility=accessibility,
-                airCondition=airCondition,
-                bars=bars,
-                shelter=shelter,
-                storage=storage,
-                terrace=terrace,
-                garden=garden,
-                pets=pets,
-                furniture=furniture,
-                buildingFloors=buildingFloors,
-                entranceDate=entranceDate,
-                propertyCondition=propertyCondition,
-                page=page,
-                order=order,
-                dealType=dealType,
-                priceOnly=priceOnly,
-                priceDropped=priceDropped,
-                saleType=saleType,
-                exclusive=exclusive,
-                publishedDays=publishedDays,
-                fromFloor=fromFloor,
-                toFloor=toFloor,
-                yearBuilt=yearBuilt,
-                minYear=minYear,
-                maxYear=maxYear,
-            )
-        
+
         @mcp.tool(description="Get a comprehensive reference of available Yad2 search parameters.")
         async def yad2_get_search_parameters_reference(ctx: Context):
             return await _yad2_get_search_parameters_reference(ctx)

@@ -5128,10 +5128,30 @@ def agent_chat(request):
                     if len(key) > 10:
                         return key
                 return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            elif provider == "bedrock":
+                # Bedrock uses AWS credentials, not API keys
+                # Return a dummy value to indicate bedrock is configured
+                # Actual validation checks for AWS region
+                return "bedrock_configured"
             return None
         
         def has_valid_api_key(provider: str, user=None) -> bool:
             """Check if valid API key exists for provider."""
+            if provider == "bedrock":
+                # Bedrock requires AWS region, not API key
+                # Check if region is configured
+                aws_region = (
+                    os.getenv("BEDROCK_AWS_REGION") or
+                    getattr(settings, "BEDROCK_AWS_REGION", None)
+                )
+                # AWS credentials can come from:
+                # 1. Explicit BEDROCK_AWS_ACCESS_KEY_ID / BEDROCK_AWS_SECRET_ACCESS_KEY
+                # 2. Standard AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+                # 3. IAM role (when running on EC2/Lambda)
+                # 4. AWS credentials file (~/.aws/credentials)
+                # We only require region - credentials can be from any source
+                return bool(aws_region and aws_region.strip())
+            
             key = get_api_key_for_provider(provider, user)
             return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
         
@@ -5167,26 +5187,35 @@ def agent_chat(request):
                 llm_provider = "gemini"
             elif has_valid_api_key("openai", user):
                 llm_provider = "openai"
+            elif has_valid_api_key("bedrock", user):
+                llm_provider = "bedrock"
             else:
                 return Response(
                     {
                         "error": "No valid API key found. Please set an API key in user settings or environment variables: "
-                                "OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY"
+                                "OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, or BEDROCK_AWS_REGION"
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
         # Validate we have a valid key for the selected provider
         if not has_valid_api_key(llm_provider, user):
+            if llm_provider == "bedrock":
+                error_msg = (
+                    f"No valid AWS configuration found for provider '{llm_provider}'. "
+                    f"Please set BEDROCK_AWS_REGION environment variable and ensure AWS credentials are configured."
+                )
+            else:
+                error_msg = (
+                    f"No valid API key found for provider '{llm_provider}'. "
+                    f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
+                )
             return Response(
-                {
-                    "error": f"No valid API key found for provider '{llm_provider}'. "
-                            f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
-                },
+                {"error": error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get the API key to pass to agent
+        # Get the API key to pass to agent (for bedrock, this is a dummy value)
         api_key = get_api_key_for_provider(llm_provider, user)
         
         # Log which key source is being used

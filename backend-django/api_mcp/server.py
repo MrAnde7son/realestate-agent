@@ -1664,7 +1664,6 @@ def register_gov_tools():
     try:
         from gov.mcp_server import (
             decisive_appraisal as _gov_decisive_appraisal,
-            fetch_nadlan_transactions as _gov_fetch_nadlan_transactions,
             search_rami_plans as _gov_search_rami_plans,
             download_rami_plan_documents as _gov_download_rami_plan_documents,
             get_rami_document_types_info as _gov_get_rami_document_types_info,
@@ -1673,15 +1672,6 @@ def register_gov_tools():
         @mcp.tool(description="Fetch decisive appraisal decisions from gov.il.")
         async def gov_decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_pages: int = 1):
             return await _gov_decisive_appraisal(ctx, block, plot, max_pages)
-        
-        @mcp.tool(description="Fetch real estate transactions from nadlan.gov.il.")
-        async def gov_fetch_nadlan_transactions(
-            ctx: Context,
-            address: Optional[str] = None,
-            neighborhood_id: Optional[str] = None,
-            limit: int = 20,
-        ):
-            return await _gov_fetch_nadlan_transactions(ctx, address, neighborhood_id, limit)
         
         @mcp.tool(description="Search for planning documents using RAMI TabaSearch API.")
         async def gov_search_rami_plans(

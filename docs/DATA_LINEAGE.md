@@ -62,7 +62,7 @@ graph TB
 ### Yad2 Data Source (`yad2`)
 
 **Source**: Real estate listings from Yad2.co.il  
-**MCP Server**: `yad2/mcp/server.py`  
+**MCP Server**: `yad2/mcp_server.py`  
 **Collector**: `orchestration/collectors/yad2_collector.py`
 
 | Asset Field | Yad2 Field | Transformation | Provenance |
@@ -90,7 +90,7 @@ graph TB
 ### GIS Data Source (`gis_permit`, `gis_rights`)
 
 **Source**: Tel Aviv municipal GIS system  
-**MCP Server**: `gis/mcp/server.py`  
+**MCP Server**: `gis/mcp_server.py`  
 **Collector**: `orchestration/collectors/gis_collector.py`
 
 | Asset Field | GIS Field | Transformation | Provenance |
@@ -111,7 +111,6 @@ graph TB
 #### Nadlan Transactions (`nadlan`)
 
 **Source**: nadlan.gov.il transaction database  
-**MCP Server**: `gov/mcp/server.py` (fetch_nadlan_transactions)  
 **Collector**: `orchestration/collectors/gov_collector.py`
 
 | Asset Field | Nadlan Field | Transformation | Provenance |
@@ -125,7 +124,7 @@ graph TB
 #### RAMI Planning Documents (`rami_plan`)
 
 **Source**: RAMI TabaSearch API  
-**MCP Server**: `gov/mcp/server.py` (search_rami_plans)  
+**MCP Server**: `gov/mcp_server.py` (search_rami_plans)  
 **Collector**: `orchestration/collectors/rami_collector.py`
 
 | Asset Field | RAMI Field | Transformation | Provenance |
@@ -139,7 +138,7 @@ graph TB
 #### Mavat Planning Data (`mavat`)
 
 **Source**: mavat.iplan.gov.il planning portal  
-**MCP Server**: `mavat/mcp/server.py`  
+**MCP Server**: `mavat/mcp_server.py`  
 **Collector**: `orchestration/collectors/mavat_collector.py`
 
 | Asset Field | Mavat Field | Transformation | Provenance |
@@ -152,7 +151,7 @@ graph TB
 ### GovMap Data Source (`govmap`)
 
 **Source**: GovMap national mapping API  
-**MCP Server**: `govmap/mcp/server.py`  
+**MCP Server**: `govmap/mcp_server.py`  
 **Collector**: Integrated in GIS collector
 
 | Asset Field | GovMap Field | Transformation | Provenance |

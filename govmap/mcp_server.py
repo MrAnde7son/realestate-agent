@@ -46,6 +46,33 @@ async def autocomplete(ctx: Context, query: str, language: str = "he", max_resul
 
 
 @mcp.tool()
+async def extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract ITM coordinates from an autocomplete result.
+    
+    Use this tool to extract coordinates from a result returned by the autocomplete tool.
+    This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.
+    
+    Parameters:
+    -----------
+    result : Dict[str, Any]
+        A single result dictionary from the autocomplete API response (e.g., autocomplete_result["results"][0])
+        
+    Returns:
+    --------
+    Dict[str, Any]
+        Dictionary with 'x' and 'y' coordinates (ITM EPSG:2039) if found,
+        or {'error': 'message'} if coordinates could not be extracted
+    """
+    coords = GovMapClient.extract_coordinates_from_shapes(result)
+    if coords:
+        x, y = coords
+        await ctx.info(f"Extracted coordinates: ({x}, {y})")
+        return {"x": x, "y": y, "crs": "EPSG:2039"}
+    else:
+        return {"error": "Could not extract coordinates from result. Make sure the result contains a 'shape' field with POINT format."}
+
+
+@mcp.tool()
 async def coordinate_conversion(ctx: Context, x: float, y: float, from_crs: str = "ITM", to_crs: str = "WGS84") -> Dict[str, Any]:
     """Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326)."""
     if from_crs.upper() == "ITM" and to_crs.upper() == "WGS84":
@@ -56,22 +83,6 @@ async def coordinate_conversion(ctx: Context, x: float, y: float, from_crs: str 
         return {"x": x_itm, "y": y_itm, "crs": "EPSG:2039"}
     else:
         return {"error": f"Unsupported conversion from {from_crs} to {to_crs}"}
-
-
-@mcp.tool()
-async def get_layers_catalog(ctx: Context, language: str = "he") -> Dict[str, Any]:
-    """Get the layers catalog from GovMap."""
-    client = _get_client()
-    await ctx.info(f"Getting layers catalog (language: {language})")
-    return client.get_layers_catalog(language=language)
-
-
-@mcp.tool()
-async def get_search_types(ctx: Context, language: str = "he") -> Dict[str, Any]:
-    """Get search types from GovMap."""
-    client = _get_client()
-    await ctx.info(f"Getting search types (language: {language})")
-    return client.get_search_types(language=language)
 
 
 @mcp.tool()
@@ -99,25 +110,17 @@ async def get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str) -
 
 
 @mcp.tool()
-async def get_base_layers(ctx: Context) -> Dict[str, Any]:
-    """Get base layers from GovMap API."""
-    client = _get_client()
-    await ctx.info("Getting base layers")
-    return client.get_base_layers()
-
-
-@mcp.tool()
 async def entities_by_point(
     ctx: Context,
     x: float,
     y: float,
     layer_ids: List[Union[str, int]],
-    tolerance_m: float = 30.0
+    radius: float = 30.0
 ) -> Dict[str, Any]:
     """Get entities by point with specified layer IDs (EPSG:2039)."""
     client = _get_client()
     await ctx.info(f"Getting entities at point ({x}, {y}) for {len(layer_ids)} layers")
-    return client.entities_by_point(x, y, layer_ids, tolerance_m=tolerance_m)
+    return client.entities_by_point(x, y, layer_ids, radius=radius)
 
 
 @mcp.tool()
@@ -125,7 +128,7 @@ async def get_deals_by_location(
     ctx: Context,
     x: float,
     y: float,
-    start_date: str = "1998-01",
+    start_date: str = "2022-01",
     end_date: str = "2025-11",
     radius: float = 100.0,
     deal_type: str = "street",
@@ -137,6 +140,11 @@ async def get_deals_by_location(
     Returns standardized Deal objects with address, deal_date, deal_amount, rooms, 
     floor, asset_type, area, neighborhood, parcel information, etc.
     
+    This function supports three levels of deal aggregation:
+    - "street" (רמת הרחוב): Deals aggregated by street level
+    - "neighborhood" (רמת השכונה): Deals aggregated by neighborhood level
+    - "settlement" (רמת היישוב): Deals aggregated by settlement level
+    
     Parameters:
     -----------
     x : float
@@ -144,13 +152,14 @@ async def get_deals_by_location(
     y : float
         ITM Y coordinate (EPSG:2039)
     start_date : str
-        Start date in format "YYYY-MM" (e.g., "1998-01")
+        Start date in format "YYYY-MM" (e.g., "2022-01")
     end_date : str
         End date in format "YYYY-MM" (e.g., "2025-11")
     radius : float
         Radius in meters to search for deals (default: 100.0)
     deal_type : str
-        Type of deals: "street", "neighborhood", or "settlement" (default: "street")
+        Type of deals: "street" (רמת הרחוב), "neighborhood" (רמת השכונה), 
+        or "settlement" (רמת היישוב). Default: "street"
     limit : int
         Maximum number of deals to return per polygon (default: 9)
     offset : int
@@ -209,10 +218,9 @@ async def get_deals_by_location(
             "year_built": deal.year_built,
             "area": deal.area,
             "neighborhood": deal.neighborhood,
-            "parcel_block": deal.parcel_block,
-            "parcel_parcel": deal.parcel_parcel,
-            "parcel_sub_parcel": deal.parcel_sub_parcel,
-            "raw": deal.raw,
+            "block": deal.parcel_block,
+            "parcel": deal.parcel_parcel,
+            "sub_parcel": deal.parcel_sub_parcel,
         }
         result.append(deal_dict)
     

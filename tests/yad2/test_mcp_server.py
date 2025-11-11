@@ -20,7 +20,6 @@ if project_root not in sys.path:
 
 # Import MCP server functions
 from yad2.mcp_server import (
-    build_search_url,
     get_all_property_types,
     get_search_parameters_reference,
     fetch_listings,
@@ -33,7 +32,6 @@ from yad2.mcp_server import (
 # Extract the underlying functions from the FastMCP tools
 get_all_property_types_func = get_all_property_types.fn
 get_search_parameters_reference_func = get_search_parameters_reference.fn
-build_search_url_func = build_search_url.fn
 fetch_listings_func = fetch_listings.fn
 fetch_contact_info_func = fetch_contact_info.fn
 fetch_project_autocomplete_func = fetch_project_autocomplete.fn
@@ -146,42 +144,6 @@ class TestSearchFunctionality:
         assert "Location Parameters" in categories
         assert "Property Types" in categories
     
-    @pytest.mark.asyncio
-    async def test_build_search_url(self, mock_ctx):
-        """Test building search URLs."""
-        # Test with basic parameters
-        result = await build_search_url_func(
-            mock_ctx,
-            property="5",
-            city="5000",
-            neighborhood="203"
-        )
-        
-        assert result["success"] is True
-        assert "url" in result
-        assert "parameters" in result
-        assert "descriptions" in result
-        
-        # Check that parameters were set correctly
-        params = result["parameters"]
-        assert params.get("property") == "5"
-        # Note: city and neighborhood get converted to integers
-        assert params.get("city") == 5000
-        assert params.get("neighborhood") == 203
-        
-        # Test with Hebrew property name
-        result = await build_search_url_func(
-            mock_ctx,
-            property="בית פרטי",
-            city="5000"
-        )
-        
-        assert result["success"] is True
-        # Should convert Hebrew to code
-        params = result["parameters"]
-        assert "property" in params
-
-
 class TestFetchListings:
     """Test fetch_listings functionality."""
     

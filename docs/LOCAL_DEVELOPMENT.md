@@ -96,7 +96,6 @@ After launching the stack:
 
 1. Visit `http://localhost:3000` and log in with the seeded `admin@example.com / admin123` credentials
 2. Create an alert and confirm that Celery logs display processing activity (if Redis is running)
-3. Run `python -m yad2.examples.demo` to validate MCP scraping with real-time console output
-4. Verify the Django API is reachable at `http://localhost:8000/api/health/` (returns JSON health payload)
+3. Verify the Django API is reachable at `http://localhost:8000/api/health/` (returns JSON health payload)
 
 Following these steps ensures the entire developer toolchain is ready for feature work, QA, and integration with LLM-powered flows.

@@ -1353,7 +1353,6 @@ def register_yad2_tools():
     try:
         from yad2.mcp_server import (
             fetch_listings as _yad2_fetch_listings,
-            build_search_url as _yad2_build_search_url,
             get_search_parameters_reference as _yad2_get_search_parameters_reference,
             get_all_property_types as _yad2_get_all_property_types,
             fetch_location_autocomplete as _yad2_fetch_location_autocomplete,
@@ -1469,111 +1468,7 @@ def register_yad2_tools():
                 listing_type=listing_type,
                 pull_contacts=pull_contacts,
             )
-        
-        @mcp.tool(description="Build a Yad2 search URL for the given parameters. Supports all Yad2 search parameters.")
-        async def yad2_build_search_url(
-            ctx: Context,
-            # Price parameters
-            maxPrice: Optional[int | str] = None,
-            minPrice: Optional[int | str] = None,
-            # Location parameters
-            topArea: Optional[int | str] = None,
-            area: Optional[int | str] = None,
-            city: Optional[int | str] = None,
-            neighborhood: Optional[int | str] = None,
-            street: Optional[str] = None,
-            # Property type
-            property: Optional[str] = None,
-            # Property details
-            rooms: Optional[str] = None,
-            minRooms: Optional[int | str] = None,
-            maxRooms: Optional[int | str] = None,
-            floor: Optional[str] = None,
-            size: Optional[str] = None,
-            minSize: Optional[int | str] = None,
-            maxSize: Optional[int | str] = None,
-            # Features
-            parking: Optional[int | str] = None,
-            elevator: Optional[int | str | bool] = None,
-            balcony: Optional[int | str | bool] = None,
-            renovated: Optional[int | str | bool] = None,
-            accessibility: Optional[int | str | bool] = None,
-            airCondition: Optional[int | str | bool] = None,
-            bars: Optional[int | str | bool] = None,
-            shelter: Optional[int | str | bool] = None,
-            storage: Optional[int | str | bool] = None,
-            terrace: Optional[int | str | bool] = None,
-            garden: Optional[int | str | bool] = None,
-            pets: Optional[int | str | bool] = None,
-            furniture: Optional[int | str | bool] = None,
-            # Building details
-            buildingFloors: Optional[int | str] = None,
-            entranceDate: Optional[str] = None,
-            propertyCondition: Optional[str] = None,
-            # Search parameters
-            page: Optional[int | str] = None,
-            order: Optional[str] = None,
-            dealType: Optional[str] = None,
-            priceOnly: Optional[int | str | bool] = None,
-            priceDropped: Optional[int | str | bool] = None,
-            saleType: Optional[str] = None,
-            exclusive: Optional[int | str | bool] = None,
-            publishedDays: Optional[int | str] = None,
-            # Advanced filters
-            fromFloor: Optional[int | str] = None,
-            toFloor: Optional[int | str] = None,
-            yearBuilt: Optional[int | str] = None,
-            minYear: Optional[int | str] = None,
-            maxYear: Optional[int | str] = None,
-        ):
-            return await _yad2_build_search_url(
-                ctx,
-                maxPrice=maxPrice,
-                minPrice=minPrice,
-                topArea=topArea,
-                area=area,
-                city=city,
-                neighborhood=neighborhood,
-                street=street,
-                property=property,
-                rooms=rooms,
-                minRooms=minRooms,
-                maxRooms=maxRooms,
-                floor=floor,
-                size=size,
-                minSize=minSize,
-                maxSize=maxSize,
-                parking=parking,
-                elevator=elevator,
-                balcony=balcony,
-                renovated=renovated,
-                accessibility=accessibility,
-                airCondition=airCondition,
-                bars=bars,
-                shelter=shelter,
-                storage=storage,
-                terrace=terrace,
-                garden=garden,
-                pets=pets,
-                furniture=furniture,
-                buildingFloors=buildingFloors,
-                entranceDate=entranceDate,
-                propertyCondition=propertyCondition,
-                page=page,
-                order=order,
-                dealType=dealType,
-                priceOnly=priceOnly,
-                priceDropped=priceDropped,
-                saleType=saleType,
-                exclusive=exclusive,
-                publishedDays=publishedDays,
-                fromFloor=fromFloor,
-                toFloor=toFloor,
-                yearBuilt=yearBuilt,
-                minYear=minYear,
-                maxYear=maxYear,
-            )
-        
+
         @mcp.tool(description="Get a comprehensive reference of available Yad2 search parameters.")
         async def yad2_get_search_parameters_reference(ctx: Context):
             return await _yad2_get_search_parameters_reference(ctx)
@@ -1598,14 +1493,6 @@ def register_mavat_tools():
             search_plans as _mavat_search_plans,
             get_plan_details as _mavat_get_plan_details,
             get_plan_documents as _mavat_get_plan_documents,
-            search_by_location as _mavat_search_by_location,
-            search_by_block_parcel as _mavat_search_by_block_parcel,
-            get_lookup_tables as _mavat_get_lookup_tables,
-            get_districts as _mavat_get_districts,
-            get_cities as _mavat_get_cities,
-            get_streets as _mavat_get_streets,
-            search_lookup as _mavat_search_lookup,
-            get_plan_summary as _mavat_get_plan_summary,
         )
         
         @mcp.tool(description="Search for plans using various criteria.")
@@ -1635,55 +1522,6 @@ def register_mavat_tools():
         async def mavat_get_plan_documents(ctx: Context, plan_id: str, entity_name: Optional[str] = None):
             return await _mavat_get_plan_documents(ctx, plan_id, entity_name)
         
-        @mcp.tool(description="Search for plans by location criteria.")
-        async def mavat_search_by_location(
-            ctx: Context,
-            city: str,
-            district: Optional[str] = None,
-            plan_area: Optional[str] = None,
-            street: Optional[str] = None,
-            limit: int = 20
-        ):
-            return await _mavat_search_by_location(ctx, city, district, plan_area, street, limit)
-        
-        @mcp.tool(description="Search for plans by block and parcel numbers.")
-        async def mavat_search_by_block_parcel(
-            ctx: Context,
-            block_number: str,
-            parcel_number: str,
-            limit: int = 20
-        ):
-            return await _mavat_search_by_block_parcel(ctx, block_number, parcel_number, limit)
-        
-        @mcp.tool(description="Get all available lookup tables for districts, cities, streets, etc.")
-        async def mavat_get_lookup_tables(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_lookup_tables(ctx, force_refresh)
-        
-        @mcp.tool(description="Get available districts.")
-        async def mavat_get_districts(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_districts(ctx, force_refresh)
-        
-        @mcp.tool(description="Get available cities.")
-        async def mavat_get_cities(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_cities(ctx, force_refresh)
-        
-        @mcp.tool(description="Get available streets.")
-        async def mavat_get_streets(ctx: Context, force_refresh: bool = False):
-            return await _mavat_get_streets(ctx, force_refresh)
-        
-        @mcp.tool(description="Search lookup tables by text.")
-        async def mavat_search_lookup(
-            ctx: Context,
-            search_text: str,
-            table_type: Optional[str] = None,
-            force_refresh: bool = False
-        ):
-            return await _mavat_search_lookup(ctx, search_text, table_type, force_refresh)
-        
-        @mcp.tool(description="Get a comprehensive summary of a plan including details and documents.")
-        async def mavat_get_plan_summary(ctx: Context, plan_id: str):
-            return await _mavat_get_plan_summary(ctx, plan_id)
-        
         logger.info("Mavat tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Mavat tools: {e}")
@@ -1694,13 +1532,11 @@ def register_govmap_tools():
     try:
         from govmap.mcp_server import (
             autocomplete as _govmap_autocomplete,
+            extract_coordinates_from_shapes as _govmap_extract_coordinates_from_shapes,
             coordinate_conversion as _govmap_coordinate_conversion,
-            get_layers_catalog as _govmap_get_layers_catalog,
-            get_search_types as _govmap_get_search_types,
             get_parcel_data as _govmap_get_parcel_data,
             get_parcel_addresses as _govmap_get_parcel_addresses,
             get_addresses_by_block_parcel as _govmap_get_addresses_by_block_parcel,
-            get_base_layers as _govmap_get_base_layers,
             entities_by_point as _govmap_entities_by_point,
             get_deals_by_location as _govmap_get_deals_by_location,
         )
@@ -1708,6 +1544,10 @@ def register_govmap_tools():
         @mcp.tool(description="GovMap public autocomplete (no token). Returns raw JSON buckets.")
         async def govmap_autocomplete(ctx: Context, query: str, language: str = "he", max_results: int = 10):
             return await _govmap_autocomplete(ctx, query, language, max_results)
+        
+        @mcp.tool(description="Extract ITM coordinates from an autocomplete result. Use this tool to extract coordinates from a result returned by the autocomplete tool. This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.")
+        async def govmap_extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]):
+            return await _govmap_extract_coordinates_from_shapes(ctx, result)
         
         @mcp.tool(description="Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326).")
         async def govmap_coordinate_conversion(
@@ -1718,14 +1558,6 @@ def register_govmap_tools():
             to_crs: str = "WGS84"
         ):
             return await _govmap_coordinate_conversion(ctx, x, y, from_crs, to_crs)
-        
-        @mcp.tool(description="Get the layers catalog from GovMap.")
-        async def govmap_get_layers_catalog(ctx: Context, language: str = "he"):
-            return await _govmap_get_layers_catalog(ctx, language)
-        
-        @mcp.tool(description="Get search types from GovMap.")
-        async def govmap_get_search_types(ctx: Context, language: str = "he"):
-            return await _govmap_get_search_types(ctx, language)
         
         @mcp.tool(description="Get parcel data for specific coordinates (EPSG:2039).")
         async def govmap_get_parcel_data(ctx: Context, x: float, y: float):
@@ -1739,19 +1571,15 @@ def register_govmap_tools():
         async def govmap_get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str):
             return await _govmap_get_addresses_by_block_parcel(ctx, block, parcel)
         
-        @mcp.tool(description="Get base layers from GovMap API.")
-        async def govmap_get_base_layers(ctx: Context):
-            return await _govmap_get_base_layers(ctx)
-        
         @mcp.tool(description="Get entities by point with specified layer IDs (EPSG:2039).")
         async def govmap_entities_by_point(
             ctx: Context,
             x: float,
             y: float,
             layer_ids: List[Any],
-            tolerance_m: float = 30.0
+            radius: float = 30.0
         ):
-            return await _govmap_entities_by_point(ctx, x, y, layer_ids, tolerance_m)
+            return await _govmap_entities_by_point(ctx, x, y, layer_ids, radius)
         
         @mcp.tool(description="Get real estate deals for a specific location and radius. Returns standardized Deal objects with address, deal_date, deal_amount, rooms, floor, asset_type, area, neighborhood, parcel information, etc.")
         async def govmap_get_deals_by_location(
@@ -1779,7 +1607,6 @@ def register_gov_tools():
     try:
         from gov.mcp_server import (
             decisive_appraisal as _gov_decisive_appraisal,
-            fetch_nadlan_transactions as _gov_fetch_nadlan_transactions,
             search_rami_plans as _gov_search_rami_plans,
             download_rami_plan_documents as _gov_download_rami_plan_documents,
             get_rami_document_types_info as _gov_get_rami_document_types_info,
@@ -1788,15 +1615,6 @@ def register_gov_tools():
         @mcp.tool(description="Fetch decisive appraisal decisions from gov.il.")
         async def gov_decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_pages: int = 1):
             return await _gov_decisive_appraisal(ctx, block, plot, max_pages)
-        
-        @mcp.tool(description="Fetch real estate transactions from nadlan.gov.il.")
-        async def gov_fetch_nadlan_transactions(
-            ctx: Context,
-            address: Optional[str] = None,
-            neighborhood_id: Optional[str] = None,
-            limit: int = 20,
-        ):
-            return await _gov_fetch_nadlan_transactions(ctx, address, neighborhood_id, limit)
         
         @mcp.tool(description="Search for planning documents using RAMI TabaSearch API.")
         async def gov_search_rami_plans(
@@ -1843,8 +1661,7 @@ def register_madlan_tools():
     try:
         from madlan.mcp_server import (
             get_addresses as _madlan_get_addresses,
-            search_real_estate as _madlan_search_real_estate,
-            fetch_listings as _madlan_fetch_listings,
+            madlan_search_real_estate as _madlan_search_real_estate,
         )
         
         @mcp.tool(description="Autocomplete addresses and get address details from Madlan.")
@@ -1860,17 +1677,22 @@ def register_madlan_tools():
             ctx: Context,
             location_doc_id: Optional[str] = None,
             deal_type: str = "unitBuy",
-            price_range: Optional[List[Optional[int]]] = None,
-            rooms_range: Optional[List[Optional[float]]] = None,
-            area_range: Optional[List[Optional[int]]] = None,
-            floor_range: Optional[List[Optional[int]]] = None,
-            baths_range: Optional[List[Optional[float]]] = None,
-            building_class: Optional[List[str]] = None,
-            general_condition: Optional[List[str]] = None,
-            seller_type: Optional[List[str]] = None,
+            min_price: Optional[int | str] = None,
+            max_price: Optional[int | str] = None,
+            min_rooms: Optional[float | str] = None,
+            max_rooms: Optional[float | str] = None,
+            min_area: Optional[int | str] = None,
+            max_area: Optional[int | str] = None,
+            min_floor: Optional[int | str] = None,
+            max_floor: Optional[int | str] = None,
+            min_baths: Optional[float | str] = None,
+            max_baths: Optional[float | str] = None,
+            building_class: Optional[str] = None,
+            general_condition: Optional[str] = None,
+            seller_type: Optional[str] = None,
             amenities: Optional[Dict[str, Any]] = None,
-            limit: int = 50,
-            offset: int = 0,
+            limit: int | str = 50,
+            offset: int | str = 0,
             no_fee: bool = False,
             price_drop: bool = False,
             under_price_estimation: bool = False,
@@ -1879,25 +1701,14 @@ def register_madlan_tools():
             is_commercial_real_estate: bool = False,
         ):
             return await _madlan_search_real_estate(
-                ctx, location_doc_id, deal_type, price_range, rooms_range,
-                area_range, floor_range, baths_range, building_class,
+                ctx, location_doc_id, deal_type, min_price, max_price,
+                min_rooms, max_rooms, min_area, max_area, min_floor,
+                max_floor, min_baths, max_baths, building_class,
                 general_condition, seller_type, amenities, limit, offset,
                 no_fee, price_drop, under_price_estimation, discounted_projects,
                 only_immediate, is_commercial_real_estate
             )
         
-        @mcp.tool(description="Fetch real estate listings by location document ID.")
-        async def madlan_fetch_listings(
-            ctx: Context,
-            location_doc_id: str,
-            deal_type: str = "unitBuy",
-            price_range: Optional[List[Optional[int]]] = None,
-            rooms_range: Optional[List[Optional[float]]] = None,
-            limit: int = 50,
-        ):
-            return await _madlan_fetch_listings(ctx, location_doc_id, deal_type, price_range, rooms_range, limit)
-        
-        logger.info("Madlan tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Madlan tools: {e}")
 

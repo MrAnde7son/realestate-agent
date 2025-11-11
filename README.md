@@ -121,8 +121,7 @@ realestate-agent/
 │   ├── claude_config.json         # Claude Desktop MCP configuration
 │   ├── requirements.txt           # Python dependencies
 │   ├── pyproject.toml            # Project configuration
-│   ├── run_all.sh                # Start all MCP servers
-│   └── PRD.md                    # Product Requirements Document (Hebrew)
+│   └── run_all.sh                # Start all MCP servers
 ```
 
 ## 🚀 Quick Start
@@ -301,9 +300,6 @@ python -m mavat.mcp_server     # National planning portal (port 8004)
 
 #### 🔍 Search Real Estate (CLI)
 ```bash
-# Interactive demo
-python -m yad2.examples.demo
-
 # Interactive CLI
 python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"
 ```
@@ -522,31 +518,23 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 
 ### 🏠 Yad2 Real Estate Server (`python -m yad2.mcp_server`)
 
-**Core Tools:**
-- **`search_real_estate`** — Search with natural language (supports all 58+ Yad2 parameters)
-- **`get_search_parameters_reference`** — Complete parameter documentation
-- **`analyze_search_results`** — Price trends, location analysis, property distributions
-- **`save_search_results`** — Export to JSON with metadata
-- **`build_search_url`** — Generate URLs without scraping
+**API Client Tools:**
+- **`fetch_listings`** — Fetch active listings via Yad2's public map feed API (supports all 58+ search parameters)
+- **`fetch_contact_info`** — Fetch contact information for a listing token
+- **`fetch_project_autocomplete`** — Fetch project data from Yad1 developers autocomplete API
+- **`fetch_location_autocomplete`** — Fetch location data from Yad2 address autocomplete API and return prepared search parameters
+- **`fetch_latest_deals`** — Fetch completed deal records from Yad2's latest-deals endpoint
+
+**Utility Tools:**
+- **`get_search_parameters_reference`** — Complete parameter documentation reference
+- **`get_all_property_types`** — Get all property type codes with Hebrew and English names
 
 **Example Queries:**
 - *"Find 4-room apartments in Tel Aviv under 8M NIS with parking and elevator"*
 - *"Search penthouses in Jerusalem with balcony, renovated, price range 5-15M"*
-**Document Tools:**
-- **`search_plans`** — General planning document search
-- **`download_plan_documents`** — Download specific plan documents
-- **`download_multiple_plans_documents`** — Bulk downloads
-- **`get_document_types_info`** — Available document types reference
-
-**Document Types:**
-- **תקנון (takanon)** — Planning regulations (PDF)
-- **תשריט (tasrit)** — Blueprints and drawings (PDF)  
-- **נספח (nispach)** — Supporting appendices (PDF)
-- **ממ"ג (mmg)** — Digital planning archives (ZIP)
-
-**Example Queries:**
-- *"Find planning documents for Block 6638 Percel 96"*
-- *"Download blueprints for plan תמ״א 38 in Tel Aviv"*
+- *"Get contact information for listing token abc123"*
+- *"Search for location 'רמת החייל תל אביב'"*
+- *"Fetch latest deals in Tel Aviv"*
 
 ### 🗺️ Tel Aviv GIS Server (`python -m gis.mcp_server`)
 
@@ -578,10 +566,24 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - **`license_list`** — Available data licenses
 - **`organization_list/show`** — Government organizations and their data
 
+**RAMI Planning Document Tools:**
+- **`search_plans`** — General planning document search
+- **`download_plan_documents`** — Download specific plan documents
+- **`download_multiple_plans_documents`** — Bulk downloads
+- **`get_document_types_info`** — Available document types reference
+
+**Document Types:**
+- **תקנון (takanon)** — Planning regulations (PDF)
+- **תשריט (tasrit)** — Blueprints and drawings (PDF)  
+- **נספח (nispach)** — Supporting appendices (PDF)
+- **ממ"ג (mmg)** — Digital planning archives (ZIP)
+
 **Example Queries:**
 - *"Find comparable real estate transactions near my address"*
 - *"Get decisive appraisal decisions for block 6638 plot 96"*
 - *"Search government datasets about housing prices"*
+- *"Find planning documents for Block 6638 Percel 96"*
+- *"Download blueprints for plan תמ״א 38 in Tel Aviv"*
 
 ### 🏛️ MAVAT Planning Portal Server (`python -m mavat.mcp_server`)
 
@@ -589,7 +591,6 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - **`search_plans`** — Search for planning documents by various criteria
 - **`get_plan_details`** — Get detailed information for specific plans
 - **`get_plan_documents`** — Download plan documents and attachments
-- **`search_by_location`** — Location-based plan searches
 - **`search_by_block_parcel`** — Cadastral-based searches
 - **`get_lookup_tables`** — Access reference data (districts, cities, streets)
 - **`get_plan_summary`** — Comprehensive plan summaries
@@ -619,7 +620,9 @@ python -m mavat.mcp_server     # National planning portal
 **Real Estate Queries:**
 - "Find 4-room apartments in Tel Aviv under 8 million NIS with parking"
 - "Search for penthouses in Jerusalem with elevator"
-- "Analyze the price distribution of the last search"
+- "Get contact information for a specific listing"
+- "Search for location 'רמת החייל תל אביב'"
+- "Fetch latest completed deals in Tel Aviv"
 
 **Planning Document Queries:**
 - "Find planning documents for Block 6638 Parcel 96"
@@ -802,7 +805,6 @@ The codebase is organized into logical modules:
 
 ### Entry Points
 
-- Run Demo: `python -m yad2.examples.demo`
 - Start MCP server: `python -m yad2.mcp_server `
 - Run tests: `python -m yad2.tests.test_core`
 - Interactive CLI: `python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"`

@@ -128,7 +128,7 @@ async def get_deals_by_location(
     ctx: Context,
     x: float,
     y: float,
-    start_date: str = "1998-01",
+    start_date: str = "2022-01",
     end_date: str = "2025-11",
     radius: float = 100.0,
     deal_type: str = "street",
@@ -152,7 +152,7 @@ async def get_deals_by_location(
     y : float
         ITM Y coordinate (EPSG:2039)
     start_date : str
-        Start date in format "YYYY-MM" (e.g., "1998-01")
+        Start date in format "YYYY-MM" (e.g., "2022-01")
     end_date : str
         End date in format "YYYY-MM" (e.g., "2025-11")
     radius : float

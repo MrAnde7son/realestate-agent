@@ -71,7 +71,7 @@ import sys
 import json
 import logging
 import os
-from typing import Optional, Dict, Any, List
+from typing import Literal, Optional, Dict, Any, List
 
 from fastmcp import Context, FastMCP
 
@@ -441,12 +441,13 @@ def register_assets_tools():
         area_max: Optional[float | str] = None,
         rent_price_min: Optional[int | str] = None,
         rent_price_max: Optional[int | str] = None,
-        ad_type: Optional[str] = None,
+        seller_type: Literal["broker", "private", "all"] = "all",
+        commercial: Literal["commercial", "residential", "all"] = "all",
         type: Optional[str] = None,
-        rental_sale: Optional[str] = None,
-        status: Optional[str] = None,
+        rental_sale: Literal["rent", "sale", "all"] = "all",
+        status: Literal["done", "enriching", "failed", "pending", "all"] = "all",
         zoning: Optional[str] = None,
-        user_assets: Optional[str] = None,
+        user_assets: Literal["mine", "others", "watchlist", "all"] = "all",
         page: Optional[int | str] = None,
         page_size: Optional[int | str] = None,
         fields: Optional[List[str]] = None,
@@ -484,8 +485,10 @@ def register_assets_tools():
             params["status"] = status
         if rental_sale and rental_sale != "all":
             params["rentalSale"] = rental_sale
-        if ad_type and ad_type != "all":
-            params["adType"] = ad_type
+        if seller_type and seller_type != "all":
+            params["sellerType"] = seller_type
+        if commercial and commercial != "all":
+            params["commercial"] = commercial
         if user_assets and user_assets != "all":
             params["userAssets"] = user_assets
         price_max_int = _to_int(max_price)

@@ -51,6 +51,7 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from pydantic import BaseModel, Field
 
 from agent.tool_utils import wrap_async_tool
 
@@ -1030,25 +1031,60 @@ class RealEstateAgent:
         # Assets tools
         async def list_assets_tool_func(
             city: Optional[str] = None,
+            neighborhood: Optional[str] = None,
             max_price: Optional[int] = None,
             min_price: Optional[int] = None,
             rooms: Optional[int] = None,
-            page: Optional[int] = None,
+            area_min: Optional[float] = None,
+            area_max: Optional[float] = None,
+            rent_price_min: Optional[int] = None,
+            rent_price_max: Optional[int] = None,
+            seller_type: Optional[str] = None,
+            commercial: Optional[str] = None,
+            type: Optional[str] = None,
+            rental_sale: Optional[str] = None,
+            status: Optional[str] = None,
+            zoning: Optional[str] = None,
             user_assets: Optional[str] = None,
+            page: Optional[int] = None,
             fields: Optional[Any] = None,
             limit: Optional[int] = 5,
         ) -> str:
             """List all assets with optional filtering. Returns formatted results with addresses, prices, and property details.
             
+            IMPORTANT: When user asks for "rental properties" or "properties for rent" (נכסים להשכרה), 
+            use rental_sale="rent". When user asks for "properties for sale" (נכסים למכירה), use rental_sale="sale".
+            The user_assets parameter is ONLY for filtering by ownership/watchlist, NOT for rent vs sale filtering.
+            
             Parameters:
             - city: City name (use get_asset_filters_tool() to see available formats)
-            - max_price: Maximum price in shekels
-            - min_price: Minimum price in shekels
+            - neighborhood: Neighborhood name
+            - max_price: Maximum price in shekels (for sale properties)
+            - min_price: Minimum price in shekels (for sale properties)
             - rooms: Number of rooms
+            - area_min: Minimum area in square meters
+            - area_max: Maximum area in square meters
+            - rent_price_min: Minimum rent price in shekels per month (use with rental_sale="rent")
+            - rent_price_max: Maximum rent price in shekels per month (use with rental_sale="rent")
+            - seller_type: Filter by seller type - "broker", "private", or "all" (default: "all")
+            - commercial: Filter by property type - "commercial", "residential", or "all" (default: "all")
+            - type: Property type filter
+            - rental_sale: CRITICAL - Filter by rental/sale type. Use "rent" for rental properties (נכסים להשכרה), 
+              "sale" for properties for sale (נכסים למכירה), "all" for both (default: "all").
+              When user mentions "rentals", "for rent", "השכרה" - ALWAYS use rental_sale="rent".
+            - status: Filter by asset status - "done", "enriching", "failed", "pending", or "all" (default: "all")
+            - zoning: Zoning filter
+            - user_assets: Filter by ownership/watchlist ONLY - "watchlist" for assets in user's watchlist, 
+              "mine" for user's own assets, "others" for others' assets, or "all" (default: "all").
+              DO NOT use this for filtering rent vs sale - use rental_sale instead.
             - page: Page number for pagination
-            - user_assets: Filter by user assets - use "watchlist" for assets in user's watchlist, "mine" for user's own assets, "others" for others' assets
             - fields: Optional list of field names to return (can be a list or comma-separated string)
             - limit: Maximum number of items to return (default: 5, max: 50)
+            
+            Examples:
+            - User asks "rental properties in Tel Aviv" -> use rental_sale="rent", city="תל אביב"
+            - User asks "properties for sale under 2M" -> use rental_sale="sale", max_price=2000000
+            - User asks "my watchlist" -> use user_assets="watchlist"
             
             Returns formatted list ready to present to user.
             """
@@ -1091,7 +1127,29 @@ class RealEstateAgent:
                 else:
                     api_fields = essential_fields
                 
-                result = await list_assets(ctx, city=corrected_city, max_price=max_price, min_price=min_price, rooms=rooms, page=page, user_assets=user_assets, fields=api_fields, limit=limit, compact=True)
+                result = await list_assets(
+                    ctx,
+                    city=corrected_city,
+                    neighborhood=neighborhood,
+                    max_price=max_price,
+                    min_price=min_price,
+                    rooms=rooms,
+                    area_min=area_min,
+                    area_max=area_max,
+                    rent_price_min=rent_price_min,
+                    rent_price_max=rent_price_max,
+                    seller_type=seller_type,
+                    commercial=commercial,
+                    type=type,
+                    rental_sale=rental_sale,
+                    status=status,
+                    zoning=zoning,
+                    user_assets=user_assets,
+                    page=page,
+                    fields=api_fields,
+                    limit=limit,
+                    compact=True
+                )
                 
                 if isinstance(result, dict) and result.get("success"):
                     data = result.get("data", [])
@@ -1133,7 +1191,7 @@ class RealEstateAgent:
         list_assets_tool = StructuredTool.from_function(
             func=wrap_async_tool(list_assets_tool_func),
             name="list_assets_tool",
-            description="חיפוש נכסים עם מסננים. להשתמש ב-user_assets='watchlist' כדי לקבל נכסים ברשימת המעקב של המשתמש. לבדיקת מסננים זמינים get_asset_filters_tool."
+            description="חיפוש נכסים עם מסננים. חשוב: כאשר המשתמש מבקש נכסים להשכרה (rentals) - השתמש ב-rental_sale='rent'. כאשר המשתמש מבקש נכסים למכירה - השתמש ב-rental_sale='sale'. הפרמטר user_assets מיועד רק לסינון לפי בעלות/רשימת מעקב, לא לסינון השכרה מול מכירה. לבדיקת מסננים זמינים get_asset_filters_tool."
         )
         
         async def get_asset_filters_tool_func() -> str:
@@ -1217,6 +1275,13 @@ class RealEstateAgent:
             description="יצירת נכס חדש עם כתובת."
         )
         
+        class GetAssetDataInput(BaseModel):
+            """Input schema for get_asset_data_tool."""
+            asset_id: int = Field(description="The ID of the asset")
+            kind: str = Field(description="Type of data to retrieve - one of: transactions, permits, plans, appraisal, listings, documents")
+            fields: Optional[List[str]] = Field(default=None, description="Optional list of field names to return")
+            limit: Optional[int] = Field(default=5, description="Maximum number of items to return (default: 5)")
+        
         async def get_asset_data_tool_func(
             asset_id: int,
             kind: str,  # "transactions" | "permits" | "plans" | "appraisal" | "listings" | "documents"
@@ -1254,7 +1319,8 @@ class RealEstateAgent:
         get_asset_data_tool = StructuredTool.from_function(
             func=wrap_async_tool(get_asset_data_tool_func),
             name="get_asset_data_tool",
-            description="קבלת תת-משאב של נכס עם שדות ומגבלה (transactions/permits/plans/appraisal/listings/documents)."
+            description="קבלת תת-משאב של נכס עם שדות ומגבלה (transactions/permits/plans/appraisal/listings/documents).",
+            args_schema=GetAssetDataInput
         )
         
         # Deal tools
@@ -2102,6 +2168,17 @@ class RealEstateAgent:
                     logger.info("Agent astream finished. Total chunks: %d, Last chunk keys: %s", 
                               chunk_count, last_chunk_keys)
                     logger.info("Last chunk content: %s", str(last_chunk)[:500] if last_chunk else "None")
+                    # Signal that astream has finished - this helps the outer loop detect completion
+                    # even if we're still doing post-processing
+                    try:
+                        callback.chunk_queue.put_nowait({"type": "astream_finished"})
+                    except asyncio.QueueFull:
+                        # Try to make space
+                        try:
+                            callback.chunk_queue.get_nowait()
+                            callback.chunk_queue.put_nowait({"type": "astream_finished"})
+                        except:
+                            pass
                     # If astream finished but we have no response, the agent executor is done
                     # but the LLM might not have generated a final response
                     if not callback.complete_response and not final_output:
@@ -2248,6 +2325,34 @@ class RealEstateAgent:
                     if event.get("type") == "finished":
                         agent_finished = True
                         break
+                    # If astream finished, we know the agent executor is done
+                    # Even if run_agent() is still doing post-processing, we can break
+                    # after a short delay to allow final processing
+                    if event.get("type") == "astream_finished":
+                        logger.info("Agent executor astream finished, will break after final processing")
+                        final_timeouts = 0
+                        for _ in range(10):  # 10 * 0.1s = 1 second
+                            final_event = await callback.get_next_event(timeout=0.1)
+                            if final_event:
+                                final_timeouts = 0  # Reset timeout counter
+                                if final_event.get("type") == "finished":
+                                    agent_finished = True
+                                    break
+                                # Yield any final events
+                                if final_event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
+                                    final_event["tool_hebrew"] = translate_tool_name(final_event.get("tool", ""))
+                                yield final_event
+                            else:
+                                final_timeouts += 1
+                                # If no events for 0.5 seconds after astream finished, break
+                                if final_timeouts >= 5:
+                                    logger.info("No more events after astream finished, breaking")
+                                    agent_finished = True
+                                    break
+                        # Break out of main loop since astream is done
+                        if agent_finished:
+                            break
+                        continue
                     # Add Hebrew translation for tool events
                     if event.get("type") in ["tool_call_start", "tool_call_end", "tool_call_error"]:
                         event["tool_hebrew"] = translate_tool_name(event.get("tool", ""))
@@ -2269,7 +2374,23 @@ class RealEstateAgent:
                             agent_finished = True
                             logger.info("Agent task finished during timeout check, breaking")
                             break
-                        # If still running, reset counter but log more frequently
+                        # Check if we have a complete response - if so, break even if task isn't done
+                        if callback.complete_response:
+                            logger.info("Have complete response but agent still processing, breaking early")
+                            agent_finished = True
+                            break
+                        # Check if callback is marked as finished
+                        if callback._finished:
+                            logger.info("Callback marked as finished, breaking")
+                            agent_finished = True
+                            break
+                        # If we've been waiting for more than 10 seconds total, force break
+                        elapsed = time.time() - start_time
+                        if elapsed > 10.0:
+                            logger.warning("Agent task still running after 10 seconds with no events, forcing break")
+                            agent_finished = True
+                            break
+                        # If still running but less than 10 seconds, reset counter and continue
                         logger.warning("Agent task still running, continuing to wait...")
                         consecutive_timeouts = 0  # Reset to allow more time, but log more frequently
             

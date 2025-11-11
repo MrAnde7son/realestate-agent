@@ -5413,6 +5413,7 @@ def agent_chat_stream(request):
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            async_gen = None
             try:
                 async_gen = stream_generator()
                 while True:
@@ -5422,6 +5423,12 @@ def agent_chat_stream(request):
                     except StopAsyncIteration:
                         break
             finally:
+                # Properly close the async generator before closing the loop
+                if async_gen is not None:
+                    try:
+                        loop.run_until_complete(async_gen.aclose())
+                    except Exception:
+                        pass  # Ignore errors during cleanup
                 loop.close()
         
         response = StreamingHttpResponse(sync_stream_generator(), content_type='text/event-stream')

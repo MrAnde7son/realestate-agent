@@ -44,6 +44,15 @@ OPENAI_MODEL = config("OPENAI_MODEL", default="gpt-4o-mini")
 GROQ_API_KEY = config("GROQ_API_KEY", default="")
 GROQ_MODEL = config("GROQ_MODEL", default="llama-3.1-70b-versatile")
 
+# AWS Bedrock
+BEDROCK_AWS_REGION = config("BEDROCK_AWS_REGION", default="")
+BEDROCK_AWS_ACCESS_KEY_ID = config("BEDROCK_AWS_ACCESS_KEY_ID", default="")
+BEDROCK_AWS_SECRET_ACCESS_KEY = config("BEDROCK_AWS_SECRET_ACCESS_KEY", default="")
+BEDROCK_MODEL_ID = config("BEDROCK_MODEL_ID", default="anthropic.claude-3-sonnet-20240229-v1:0")
+# Alternative: Use standard AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
+
 # Custom user model
 AUTH_USER_MODEL = 'core.User'
 

@@ -1999,7 +1999,7 @@ def _apply_asset_filters(queryset, params, user):
         track_search(
             query=search,
             user=user if user and getattr(user, "is_authenticated", False) else None,
-            results_count=queryset.count(),
+            results_count=None,
             meta={"source": "assets_list"}
         )
 
@@ -2072,10 +2072,15 @@ def _apply_asset_filters(queryset, params, user):
         )
 
         if normalized_rental_sale in {"rent", "sale"}:
+            # Optimize: fetch all candidate assets with meta in one query instead of N+1
             candidate_ids = list(queryset.values_list("id", flat=True))
             if candidate_ids:
-                for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
-                    yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+                for asset in candidate_assets:
+                    meta = getattr(asset, "meta", {}) or {}
+                    yad2_listings = meta.get("yad2_listings", []) or []
+                    if not isinstance(yad2_listings, list):
+                        continue
                     for listing in yad2_listings:
                         if not isinstance(listing, dict):
                             continue
@@ -2106,8 +2111,12 @@ def _apply_asset_filters(queryset, params, user):
 
         candidate_ids = list(queryset.values_list("id", flat=True))
         if candidate_ids:
-            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
-                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+            for asset in candidate_assets:
+                meta = getattr(asset, "meta", {}) or {}
+                yad2_listings = meta.get("yad2_listings", []) or []
+                if not isinstance(yad2_listings, list):
+                    continue
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
@@ -2330,8 +2339,13 @@ def _apply_asset_filters(queryset, params, user):
         
         candidate_ids = list(queryset.values_list("id", flat=True))
         if candidate_ids:
-            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
-                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+            # Optimize: fetch all candidate assets with meta in one query instead of N+1
+            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+            for asset in candidate_assets:
+                meta = getattr(asset, "meta", {}) or {}
+                yad2_listings = meta.get("yad2_listings", []) or []
+                if not isinstance(yad2_listings, list):
+                    continue
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
@@ -2414,6 +2428,12 @@ def _apply_asset_filters(queryset, params, user):
 
 
 def _get_asset_filter_metadata():
+    """Get asset filter metadata with caching for performance."""
+    cache_key = "asset_filter_metadata"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return cached_data
+    
     base_qs = Asset.objects.all()
 
     def _distinct(field):
@@ -2491,7 +2511,7 @@ def _get_asset_filter_metadata():
             return {"min": None, "max": None}
         return {"min": min_value, "max": max_value}
 
-    return {
+    result = {
         "cities": sorted(set(_distinct("city"))),
         "types": sorted(property_types),
         "neighborhoods": sorted(set(_distinct("neighborhood"))),
@@ -2549,6 +2569,10 @@ def _get_asset_filter_metadata():
         "parkingSpaceRange": _range_dict("parking_spaces_min", "parking_spaces_max"),
         "balconyAreaRange": _range_dict("balcony_area_min", "balcony_area_max"),
     }
+    
+    # Cache for 1 hour (3600 seconds) to improve performance
+    cache.set(cache_key, result, 3600)
+    return result
 
 
 def _get_assets_list(request):
@@ -2564,6 +2588,8 @@ def _get_assets_list(request):
 
     try:
         user = getattr(request, "user", None)
+        # Optimize: prefetch listings_m2m to avoid N+1 queries
+        # Note: listings_m2m already returns Listing objects directly (not AssetListing)
         queryset = Asset.objects.all().prefetch_related("listings_m2m")
 
         if user and getattr(user, "is_authenticated", False):
@@ -5102,10 +5128,30 @@ def agent_chat(request):
                     if len(key) > 10:
                         return key
                 return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+            elif provider == "bedrock":
+                # Bedrock uses AWS credentials, not API keys
+                # Return a dummy value to indicate bedrock is configured
+                # Actual validation checks for AWS region
+                return "bedrock_configured"
             return None
         
         def has_valid_api_key(provider: str, user=None) -> bool:
             """Check if valid API key exists for provider."""
+            if provider == "bedrock":
+                # Bedrock requires AWS region, not API key
+                # Check if region is configured
+                aws_region = (
+                    os.getenv("BEDROCK_AWS_REGION") or
+                    getattr(settings, "BEDROCK_AWS_REGION", None)
+                )
+                # AWS credentials can come from:
+                # 1. Explicit BEDROCK_AWS_ACCESS_KEY_ID / BEDROCK_AWS_SECRET_ACCESS_KEY
+                # 2. Standard AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+                # 3. IAM role (when running on EC2/Lambda)
+                # 4. AWS credentials file (~/.aws/credentials)
+                # We only require region - credentials can be from any source
+                return bool(aws_region and aws_region.strip())
+            
             key = get_api_key_for_provider(provider, user)
             return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
         
@@ -5141,26 +5187,35 @@ def agent_chat(request):
                 llm_provider = "gemini"
             elif has_valid_api_key("openai", user):
                 llm_provider = "openai"
+            elif has_valid_api_key("bedrock", user):
+                llm_provider = "bedrock"
             else:
                 return Response(
                     {
                         "error": "No valid API key found. Please set an API key in user settings or environment variables: "
-                                "OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY"
+                                "OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, or BEDROCK_AWS_REGION"
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
         # Validate we have a valid key for the selected provider
         if not has_valid_api_key(llm_provider, user):
+            if llm_provider == "bedrock":
+                error_msg = (
+                    f"No valid AWS configuration found for provider '{llm_provider}'. "
+                    f"Please set BEDROCK_AWS_REGION environment variable and ensure AWS credentials are configured."
+                )
+            else:
+                error_msg = (
+                    f"No valid API key found for provider '{llm_provider}'. "
+                    f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
+                )
             return Response(
-                {
-                    "error": f"No valid API key found for provider '{llm_provider}'. "
-                            f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
-                },
+                {"error": error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get the API key to pass to agent
+        # Get the API key to pass to agent (for bedrock, this is a dummy value)
         api_key = get_api_key_for_provider(llm_provider, user)
         
         # Log which key source is being used
@@ -5387,6 +5442,7 @@ def agent_chat_stream(request):
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            async_gen = None
             try:
                 async_gen = stream_generator()
                 while True:
@@ -5396,6 +5452,12 @@ def agent_chat_stream(request):
                     except StopAsyncIteration:
                         break
             finally:
+                # Properly close the async generator before closing the loop
+                if async_gen is not None:
+                    try:
+                        loop.run_until_complete(async_gen.aclose())
+                    except Exception:
+                        pass  # Ignore errors during cleanup
                 loop.close()
         
         response = StreamingHttpResponse(sync_stream_generator(), content_type='text/event-stream')

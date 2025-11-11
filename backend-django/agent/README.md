@@ -27,6 +27,15 @@ export OPENAI_API_KEY="your-openai-key"
 export GEMINI_API_KEY="your-gemini-key"  # or GOOGLE_API_KEY
 export GROQ_API_KEY="your-groq-key"
 
+# AWS Bedrock (alternative LLM provider)
+export BEDROCK_AWS_REGION="us-east-1"  # Required
+export BEDROCK_AWS_ACCESS_KEY_ID="your-access-key"  # Optional if using IAM role
+export BEDROCK_AWS_SECRET_ACCESS_KEY="your-secret-key"  # Optional if using IAM role
+export BEDROCK_MODEL_ID="anthropic.claude-3-sonnet-20240229-v1:0"  # Optional, defaults to Claude 3 Sonnet
+# Alternative: Use standard AWS credentials
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+
 # Real Estate API
 export REALESTATE_API_URL="http://127.0.0.1:8000/api"
 export REALESTATE_API_TOKEN="your-api-token"  # Optional
@@ -39,9 +48,11 @@ export REALESTATE_API_TOKEN="your-api-token"  # Optional
 ```bash
 # Interactive mode
 python backend-django/agent/real_estate_agent.py --provider openai
+python backend-django/agent/real_estate_agent.py --provider bedrock
 
 # Single query
 python backend-django/agent/real_estate_agent.py --provider openai "List all assets in Tel Aviv"
+python backend-django/agent/real_estate_agent.py --provider bedrock "List all assets in Tel Aviv"
 ```
 
 ### Python API
@@ -160,8 +171,37 @@ The agent has access to 16+ tools:
 ### Change LLM Provider
 
 ```python
-agent = RealEstateAgent(llm_provider="gemini")  # or "groq"
+agent = RealEstateAgent(llm_provider="gemini")  # or "groq", "openai", "bedrock"
 ```
+
+### AWS Bedrock Configuration
+
+AWS Bedrock uses AWS credentials instead of API keys. You can configure credentials in several ways:
+
+1. **Environment variables** (recommended for development):
+   ```bash
+   export BEDROCK_AWS_REGION="us-east-1"
+   export BEDROCK_AWS_ACCESS_KEY_ID="your-access-key"
+   export BEDROCK_AWS_SECRET_ACCESS_KEY="your-secret-key"
+   ```
+
+2. **AWS credentials file** (`~/.aws/credentials`):
+   ```ini
+   [default]
+   aws_access_key_id = your-access-key
+   aws_secret_access_key = your-secret-key
+   ```
+
+3. **IAM role** (recommended for production on EC2/Lambda):
+   - No credentials needed, uses instance role automatically
+
+**Available Bedrock Models:**
+- `anthropic.claude-3-sonnet-20240229-v1:0` (default)
+- `anthropic.claude-3-haiku-20240307-v1:0`
+- `anthropic.claude-3-opus-20240229-v1:0`
+- `meta.llama2-70b-chat-v1`
+- `meta.llama3-8b-instruct-v1:0`
+- And more - see [AWS Bedrock Model IDs](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html)
 
 ### Adjust Temperature
 
@@ -193,6 +233,7 @@ To extend the agent:
 
 **"No API key found"**
 - Set the appropriate API key environment variable
+- For Bedrock: Set `BEDROCK_AWS_REGION` and ensure AWS credentials are configured
 
 **"Connection refused"**
 - Ensure the API server is running

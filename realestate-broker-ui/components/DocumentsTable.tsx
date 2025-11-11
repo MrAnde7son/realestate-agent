@@ -137,7 +137,7 @@ const sourceLabel = (source?: string) => {
     'handasa': 'תיק בניין',
     'rami': 'רמ״י',
     'rami_plan': 'רמ״י',
-    'mavat': 'מבת',
+    'mavat': 'מנהל התיכנון',
     'gov': 'ממשלתי',
     'tabu': 'טאבו',
     'tabu_upload': 'טאבו',

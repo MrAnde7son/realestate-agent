@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from django.utils import timezone
@@ -66,7 +66,7 @@ def parse_date_value(value: Any) -> Optional[datetime]:
         dt = value
     elif isinstance(value, (int, float)):
         try:
-            dt = datetime.fromtimestamp(value, tz=timezone.utc)
+            dt = datetime.fromtimestamp(value, tz=dt_timezone.utc)
         except (TypeError, ValueError, OSError, OverflowError):
             return None
     elif isinstance(value, str):
@@ -83,11 +83,11 @@ def parse_date_value(value: Any) -> Optional[datetime]:
         return None
     if timezone.is_naive(dt):
         try:
-            dt = timezone.make_aware(dt, timezone.utc)
+            dt = timezone.make_aware(dt, dt_timezone.utc)
         except Exception:  # pragma: no cover - fallback for older datetimes
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=dt_timezone.utc)
     else:
-        dt = dt.astimezone(timezone.utc)
+        dt = dt.astimezone(dt_timezone.utc)
     return dt
 
 

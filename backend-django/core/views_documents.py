@@ -145,7 +145,6 @@ class DocumentListView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Get documents
             documents = asset_documents_all(asset)
             serializer = DocumentListSerializer(documents, many=True)
             
@@ -180,7 +179,7 @@ class AssetRightsView(APIView):
             }
 
             # 1. Get Tabu data from uploaded documents (use most recent document only to avoid duplicates)
-            documents = Document.objects.filter(
+            documents = Document.objects.select_related('asset', 'user').prefetch_related('assets').filter(
                 (Q(asset=asset) | Q(assets=asset)),
                 document_type='tabu'
             ).distinct().order_by('-uploaded_at')

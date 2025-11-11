@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase
 
 from core.models import Asset
@@ -5,6 +6,10 @@ from core.views import MAX_ASSET_PAGE_SIZE
 
 
 class AssetsPaginationTests(TestCase):
+    def setUp(self):
+        """Clear cache before each test to ensure fresh metadata."""
+        cache.clear()
+
     @classmethod
     def setUpTestData(cls):
         cls.asset_ids = []

@@ -1589,6 +1589,7 @@ def register_govmap_tools():
     try:
         from govmap.mcp_server import (
             autocomplete as _govmap_autocomplete,
+            extract_coordinates_from_shapes as _govmap_extract_coordinates_from_shapes,
             coordinate_conversion as _govmap_coordinate_conversion,
             get_parcel_data as _govmap_get_parcel_data,
             get_parcel_addresses as _govmap_get_parcel_addresses,
@@ -1600,6 +1601,10 @@ def register_govmap_tools():
         @mcp.tool(description="GovMap public autocomplete (no token). Returns raw JSON buckets.")
         async def govmap_autocomplete(ctx: Context, query: str, language: str = "he", max_results: int = 10):
             return await _govmap_autocomplete(ctx, query, language, max_results)
+        
+        @mcp.tool(description="Extract ITM coordinates from an autocomplete result. Use this tool to extract coordinates from a result returned by the autocomplete tool. This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.")
+        async def govmap_extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]):
+            return await _govmap_extract_coordinates_from_shapes(ctx, result)
         
         @mcp.tool(description="Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326).")
         async def govmap_coordinate_conversion(
@@ -1629,9 +1634,9 @@ def register_govmap_tools():
             x: float,
             y: float,
             layer_ids: List[Any],
-            tolerance_m: float = 30.0
+            radius: float = 30.0
         ):
-            return await _govmap_entities_by_point(ctx, x, y, layer_ids, tolerance_m)
+            return await _govmap_entities_by_point(ctx, x, y, layer_ids, radius)
         
         @mcp.tool(description="Get real estate deals for a specific location and radius. Returns standardized Deal objects with address, deal_date, deal_amount, rooms, floor, asset_type, area, neighborhood, parcel information, etc.")
         async def govmap_get_deals_by_location(

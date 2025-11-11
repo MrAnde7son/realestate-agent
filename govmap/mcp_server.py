@@ -46,6 +46,33 @@ async def autocomplete(ctx: Context, query: str, language: str = "he", max_resul
 
 
 @mcp.tool()
+async def extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract ITM coordinates from an autocomplete result.
+    
+    Use this tool to extract coordinates from a result returned by the autocomplete tool.
+    This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.
+    
+    Parameters:
+    -----------
+    result : Dict[str, Any]
+        A single result dictionary from the autocomplete API response (e.g., autocomplete_result["results"][0])
+        
+    Returns:
+    --------
+    Dict[str, Any]
+        Dictionary with 'x' and 'y' coordinates (ITM EPSG:2039) if found,
+        or {'error': 'message'} if coordinates could not be extracted
+    """
+    coords = GovMapClient.extract_coordinates_from_shapes(result)
+    if coords:
+        x, y = coords
+        await ctx.info(f"Extracted coordinates: ({x}, {y})")
+        return {"x": x, "y": y, "crs": "EPSG:2039"}
+    else:
+        return {"error": "Could not extract coordinates from result. Make sure the result contains a 'shape' field with POINT format."}
+
+
+@mcp.tool()
 async def coordinate_conversion(ctx: Context, x: float, y: float, from_crs: str = "ITM", to_crs: str = "WGS84") -> Dict[str, Any]:
     """Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326)."""
     if from_crs.upper() == "ITM" and to_crs.upper() == "WGS84":
@@ -88,12 +115,12 @@ async def entities_by_point(
     x: float,
     y: float,
     layer_ids: List[Union[str, int]],
-    tolerance_m: float = 30.0
+    radius: float = 30.0
 ) -> Dict[str, Any]:
     """Get entities by point with specified layer IDs (EPSG:2039)."""
     client = _get_client()
     await ctx.info(f"Getting entities at point ({x}, {y}) for {len(layer_ids)} layers")
-    return client.entities_by_point(x, y, layer_ids, tolerance_m=tolerance_m)
+    return client.entities_by_point(x, y, layer_ids, radius=radius)
 
 
 @mcp.tool()
@@ -113,6 +140,11 @@ async def get_deals_by_location(
     Returns standardized Deal objects with address, deal_date, deal_amount, rooms, 
     floor, asset_type, area, neighborhood, parcel information, etc.
     
+    This function supports three levels of deal aggregation:
+    - "street" (רמת הרחוב): Deals aggregated by street level
+    - "neighborhood" (רמת השכונה): Deals aggregated by neighborhood level
+    - "settlement" (רמת היישוב): Deals aggregated by settlement level
+    
     Parameters:
     -----------
     x : float
@@ -126,7 +158,8 @@ async def get_deals_by_location(
     radius : float
         Radius in meters to search for deals (default: 100.0)
     deal_type : str
-        Type of deals: "street", "neighborhood", or "settlement" (default: "street")
+        Type of deals: "street" (רמת הרחוב), "neighborhood" (רמת השכונה), 
+        or "settlement" (רמת היישוב). Default: "street"
     limit : int
         Maximum number of deals to return per polygon (default: 9)
     offset : int

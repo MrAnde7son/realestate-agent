@@ -6,4 +6,5 @@ langchain-core>=0.3.0
 langchain-community>=0.3.0
 langgraph>=0.2.0
 langsmith>=0.1.0
+langchain-aws>=0.1.0  # AWS Bedrock support
 

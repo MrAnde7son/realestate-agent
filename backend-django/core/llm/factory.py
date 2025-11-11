@@ -1,5 +1,6 @@
 from django.conf import settings
 
+from .providers.bedrock import BedrockAdapter
 from .providers.gemini import GeminiAdapter
 from .providers.groq import GroqAdapter
 from .providers.openai import OpenAIAdapter
@@ -34,5 +35,16 @@ def create_llm_client(provider: LLMProvider | None = None) -> LLMClient:
                 return GeminiAdapter()
             if provider is None and settings.OPENAI_API_KEY:
                 return OpenAIAdapter()
+            raise
+    if selected == "bedrock":
+        try:
+            return BedrockAdapter()
+        except ValueError:
+            if provider is None and settings.GEMINI_API_KEY:
+                return GeminiAdapter()
+            if provider is None and settings.OPENAI_API_KEY:
+                return OpenAIAdapter()
+            if provider is None and settings.GROQ_API_KEY:
+                return GroqAdapter()
             raise
     raise ValueError(f"Unknown LLM provider: {selected}")

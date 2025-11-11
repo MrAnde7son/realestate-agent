@@ -53,6 +53,14 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from pydantic import BaseModel, Field
 
+# AWS Bedrock support (optional import)
+try:
+    from langchain_aws import ChatBedrock
+    BEDROCK_AVAILABLE = True
+except ImportError:
+    BEDROCK_AVAILABLE = False
+    ChatBedrock = None
+
 from agent.tool_utils import wrap_async_tool
 
 # Import MCP server functions dynamically
@@ -793,6 +801,64 @@ class RealEstateAgent:
                 base_url="https://api.groq.com/openai/v1",
                 streaming=True,  # Enable streaming for callbacks
             )
+        elif provider == "bedrock":
+            if not BEDROCK_AVAILABLE:
+                raise ValueError("langchain-aws is required for Bedrock support. Install it with: pip install langchain-aws")
+            
+            # AWS Bedrock uses AWS credentials, not API keys
+            # Check for AWS credentials from environment or settings
+            import boto3
+            from django.conf import settings as django_settings
+            
+            # Get AWS region (required)
+            aws_region = os.getenv("BEDROCK_AWS_REGION") or getattr(django_settings, "BEDROCK_AWS_REGION", None)
+            if not aws_region:
+                raise ValueError("BEDROCK_AWS_REGION is required for Bedrock provider")
+            
+            # Get AWS credentials (optional - can use IAM role, credentials file, or env vars)
+            aws_access_key_id = (
+                os.getenv("BEDROCK_AWS_ACCESS_KEY_ID") or 
+                os.getenv("AWS_ACCESS_KEY_ID") or
+                getattr(django_settings, "BEDROCK_AWS_ACCESS_KEY_ID", None) or
+                getattr(django_settings, "AWS_ACCESS_KEY_ID", None)
+            )
+            aws_secret_access_key = (
+                os.getenv("BEDROCK_AWS_SECRET_ACCESS_KEY") or
+                os.getenv("AWS_SECRET_ACCESS_KEY") or
+                getattr(django_settings, "BEDROCK_AWS_SECRET_ACCESS_KEY", None) or
+                getattr(django_settings, "AWS_SECRET_ACCESS_KEY", None)
+            )
+            
+            # Get model ID
+            bedrock_model = os.getenv("BEDROCK_MODEL_ID") or getattr(django_settings, "BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
+            
+            logger.info("Using AWS Bedrock LLM - Model: %s, Region: %s", bedrock_model, aws_region)
+            
+            # Create boto3 session with credentials if provided
+            if aws_access_key_id and aws_secret_access_key:
+                import boto3.session
+                session = boto3.Session(
+                    aws_access_key_id=aws_access_key_id,
+                    aws_secret_access_key=aws_secret_access_key,
+                    region_name=aws_region
+                )
+                credentials = session.get_credentials()
+            else:
+                # Use default credentials (IAM role, credentials file, or env vars)
+                credentials = None
+            
+            # Create ChatBedrock instance
+            bedrock_kwargs = {
+                "model_id": bedrock_model,
+                "temperature": temperature,
+                "streaming": True,
+                "region_name": aws_region,
+            }
+            
+            if credentials:
+                bedrock_kwargs["credentials"] = credentials
+            
+            return ChatBedrock(**bedrock_kwargs)
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
     

@@ -1590,12 +1590,9 @@ def register_govmap_tools():
         from govmap.mcp_server import (
             autocomplete as _govmap_autocomplete,
             coordinate_conversion as _govmap_coordinate_conversion,
-            get_layers_catalog as _govmap_get_layers_catalog,
-            get_search_types as _govmap_get_search_types,
             get_parcel_data as _govmap_get_parcel_data,
             get_parcel_addresses as _govmap_get_parcel_addresses,
             get_addresses_by_block_parcel as _govmap_get_addresses_by_block_parcel,
-            get_base_layers as _govmap_get_base_layers,
             entities_by_point as _govmap_entities_by_point,
             get_deals_by_location as _govmap_get_deals_by_location,
         )
@@ -1614,14 +1611,6 @@ def register_govmap_tools():
         ):
             return await _govmap_coordinate_conversion(ctx, x, y, from_crs, to_crs)
         
-        @mcp.tool(description="Get the layers catalog from GovMap.")
-        async def govmap_get_layers_catalog(ctx: Context, language: str = "he"):
-            return await _govmap_get_layers_catalog(ctx, language)
-        
-        @mcp.tool(description="Get search types from GovMap.")
-        async def govmap_get_search_types(ctx: Context, language: str = "he"):
-            return await _govmap_get_search_types(ctx, language)
-        
         @mcp.tool(description="Get parcel data for specific coordinates (EPSG:2039).")
         async def govmap_get_parcel_data(ctx: Context, x: float, y: float):
             return await _govmap_get_parcel_data(ctx, x, y)
@@ -1633,10 +1622,6 @@ def register_govmap_tools():
         @mcp.tool(description="Get addresses for a given block and parcel using GovMap autocomplete API.")
         async def govmap_get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str):
             return await _govmap_get_addresses_by_block_parcel(ctx, block, parcel)
-        
-        @mcp.tool(description="Get base layers from GovMap API.")
-        async def govmap_get_base_layers(ctx: Context):
-            return await _govmap_get_base_layers(ctx)
         
         @mcp.tool(description="Get entities by point with specified layer IDs (EPSG:2039).")
         async def govmap_entities_by_point(

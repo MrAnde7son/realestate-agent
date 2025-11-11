@@ -59,22 +59,6 @@ async def coordinate_conversion(ctx: Context, x: float, y: float, from_crs: str 
 
 
 @mcp.tool()
-async def get_layers_catalog(ctx: Context, language: str = "he") -> Dict[str, Any]:
-    """Get the layers catalog from GovMap."""
-    client = _get_client()
-    await ctx.info(f"Getting layers catalog (language: {language})")
-    return client.get_layers_catalog(language=language)
-
-
-@mcp.tool()
-async def get_search_types(ctx: Context, language: str = "he") -> Dict[str, Any]:
-    """Get search types from GovMap."""
-    client = _get_client()
-    await ctx.info(f"Getting search types (language: {language})")
-    return client.get_search_types(language=language)
-
-
-@mcp.tool()
 async def get_parcel_data(ctx: Context, x: float, y: float) -> Dict[str, Any]:
     """Get parcel data for specific coordinates (EPSG:2039)."""
     client = _get_client()
@@ -96,14 +80,6 @@ async def get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str) -
     client = _get_client()
     await ctx.info(f"Looking up addresses by block/parcel: {block}/{parcel}")
     return client.get_addresses_by_block_parcel(block, parcel)
-
-
-@mcp.tool()
-async def get_base_layers(ctx: Context) -> Dict[str, Any]:
-    """Get base layers from GovMap API."""
-    client = _get_client()
-    await ctx.info("Getting base layers")
-    return client.get_base_layers()
 
 
 @mcp.tool()

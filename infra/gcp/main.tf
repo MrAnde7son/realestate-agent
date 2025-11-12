@@ -44,7 +44,7 @@ resource "google_compute_global_address" "private_service_connect" {
 
 resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.main.id
-  service                 = "services.servicenetworking.googleapis.com"
+  service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_service_connect.name]
   depends_on = [
     google_project_service.required
@@ -56,6 +56,11 @@ resource "google_vpc_access_connector" "serverless" {
   region        = var.region
   network       = google_compute_network.main.name
   ip_cidr_range = "10.8.0.0/28"
+  min_instances = 2
+  max_instances = 4
+  # OR Option B (throughput-based, comment out instances if you use this)
+  # min_throughput = 300   # Mbps
+  # max_throughput = 600
 }
 
 resource "google_service_account" "api" {
@@ -104,7 +109,6 @@ resource "google_sql_database_instance" "postgres" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = google_compute_network.main.id
-      require_ssl     = true
     }
 
     backup_configuration {
@@ -190,10 +194,13 @@ resource "google_cloud_run_service" "api" {
       containers {
         image = var.api_image
 
-        env = [for key, value in local.api_env : {
-          name  = key
-          value = value
-        }]
+        dynamic "env" {
+          for_each = local.api_env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
 
         ports {
           name           = "http1"
@@ -241,10 +248,13 @@ resource "google_cloud_run_service" "worker" {
       containers {
         image = var.worker_image
 
-        env = [for key, value in local.worker_env : {
-          name  = key
-          value = value
-        }]
+        dynamic "env" {
+          for_each = local.worker_env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
 
         resources {
           limits = {
@@ -366,7 +376,7 @@ resource "google_compute_global_forwarding_rule" "https" {
 
 resource "google_dns_managed_zone" "primary" {
   name     = "nadlaner-zone"
-  dns_name = "${var.domain}."
+  dns_name = "${var.domain}"
 }
 
 resource "google_dns_record_set" "api" {
@@ -378,7 +388,7 @@ resource "google_dns_record_set" "api" {
 }
 
 resource "google_dns_record_set" "ui" {
-  name         = "${var.domain}."
+  name         = "app.${var.domain}."
   managed_zone = google_dns_managed_zone.primary.name
   type         = "CNAME"
   ttl          = 300
@@ -388,7 +398,7 @@ resource "google_dns_record_set" "ui" {
 # Artifact Registry for container images
 resource "google_artifact_registry_repository" "app" {
   location      = var.region
-  repository_id = "nadlaner-app"
+  repository_id = "realestate-agent"
   description   = "Container images for Nadlaner services"
   format        = "DOCKER"
 }

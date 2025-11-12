@@ -71,7 +71,7 @@ gcloud iam service-accounts create terraform-admin \
 The service account needs these roles to manage all resources:
 
 ```bash
-PROJECT_ID="my-project-1506156422083"
+PROJECT_ID="nadlaner-production"
 SERVICE_ACCOUNT="terraform-admin@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Grant roles needed for Terraform

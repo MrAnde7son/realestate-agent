@@ -274,8 +274,8 @@ If issues occur:
 project_id        = "nadlaner-prod"
 domain            = "nadlaner.com"
 ui_cname_target   = "cname.vercel-dns.com."
-api_image         = "me-west1-docker.pkg.dev/nadlaner-prod/nadlaner-app/api:latest"
-worker_image      = "me-west1-docker.pkg.dev/nadlaner-prod/nadlaner-app/worker:latest"
+api_image         = "me-west1-docker.pkg.dev/nadlaner-prod/realestate-agent/api:latest"
+worker_image      = "me-west1-docker.pkg.dev/nadlaner-prod/realestate-agent/worker:latest"
 db_password       = "change-me-in-production"
 allowed_office_cidrs = ["203.0.113.0/24"]
 enable_cloud_scheduler = false

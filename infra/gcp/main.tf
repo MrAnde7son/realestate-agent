@@ -61,6 +61,10 @@ resource "google_vpc_access_connector" "serverless" {
   # OR Option B (throughput-based, comment out instances if you use this)
   # min_throughput = 300   # Mbps
   # max_throughput = 600
+
+  lifecycle {
+    ignore_changes = [min_instances, max_instances]
+  }
 }
 
 resource "google_service_account" "api" {
@@ -484,6 +488,19 @@ resource "google_project_iam_member" "api_secret_accessor" {
 resource "google_project_iam_member" "worker_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
+# Artifact Registry access for pulling container images
+resource "google_project_iam_member" "api_artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "worker_artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
   member  = "serviceAccount:${google_service_account.worker.email}"
 }
 

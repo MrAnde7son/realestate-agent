@@ -19,8 +19,8 @@ ui_cname_target = "cname.vercel-dns.com."
 # ============================================================================
 # Container Images
 # ============================================================================
-api_image    = "me-west1-docker.pkg.dev/your-project-id/nadlaner-app/api:latest"
-worker_image = "me-west1-docker.pkg.dev/your-project-id/nadlaner-app/worker:latest"
+api_image    = "me-west1-docker.pkg.dev/your-project-id/realestate-agent/api:latest"
+worker_image = "me-west1-docker.pkg.dev/your-project-id/realestate-agent/worker:latest"
 
 # ============================================================================
 # Database Configuration

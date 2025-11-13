@@ -24,7 +24,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-your-secret-key-here'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,api.nadlaner.com,app.nadlaner.com').split(',')
 
 # LLM configuration
 LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "gemini")
@@ -242,19 +242,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 CORS_ALLOWED_ORIGINS = [
-   'https://app.nadlaner.com', 'https://nadlaner.com', 'https://api.nadlaner.com'
+    'https://app.nadlaner.com',
+    'https://nadlaner.com',
+    'https://api.nadlaner.com',
+    'https://nadlaner.vercel.app',
 ]
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https:\/\/realestate-agent.*\.vercel\.app$",
-    r"^https:\/\/.*\.?nadlaner\.com$"
+    r"^https:\/\/.*\.vercel\.app$",  # Match all Vercel preview deployments
+    r"^https:\/\/.*\.?nadlaner\.com$",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'https://app.nadlaner.com',
     'https://nadlaner.com',
     'https://api.nadlaner.com',
-    "https://realestate-agent*.vercel.app",
+    'https://nadlaner.vercel.app',
 ]
 
 # REST Framework settings

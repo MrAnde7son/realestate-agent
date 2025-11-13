@@ -44,7 +44,7 @@ resource "google_compute_global_address" "private_service_connect" {
 
 resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.main.id
-  service                 = "services.servicenetworking.googleapis.com"
+  service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_service_connect.name]
   depends_on = [
     google_project_service.required
@@ -56,6 +56,15 @@ resource "google_vpc_access_connector" "serverless" {
   region        = var.region
   network       = google_compute_network.main.name
   ip_cidr_range = "10.8.0.0/28"
+  min_instances = 2
+  max_instances = 4
+  # OR Option B (throughput-based, comment out instances if you use this)
+  # min_throughput = 300   # Mbps
+  # max_throughput = 600
+
+  lifecycle {
+    ignore_changes = [min_instances, max_instances]
+  }
 }
 
 resource "google_service_account" "api" {
@@ -104,7 +113,6 @@ resource "google_sql_database_instance" "postgres" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = google_compute_network.main.id
-      require_ssl     = true
     }
 
     backup_configuration {
@@ -172,11 +180,18 @@ resource "google_cloud_run_service" "api" {
   name     = "nadlaner-api"
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "internal-and-cloud-load-balancing"
+    }
+    labels = var.labels
+  }
+
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/ingress"                 = "internal-and-cloud-load-balancing"
+        # Temporarily disabled VPC connector to unblock load balancer creation
+        # "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "10"
         "autoscaling.knative.dev/minScale"           = "1"
@@ -190,10 +205,13 @@ resource "google_cloud_run_service" "api" {
       containers {
         image = var.api_image
 
-        env = [for key, value in local.api_env : {
-          name  = key
-          value = value
-        }]
+        dynamic "env" {
+          for_each = local.api_env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
 
         ports {
           name           = "http1"
@@ -222,11 +240,18 @@ resource "google_cloud_run_service" "worker" {
   name     = "nadlaner-worker"
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "internal"
+    }
+    labels = var.labels
+  }
+
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/ingress"                 = "internal"
+        # Temporarily disabled VPC connector to unblock load balancer creation
+        # "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "5"
         "autoscaling.knative.dev/minScale"           = "1"
@@ -241,10 +266,13 @@ resource "google_cloud_run_service" "worker" {
       containers {
         image = var.worker_image
 
-        env = [for key, value in local.worker_env : {
-          name  = key
-          value = value
-        }]
+        dynamic "env" {
+          for_each = local.worker_env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
 
         resources {
           limits = {
@@ -378,7 +406,7 @@ resource "google_dns_record_set" "api" {
 }
 
 resource "google_dns_record_set" "ui" {
-  name         = "${var.domain}."
+  name         = "app.${var.domain}."
   managed_zone = google_dns_managed_zone.primary.name
   type         = "CNAME"
   ttl          = 300
@@ -388,7 +416,7 @@ resource "google_dns_record_set" "ui" {
 # Artifact Registry for container images
 resource "google_artifact_registry_repository" "app" {
   location      = var.region
-  repository_id = "nadlaner-app"
+  repository_id = "realestate-agent"
   description   = "Container images for Nadlaner services"
   format        = "DOCKER"
 }
@@ -474,6 +502,19 @@ resource "google_project_iam_member" "api_secret_accessor" {
 resource "google_project_iam_member" "worker_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
+# Artifact Registry access for pulling container images
+resource "google_project_iam_member" "api_artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "worker_artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
   member  = "serviceAccount:${google_service_account.worker.email}"
 }
 

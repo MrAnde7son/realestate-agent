@@ -1,0 +1,124 @@
+steps:
+  # Set image tag dynamically (SHORT_SHA from GitHub trigger, or BUILD_ID for manual builds)
+  - name: 'bash'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        if [ -n "$$SHORT_SHA" ]; then
+          TAG="$$SHORT_SHA"
+          echo "Using SHORT_SHA: $$TAG"
+        elif [ -n "$$BUILD_ID" ]; then
+          TAG="$$BUILD_ID"
+          echo "Using BUILD_ID: $$TAG"
+        else
+          TAG="manual-$$(date +%s)"
+          echo "Using timestamp tag: $$TAG"
+        fi
+        echo "$$TAG" > /workspace/.image-tag
+        echo "Image tag set to: $$TAG"
+        cat /workspace/.image-tag
+    id: 'set-tag'
+
+  # Build the Django API image
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$$(cat /workspace/.image-tag)
+        docker build \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:latest \
+          -f backend-django/Dockerfile \
+          .
+    id: 'build-api'
+    waitFor: ['set-tag']
+
+  # Push the API image
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$$(cat /workspace/.image-tag)
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:latest
+    id: 'push-api'
+    waitFor: ['build-api']
+
+  # Build the Celery Worker image
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$$(cat /workspace/.image-tag)
+        docker build \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:latest \
+          -f orchestration/Dockerfile.celery \
+          .
+    id: 'build-worker'
+    waitFor: ['set-tag']
+
+  # Push the Worker image
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$$(cat /workspace/.image-tag)
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:latest
+    id: 'push-worker'
+    waitFor: ['build-worker']
+
+  # Deploy API to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$$(cat /workspace/.image-tag)
+        gcloud run deploy ${_API_SERVICE_NAME} \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
+          --region=${_REGION} \
+          --platform=managed \
+          --allow-unauthenticated
+    id: 'deploy-api'
+    waitFor: ['push-api']
+
+  # Deploy Worker to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TAG=$$(cat /workspace/.image-tag)
+        gcloud run deploy ${_WORKER_SERVICE_NAME} \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
+          --region=${_REGION} \
+          --platform=managed \
+          --no-allow-unauthenticated
+    id: 'deploy-worker'
+    waitFor: ['push-worker']
+
+# Substitution variables (set these in Cloud Build triggers or via gcloud)
+substitutions:
+  _REGION: 'me-west1'
+  _REPO_NAME: 'realestate-agent'
+  _API_SERVICE_NAME: 'nadlaner-api'
+  _WORKER_SERVICE_NAME: 'nadlaner-worker'
+
+# Store images in Artifact Registry (tags will be set dynamically)
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:latest'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:latest'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: '1800s'

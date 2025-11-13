@@ -180,11 +180,17 @@ resource "google_cloud_run_service" "api" {
   name     = "nadlaner-api"
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "internal-and-cloud-load-balancing"
+    }
+    labels = var.labels
+  }
+
   template {
     metadata {
       annotations = {
         "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/ingress"                 = "internal-and-cloud-load-balancing"
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "10"
         "autoscaling.knative.dev/minScale"           = "1"
@@ -233,11 +239,17 @@ resource "google_cloud_run_service" "worker" {
   name     = "nadlaner-worker"
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "internal"
+    }
+    labels = var.labels
+  }
+
   template {
     metadata {
       annotations = {
         "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/ingress"                 = "internal"
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "5"
         "autoscaling.knative.dev/minScale"           = "1"

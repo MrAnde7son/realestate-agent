@@ -190,7 +190,8 @@ resource "google_cloud_run_service" "api" {
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
+        # Temporarily disabled VPC connector to unblock load balancer creation
+        # "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "10"
         "autoscaling.knative.dev/minScale"           = "1"
@@ -249,7 +250,8 @@ resource "google_cloud_run_service" "worker" {
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
+        # Temporarily disabled VPC connector to unblock load balancer creation
+        # "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "5"
         "autoscaling.knative.dev/minScale"           = "1"

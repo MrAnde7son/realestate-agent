@@ -242,19 +242,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 CORS_ALLOWED_ORIGINS = [
-   'https://app.nadlaner.com', 'https://nadlaner.com', 'https://api.nadlaner.com'
+    'https://app.nadlaner.com',
+    'https://nadlaner.com',
+    'https://api.nadlaner.com',
+    'https://nadlaner.vercel.app',
 ]
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https:\/\/realestate-agent.*\.vercel\.app$",
-    r"^https:\/\/.*\.?nadlaner\.com$"
+    r"^https:\/\/.*\.vercel\.app$",  # Match all Vercel preview deployments
+    r"^https:\/\/.*\.?nadlaner\.com$",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'https://app.nadlaner.com',
     'https://nadlaner.com',
     'https://api.nadlaner.com',
-    "https://realestate-agent*.vercel.app",
+    'https://nadlaner.vercel.app',
 ]
 
 # REST Framework settings

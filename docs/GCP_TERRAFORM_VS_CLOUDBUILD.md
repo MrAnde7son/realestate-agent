@@ -181,3 +181,5 @@ The `var.api_image` is just a reference to where the image **should be**. Terraf
 4. **Versioning**: Tag Docker images with commit SHAs for traceability
 5. **Separation**: Keep infrastructure code (Terraform) separate from application code
 
+
+

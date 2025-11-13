@@ -376,7 +376,7 @@ resource "google_compute_global_forwarding_rule" "https" {
 
 resource "google_dns_managed_zone" "primary" {
   name     = "nadlaner-zone"
-  dns_name = "${var.domain}"
+  dns_name = "${var.domain}."
 }
 
 resource "google_dns_record_set" "api" {

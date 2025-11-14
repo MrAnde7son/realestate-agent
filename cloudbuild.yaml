@@ -102,9 +102,7 @@ steps:
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --allow-unauthenticated \
-          --update-annotation=run.googleapis.com/startup-timeout=600 \
-          --update-annotation=run.googleapis.com/startup-cpu-boost=true
+          --allow-unauthenticated
     id: 'deploy-api'
     waitFor: ['push-api']
 
@@ -121,9 +119,7 @@ steps:
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --no-allow-unauthenticated \
-          --update-annotation=run.googleapis.com/startup-timeout=600 \
-          --update-annotation=run.googleapis.com/startup-cpu-boost=true
+          --no-allow-unauthenticated
     id: 'deploy-worker'
     waitFor: ['push-worker']
 

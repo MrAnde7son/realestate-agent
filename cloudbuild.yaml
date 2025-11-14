@@ -22,16 +22,19 @@ steps:
     id: 'set-tag'
 
   # Build the Django API image
+  # Uses ./backend-django/Dockerfile with full repo as context (.)
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         TAG=$$(cat /workspace/.image-tag)
+        echo "Building API image with Dockerfile: ./backend-django/Dockerfile"
+        echo "Build context: . (full repository root)"
         docker build \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:latest \
-          -f backend-django/Dockerfile \
+          -f ./backend-django/Dockerfile \
           .
     id: 'build-api'
     waitFor: ['set-tag']
@@ -49,16 +52,19 @@ steps:
     waitFor: ['build-api']
 
   # Build the Celery Worker image
+  # Uses ./orchestration/Dockerfile.celery with full repo as context (.)
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         TAG=$$(cat /workspace/.image-tag)
+        echo "Building Worker image with Dockerfile: ./orchestration/Dockerfile.celery"
+        echo "Build context: . (full repository root)"
         docker build \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:latest \
-          -f orchestration/Dockerfile.celery \
+          -f ./orchestration/Dockerfile.celery \
           .
     id: 'build-worker'
     waitFor: ['set-tag']
@@ -76,6 +82,7 @@ steps:
     waitFor: ['build-worker']
 
   # Deploy API to Cloud Run
+  # Note: Environment variables are managed by Terraform and will be preserved
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -86,11 +93,13 @@ steps:
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --allow-unauthenticated
+          --allow-unauthenticated \
+          --no-update-env-vars
     id: 'deploy-api'
     waitFor: ['push-api']
 
   # Deploy Worker to Cloud Run
+  # Note: Environment variables are managed by Terraform and will be preserved
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -101,7 +110,8 @@ steps:
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --no-allow-unauthenticated
+          --no-allow-unauthenticated \
+          --no-update-env-vars
     id: 'deploy-worker'
     waitFor: ['push-worker']
 

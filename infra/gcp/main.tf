@@ -153,27 +153,70 @@ resource "google_redis_instance" "primary" {
 }
 
 locals {
-  api_env = merge({
-    DATABASE_HOST     = google_sql_database_instance.postgres.private_ip_address,
-    DATABASE_NAME     = var.db_name,
-    DATABASE_USER     = var.db_user,
-    DATABASE_PASSWORD = var.db_password,
-    DATABASE_PORT     = "5432",
+  redis_url = "redis://${google_redis_instance.primary.host}:${google_redis_instance.primary.port}"
+  
+  # Use Unix socket for Cloud SQL when db_host is set to use Cloud SQL Proxy
+  # Format: /cloudsql/PROJECT_ID:REGION:INSTANCE_NAME
+  postgres_host = var.db_host == "127.0.0.1" ? "/cloudsql/${google_sql_database_instance.postgres.connection_name}" : var.db_host
+  postgres_port = var.db_host == "127.0.0.1" ? "" : "5432"
+  
+  # Base API environment variables
+  api_env_base = {
+    # Enable PostgreSQL (required for Django to use PostgreSQL instead of SQLite)
+    USE_POSTGRES      = "true",
+    # PostgreSQL connection settings (Django expects POSTGRES_* variables)
+    # For Cloud Run: use Unix socket path /cloudsql/PROJECT:REGION:INSTANCE
+    # For direct connections: use the private IP (e.g., 10.204.0.2)
+    # The annotation "run.googleapis.com/cloudsql-instances" sets up the proxy
+    POSTGRES_HOST     = local.postgres_host,
+    POSTGRES_DB       = var.db_name,
+    POSTGRES_USER     = var.db_user,
+    POSTGRES_PASSWORD = var.db_password,
+    # Redis connection settings
     REDIS_HOST        = google_redis_instance.primary.host,
     REDIS_PORT        = tostring(google_redis_instance.primary.port),
-    REDIS_TLS_ENABLED = "false"
-  }, var.api_env_vars)
+    REDIS_TLS_ENABLED = "false",
+    # Celery configuration
+    CELERY_BROKER_URL = local.redis_url,
+    CELERY_RESULT_BACKEND = local.redis_url,
+    USE_CELERY        = "true"
+  }
+  
+  # Add POSTGRES_PORT only when not using Unix socket (not empty)
+  api_env = merge(
+    local.api_env_base,
+    local.postgres_port != "" ? { POSTGRES_PORT = local.postgres_port } : {},
+    var.api_env_vars
+  )
 
-  worker_env = merge({
-    DATABASE_HOST     = google_sql_database_instance.postgres.private_ip_address,
-    DATABASE_NAME     = var.db_name,
-    DATABASE_USER     = var.db_user,
-    DATABASE_PASSWORD = var.db_password,
-    DATABASE_PORT     = "5432",
+  # Base worker environment variables
+  worker_env_base = {
+    # Enable PostgreSQL (required for Django to use PostgreSQL instead of SQLite)
+    USE_POSTGRES      = "true",
+    # PostgreSQL connection settings (Django expects POSTGRES_* variables)
+    # For Cloud Run: use Unix socket path /cloudsql/PROJECT:REGION:INSTANCE
+    # For direct connections: use the private IP (e.g., 10.204.0.2)
+    # The annotation "run.googleapis.com/cloudsql-instances" sets up the proxy
+    POSTGRES_HOST     = local.postgres_host,
+    POSTGRES_DB       = var.db_name,
+    POSTGRES_USER     = var.db_user,
+    POSTGRES_PASSWORD = var.db_password,
+    # Redis connection settings
     REDIS_HOST        = google_redis_instance.primary.host,
     REDIS_PORT        = tostring(google_redis_instance.primary.port),
-    REDIS_TLS_ENABLED = "false"
-  }, var.worker_env_vars)
+    REDIS_TLS_ENABLED = "false",
+    # Celery configuration
+    CELERY_BROKER_URL = local.redis_url,
+    CELERY_RESULT_BACKEND = local.redis_url,
+    USE_CELERY        = "true"
+  }
+  
+  # Add POSTGRES_PORT only when not using Unix socket (not empty)
+  worker_env = merge(
+    local.worker_env_base,
+    local.postgres_port != "" ? { POSTGRES_PORT = local.postgres_port } : {},
+    var.worker_env_vars
+  )
 }
 
 resource "google_cloud_run_service" "api" {
@@ -190,18 +233,22 @@ resource "google_cloud_run_service" "api" {
   template {
     metadata {
       annotations = {
-        # Temporarily disabled VPC connector to unblock load balancer creation
-        # "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
+        # Enable VPC connector to allow direct connection to private IP
+        # This is needed for both Cloud SQL Proxy and direct private IP connections
+        "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "10"
         "autoscaling.knative.dev/minScale"           = "1"
+        # Increase startup timeout for database connection
+        "run.googleapis.com/startup-cpu-boost"      = "true"
       }
       labels = var.labels
     }
 
     spec {
       service_account_name = google_service_account.api.email
-
+      timeout_seconds      = 300  # 5 minutes for request timeout
+      
       containers {
         image = var.api_image
 
@@ -233,6 +280,14 @@ resource "google_cloud_run_service" "api" {
     latest_revision = true
   }
 
+  lifecycle {
+    # Ignore entire template - deployments are managed by direct repo connection
+    # The repository connection manages the template (containers, annotations, etc.)
+    ignore_changes = [
+      template
+    ]
+  }
+
   depends_on = [google_project_service.required]
 }
 
@@ -250,11 +305,13 @@ resource "google_cloud_run_service" "worker" {
   template {
     metadata {
       annotations = {
-        # Temporarily disabled VPC connector to unblock load balancer creation
-        # "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
+        # Enable VPC connector to allow direct connection to private IP
+        "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "5"
         "autoscaling.knative.dev/minScale"           = "1"
+        # Increase startup timeout for database connection
+        "run.googleapis.com/startup-cpu-boost"      = "true"
       }
       labels = var.labels
     }
@@ -287,6 +344,14 @@ resource "google_cloud_run_service" "worker" {
   traffic {
     percent         = 100
     latest_revision = true
+  }
+
+  lifecycle {
+    # Ignore entire template - deployments are managed by direct repo connection
+    # The repository connection manages the template (containers, annotations, etc.)
+    ignore_changes = [
+      template
+    ]
   }
 
   depends_on = [google_project_service.required]
@@ -323,7 +388,8 @@ resource "google_compute_backend_service" "run_backend" {
   load_balancing_scheme           = "EXTERNAL_MANAGED"
   protocol                        = "HTTP"
   security_policy                 = google_compute_security_policy.waf.id
-  health_checks                   = [google_compute_health_check.http.id]
+  # Note: Serverless NEG backends (Cloud Run) cannot have health checks
+  # Cloud Run manages its own health checks automatically
   enable_cdn                      = false
   connection_draining_timeout_sec = 10
 

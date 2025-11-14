@@ -65,6 +65,12 @@ variable "db_password" {
   sensitive   = true
 }
 
+variable "db_host" {
+  description = "PostgreSQL host address. Use '127.0.0.1' for Cloud Run with Cloud SQL Proxy, or the private IP (e.g., '10.204.0.2') for direct connections"
+  type        = string
+  default     = "127.0.0.1"
+}
+
 variable "allowed_office_cidrs" {
   description = "CIDR ranges allowed through Cloud Armor"
   type        = list(string)

@@ -76,6 +76,7 @@ steps:
     waitFor: ['build-worker']
 
   # Deploy API to Cloud Run
+  # Note: Environment variables are managed by Terraform and will be preserved
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -86,11 +87,13 @@ steps:
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --allow-unauthenticated
+          --allow-unauthenticated \
+          --no-update-env-vars
     id: 'deploy-api'
     waitFor: ['push-api']
 
   # Deploy Worker to Cloud Run
+  # Note: Environment variables are managed by Terraform and will be preserved
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -101,7 +104,8 @@ steps:
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --no-allow-unauthenticated
+          --no-allow-unauthenticated \
+          --no-update-env-vars
     id: 'deploy-worker'
     waitFor: ['push-worker']
 

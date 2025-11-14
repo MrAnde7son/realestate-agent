@@ -124,15 +124,28 @@ if os.getenv('DATABASE_URL'):
     }
 elif os.getenv('USE_POSTGRES', 'false').lower() == 'true':
     # Fallback to individual PostgreSQL environment variables
+    postgres_host = os.getenv('POSTGRES_HOST', 'postgres')
+    postgres_port = os.getenv('POSTGRES_PORT', '')
+    
+    # Build database config
+    db_config = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'realestate'),
+        'USER': os.getenv('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+        'HOST': postgres_host,
+    }
+    
+    # Only set PORT if:
+    # 1. postgres_port is not empty
+    # 2. We're not using Unix socket (Unix socket paths start with /)
+    # When using Unix sockets, Django ignores PORT automatically, but we shouldn't set it
+    if postgres_port and postgres_port.strip() and not postgres_host.startswith('/'):
+        db_config['PORT'] = postgres_port
+    # If using Unix socket, explicitly don't set PORT (Django will handle it)
+    
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('POSTGRES_DB', 'realestate'),
-            'USER': os.getenv('POSTGRES_USER', 'postgres'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
-            'HOST': os.getenv('POSTGRES_HOST', 'postgres'),
-            'PORT': os.getenv('POSTGRES_PORT', '5432'),
-        }
+        'default': db_config
     }
 else:
     # Default to SQLite for development

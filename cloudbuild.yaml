@@ -22,16 +22,19 @@ steps:
     id: 'set-tag'
 
   # Build the Django API image
+  # Uses ./backend-django/Dockerfile with full repo as context (.)
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         TAG=$$(cat /workspace/.image-tag)
+        echo "Building API image with Dockerfile: ./backend-django/Dockerfile"
+        echo "Build context: . (full repository root)"
         docker build \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:latest \
-          -f backend-django/Dockerfile \
+          -f ./backend-django/Dockerfile \
           .
     id: 'build-api'
     waitFor: ['set-tag']
@@ -49,16 +52,19 @@ steps:
     waitFor: ['build-api']
 
   # Build the Celery Worker image
+  # Uses ./orchestration/Dockerfile.celery with full repo as context (.)
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         TAG=$$(cat /workspace/.image-tag)
+        echo "Building Worker image with Dockerfile: ./orchestration/Dockerfile.celery"
+        echo "Build context: . (full repository root)"
         docker build \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:latest \
-          -f orchestration/Dockerfile.celery \
+          -f ./orchestration/Dockerfile.celery \
           .
     id: 'build-worker'
     waitFor: ['set-tag']

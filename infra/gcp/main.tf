@@ -357,13 +357,16 @@ resource "google_cloud_run_service" "worker" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_cloud_run_service_iam_member" "api_invoker" {
-  location = google_cloud_run_service.api.location
-  project  = var.project_id
-  service  = google_cloud_run_service.api.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# Cloud Load Balancing automatically has permission to invoke Cloud Run services
+# via serverless NEGs, so no explicit IAM binding is needed.
+# If direct public access to the Cloud Run URL is needed, uncomment and adjust:
+# resource "google_cloud_run_service_iam_member" "api_invoker" {
+#   location = google_cloud_run_service.api.location
+#   project  = var.project_id
+#   service  = google_cloud_run_service.api.name
+#   role     = "roles/run.invoker"
+#   member   = "allUsers"  # Note: May be blocked by organization policy
+# }
 
 resource "google_compute_region_network_endpoint_group" "api_neg" {
   name                  = "nadlaner-api-neg"

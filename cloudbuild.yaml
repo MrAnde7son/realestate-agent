@@ -28,14 +28,18 @@ steps:
     args:
       - '-c'
       - |
+        set -e
+        cd /workspace
         TAG=$$(cat /workspace/.image-tag)
         echo "Building API image with Dockerfile: ./backend-django/Dockerfile"
-        echo "Build context: . (full repository root)"
+        echo "Build context: /workspace (full repository root)"
+        echo "Current directory: $$(pwd)"
+        echo "Checking for requirements-production.txt: $$(ls -la requirements-production.txt 2>&1 || echo 'File not found')"
         docker build \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:latest \
           -f ./backend-django/Dockerfile \
-          .
+          /workspace
     id: 'build-api'
     waitFor: ['set-tag']
 
@@ -58,14 +62,18 @@ steps:
     args:
       - '-c'
       - |
+        set -e
+        cd /workspace
         TAG=$$(cat /workspace/.image-tag)
         echo "Building Worker image with Dockerfile: ./orchestration/Dockerfile.celery"
-        echo "Build context: . (full repository root)"
+        echo "Build context: /workspace (full repository root)"
+        echo "Current directory: $$(pwd)"
+        echo "Checking for requirements-production.txt: $$(ls -la requirements-production.txt 2>&1 || echo 'File not found')"
         docker build \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:latest \
           -f ./orchestration/Dockerfile.celery \
-          .
+          /workspace
     id: 'build-worker'
     waitFor: ['set-tag']
 

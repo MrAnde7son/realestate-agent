@@ -24,7 +24,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-your-secret-key-here'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,api.nadlaner.com,app.nadlaner.com').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,api.nadlaner.com,app.nadlaner.com,nadlaner-api-460859266427.me-west1.run.app,34.8.12.175').split(',')
 
 # LLM configuration
 LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "gemini")

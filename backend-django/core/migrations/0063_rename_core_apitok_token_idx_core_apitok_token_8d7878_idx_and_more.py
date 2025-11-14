@@ -5,58 +5,100 @@ from django.db import migrations
 
 
 INDEX_RENAMES = (
-    ("core_apitoken", "core_apitok_token_idx", "core_apitok_token_8d7878_idx"),
-    ("core_apitoken", "core_apitok_user_id_idx", "core_apitok_user_id_210ba8_idx"),
-    ("core_asset", "core_asset_block_dc43e9_idx", "core_asset_block_531195_idx"),
-    ("core_asset", "core_asset_parcel_38f908_idx", "core_asset_parcel_ebd705_idx"),
-    ("core_asset", "core_asset_subhelk_ec1101_idx", "core_asset_subparc_d57846_idx"),
-    ("core_oauthauthorizationcode", "core_oauth_code_idx", "core_oautha_code_49b93b_idx"),
-    ("core_oauthauthorizationcode", "core_oauth_client_used_idx", "core_oautha_client__6a2ce8_idx"),
+    (
+        "core_apitoken",
+        "core_apitok_token_idx",
+        "core_apitok_token_8d7878_idx",
+    ),
+    (
+        "core_apitoken",
+        "core_apitok_user_id_idx",
+        "core_apitok_user_id_210ba8_idx",
+    ),
+    (
+        "core_asset",
+        "core_asset_block_dc43e9_idx",
+        "core_asset_block_531195_idx",
+    ),
+    (
+        "core_asset",
+        "core_asset_parcel_38f908_idx",
+        "core_asset_parcel_ebd705_idx",
+    ),
+    (
+        "core_asset",
+        "core_asset_subhelk_ec1101_idx",
+        "core_asset_subparc_d57846_idx",
+    ),
+    (
+        "core_oauthauthorizationcode",
+        "core_oauth_code_idx",
+        "core_oautha_code_49b93b_idx",
+    ),
+    (
+        "core_oauthauthorizationcode",
+        "core_oauth_client_used_idx",
+        "core_oautha_client__6a2ce8_idx",
+    ),
 )
 
 
-def rename_index_if_exists(apps, schema_editor, table_name, old_name, new_name):
+def rename_index_if_exists(
+    apps,
+    schema_editor,
+    table_name,
+    old_name,
+    new_name,
+):
     """Rename an index only when the expected source index is present."""
     vendor = schema_editor.connection.vendor
-    
+
     if vendor == "sqlite":
         # SQLite doesn't support ALTER INDEX RENAME directly
         # Check if index exists and handle accordingly
         try:
-            with schema_editor.connection.cursor() as cursor:
+            connection = schema_editor.connection
+            with connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-                    [old_name]
+                    (
+                        "SELECT name FROM sqlite_master "
+                        "WHERE type='index' AND name=?"
+                    ),
+                    [old_name],
                 )
                 if not cursor.fetchone():
                     # Index doesn't exist, check if new name already exists
                     cursor.execute(
-                        "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-                        [new_name]
+                        (
+                            "SELECT name FROM sqlite_master "
+                            "WHERE type='index' AND name=?"
+                        ),
+                        [new_name],
                     )
                     if cursor.fetchone():
                         # New index already exists, nothing to do
                         return
-                    # Neither exists, skip silently (may have been handled by previous migration)
+                    # Neither exists; prior migrations may already handle it
                     return
         except Exception:
             # If we can't check, skip this rename
             return
-        
-        # For SQLite, we need to recreate the index with the new name
-        # But this is complex, so we'll skip SQLite index renames
-        # The indexes will be created with correct names on next migration
+
+        # For SQLite we would need to recreate the index with the new name.
+        # That work is non-trivial, so we skip it and rely on later migrations.
         return
-    
+
     # For PostgreSQL and other databases
     try:
-        with schema_editor.connection.cursor() as cursor:
-            constraints = schema_editor.connection.introspection.get_constraints(
+        connection = schema_editor.connection
+        with connection.cursor() as cursor:
+            introspection = connection.introspection
+            constraints = introspection.get_constraints(
                 cursor,
                 table_name,
             )
     except Exception:
-        # If we can't get constraints, skip this rename
+        # If we can't get constraints, skip this rename.
         return
 
     # Skip if old index doesn't exist or new index already exists
@@ -65,18 +107,18 @@ def rename_index_if_exists(apps, schema_editor, table_name, old_name, new_name):
 
     try:
         schema_editor.execute(
-            "ALTER INDEX {} RENAME TO {}".format(
+            "ALTER INDEX IF EXISTS {} RENAME TO {}".format(
                 schema_editor.quote_name(old_name),
                 schema_editor.quote_name(new_name),
             )
         )
     except Exception:
-        # If the index has been dropped, renamed, or doesn't exist, we can safely ignore
+        # Missing or already renamed indexes can be ignored safely.
         return
 
 
 def rename_indexes(apps, schema_editor):
-    """Safely rename indexes, skipping if they don't exist or are already renamed."""
+    """Safely rename indexes, skipping missing or already renamed ones."""
     for table_name, old_name, new_name in INDEX_RENAMES:
         try:
             rename_index_if_exists(

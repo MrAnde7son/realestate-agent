@@ -1,6 +1,6 @@
 """Safe index renames for Postgres deployments."""
 
-from django.db import ProgrammingError, migrations
+from django.db import migrations
 
 
 INDEX_RENAMES = (
@@ -46,13 +46,14 @@ def rename_index_if_exists(
 
     try:
         with schema_editor.connection.cursor() as cursor:
-            constraints = schema_editor.connection.introspection.get_constraints(
+            introspection = schema_editor.connection.introspection
+            constraints = introspection.get_constraints(
                 cursor,
                 table_name,
             )
     except Exception:
-        # If we can't get constraints, skip this rename
-        # This can happen if the table doesn't exist or there's a connection issue
+        # If we can't get constraints, skip this rename.
+        # This can happen when the table is missing or the connection fails.
         return
 
     # Skip if old index doesn't exist or new index already exists
@@ -61,20 +62,19 @@ def rename_index_if_exists(
 
     try:
         schema_editor.execute(
-            "ALTER INDEX {} RENAME TO {}".format(
+            "ALTER INDEX IF EXISTS {} RENAME TO {}".format(
                 schema_editor.quote_name(old_name),
                 schema_editor.quote_name(new_name),
             )
         )
     except Exception:
-        # Catch all exceptions (ProgrammingError, OperationalError, etc.)
-        # If the index has been dropped, renamed, or doesn't exist, we can safely ignore
-        # The new name will be in place (or no longer required).
+        # Catch all exceptions (ProgrammingError, OperationalError, etc.).
+        # If the index is missing or already renamed, we can safely ignore it.
         return
 
 
 def rename_indexes(apps, schema_editor):
-    """Safely rename indexes, skipping if they don't exist or are already renamed."""
+    """Safely rename indexes, skipping missing or already renamed ones."""
     for table_name, old_name, new_name in INDEX_RENAMES:
         try:
             rename_index_if_exists(

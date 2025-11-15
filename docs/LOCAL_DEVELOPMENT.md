@@ -94,7 +94,7 @@ Configure broker/result URLs through `backend-django/.env`. For containerized wo
 
 After launching the stack:
 
-1. Visit `http://localhost:3000` and log in with the seeded `admin@example.com / admin123` credentials
+1. Visit `http://localhost:3000` and log in with the seeded register
 2. Create an alert and confirm that Celery logs display processing activity (if Redis is running)
 3. Verify the Django API is reachable at `http://localhost:8000/api/health/` (returns JSON health payload)
 

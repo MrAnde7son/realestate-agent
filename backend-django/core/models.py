@@ -1843,3 +1843,43 @@ class AssetPlan(models.Model):
     class Meta:
         unique_together = [('plan', 'asset')]
         indexes = [models.Index(fields=['asset']), models.Index(fields=['plan'])]
+
+
+class AgentChatUsage(models.Model):
+    """Track agent chat question usage per user for non-admin users."""
+    
+    user = models.OneToOneField(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="agent_chat_usage"
+    )
+    questions_count = models.IntegerField(default=0, help_text="Number of questions asked in the current period")
+    last_reset_at = models.DateTimeField(auto_now_add=True, help_text="When the counter was last reset")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['questions_count']),
+        ]
+    
+    def __str__(self):
+        return f"AgentChatUsage({self.user.email}, {self.questions_count} questions)"
+    
+    @classmethod
+    def get_or_create_usage(cls, user):
+        """Get or create usage record for user."""
+        usage, created = cls.objects.get_or_create(user=user)
+        return usage
+    
+    def increment_question_count(self):
+        """Increment the question count."""
+        self.questions_count += 1
+        self.save(update_fields=['questions_count', 'updated_at'])
+    
+    def reset_count(self):
+        """Reset the question count (for future daily/monthly resets)."""
+        self.questions_count = 0
+        self.last_reset_at = timezone.now()
+        self.save(update_fields=['questions_count', 'last_reset_at', 'updated_at'])

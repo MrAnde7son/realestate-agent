@@ -24,7 +24,7 @@ interface HeaderProps {
 const baseMobileNavigation = baseNavigation.map((item) => ({ ...item }))
 const additionalMobileNavigation = [
   { name: "פרופיל", href: "/profile", icon: User },
-  { name: "חבילות ותשלומים", href: "/billing", icon: CreditCard },
+  // { name: "חבילות ותשלומים", href: "/billing", icon: CreditCard },
   { name: "הגדרות", href: "/settings", icon: Settings },
 ]
 const mobileNavigation = [...baseMobileNavigation, ...additionalMobileNavigation]

@@ -289,8 +289,6 @@ cd realestate-broker-ui && npm run dev
 ### Test Accounts
 ```bash
 # Test accounts with specific plans:
-# Admin: admin@example.com / admin123 (Pro Plan - Unlimited assets)
-# Demo: demo@example.com / demo123 (Basic Plan - 10 assets)
 ```
 
 ### Testing

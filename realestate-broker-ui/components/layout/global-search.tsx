@@ -63,12 +63,12 @@ const searchItems = [
     icon: "👤",
     description: "הגדרות פרופיל אישי"
   },
-  {
-    title: "חבילות ותשלומים",
-    href: "/billing",
-    icon: "💳",
-    description: "ניהול חבילות ותשלומים"
-  },
+  // {
+  //   title: "חבילות ותשלומים",
+  //   href: "/billing",
+  //   icon: "💳",
+  //   description: "ניהול חבילות ותשלומים"
+  // },
   {
     title: "הגדרות",
     href: "/settings",

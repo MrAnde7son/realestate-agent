@@ -22,7 +22,6 @@ steps:
     id: 'set-tag'
 
   # Build the Django API image
-  # Uses ./backend-django/Dockerfile with full repo as context (.)
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
@@ -56,7 +55,6 @@ steps:
     waitFor: ['build-api']
 
   # Build the Celery Worker image
-  # Uses ./orchestration/Dockerfile.celery with full repo as context (.)
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
@@ -90,36 +88,61 @@ steps:
     waitFor: ['build-worker']
 
   # Deploy API to Cloud Run
-  # Note: Environment variables are managed by Terraform and will be preserved
-  # (omitting --update-env-vars preserves existing env vars)
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         TAG=$$(cat /workspace/.image-tag)
+        # Deploy with explicit annotations for VPC connector and Cloud SQL
+        # The connection name format is: PROJECT_ID:REGION:INSTANCE_NAME
+        CLOUD_SQL_CONNECTION="${PROJECT_ID}:${_REGION}:nadlaner-postgres"
+        VPC_CONNECTOR="projects/${PROJECT_ID}/locations/${_REGION}/connectors/nadlaner-serverless"
+        
         gcloud run deploy ${_API_SERVICE_NAME} \
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/api:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --allow-unauthenticated
+          --allow-unauthenticated \
+          --vpc-connector=$$VPC_CONNECTOR \
+          --set-cloudsql-instances=$$CLOUD_SQL_CONNECTION \
+          --service-account=nadlaner-api@${PROJECT_ID}.iam.gserviceaccount.com \
+          --timeout=300 \
+          --cpu=2 \
+          --memory=2Gi \
+          --min-instances=1 \
+          --max-instances=10 \
+          --port=8000 \
+          --update-annotations=run.googleapis.com/startup-cpu-boost=true,run.googleapis.com/ingress=internal-and-cloud-load-balancing
     id: 'deploy-api'
     waitFor: ['push-api']
 
   # Deploy Worker to Cloud Run
-  # Note: Environment variables are managed by Terraform and will be preserved
-  # (omitting --update-env-vars preserves existing env vars)
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         TAG=$$(cat /workspace/.image-tag)
+        # Deploy with explicit annotations for VPC connector and Cloud SQL
+        # The connection name format is: PROJECT_ID:REGION:INSTANCE_NAME
+        CLOUD_SQL_CONNECTION="${PROJECT_ID}:${_REGION}:nadlaner-postgres"
+        VPC_CONNECTOR="projects/${PROJECT_ID}/locations/${_REGION}/connectors/nadlaner-serverless"
+        
         gcloud run deploy ${_WORKER_SERVICE_NAME} \
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:$$TAG \
           --region=${_REGION} \
           --platform=managed \
-          --no-allow-unauthenticated
+          --no-allow-unauthenticated \
+          --vpc-connector=$$VPC_CONNECTOR \
+          --set-cloudsql-instances=$$CLOUD_SQL_CONNECTION \
+          --service-account=nadlaner-worker@${PROJECT_ID}.iam.gserviceaccount.com \
+          --cpu=2 \
+          --memory=2Gi \
+          --min-instances=1 \
+          --max-instances=5 \
+          --concurrency=1 \
+          --update-annotations=run.googleapis.com/startup-cpu-boost=true,run.googleapis.com/ingress=internal
     id: 'deploy-worker'
     waitFor: ['push-worker']
 

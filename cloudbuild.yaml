@@ -113,7 +113,7 @@ steps:
           --min-instances=1 \
           --max-instances=10 \
           --port=8000 \
-          --update-annotations=run.googleapis.com/startup-cpu-boost=true,run.googleapis.com/ingress=internal-and-cloud-load-balancing
+          --update-annotations=run.googleapis.com/startup-cpu-boost=true,run.googleapis.com/ingress=internal-and-cloud-load-balancing,run.googleapis.com/startup-timeout=240
     id: 'deploy-api'
     waitFor: ['push-api']
 

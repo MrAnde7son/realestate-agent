@@ -45,4 +45,5 @@ EXPOSE 8000
 ENTRYPOINT ["/app/backend-django/entrypoint.sh"]
 
 # Launch gunicorn directly for the backend-only image
-CMD ["sh", "-c", "gunicorn broker_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000}"]
+# Cloud Run sets PORT automatically, but we default to 8000 for local development
+CMD ["sh", "-c", "gunicorn broker_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -"]

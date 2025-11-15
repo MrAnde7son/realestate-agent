@@ -5073,6 +5073,23 @@ def agent_chat(request):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         
+        # Check question limit for non-admin users
+        user = request.user
+        is_admin = getattr(user, "role", None) == "admin"
+        
+        if not is_admin:
+            from .models import AgentChatUsage
+            AGENT_CHAT_QUESTION_LIMIT = 5
+            
+            usage = AgentChatUsage.get_or_create_usage(user)
+            if usage.questions_count >= AGENT_CHAT_QUESTION_LIMIT:
+                return Response(
+                    {
+                        "error": f"הגעת למגבלת השאלות ({AGENT_CHAT_QUESTION_LIMIT}). אנא פנה למנהל המערכת להסרת המגבלה."
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         data = json.loads(request.body.decode("utf-8"))
         message = data.get("message")
         chat_history = data.get("chat_history", [])
@@ -5245,6 +5262,12 @@ def agent_chat(request):
         # Get response from agent (with tool calls tracking)
         result = async_to_sync(agent.chat)(message, formatted_history, track_tool_calls=True)
         
+        # Increment question count for non-admin users after successful request
+        if not is_admin:
+            from .models import AgentChatUsage
+            usage = AgentChatUsage.get_or_create_usage(user)
+            usage.increment_question_count()
+        
         return Response({
             "response": result.get("response", ""),
             "tool_calls": result.get("tool_calls", [])
@@ -5276,6 +5299,21 @@ def agent_chat_stream(request):
             def error_generator():
                 yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
             return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+        
+        # Check question limit for non-admin users
+        user = request.user
+        is_admin = getattr(user, "role", None) == "admin"
+        
+        if not is_admin:
+            from .models import AgentChatUsage
+            AGENT_CHAT_QUESTION_LIMIT = 5
+            
+            usage = AgentChatUsage.get_or_create_usage(user)
+            if usage.questions_count >= AGENT_CHAT_QUESTION_LIMIT:
+                def error_generator():
+                    error_msg = f"הגעת למגבלת השאלות ({AGENT_CHAT_QUESTION_LIMIT}). אנא פנה למנהל המערכת להסרת המגבלה."
+                    yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+                return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
         
         data = json.loads(request.body.decode("utf-8"))
         message = data.get("message")
@@ -5428,10 +5466,21 @@ def agent_chat_stream(request):
                 })
         
         # Stream response from agent
+        # Capture is_admin and user for use in the generator
+        stream_is_admin = is_admin
+        stream_user = user
         async def stream_generator():
+            question_incremented = False
             try:
                 async for event in agent.chat_stream(message, formatted_history):
                     yield f"data: {json.dumps(event)}\n\n"
+                    # Increment question count after first successful event (non-error)
+                    if not question_incremented and event.get('type') != 'error':
+                        if not stream_is_admin:
+                            from .models import AgentChatUsage
+                            usage = AgentChatUsage.get_or_create_usage(stream_user)
+                            usage.increment_question_count()
+                            question_incremented = True
             except Exception as e:
                 logger.exception("Error in agent chat stream: %s", e)
                 user_message = get_user_friendly_error_message(e)

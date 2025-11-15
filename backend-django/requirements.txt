@@ -21,6 +21,7 @@ lxml>=4.6.0
 
 # LLM Integration
 google-generativeai>=0.7.2
+google-ai-generativelanguage==0.6.15
 openai>=1.43.0
 pydantic>=2.7.0
 tenacity>=8.4.1

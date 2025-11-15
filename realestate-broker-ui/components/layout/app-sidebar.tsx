@@ -292,12 +292,12 @@ export default function AppSidebar({
                   <span>פרופיל</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              {/* <DropdownMenuItem asChild>
                 <Link href="/billing" className="flex items-center">
                   <CreditCard className="ms-2 h-4 w-4" />
                   <span>חבילות ותשלומים</span>
                 </Link>
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuItem asChild>
                 <Link href="/settings" className="flex items-center">
                   <Settings className="ms-2 h-4 w-4" />

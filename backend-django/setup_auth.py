@@ -48,8 +48,8 @@ def setup_database():
     
     if admin_exists and demo_exists:
         print("\nTest accounts:")
-        print("Admin: admin@example.com / admin123 (Pro Plan - Unlimited assets)")
-        print("Demo: demo@example.com / demo123 (Basic Plan - 10 assets)")
+        print("Admin: admin@example.com")
+        print("Demo: demo@example.com")
     else:
         print("\n⚠ Some users are missing. Check the migration output above.")
     

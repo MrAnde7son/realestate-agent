@@ -236,6 +236,8 @@ resource "google_cloud_run_service" "api" {
         # Enable VPC connector to allow direct connection to private IP
         # This is needed for both Cloud SQL Proxy and direct private IP connections
         "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
+        # Allow egress to private IP ranges (required for Redis and Cloud SQL)
+        "run.googleapis.com/vpc-access-egress"      = "private-ranges-only"
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "10"
         "autoscaling.knative.dev/minScale"           = "1"
@@ -307,6 +309,8 @@ resource "google_cloud_run_service" "worker" {
       annotations = {
         # Enable VPC connector to allow direct connection to private IP
         "run.googleapis.com/vpc-access-connector"    = google_vpc_access_connector.serverless.id
+        # Allow egress to private IP ranges (required for Redis and Cloud SQL)
+        "run.googleapis.com/vpc-access-egress"      = "private-ranges-only"
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "5"
         "autoscaling.knative.dev/minScale"           = "1"

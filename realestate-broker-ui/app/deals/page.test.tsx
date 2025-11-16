@@ -2,7 +2,6 @@ import React from 'react'
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import DealsPage from './page'
-import { DEAL_SUMMARIES_MOCK } from '@/app/assets/[id]/deal/mock-data'
 import type { DealSummary } from '@/lib/deals/types'
 
 const mockGet = vi.fn()
@@ -68,7 +67,55 @@ vi.mock('@/lib/api-client', () => ({
   },
 }))
 
-const sampleDeals: DealSummary[] = DEAL_SUMMARIES_MOCK
+const sampleDeals: DealSummary[] = [
+  {
+    id: 501,
+    asset: 501,
+    stage: 'legal',
+    deal_lead: 201,
+    confidentiality_level: 'standard',
+    created_at: '2024-09-12T09:15:00Z',
+    updated_at: '2024-11-03T08:45:00Z',
+    party_roles: [
+      {
+        id: 1001,
+        role: 'מתווך קונה',
+        side: 'buyer',
+        user: 201,
+        invitation_status: 'accepted',
+        external_contact_json: { email: 'noam@nreteam.com', name: 'נועם אזולאי' },
+      },
+    ],
+    asset_summary: {
+      id: 501,
+      address: 'הרצל 17, תל אביב',
+      city: 'תל אביב',
+      neighborhood: 'לב העיר',
+      price: 4_500_000,
+      status: 'active',
+      building_type: 'דירה',
+    },
+  },
+  {
+    id: 502,
+    asset: 502,
+    stage: 'negotiation',
+    deal_lead: 305,
+    confidentiality_level: 'standard',
+    created_at: '2024-08-03T13:45:00Z',
+    updated_at: '2024-10-30T16:00:00Z',
+    party_roles: [],
+    asset_summary: {
+      id: 502,
+      address: 'אבן גבירול 98, תל אביב',
+      city: 'תל אביב',
+      neighborhood: 'הצפון הישן',
+      price: 3_850_000,
+      status: 'active',
+      building_type: 'דירת גג',
+    },
+  },
+]
 
 beforeEach(() => {
   mockGet.mockReset()

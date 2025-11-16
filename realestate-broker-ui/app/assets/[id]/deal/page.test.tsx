@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DealWorkspacePage from './page'
 import DealWorkspacePageClient from './DealWorkspacePageClient'
-import { INITIAL_DOCUMENTS } from './mock-data'
+import type { DealDocument } from './types'
 
 const { mockGet, mockRequest, mockPost } = vi.hoisted(() => ({
   mockGet: vi.fn(),
@@ -124,7 +124,63 @@ vi.mock('@/components/ui/label', () => ({
   ),
 }))
 
-const backendDeals = [{ id: 999, stage: 'legal' as const }]
+const backendDeals = [
+  {
+    id: 999,
+    asset: 501,
+    stage: 'legal' as const,
+    deal_lead: 201,
+    confidentiality_level: 'standard' as const,
+    created_at: '2024-09-12T09:15:00Z',
+    updated_at: '2024-11-03T08:45:00Z',
+    party_roles: [
+      {
+        id: 1001,
+        role: 'מתווך קונה',
+        side: 'buyer' as const,
+        user: 201,
+        invitation_status: 'accepted',
+        external_contact_json: { email: 'noam@nreteam.com', name: 'נועם אזולאי' },
+      },
+    ],
+    asset_summary: {
+      id: 501,
+      address: 'הרצל 17, תל אביב',
+      city: 'תל אביב',
+      neighborhood: 'לב העיר',
+      price: 4_500_000,
+      status: 'active',
+      building_type: 'דירה',
+    },
+  },
+]
+
+const mockDocuments: DealDocument[] = [
+  {
+    id: 'doc-legal-001',
+    title: 'טיוטת הסכם מכר מתוקנת',
+    kind: 'legal',
+    uploadedAt: '2024-11-02T16:20:00Z',
+    uploader: 'עו״ד ליאורה שור',
+    visibility: 'deal',
+    summary: 'עדכון סעיף מסירת החזקה ותיקוני אחריות לתשתיות.',
+    status: 'ready',
+    storageUrl: 'https://example.com/doc-legal-001.pdf',
+    linkedOfferId: 'offer-103',
+  },
+  {
+    id: 'doc-appraisal-001',
+    title: 'דו״ח שמאי מילר - עדכון שווי',
+    kind: 'appraisal',
+    uploadedAt: '2024-10-31T09:45:00Z',
+    uploader: 'שמאי אברהם מילר',
+    visibility: 'deal',
+    summary: 'הערכת שווי מעודכנת ל-4.35M ₪ בהתאם להשוואות דומות בסביבה.',
+    status: 'ready',
+    storageUrl: 'https://example.com/doc-appraisal-001.pdf',
+  },
+]
+
 let backendDocuments: Array<{
   id: number
   deal: number
@@ -141,7 +197,7 @@ let backendDocuments: Array<{
 
 beforeEach(() => {
   vi.clearAllMocks()
-  backendDocuments = INITIAL_DOCUMENTS.map((doc, index) => ({
+  backendDocuments = mockDocuments.map((doc, index) => ({
     id: index + 1,
     deal: backendDeals[0].id,
     asset: 501,

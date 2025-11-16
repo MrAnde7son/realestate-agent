@@ -101,4 +101,5 @@ FROM base AS celery-beat
 CMD ["celery", "-A", "broker_backend", "beat", "-l", "info"]
 
 FROM base AS celery-worker
-CMD ["python", "-m", "orchestration.celery_health_service"]
+WORKDIR /app/backend-django
+CMD ["/app/orchestration/start_celery_worker.sh"]

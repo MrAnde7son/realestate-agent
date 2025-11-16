@@ -61,27 +61,52 @@ export default function AuthPage() {
   // If user is already authenticated and there's an OAuth redirect, establish session and redirect
   useEffect(() => {
     const handleOAuthRedirect = async () => {
-      // Prevent multiple redirects
-      if (hasRedirectedRef.current) return
+      // Check sessionStorage to prevent loops across page reloads
+      const redirectKey = `oauth_redirect_${redirectTo}`
+      if (sessionStorage.getItem(redirectKey)) {
+        console.log('Redirect already attempted in this session, skipping')
+        return
+      }
       
-      if (isAuthenticated && redirectTo && (redirectTo.includes('/oauth/authorize') || redirectTo.includes('/mcp/oauth'))) {
-        hasRedirectedRef.current = true
-        try {
-          const { authAPI } = await import('@/lib/auth')
-          // Establish Django session for OAuth flow
-          await authAPI.establishSession()
-          // Redirect to OAuth endpoint - use window.location.href to ensure full redirect with all params
-          window.location.href = redirectTo
-        } catch (error) {
-          console.error('Failed to establish session for OAuth redirect:', error)
-          // If session establishment fails, show error but don't redirect
-          setError('שגיאה בהתחברות לשרת. נסה שוב.')
-          hasRedirectedRef.current = false
-        }
+      // Prevent multiple redirects in the same render cycle
+      if (hasRedirectedRef.current) {
+        console.log('Already redirected, skipping')
+        return
+      }
+      
+      // Only proceed if user is authenticated, has redirect, and it's an OAuth endpoint
+      if (!isAuthenticated || !redirectTo || (!redirectTo.includes('/oauth/authorize') && !redirectTo.includes('/mcp/oauth'))) {
+        return
+      }
+      
+      // Mark as redirecting immediately to prevent loops
+      hasRedirectedRef.current = true
+      sessionStorage.setItem(redirectKey, 'true')
+      console.log('Starting OAuth redirect flow to:', redirectTo)
+      
+      try {
+        const { authAPI } = await import('@/lib/auth')
+        // Establish Django session for OAuth flow
+        console.log('Establishing Django session...')
+        await authAPI.establishSession()
+        console.log('Session established, redirecting to:', redirectTo)
+        
+        // Clear the flag after a delay to allow redirect to complete
+        // Redirect immediately without setTimeout to prevent React from interfering
+        window.location.replace(redirectTo)
+      } catch (error) {
+        console.error('Failed to establish session for OAuth redirect:', error)
+        // If session establishment fails, show error but don't redirect
+        setError('שגיאה בהתחברות לשרת. נסה שוב.')
+        hasRedirectedRef.current = false
+        sessionStorage.removeItem(redirectKey)
       }
     }
     
-    handleOAuthRedirect()
+    // Only run if we have the necessary conditions
+    if (isAuthenticated !== undefined) {
+      handleOAuthRedirect()
+    }
   }, [isAuthenticated, redirectTo])
 
   const loginForm = useForm<LoginFormData>({
@@ -95,6 +120,8 @@ export default function AuthPage() {
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
       setError('')
+      console.log('Login form submitted, redirectTo:', redirectTo)
+      // The login function will handle the redirect
       await login(data, redirectTo)
     } catch (err: any) {
       setError(err.message || 'שגיאה בהתחברות')

@@ -424,6 +424,7 @@ def auth_register(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@csrf_exempt  # Allow cross-origin requests for OAuth flow
 def auth_establish_session(request):
     """
     Establish Django session from JWT token.
@@ -438,17 +439,29 @@ def auth_establish_session(request):
             # Set up Django session from JWT
             from django.contrib.auth import login as django_login
             django_login(request, jwt_user, backend='django.contrib.auth.backends.ModelBackend')
-            return Response({
+            logger.info("Django session established for user %s (OAuth flow)", jwt_user.email)
+            
+            # Ensure session is saved
+            request.session.save()
+            
+            response = Response({
                 "success": True,
                 "message": "Session established"
             })
+            
+            # Set CORS headers to allow cookie transmission
+            response["Access-Control-Allow-Credentials"] = "true"
+            response["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+            
+            return response
         else:
+            logger.warning("Failed to establish session: Invalid or missing JWT token")
             return Response(
                 {"error": "Invalid or missing JWT token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-    except Exception:
-        logger.exception("Error establishing session from JWT")
+    except Exception as e:
+        logger.exception("Error establishing session from JWT: %s", str(e))
         return Response(
             {"error": "Failed to establish session"},
             status=status.HTTP_401_UNAUTHORIZED

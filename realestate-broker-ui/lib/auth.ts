@@ -178,9 +178,25 @@ class AuthAPI {
   }
 
   async establishSession(): Promise<{ success: boolean; message: string }> {
-    return this.request<{ success: boolean; message: string }>('/auth/establish-session', {
+    // Use fetch directly to ensure credentials (cookies) are sent
+    const url = `${API_BASE_URL}/api/auth/establish-session`
+    const token = this.getAccessToken()
+    
+    const response = await fetch(url, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include', // Important: include cookies for session
     })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+    
+    return response.json()
   }
 
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {

@@ -91,30 +91,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await authAPI.login(credentials)
       authAPI.setTokens(response.access_token, response.refresh_token)
       setUser(response.user)
-      // Refresh user profile to ensure we have complete data including onboarding_flags
-      // Skip loading update since we're managing it in this function
-      await refreshUser(true)
       
-      // Store redirectTo before any potential redirects
+      // Store redirectTo before any potential redirects or async operations
       const finalRedirectTo = redirectTo || '/'
+      
+      console.log('Login successful, redirectTo:', finalRedirectTo)
       
       // If redirectTo is an absolute URL pointing to OAuth, establish Django session first
       if (finalRedirectTo && (finalRedirectTo.startsWith('http://') || finalRedirectTo.startsWith('https://'))) {
         if (finalRedirectTo.includes('/oauth/authorize') || finalRedirectTo.includes('/mcp/oauth')) {
           // Establish Django session for OAuth flow
           try {
+            console.log('Establishing Django session for OAuth...')
             await authAPI.establishSession()
+            console.log('Session established successfully')
           } catch (error) {
             // If session establishment fails, still try to redirect
             console.warn('Failed to establish session, continuing anyway:', error)
           }
         }
-        // Use window.location.href for absolute URLs (forces full page navigation)
-        window.location.href = finalRedirectTo
-        return // Exit early to prevent any other navigation
-      } else {
+        // Use window.location.replace for absolute URLs to prevent back button issues
+        // Do this immediately, don't wait for refreshUser
+        console.log('Redirecting to OAuth endpoint:', finalRedirectTo)
+        window.location.replace(finalRedirectTo)
+        // Don't set loading to false or do anything else - we're navigating away
+        return
+      }
+      
+      // For non-OAuth redirects, refresh user profile first, then redirect
+      // Refresh user profile to ensure we have complete data including onboarding_flags
+      // Skip loading update since we're managing it in this function
+      await refreshUser(true)
+      
+      if (finalRedirectTo && finalRedirectTo !== '/') {
         // For relative URLs, use Next.js router
+        console.log('Redirecting to relative URL:', finalRedirectTo)
         router.push(finalRedirectTo)
+      } else {
+        // Default redirect to home
+        router.push('/')
       }
     } catch (error: any) {
       // Provide more specific error messages
@@ -126,7 +141,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(error.message || 'שגיאה בהתחברות')
       }
     } finally {
-      setIsLoading(false)
+      // Only set loading to false if we're not redirecting to an absolute URL
+      // (If we're redirecting, we're navigating away so this doesn't matter)
+      const finalRedirectTo = redirectTo || '/'
+      if (!finalRedirectTo || (!finalRedirectTo.startsWith('http://') && !finalRedirectTo.startsWith('https://'))) {
+        setIsLoading(false)
+      }
     }
   }
 

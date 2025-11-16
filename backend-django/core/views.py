@@ -236,20 +236,169 @@ def _update_onboarding(user, step):
         401: {'description': 'Authentication failed'}
     }
 )
-@api_view(["POST"])
+@api_view(["GET", "POST"])
 @permission_classes([AllowAny])
+@csrf_exempt  # Allow form submissions without CSRF token (OAuth flow)
 def auth_login(request):
-    """User login endpoint."""
+    """User login endpoint. Supports both GET (show login form) and POST (process login)."""
+    from django.shortcuts import redirect
+    from django.contrib.auth import login as django_login
+    from django.http import HttpResponse
+    
+    # Handle GET request - show login form/page
+    if request.method == "GET":
+        next_url = request.GET.get("next", "")
+        error_msg = request.GET.get("error", "")
+        
+        # Simple HTML login form for OAuth flow
+        html = f"""
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>התחברות — נדל״נר</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            direction: rtl;
+        }}
+        .container {{
+            background: white;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            max-width: 420px;
+            width: 100%;
+            border: 1px solid #e5e7eb;
+        }}
+        .logo {{
+            text-align: center;
+            color: #12b3a6;
+            font-weight: 700;
+            font-size: 24px;
+            margin-bottom: 32px;
+        }}
+        h1 {{
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+            text-align: center;
+        }}
+        .subtitle {{
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 24px;
+            text-align: center;
+        }}
+        form {{
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }}
+        label {{
+            font-size: 14px;
+            font-weight: 500;
+            color: #0f172a;
+        }}
+        input {{
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }}
+        input:focus {{
+            outline: none;
+            border-color: #12b3a6;
+            box-shadow: 0 0 0 3px rgba(18, 179, 166, 0.1);
+        }}
+        button {{
+            width: 100%;
+            padding: 12px 24px;
+            background: #12b3a6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }}
+        button:hover {{
+            background: #0d9488;
+        }}
+        .error {{
+            color: #dc2626;
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }}
+        .error.show {{
+            display: block;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">נדל״נר</div>
+        <h1>התחברות</h1>
+        <p class="subtitle">התחבר כדי להמשיך</p>
+        <form method="POST" action="/api/auth/login">
+            <input type="hidden" name="next" value="{next_url}">
+            <div>
+                <label for="email">אימייל</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
+            </div>
+            <div>
+                <label for="password">סיסמה</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <div class="error" id="errorMessage"{" show" if error_msg else ""}>{error_msg}</div>
+            <button type="submit">התחבר</button>
+        </form>
+    </div>
+</body>
+</html>
+        """
+        return HttpResponse(html)
+    
+    # Handle POST request - process login
     try:
-        data = json.loads(request.body.decode("utf-8"))
+        # Support both JSON and form-encoded data
+        if request.content_type == 'application/json':
+            data = json.loads(request.body.decode("utf-8"))
+        else:
+            # Form-encoded data
+            data = request.POST.dict()
+        
         email = data.get("email")
         password = data.get("password")
+        next_url = data.get("next") or request.GET.get("next", "")
 
         if not email or not password:
-            return Response(
-                {"error": "Email and password are required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if request.content_type == 'application/json':
+                return Response(
+                    {"error": "Email and password are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            else:
+                # For form submissions, redirect back with error
+                from django.shortcuts import redirect
+                return redirect(f"/api/auth/login?next={next_url}&error=missing_credentials")
 
         # Use authentication service
         logger.info("Login attempt for %s", email)
@@ -257,16 +406,42 @@ def auth_login(request):
         if result["success"]:
             try:
                 user = get_user_model().objects.get(email=email)
+                # Log the user in using Django's session authentication
+                # This is needed for OAuth flow to recognize the user as authenticated
+                django_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             except Exception:
                 user = None
             track("user_login", user=user)
             logger.info("Login succeeded for %s", email)
+            
+            # If next URL is provided (OAuth flow), redirect there
+            if next_url:
+                from django.shortcuts import redirect as django_redirect
+                return django_redirect(next_url)
+            
+            # Otherwise return JSON response (API call)
+            if request.content_type == 'application/json':
+                return Response(
+                    result["data"],
+                    status=result["status"],
+                )
+            else:
+                # Form submission without next URL
+                return redirect("/")
         else:
             logger.warning("Login failed for %s: %s", email, result.get("error"))
-        return Response(
-            result["data"] if result["success"] else {"error": result["error"]},
-            status=result["status"],
-        )
+            
+            # For form submissions, redirect back with error
+            if request.content_type != 'application/json':
+                from django.shortcuts import redirect
+                from urllib.parse import quote
+                error_msg = quote(result.get("error", "Invalid credentials"))
+                return redirect(f"/api/auth/login?next={next_url}&error={error_msg}")
+            
+            return Response(
+                {"error": result["error"]},
+                status=result["status"],
+            )
 
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)

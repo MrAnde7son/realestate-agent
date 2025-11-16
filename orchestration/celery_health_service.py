@@ -38,6 +38,7 @@ def _configure_logging() -> None:
 _worker_process: Optional[subprocess.Popen[str]] = None
 _worker_lock = threading.Lock()
 _worker_startup_error: Optional[str] = None
+_worker_start_time: Optional[float] = None
 
 
 @asynccontextmanager
@@ -196,7 +197,7 @@ def _log_worker_output(process: subprocess.Popen[str]) -> None:
 
 def ensure_worker_running() -> subprocess.Popen[str]:
     """Start the Celery worker if it is not already running."""
-    global _worker_process, _worker_startup_error
+    global _worker_process, _worker_startup_error, _worker_start_time
 
     with _worker_lock:
         if _worker_process is None or _worker_process.poll() is not None:
@@ -207,6 +208,7 @@ def ensure_worker_running() -> subprocess.Popen[str]:
                     return_code,
                 )
             _worker_process = _spawn_worker()
+            _worker_start_time = time.time()
             # Start logging worker output in background
             _log_worker_output(_worker_process)
             # Give it a moment to start and check for immediate failures
@@ -272,13 +274,30 @@ def _current_worker_status() -> dict[str, object]:
 @app.get("/", tags=["health"])
 @app.get("/healthz", tags=["health"])
 async def healthcheck() -> JSONResponse:
-    """Return worker status for Render health checks."""
+    """Return worker status for Cloud Run health checks.
+    
+    During the first 60 seconds after startup, returns 200 OK even if the
+    Celery worker isn't fully ready yet, to allow time for initialization.
+    """
     status_payload = _current_worker_status()
-    http_status = (
-        status.HTTP_200_OK
-        if status_payload["worker_running"]
-        else status.HTTP_503_SERVICE_UNAVAILABLE
+    worker_running = status_payload.get("worker_running", False)
+    
+    # Allow grace period of 60 seconds for worker to start up
+    startup_grace_period = 60.0
+    is_in_grace_period = (
+        _worker_start_time is not None
+        and (time.time() - _worker_start_time) < startup_grace_period
     )
+    
+    # Return 200 if worker is running, or if we're in grace period and process exists
+    if worker_running or (is_in_grace_period and _worker_process is not None):
+        http_status = status.HTTP_200_OK
+        if is_in_grace_period and not worker_running:
+            status_payload["status"] = "starting"
+            status_payload["grace_period"] = True
+    else:
+        http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+    
     return JSONResponse(status_code=http_status, content=status_payload)
 
 

@@ -335,6 +335,11 @@ resource "google_cloud_run_service" "worker" {
           }
         }
 
+        ports {
+          name           = "http1"
+          container_port = 8080
+        }
+
         resources {
           limits = {
             cpu    = "2"

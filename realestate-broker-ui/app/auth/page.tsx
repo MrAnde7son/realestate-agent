@@ -39,7 +39,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
-  const { login, register, googleLogin, isLoading } = useAuth()
+  const { login, register, googleLogin, isLoading, isAuthenticated } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -56,6 +56,31 @@ export default function AuthPage() {
       setIsLogin(true)
     }
   }, [mode])
+  
+  // If user is already authenticated and there's an OAuth redirect, establish session and redirect
+  useEffect(() => {
+    const handleOAuthRedirect = async () => {
+      if (isAuthenticated && redirectTo && (redirectTo.includes('/oauth/authorize') || redirectTo.includes('/mcp/oauth'))) {
+        try {
+          const { authAPI } = await import('@/lib/auth')
+          // Establish Django session for OAuth flow
+          await authAPI.establishSession()
+          // Redirect to OAuth endpoint
+          if (redirectTo.startsWith('http://') || redirectTo.startsWith('https://')) {
+            window.location.href = redirectTo
+          } else {
+            router.push(redirectTo)
+          }
+        } catch (error) {
+          console.error('Failed to establish session for OAuth redirect:', error)
+          // If session establishment fails, show error but don't redirect
+          setError('שגיאה בהתחברות לשרת. נסה שוב.')
+        }
+      }
+    }
+    
+    handleOAuthRedirect()
+  }, [isAuthenticated, redirectTo, router])
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

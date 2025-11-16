@@ -63,11 +63,39 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }
   
-  // If it's the auth page and user has valid non-expired access token, redirect to home
+  // If it's the auth page and user has valid non-expired access token, redirect appropriately
   // Allow access to auth page if only refresh token is available (for token refresh)
   if (isAuthRoute && accessToken && !isTokenExpired) {
-    console.log(`🔄 Redirecting to home: user already authenticated with valid access token`)
-    return NextResponse.redirect(new URL('/', request.url))
+    // Check if there's a redirect parameter in the URL
+    const redirectParam = request.nextUrl.searchParams.get('redirect')
+    
+    if (redirectParam) {
+      // Check if redirect is to an OAuth endpoint - if so, allow access to auth page
+      // so the frontend can establish Django session before redirecting
+      const isOAuthRedirect = redirectParam.includes('/oauth/authorize') || 
+                              redirectParam.includes('/mcp/oauth')
+      
+      if (isOAuthRedirect) {
+        // Don't redirect - let the auth page handle OAuth flow (it will establish session)
+        console.log(`🔄 Allowing access to auth page for OAuth redirect: ${redirectParam}`)
+        return NextResponse.next()
+      } else {
+        // Non-OAuth redirect - redirect directly
+        console.log(`🔄 Redirecting to specified redirect URL: ${redirectParam}`)
+        // If it's an absolute URL, redirect directly; otherwise construct full URL
+        if (redirectParam.startsWith('http://') || redirectParam.startsWith('https://')) {
+          return NextResponse.redirect(redirectParam)
+        } else {
+          // Relative URL - construct full URL
+          const redirectUrl = new URL(redirectParam, request.url)
+          return NextResponse.redirect(redirectUrl)
+        }
+      }
+    } else {
+      // No redirect parameter, redirect to home
+      console.log(`🔄 Redirecting to home: user already authenticated with valid access token`)
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
 
   if (pathname.startsWith('/admin')) {

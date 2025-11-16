@@ -95,9 +95,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
       
+      // Store redirectTo before any potential redirects
+      const finalRedirectTo = redirectTo || '/'
+      
       // If redirectTo is an absolute URL pointing to OAuth, establish Django session first
-      if (redirectTo && (redirectTo.startsWith('http://') || redirectTo.startsWith('https://'))) {
-        if (redirectTo.includes('/oauth/authorize') || redirectTo.includes('/mcp/oauth')) {
+      if (finalRedirectTo && (finalRedirectTo.startsWith('http://') || finalRedirectTo.startsWith('https://'))) {
+        if (finalRedirectTo.includes('/oauth/authorize') || finalRedirectTo.includes('/mcp/oauth')) {
           // Establish Django session for OAuth flow
           try {
             await authAPI.establishSession()
@@ -106,9 +109,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.warn('Failed to establish session, continuing anyway:', error)
           }
         }
-        window.location.href = redirectTo
+        // Use window.location.href for absolute URLs (forces full page navigation)
+        window.location.href = finalRedirectTo
+        return // Exit early to prevent any other navigation
       } else {
-        router.push(redirectTo || '/')
+        // For relative URLs, use Next.js router
+        router.push(finalRedirectTo)
       }
     } catch (error: any) {
       // Provide more specific error messages

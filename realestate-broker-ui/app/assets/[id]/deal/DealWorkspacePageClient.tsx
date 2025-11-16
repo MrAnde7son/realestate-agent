@@ -14,14 +14,9 @@ import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { DealStage } from '@/lib/deals/types'
+import type { DealStage, DealSummary } from '@/lib/deals/types'
 import {
-  DEAL_METADATA,
-  INITIAL_DOCUMENTS,
-  INITIAL_MORTGAGE_OFFERS,
-  INITIAL_OFFERS,
-  INITIAL_TASKS,
-  PARTIES,
+  mapPartyRolesToParties,
   type DealDocument,
   type DocumentKind,
   type DocumentStatus,
@@ -31,7 +26,8 @@ import {
   type MortgageOffer,
   type Offer,
   type Party,
-} from './mock-data'
+  type DealWorkspaceMetadata,
+} from './types'
 import {
   Dialog,
   DialogContent,
@@ -110,10 +106,7 @@ type OfferDraft = {
   conditions: OfferConditions
 }
 
-type BackendDealSummary = {
-  id: number
-  stage?: DealStage
-}
+type BackendDealSummary = DealSummary
 
 type BackendDocument = {
   id: number
@@ -264,7 +257,13 @@ const MORTGAGE_PRODUCT_LABELS: Record<MortgageOffer['productType'], string> = {
 }
 
 function formatDateTime(value: string) {
+  if (!value || value.trim() === '') {
+    return 'לא צוין'
+  }
   const date = new Date(value)
+  if (isNaN(date.getTime())) {
+    return 'תאריך לא תקין'
+  }
   return new Intl.DateTimeFormat('he-IL', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -273,7 +272,13 @@ function formatDateTime(value: string) {
 }
 
 function formatDate(value: string) {
+  if (!value || value.trim() === '') {
+    return 'לא צוין'
+  }
   const date = new Date(value)
+  if (isNaN(date.getTime())) {
+    return 'תאריך לא תקין'
+  }
   return new Intl.DateTimeFormat('he-IL', {
     dateStyle: 'medium',
     timeZone: 'Asia/Jerusalem',
@@ -286,14 +291,16 @@ type DealWorkspacePageClientProps = {
 
 export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageClientProps) {
   const searchParams = useSearchParams()
-  const [offers, setOffers] = useState<Offer[]>(INITIAL_OFFERS)
-  const [documents, setDocuments] = useState<DealDocument[]>(() => [...INITIAL_DOCUMENTS])
-  const [tasks, setTasks] = useState<DealTask[]>(INITIAL_TASKS)
-  const [mortgageOffers] = useState<MortgageOffer[]>(INITIAL_MORTGAGE_OFFERS)
+  const [offers, setOffers] = useState<Offer[]>([])
+  const [documents, setDocuments] = useState<DealDocument[]>([])
+  const [tasks, setTasks] = useState<DealTask[]>([])
+  const [mortgageOffers] = useState<MortgageOffer[]>([])
+  const [parties, setParties] = useState<Party[]>([])
+  const [dealMetadata, setDealMetadata] = useState<DealWorkspaceMetadata | null>(null)
   const [timelineFilter, setTimelineFilter] = useState<(typeof TIMELINE_FILTERS)[number]['key']>('all')
   const [docsFilter, setDocsFilter] = useState<DocFilterKey>('all')
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
-  const [recommendedMortgageId, setRecommendedMortgageId] = useState<string>('mortgage-1')
+  const [recommendedMortgageId, setRecommendedMortgageId] = useState<string>('')
   const [dealId, setDealId] = useState<number | null>(null)
   const [documentsLoading, setDocumentsLoading] = useState(false)
   const [documentsError, setDocumentsError] = useState<string | null>(null)
@@ -305,7 +312,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   useEffect(() => {
     let cancelled = false
 
-    const fetchDocuments = async () => {
+    const fetchDealData = async () => {
       setDocumentsLoading(true)
       setDocumentsError(null)
       try {
@@ -321,13 +328,35 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
 
         if (!activeDeal?.id) {
           setDealId(null)
-          setDocuments([...INITIAL_DOCUMENTS])
+          setDocuments([])
+          setParties([])
+          setDealMetadata(null)
           setDocumentsError('לא נמצאה סביבת עסקה פעילה לנכס זה.')
           return
         }
 
         setDealId(activeDeal.id)
 
+        // Extract metadata from deal
+        const assetSummary = activeDeal.asset_summary
+        const metadata: DealWorkspaceMetadata = {
+          stage: activeDeal.stage || 'discovery',
+          askingPrice: assetSummary?.price || 0,
+          acceptedOfferAmount: assetSummary?.price || 0, // TODO: Get from actual accepted offer
+          targetClosingDate: '', // TODO: Get from deal data
+          lastUpdated: activeDeal.updated_at,
+          address: assetSummary?.address || `נכס ${assetId}`,
+        }
+        setDealMetadata(metadata)
+
+        // Map party roles to parties
+        if (Array.isArray(activeDeal.party_roles)) {
+          setParties(mapPartyRolesToParties(activeDeal.party_roles))
+        } else {
+          setParties([])
+        }
+
+        // Fetch documents
         const docsResponse = await apiClient.get<{ documents?: BackendDocument[] }>(
           `/api/deal-workspace/documents?deal_id=${activeDeal.id}`
         )
@@ -348,16 +377,18 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
           }
           setDocumentsError(null)
         } else {
-          setDocuments([...INITIAL_DOCUMENTS])
+          setDocuments([])
           setDocumentsError(
-            docsResponse.error || 'כשל בטעינת המסמכים - מוצגים נתוני דמו.'
+            docsResponse.error || 'כשל בטעינת המסמכים.'
           )
         }
       } catch (error) {
         if (cancelled) return
-        console.error('Failed to load deal workspace documents:', error)
-        setDocuments([...INITIAL_DOCUMENTS])
-        setDocumentsError('כשל בטעינת המסמכים - מוצגים נתוני דמו.')
+        console.error('Failed to load deal workspace data:', error)
+        setDocuments([])
+        setParties([])
+        setDealMetadata(null)
+        setDocumentsError('כשל בטעינת נתוני העסקה.')
       } finally {
         if (!cancelled) {
           setDocumentsLoading(false)
@@ -365,7 +396,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
       }
     }
 
-    fetchDocuments()
+    fetchDealData()
 
     return () => {
       cancelled = true
@@ -432,7 +463,10 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     [assetId, dealId, handleUploadDialogChange, uploadForm.file, uploadForm.kind, uploadForm.title, uploadForm.visibility]
   )
 
-  const stageMeta = useMemo(() => STAGE_FLOW.find(stage => stage.key === DEAL_METADATA.stage) ?? STAGE_FLOW[0], [])
+  const stageMeta = useMemo(() => {
+    const stage = dealMetadata?.stage || 'discovery'
+    return STAGE_FLOW.find(s => s.key === stage) ?? STAGE_FLOW[0]
+  }, [dealMetadata])
 
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
     const offerEvents = offers.map<TimelineEvent>(offer => ({
@@ -602,13 +636,14 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
       ]
     }
     // Default: from asset details
+    const address = dealMetadata?.address || `נכס ${assetId}`
     return [
       { label: 'בית', href: '/', icon: Home },
       { label: 'נכסים', href: '/assets', icon: Building },
-      { label: DEAL_METADATA.address, href: `/assets/${assetId}` },
+      { label: address, href: `/assets/${assetId}` },
       { label: 'סביבת עסקה' },
     ]
-  }, [navigationSource, assetId])
+  }, [navigationSource, assetId, dealMetadata])
 
   return (
     <DashboardLayout>
@@ -619,23 +654,24 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
         />
 
         <DashboardHeader
-          heading={`סביבת עסקה לנכס ${DEAL_METADATA.address}`}
+          heading={`סביבת עסקה לנכס ${dealMetadata?.address || assetId}`}
           text='נהלו הצעות, מסמכים, משימות ומשכנתאות במבט אחד מרוכז.'
         />
 
-        <div className='grid gap-4 sm:gap-6 pb-6 sm:pb-10 min-w-0'>
-          <DealHeader
-            assetId={assetId}
-            address={DEAL_METADATA.address}
-            stage={DEAL_METADATA.stage}
-            stageMeta={stageMeta}
-            parties={PARTIES}
-            askingPrice={DEAL_METADATA.askingPrice}
-            acceptedOfferAmount={DEAL_METADATA.acceptedOfferAmount}
-            targetClosingDate={DEAL_METADATA.targetClosingDate}
-            lastUpdated={DEAL_METADATA.lastUpdated}
-            documentsCount={documents.length}
-          />
+        {dealMetadata ? (
+          <div className='grid gap-4 sm:gap-6 pb-6 sm:pb-10 min-w-0'>
+            <DealHeader
+              assetId={assetId}
+              address={dealMetadata.address}
+              stage={dealMetadata.stage}
+              stageMeta={stageMeta}
+              parties={parties}
+              askingPrice={dealMetadata.askingPrice}
+              acceptedOfferAmount={dealMetadata.acceptedOfferAmount}
+              targetClosingDate={dealMetadata.targetClosingDate}
+              lastUpdated={dealMetadata.lastUpdated}
+              documentsCount={documents.length}
+            />
 
           <div className='grid gap-4 sm:gap-6 md:grid-cols-[2fr_1fr] lg:grid-cols-[2fr_1fr] min-w-0'>
             <TimelinePanel
@@ -679,6 +715,17 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
             onStatusChange={handleTaskStatusChange}
           />
         </div>
+        ) : (
+          <div className='rounded-lg border border-dashed p-6 sm:p-10 text-center'>
+            {documentsLoading ? (
+              <div className='text-sm text-muted-foreground'>טוען נתוני עסקה...</div>
+            ) : documentsError ? (
+              <div className='text-sm text-destructive'>{documentsError}</div>
+            ) : (
+              <div className='text-sm text-muted-foreground'>לא נמצאה סביבת עסקה פעילה לנכס זה.</div>
+            )}
+          </div>
+        )}
       </DashboardShell>
       <Dialog open={isUploadDialogOpen} onOpenChange={handleUploadDialogChange}>
         <DialogContent className='mx-4 sm:mx-0 max-w-[calc(100vw-2rem)] sm:max-w-lg'>
@@ -815,8 +862,7 @@ function DealHeader({
         <CardHeader className='gap-3 sm:gap-4 p-4 sm:p-6'>
           <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3'>
             <div>
-              <CardTitle className='text-2xl sm:text-3xl font-semibold'>נכס {assetId}</CardTitle>
-              <CardDescription className='text-sm sm:text-base'>{address}</CardDescription>
+              <CardTitle className='text-2xl sm:text-3xl font-semibold'>{address}</CardTitle>
             </div>
             <Badge variant='info' className='flex items-center gap-2 w-fit'>
               <Gavel className='h-4 w-4' />
@@ -828,8 +874,14 @@ function DealHeader({
           <DealHeaderStat
             label='הצעה מאושרת'
             icon={<Handshake className='h-4 w-4 text-primary' />}
-            value={fmtCurrency(acceptedOfferAmount)}
-            helper={`מול מחיר מבוקש ${fmtCurrency(askingPrice)} (${computeGap(acceptedOfferAmount, askingPrice)})`}
+            value={acceptedOfferAmount > 0 ? fmtCurrency(acceptedOfferAmount) : 'לא צוין'}
+            helper={
+              askingPrice > 0 && acceptedOfferAmount > 0
+                ? `מול מחיר מבוקש ${fmtCurrency(askingPrice)} (${computeGap(acceptedOfferAmount, askingPrice)})`
+                : askingPrice > 0
+                  ? `מחיר מבוקש ${fmtCurrency(askingPrice)}`
+                  : 'לא צוין מחיר מבוקש'
+            }
           />
           <DealHeaderStat
             label='תאריך יעד לסגירה'
@@ -1609,7 +1661,9 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
         </div>
         <CardFooter className='flex-col sm:flex-row justify-between gap-2 sm:gap-0 px-0 pt-3 sm:pt-0 text-xs text-muted-foreground'>
           <span>הריביות מוצגות כריבית בפועל כולל הערכת עמלות וביטוחים.</span>
-          <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
+          {offers.length > 0 && offers[0].validUntil ? (
+            <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
+          ) : null}
         </CardFooter>
       </CardContent>
     </Card>
@@ -1713,6 +1767,12 @@ function TaskRow({ task, onStatusChange, isCompleted }: TaskRowProps) {
 }
 
 function computeGap(accepted: number, asking: number) {
+  if (!asking || asking === 0) {
+    return 'לא ניתן לחשב'
+  }
+  if (!accepted || accepted === 0) {
+    return 'לא צוין'
+  }
   const delta = ((accepted - asking) / asking) * 100
   const formatted = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`
   return formatted

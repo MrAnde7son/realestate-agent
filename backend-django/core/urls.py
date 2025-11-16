@@ -123,6 +123,7 @@ urlpatterns = [
     # Authentication endpoints
     path('auth/login', views.auth_login, name='auth_login'),
     path('auth/register', views.auth_register, name='auth_register'),
+    path('auth/establish-session', views.auth_establish_session, name='auth_establish_session'),
     path('auth/logout', views.auth_logout, name='auth_logout'),
     path('auth/profile', views.auth_profile, name='auth_profile'),
     path(

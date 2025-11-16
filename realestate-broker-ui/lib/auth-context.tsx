@@ -94,7 +94,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Refresh user profile to ensure we have complete data including onboarding_flags
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
-      router.push(redirectTo || '/')
+      
+      // If redirectTo is an absolute URL pointing to OAuth, establish Django session first
+      if (redirectTo && (redirectTo.startsWith('http://') || redirectTo.startsWith('https://'))) {
+        if (redirectTo.includes('/oauth/authorize') || redirectTo.includes('/mcp/oauth')) {
+          // Establish Django session for OAuth flow
+          try {
+            await authAPI.establishSession()
+          } catch (error) {
+            // If session establishment fails, still try to redirect
+            console.warn('Failed to establish session, continuing anyway:', error)
+          }
+        }
+        window.location.href = redirectTo
+      } else {
+        router.push(redirectTo || '/')
+      }
     } catch (error: any) {
       // Provide more specific error messages
       if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
@@ -118,7 +133,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Refresh user profile to ensure we have complete data including onboarding_flags
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
-      router.push(redirectTo || '/')
+      
+      // If redirectTo is an absolute URL (starts with http:// or https://), use window.location
+      // Otherwise use Next.js router for internal navigation
+      if (redirectTo && (redirectTo.startsWith('http://') || redirectTo.startsWith('https://'))) {
+        window.location.href = redirectTo
+      } else {
+        router.push(redirectTo || '/')
+      }
     } catch (error) {
       throw error
     } finally {

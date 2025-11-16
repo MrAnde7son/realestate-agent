@@ -102,19 +102,58 @@ def oauth_authorize(request: HttpRequest):
     # Handle GET - show authorization page
     # If user is not authenticated, redirect to login
     if not request.user.is_authenticated:
-        # Store OAuth params in session for after login
-        request.session['oauth_params'] = {
-            'response_type': response_type,
-            'client_id': client_id,
-            'redirect_uri': redirect_uri,
-            'scope': scope,
-            'state': state,
-            'code_challenge': code_challenge,
-            'code_challenge_method': code_challenge_method,
-        }
-        # Redirect to login with return URL
-        login_url = f"/api/auth/login?next={request.get_full_path()}"
-        return redirect(login_url)
+        # Check if user is authenticated via JWT (from frontend login)
+        # DRF's authentication should have set request.user if JWT is present
+        # But we need to ensure session is set up for OAuth flow
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        jwt_auth = JWTAuthentication()
+        try:
+            jwt_user, jwt_token = jwt_auth.authenticate(request)
+            if jwt_user and jwt_user.is_authenticated:
+                # User is authenticated via JWT, set up Django session
+                from django.contrib.auth import login as django_login
+                django_login(request, jwt_user, backend='django.contrib.auth.backends.ModelBackend')
+                # Restore OAuth params from session if they exist (from previous redirect)
+                if 'oauth_params' in request.session:
+                    oauth_params = request.session['oauth_params']
+                    # Use stored params if current params are missing
+                    if not response_type:
+                        response_type = oauth_params.get('response_type', '')
+                    if not client_id:
+                        client_id = oauth_params.get('client_id', '')
+                    if not redirect_uri:
+                        redirect_uri = oauth_params.get('redirect_uri', '')
+                    if not scope:
+                        scope = oauth_params.get('scope', '')
+                    if not state:
+                        state = oauth_params.get('state', '')
+                    if not code_challenge:
+                        code_challenge = oauth_params.get('code_challenge', '')
+                    if not code_challenge_method:
+                        code_challenge_method = oauth_params.get('code_challenge_method', 'S256')
+                    # Clear stored params
+                    del request.session['oauth_params']
+        except Exception:
+            # JWT authentication failed or not present, continue to login redirect
+            pass
+        
+        # If still not authenticated, store OAuth params and redirect to login
+        if not request.user.is_authenticated:
+            # Store OAuth params in session for after login
+            request.session['oauth_params'] = {
+                'response_type': response_type,
+                'client_id': client_id,
+                'redirect_uri': redirect_uri,
+                'scope': scope,
+                'state': state,
+                'code_challenge': code_challenge,
+                'code_challenge_method': code_challenge_method,
+            }
+            # Redirect to login with return URL (properly encoded)
+            from urllib.parse import quote
+            next_param = quote(request.get_full_path())
+            login_url = f"/api/auth/login?next={next_param}"
+            return redirect(login_url)
     
     # User is authenticated - show authorization page
     scopes = scope.split() if scope else []

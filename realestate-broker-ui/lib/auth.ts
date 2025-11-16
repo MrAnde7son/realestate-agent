@@ -177,6 +177,12 @@ class AuthAPI {
     })
   }
 
+  async establishSession(): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>('/auth/establish-session', {
+      method: 'POST',
+    })
+  }
+
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     return this.request<AuthResponse>('/auth/register', {
       method: 'POST',

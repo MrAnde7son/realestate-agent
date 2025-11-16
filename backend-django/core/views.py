@@ -117,7 +117,7 @@ except ImportError as e:
         from agent.real_estate_agent import RealEstateAgent
         _agent_import_error = None
     except ImportError as e2:
-        _agent_import_error = f"{str(e)}; {str(e2)}"
+        _agent_import_error = f"{_agent_import_error}; {str(e2)}"
         # Last resort: try importing the file directly
         try:
             import importlib.util
@@ -204,8 +204,9 @@ def _update_onboarding(user, step):
 # Authentication views
 @extend_schema(
     summary="User login",
-    description="Authenticate user with email and password",
+    description="Authenticate user with email and password. GET redirects to frontend login page (for OAuth flow), POST processes login.",
     tags=["Authentication"],
+    methods=["GET", "POST"],
     request={
         'application/json': {
             'type': 'object',
@@ -218,16 +219,25 @@ def _update_onboarding(user, step):
     },
     responses={
         200: {
-            'description': 'Login successful',
-            'examples': {
+            'description': 'Login successful (POST) or login form (GET)',
+            'content': {
+                'text/html': {
+                    'example': '<html>Login form</html>'
+                },
                 'application/json': {
-                    'access': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                    'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                    'user': {
-                        'id': 1,
-                        'email': 'user@example.com',
-                        'username': 'user',
-                        'role': 'broker'
+                    'examples': {
+                        'success': {
+                            'value': {
+                                'access': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                                'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                                'user': {
+                                    'id': 1,
+                                    'email': 'user@example.com',
+                                    'username': 'user',
+                                    'role': 'broker'
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -245,136 +255,41 @@ def auth_login(request):
     from django.contrib.auth import login as django_login
     from django.http import HttpResponse
     
-    # Handle GET request - show login form/page
+    # Handle GET request - redirect to frontend login page
     if request.method == "GET":
         next_url = request.GET.get("next", "")
         error_msg = request.GET.get("error", "")
         
-        # Simple HTML login form for OAuth flow
-        html = f"""
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>התחברות — נדל״נר</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        body {{
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            direction: rtl;
-        }}
-        .container {{
-            background: white;
-            padding: 40px;
-            border-radius: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            max-width: 420px;
-            width: 100%;
-            border: 1px solid #e5e7eb;
-        }}
-        .logo {{
-            text-align: center;
-            color: #12b3a6;
-            font-weight: 700;
-            font-size: 24px;
-            margin-bottom: 32px;
-        }}
-        h1 {{
-            font-size: 24px;
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 8px;
-            text-align: center;
-        }}
-        .subtitle {{
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 24px;
-            text-align: center;
-        }}
-        form {{
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }}
-        label {{
-            font-size: 14px;
-            font-weight: 500;
-            color: #0f172a;
-        }}
-        input {{
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.2s;
-        }}
-        input:focus {{
-            outline: none;
-            border-color: #12b3a6;
-            box-shadow: 0 0 0 3px rgba(18, 179, 166, 0.1);
-        }}
-        button {{
-            width: 100%;
-            padding: 12px 24px;
-            background: #12b3a6;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }}
-        button:hover {{
-            background: #0d9488;
-        }}
-        .error {{
-            color: #dc2626;
-            font-size: 14px;
-            margin-top: 8px;
-            display: none;
-        }}
-        .error.show {{
-            display: block;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">נדל״נר</div>
-        <h1>התחברות</h1>
-        <p class="subtitle">התחבר כדי להמשיך</p>
-        <form method="POST" action="/api/auth/login">
-            <input type="hidden" name="next" value="{next_url}">
-            <div>
-                <label for="email">אימייל</label>
-                <input type="email" id="email" name="email" required autocomplete="email">
-            </div>
-            <div>
-                <label for="password">סיסמה</label>
-                <input type="password" id="password" name="password" required autocomplete="current-password">
-            </div>
-            <div class="error" id="errorMessage"{" show" if error_msg else ""}>{error_msg}</div>
-            <button type="submit">התחבר</button>
-        </form>
-    </div>
-</body>
-</html>
-        """
-        return HttpResponse(html)
+        # Get frontend URL from settings
+        from django.conf import settings
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        
+        # Build redirect URL to frontend login page
+        # Frontend uses 'redirect' parameter, not 'next'
+        from urllib.parse import urlencode
+        params = {}
+        if next_url:
+            # If next_url is a relative path (starts with /), make it absolute by prepending backend URL
+            if next_url.startswith('/'):
+                # Get the current request's scheme and host to build absolute backend URL
+                scheme = request.scheme
+                host = request.get_host()
+                backend_url = f"{scheme}://{host}"
+                # Make the redirect URL absolute (pointing to backend)
+                absolute_next_url = f"{backend_url}{next_url}"
+                params['redirect'] = absolute_next_url
+            else:
+                # Already absolute, use as-is
+                params['redirect'] = next_url
+        if error_msg:
+            params['error'] = error_msg
+        
+        frontend_login_url = f"{frontend_url}/auth"
+        if params:
+            frontend_login_url += f"?{urlencode(params)}"
+        
+        # Redirect to frontend login page
+        return redirect(frontend_login_url)
     
     # Handle POST request - process login
     try:
@@ -417,6 +332,8 @@ def auth_login(request):
             # If next URL is provided (OAuth flow), redirect there
             if next_url:
                 from django.shortcuts import redirect as django_redirect
+                # If next_url is absolute and points to OAuth, ensure session is established
+                # The session is already established by django_login above, so just redirect
                 return django_redirect(next_url)
             
             # Otherwise return JSON response (API call)
@@ -503,6 +420,39 @@ def auth_register(request):
     except Exception as e:
         logger.exception("Unexpected error during registration for %s", locals().get("email"))
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def auth_establish_session(request):
+    """
+    Establish Django session from JWT token.
+    This is used after frontend login to set up a session for OAuth flows.
+    """
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    jwt_auth = JWTAuthentication()
+    
+    try:
+        jwt_user, jwt_token = jwt_auth.authenticate(request)
+        if jwt_user and jwt_user.is_authenticated:
+            # Set up Django session from JWT
+            from django.contrib.auth import login as django_login
+            django_login(request, jwt_user, backend='django.contrib.auth.backends.ModelBackend')
+            return Response({
+                "success": True,
+                "message": "Session established"
+            })
+        else:
+            return Response(
+                {"error": "Invalid or missing JWT token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+    except Exception:
+        logger.exception("Error establishing session from JWT")
+        return Response(
+            {"error": "Failed to establish session"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
 
 @api_view(["POST"])

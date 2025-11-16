@@ -255,13 +255,15 @@ def oauth_metadata(request: HttpRequest):
     OAuth 2.0 Authorization Server Metadata endpoint.
     
     Returns OAuth server metadata for discovery.
-    Automatically detects if called from /mcp/oauth/* or /api/oauth/* and returns appropriate endpoints.
+    Automatically detects if called from /mcp/oauth/*, /mcp/.well-known/*, or /api/oauth/* 
+    and returns appropriate endpoints.
     """
     base_url = request.build_absolute_uri('/').rstrip('/')
     path = request.path
     
     # Determine base path for OAuth endpoints based on request path
-    if '/mcp/oauth' in path:
+    # Check for MCP context (either /mcp/oauth/* or /mcp/.well-known/*)
+    if '/mcp/oauth' in path or '/mcp/.well-known' in path:
         # Called from MCP endpoint - return MCP-specific OAuth URLs
         oauth_base = f'{base_url}/mcp/oauth'
     else:

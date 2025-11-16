@@ -18,5 +18,9 @@ urlpatterns = [
     path('oauth/authorize', oauth_views.oauth_authorize, name='mcp_oauth_authorize'),
     path('oauth/token', oauth_views.oauth_token, name='mcp_oauth_token'),
     path('oauth/metadata', oauth_views.oauth_metadata, name='mcp_oauth_metadata'),
+    # Well-known OAuth discovery endpoints for ChatGPT auto-discovery
+    # ChatGPT may check either of these endpoints for OAuth configuration
+    path('.well-known/oauth-authorization-server', oauth_views.oauth_metadata, name='mcp_oauth_well_known'),
+    path('.well-known/openid-configuration', oauth_views.oauth_metadata, name='mcp_oauth_openid_config'),
 ]
 

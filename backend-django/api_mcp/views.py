@@ -62,6 +62,19 @@ def mcp_endpoint(request: HttpRequest) -> HttpResponse:
             # Build OAuth metadata URL (MCP-specific endpoints for ChatGPT integration)
             base_url = request.build_absolute_uri('/').rstrip('/')
             oauth_metadata_url = f"{base_url}/mcp/oauth/metadata"
+            oauth_well_known_url = f"{base_url}/mcp/.well-known/oauth-authorization-server"
+            
+            # Icon URL - ChatGPT will look for this in the metadata
+            # ChatGPT can retrieve icons from:
+            # 1. icon_url or logo_url in the MCP server metadata (this response)
+            # 2. A favicon at the domain root (e.g., https://api.nadlaner.com/favicon.ico)
+            # 3. Manual upload during connector creation
+            # 
+            # Use your marketing site's favicon or serve one from your API
+            # Minimum size: 128x128px, recommended: 512x512px
+            icon_url = "https://www.nadlaner.com/favicon.svg"  # Use marketing site favicon
+            # Alternative: Serve from your API if you have static file serving configured
+            # icon_url = f"{base_url}/static/favicon.ico"
             
             return JsonResponse({
                 "name": "RealEstateAPI",
@@ -71,10 +84,17 @@ def mcp_endpoint(request: HttpRequest) -> HttpResponse:
                 "tools_count": len(tools_info),
                 "endpoint": "/mcp",
                 "endpoints": ["/mcp", "/mcp/"],
+                "icon_url": icon_url,  # Icon URL for ChatGPT connector
+                "logo_url": icon_url,  # Alternative field name some clients may use
                 "oauth": {
                     "authorization_endpoint": f"{base_url}/mcp/oauth/authorize",
                     "token_endpoint": f"{base_url}/mcp/oauth/token",
                     "metadata_endpoint": oauth_metadata_url,
+                    "well_known_endpoint": oauth_well_known_url,
+                    "scopes_supported": ["read", "write", "assets", "deals", "crm"],
+                    "response_types_supported": ["code"],
+                    "code_challenge_methods_supported": ["plain", "S256"],
+                    "grant_types_supported": ["authorization_code"],
                     "note": "OAuth endpoints are also available at /api/oauth/* for general use"
                 },
                 "note": "For full MCP protocol support with tool calls, use FastMCP's HTTP transport via ASGI"

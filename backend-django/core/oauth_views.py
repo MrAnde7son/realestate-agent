@@ -249,6 +249,77 @@ def oauth_token(request: HttpRequest):
     })
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def oauth_register(request: HttpRequest):
+    """
+    OAuth 2.0 Dynamic Client Registration endpoint (RFC 7591).
+    
+    Allows clients like ChatGPT to dynamically register themselves.
+    For MCP servers, we accept any client registration and return the client_id.
+    """
+    # Parse request body (can be form-encoded or JSON)
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'error': 'invalid_request',
+                'error_description': 'Invalid JSON'
+            }, status=400)
+    else:
+        # Convert POST data to dict
+        data = dict(request.POST)
+        # Convert single-item lists to values
+        data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in data.items()}
+    
+    # Extract client information
+    client_name = data.get('client_name', 'MCP Client')
+    redirect_uris = data.get('redirect_uris', [])
+    if isinstance(redirect_uris, str):
+        redirect_uris = [redirect_uris]
+    
+    # Generate or use provided client_id
+    client_id = data.get('client_id')
+    if not client_id:
+        # Generate a simple client_id (in production, you might want to store this)
+        import secrets
+        client_id = f"mcp-client-{secrets.token_urlsafe(16)}"
+    
+    # Generate client_secret (optional for public clients)
+    client_secret = data.get('client_secret')
+    if not client_secret and data.get('token_endpoint_auth_method') != 'none':
+        import secrets
+        client_secret = secrets.token_urlsafe(32)
+    
+    # Determine base path for OAuth endpoints
+    base_url = request.build_absolute_uri('/').rstrip('/')
+    path = request.path
+    if '/mcp/oauth' in path:
+        oauth_base = f'{base_url}/mcp/oauth'
+    else:
+        oauth_base = f'{base_url}/api/oauth'
+    
+    # Return client registration response (RFC 7591 format)
+    response_data = {
+        'client_id': client_id,
+        'client_id_issued_at': int(timezone.now().timestamp()),
+        'client_name': client_name,
+        'redirect_uris': redirect_uris,
+        'grant_types': ['authorization_code'],
+        'response_types': ['code'],
+        'token_endpoint_auth_method': data.get('token_endpoint_auth_method', 'client_secret_basic'),
+        'scope': ' '.join(['read', 'write', 'assets', 'deals', 'crm']),
+    }
+    
+    # Include client_secret if provided/generated (only on initial registration)
+    if client_secret:
+        response_data['client_secret'] = client_secret
+        response_data['client_secret_expires_at'] = 0  # 0 means never expires
+    
+    return JsonResponse(response_data, status=201)
+
+
 @require_http_methods(["GET"])
 def oauth_metadata(request: HttpRequest):
     """
@@ -274,9 +345,11 @@ def oauth_metadata(request: HttpRequest):
         'issuer': base_url,
         'authorization_endpoint': f'{oauth_base}/authorize',
         'token_endpoint': f'{oauth_base}/token',
+        'registration_endpoint': f'{oauth_base}/register',  # RFC 7591 Dynamic Client Registration
         'scopes_supported': ['read', 'write', 'assets', 'deals', 'crm'],
         'response_types_supported': ['code'],
         'code_challenge_methods_supported': ['plain', 'S256'],
         'grant_types_supported': ['authorization_code'],
+        'token_endpoint_auth_methods_supported': ['client_secret_basic', 'client_secret_post', 'none'],
     })
 

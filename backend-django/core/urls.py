@@ -149,6 +149,7 @@ urlpatterns = [
     # OAuth 2.0 endpoints (for MCP, API clients, and other integrations)
     path('oauth/authorize', oauth_views.oauth_authorize, name='oauth_authorize'),
     path('oauth/token', oauth_views.oauth_token, name='oauth_token'),
+    path('oauth/register', oauth_views.oauth_register, name='oauth_register'),  # RFC 7591 Dynamic Client Registration
     path('oauth/metadata', oauth_views.oauth_metadata, name='oauth_metadata'),
     path('schema', SpectacularAPIView.as_view(), name='schema'),
     path(

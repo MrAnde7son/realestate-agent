@@ -33,7 +33,7 @@ def _configure_logging() -> None:
     _logging_configured = True
 
 
-_worker_process: Optional[subprocess.Popen[bytes]] = None
+_worker_process: Optional[subprocess.Popen[str]] = None
 _worker_lock = threading.Lock()
 
 app = FastAPI(title="Celery Worker Health", version="1.0.0")
@@ -105,7 +105,7 @@ def _resolve_django_dir() -> Path:
     )
 
 
-def _spawn_worker() -> subprocess.Popen[bytes]:
+def _spawn_worker() -> subprocess.Popen[str]:
     django_dir = _resolve_django_dir()
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
@@ -128,16 +128,42 @@ def _spawn_worker() -> subprocess.Popen[bytes]:
     ]
 
     LOGGER.info("Starting Celery worker: %s", " ".join(cmd))
-    return subprocess.Popen(cmd, env=env, cwd=str(django_dir))
+    # Capture stdout and stderr so we can see Celery output in logs
+    return subprocess.Popen(
+        cmd,
+        env=env,
+        cwd=str(django_dir),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,  # Merge stderr into stdout
+        text=True,
+        bufsize=1,  # Line buffered
+    )
 
 
-def ensure_worker_running() -> subprocess.Popen[bytes]:
+def _log_worker_output(process: subprocess.Popen[str]) -> None:
+    """Log Celery worker output in a background thread."""
+    def log_output():
+        if process.stdout:
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    if line:
+                        LOGGER.info("Celery: %s", line.rstrip())
+            except Exception as exc:
+                LOGGER.warning("Error reading Celery output: %s", exc)
+    
+    thread = threading.Thread(target=log_output, daemon=True)
+    thread.start()
+
+
+def ensure_worker_running() -> subprocess.Popen[str]:
     """Start the Celery worker if it is not already running."""
     global _worker_process
 
     with _worker_lock:
         if _worker_process is None or _worker_process.poll() is not None:
             _worker_process = _spawn_worker()
+            # Start logging worker output in background
+            _log_worker_output(_worker_process)
         return _worker_process
 
 

@@ -1,14 +1,10 @@
 #!/bin/sh
-# Don't use set -e here - we want to continue even if some steps fail
-# The app should start and listen on the port even if DB connection or migrations fail
-
 # Get PORT from environment (Cloud Run sets this automatically)
 PORT=${PORT:-8000}
 echo "Starting application on port $PORT"
 
-# Wait for database to be ready (with retries, but don't block startup too long)
 echo "Waiting for database connection..."
-max_attempts=15  # Reduced from 30 to speed up startup
+max_attempts=3
 attempt=0
 db_connected=0
 
@@ -42,12 +38,13 @@ if [ $db_connected -eq 0 ]; then
 fi
 
 # Run database migrations before starting the application.
-# Don't fail if migrations fail - let the app start and retry on first request
 echo "Running migrations..."
 python manage.py makemigrations || echo "Warning: makemigrations failed or no changes"
-python manage.py migrate --noinput || echo "WARNING: Migrations failed, but continuing startup..."
+echo "Applying migrations..."
+if ! python manage.py migrate --noinput 2>&1; then
+    echo "ERROR: Migrations failed! Exiting..."
+    exit 1
+fi
 
-# Execute the main container command (e.g., Gunicorn).
-# This MUST succeed - if gunicorn fails to start, the container will fail
 echo "Starting application on port $PORT..."
 exec "$@"

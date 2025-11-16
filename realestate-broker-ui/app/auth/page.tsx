@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -43,6 +43,7 @@ export default function AuthPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  const hasRedirectedRef = useRef(false)
   
   // Get the redirect URL and mode from query parameters
   const redirectTo = searchParams.get('redirect') || '/'
@@ -60,27 +61,28 @@ export default function AuthPage() {
   // If user is already authenticated and there's an OAuth redirect, establish session and redirect
   useEffect(() => {
     const handleOAuthRedirect = async () => {
+      // Prevent multiple redirects
+      if (hasRedirectedRef.current) return
+      
       if (isAuthenticated && redirectTo && (redirectTo.includes('/oauth/authorize') || redirectTo.includes('/mcp/oauth'))) {
+        hasRedirectedRef.current = true
         try {
           const { authAPI } = await import('@/lib/auth')
           // Establish Django session for OAuth flow
           await authAPI.establishSession()
-          // Redirect to OAuth endpoint
-          if (redirectTo.startsWith('http://') || redirectTo.startsWith('https://')) {
-            window.location.href = redirectTo
-          } else {
-            router.push(redirectTo)
-          }
+          // Redirect to OAuth endpoint - use window.location.href to ensure full redirect with all params
+          window.location.href = redirectTo
         } catch (error) {
           console.error('Failed to establish session for OAuth redirect:', error)
           // If session establishment fails, show error but don't redirect
           setError('שגיאה בהתחברות לשרת. נסה שוב.')
+          hasRedirectedRef.current = false
         }
       }
     }
     
     handleOAuthRedirect()
-  }, [isAuthenticated, redirectTo, router])
+  }, [isAuthenticated, redirectTo])
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

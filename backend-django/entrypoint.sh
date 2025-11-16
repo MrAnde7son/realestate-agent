@@ -44,7 +44,6 @@ fi
 # Run database migrations before starting the application.
 # Don't fail if migrations fail - let the app start and retry on first request
 echo "Running migrations..."
-python manage.py makemigrations || echo "Warning: makemigrations failed or no changes"
 python manage.py migrate --noinput || echo "WARNING: Migrations failed, but continuing startup..."
 
 # Execute the main container command (e.g., Gunicorn).

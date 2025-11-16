@@ -862,8 +862,7 @@ function DealHeader({
         <CardHeader className='gap-3 sm:gap-4 p-4 sm:p-6'>
           <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3'>
             <div>
-              <CardTitle className='text-2xl sm:text-3xl font-semibold'>נכס {assetId}</CardTitle>
-              <CardDescription className='text-sm sm:text-base'>{address}</CardDescription>
+              <CardTitle className='text-2xl sm:text-3xl font-semibold'>{address}</CardTitle>
             </div>
             <Badge variant='info' className='flex items-center gap-2 w-fit'>
               <Gavel className='h-4 w-4' />
@@ -875,8 +874,14 @@ function DealHeader({
           <DealHeaderStat
             label='הצעה מאושרת'
             icon={<Handshake className='h-4 w-4 text-primary' />}
-            value={fmtCurrency(acceptedOfferAmount)}
-            helper={`מול מחיר מבוקש ${fmtCurrency(askingPrice)} (${computeGap(acceptedOfferAmount, askingPrice)})`}
+            value={acceptedOfferAmount > 0 ? fmtCurrency(acceptedOfferAmount) : 'לא צוין'}
+            helper={
+              askingPrice > 0 && acceptedOfferAmount > 0
+                ? `מול מחיר מבוקש ${fmtCurrency(askingPrice)} (${computeGap(acceptedOfferAmount, askingPrice)})`
+                : askingPrice > 0
+                  ? `מחיר מבוקש ${fmtCurrency(askingPrice)}`
+                  : 'לא צוין מחיר מבוקש'
+            }
           />
           <DealHeaderStat
             label='תאריך יעד לסגירה'
@@ -1762,6 +1767,12 @@ function TaskRow({ task, onStatusChange, isCompleted }: TaskRowProps) {
 }
 
 function computeGap(accepted: number, asking: number) {
+  if (!asking || asking === 0) {
+    return 'לא ניתן לחשב'
+  }
+  if (!accepted || accepted === 0) {
+    return 'לא צוין'
+  }
   const delta = ((accepted - asking) / asking) * 100
   const formatted = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`
   return formatted

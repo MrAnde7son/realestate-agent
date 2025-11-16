@@ -266,6 +266,22 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/.*\.?nadlaner\.com$",
 ]
 
+# Allow credentials (cookies) to be sent with CORS requests
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow all headers for CORS (needed for Authorization header)
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
 CSRF_TRUSTED_ORIGINS = [
     'https://app.nadlaner.com',
     'https://nadlaner.com',

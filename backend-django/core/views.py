@@ -422,7 +422,7 @@ def auth_register(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(["POST"])
+@api_view(["POST", "OPTIONS"])
 @permission_classes([AllowAny])
 @csrf_exempt  # Allow cross-origin requests for OAuth flow
 def auth_establish_session(request):
@@ -430,6 +430,13 @@ def auth_establish_session(request):
     Establish Django session from JWT token.
     This is used after frontend login to set up a session for OAuth flows.
     """
+    # Handle OPTIONS preflight request
+    if request.method == "OPTIONS":
+        from django.http import HttpResponse
+        response = HttpResponse()
+        # CORS middleware will add the proper headers, but we ensure credentials are allowed
+        return response
+    
     from rest_framework_simplejwt.authentication import JWTAuthentication
     jwt_auth = JWTAuthentication()
     
@@ -444,16 +451,12 @@ def auth_establish_session(request):
             # Ensure session is saved
             request.session.save()
             
-            response = Response({
+            # CORS headers are handled by django-cors-headers middleware
+            # With CORS_ALLOW_CREDENTIALS = True in settings, it will set the proper headers
+            return Response({
                 "success": True,
                 "message": "Session established"
             })
-            
-            # Set CORS headers to allow cookie transmission
-            response["Access-Control-Allow-Credentials"] = "true"
-            response["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
-            
-            return response
         else:
             logger.warning("Failed to establish session: Invalid or missing JWT token")
             return Response(

@@ -12,6 +12,8 @@ import os
 import signal
 import subprocess
 import threading
+import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -35,8 +37,37 @@ def _configure_logging() -> None:
 
 _worker_process: Optional[subprocess.Popen[str]] = None
 _worker_lock = threading.Lock()
+_worker_startup_error: Optional[str] = None
 
-app = FastAPI(title="Celery Worker Health", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events."""
+    # Startup
+    _configure_logging()
+    LOGGER.info("Application startup: ensuring Celery worker is running")
+    try:
+        ensure_worker_running()
+        LOGGER.info("Celery worker startup initiated")
+    except Exception as exc:
+        global _worker_startup_error
+        _worker_startup_error = str(exc)
+        LOGGER.error("Failed to start Celery worker: %s", exc, exc_info=True)
+    
+    yield
+    
+    # Shutdown
+    LOGGER.info("Application shutdown: stopping Celery worker")
+    _shutdown_worker(
+        timeout=float(os.environ.get("CELERY_WORKER_SHUTDOWN_TIMEOUT", "15"))
+    )
+
+
+app = FastAPI(
+    title="Celery Worker Health",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 
 def _iter_candidate_roots() -> list[Path]:
@@ -145,25 +176,48 @@ def _log_worker_output(process: subprocess.Popen[str]) -> None:
     def log_output():
         if process.stdout:
             try:
+                # Read initial output immediately to catch startup errors
+                LOGGER.info("Starting to capture Celery worker output")
                 for line in iter(process.stdout.readline, ''):
                     if line:
-                        LOGGER.info("Celery: %s", line.rstrip())
+                        # Strip and log the line
+                        cleaned = line.rstrip()
+                        if cleaned:  # Only log non-empty lines
+                            LOGGER.info("Celery: %s", cleaned)
             except Exception as exc:
-                LOGGER.warning("Error reading Celery output: %s", exc)
+                LOGGER.warning("Error reading Celery output: %s", exc, exc_info=True)
+            finally:
+                LOGGER.info("Stopped capturing Celery worker output")
     
-    thread = threading.Thread(target=log_output, daemon=True)
+    thread = threading.Thread(target=log_output, daemon=True, name="celery-output-logger")
     thread.start()
+    LOGGER.debug("Started Celery output logging thread")
 
 
 def ensure_worker_running() -> subprocess.Popen[str]:
     """Start the Celery worker if it is not already running."""
-    global _worker_process
+    global _worker_process, _worker_startup_error
 
     with _worker_lock:
         if _worker_process is None or _worker_process.poll() is not None:
+            if _worker_process is not None:
+                return_code = _worker_process.poll()
+                LOGGER.warning(
+                    "Previous Celery worker process exited with code %s, restarting",
+                    return_code,
+                )
             _worker_process = _spawn_worker()
             # Start logging worker output in background
             _log_worker_output(_worker_process)
+            # Give it a moment to start and check for immediate failures
+            time.sleep(0.5)
+            if _worker_process.poll() is not None:
+                error_msg = f"Celery worker process exited immediately with code {_worker_process.poll()}"
+                _worker_startup_error = error_msg
+                LOGGER.error(error_msg)
+            else:
+                _worker_startup_error = None
+                LOGGER.info("Celery worker process started successfully (PID: %s)", _worker_process.pid)
         return _worker_process
 
 
@@ -194,27 +248,25 @@ def _shutdown_worker(timeout: float = 15.0) -> None:
 
 
 def _current_worker_status() -> dict[str, object]:
-    process = ensure_worker_running()
-    running = process.poll() is None
-    return {
-        "status": "ok" if running else "error",
-        "worker_running": running,
-        "returncode": process.returncode,
-        "pid": process.pid,
-    }
-
-
-@app.on_event("startup")
-async def _on_startup() -> None:  # pragma: no cover
-    _configure_logging()
-    ensure_worker_running()
-
-
-@app.on_event("shutdown")
-async def _on_shutdown() -> None:  # pragma: no cover
-    _shutdown_worker(
-        timeout=float(os.environ.get("CELERY_WORKER_SHUTDOWN_TIMEOUT", "15"))
-    )
+    try:
+        process = ensure_worker_running()
+        running = process.poll() is None
+        status_info = {
+            "status": "ok" if running else "error",
+            "worker_running": running,
+            "returncode": process.returncode,
+            "pid": process.pid,
+        }
+        if _worker_startup_error:
+            status_info["startup_error"] = _worker_startup_error
+        return status_info
+    except Exception as exc:
+        LOGGER.error("Error checking worker status: %s", exc, exc_info=True)
+        return {
+            "status": "error",
+            "worker_running": False,
+            "error": str(exc),
+        }
 
 
 @app.get("/", tags=["health"])

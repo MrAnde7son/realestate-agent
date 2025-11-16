@@ -30,10 +30,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles, Printer } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
+import { authAPI } from '@/lib/auth'
 import { useToast } from '@/hooks/use-toast'
 import { parseShareMessageResponse } from './shareMessage'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
@@ -851,6 +852,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
+  const [landingPageGenerating, setLandingPageGenerating] = useState(false)
   const [watchingAsset, setWatchingAsset] = useState(false)
   const [deletingAsset, setDeletingAsset] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -2352,6 +2354,69 @@ useDedupedEffect(() => {
     setAlertModalOpen(true)
   }, [isAuthenticated, id, toast, router])
 
+  const handleGenerateLandingPage = useCallback(async () => {
+    if (!id) return
+    setLandingPageGenerating(true)
+    try {
+      const token = authAPI.getAccessToken()
+      if (!token) {
+        throw new Error('יש להתחבר למערכת כדי ליצור דף נחיתה')
+      }
+
+      const response = await fetch(`/api/assets/${id}/landing-page`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const rawText = await response.text().catch(() => '')
+        let message = 'יצירת דף נחיתה נכשלה'
+        if (rawText) {
+          try {
+            const payload = JSON.parse(rawText)
+            message = payload?.error || payload?.details || message
+          } catch {
+            if (rawText.trim()) {
+              message = rawText.trim()
+            }
+          }
+        }
+        throw new Error(message)
+      }
+
+      const blob = await response.blob()
+      const contentDisposition = response.headers.get('Content-Disposition') || ''
+      const match = contentDisposition.match(/filename="?([^";]+)"?/i)
+      const filename = match?.[1] ?? `asset-${id}-landing-page.html`
+
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: 'דף הנחיתה הוכן',
+        description: 'הקובץ ירד למחשב שלך וניתן להדפסה ולשיתוף',
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'יצירת דף נחיתה נכשלה'
+      toast({
+        title: 'שגיאה ביצירת דף נחיתה',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setLandingPageGenerating(false)
+    }
+  }, [id, toast])
+
   const handleDeleteAsset = React.useCallback(async () => {
     if (!id) return
 
@@ -2967,8 +3032,26 @@ useDedupedEffect(() => {
                       </>
                     )}
                   </DropdownMenuItem>
+                  {isAuthenticated && (user?.role === 'broker' || user?.role === 'admin') && (
+                    <DropdownMenuItem
+                      onClick={handleGenerateLandingPage}
+                      disabled={landingPageGenerating}
+                    >
+                      {landingPageGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                          מכין דף נחיתה...
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="h-4 w-4 ms-2" />
+                          צור דף נחיתה
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => setShareModal(true)}
                   >
                     <Share2 className="h-4 w-4 ms-2" />

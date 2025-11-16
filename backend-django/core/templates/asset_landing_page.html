@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ address }} - דף נכס</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Assistant', 'Heebo', 'Rubik', Arial, sans-serif;
+        background: #f3f4f6;
+        margin: 0;
+        padding: 32px;
+        color: #0f172a;
+      }
+      .page {
+        max-width: 960px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+      }
+      header.hero {
+        padding: 32px;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 64, 175, 0.85));
+        color: #fff;
+        position: relative;
+      }
+      header.hero::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: url('{{ hero_image }}');
+        background-size: cover;
+        background-position: center;
+        opacity: {% if hero_image %}0.25{% else %}0{% endif %};
+        z-index: 0;
+      }
+      header.hero > * {
+        position: relative;
+        z-index: 1;
+      }
+      .hero h1 {
+        margin: 0;
+        font-size: 32px;
+        font-weight: 700;
+      }
+      .hero .location {
+        margin-top: 8px;
+        opacity: 0.85;
+        font-size: 18px;
+      }
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .badge {
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        font-size: 13px;
+        background: rgba(15, 23, 42, 0.35);
+      }
+      .hero-stats {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 16px;
+      }
+      .hero-stats .card {
+        padding: 18px;
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.45);
+      }
+      .hero-stats .label {
+        font-size: 13px;
+        opacity: 0.85;
+      }
+      .hero-stats .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 6px;
+      }
+      main {
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+      .section {
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid #e2e8f0;
+      }
+      .section h2 {
+        margin: 0 0 12px;
+        font-size: 20px;
+        color: #0f172a;
+      }
+      .description {
+        line-height: 1.8;
+        white-space: pre-line;
+        color: #1f2937;
+        font-size: 16px;
+      }
+      .details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .detail {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        background: #fafafa;
+      }
+      .detail .label {
+        font-size: 12px;
+        color: #6b7280;
+      }
+      .detail .value {
+        font-size: 15px;
+        font-weight: 600;
+        margin-top: 4px;
+      }
+      .features-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .feature-chip {
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #1e3a8a;
+        font-size: 13px;
+        border: 1px solid #c7d2fe;
+      }
+      .analysis-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+        margin-top: 12px;
+      }
+      .analysis-card {
+        border-radius: 16px;
+        padding: 18px;
+        background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+        border: 1px solid #c7d2fe;
+      }
+      .analysis-card .label {
+        font-size: 13px;
+        color: #4338ca;
+      }
+      .analysis-card .value {
+        font-size: 20px;
+        font-weight: 700;
+        margin-top: 8px;
+        color: #312e81;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+      }
+      .gallery img {
+        width: 100%;
+        border-radius: 16px;
+        object-fit: cover;
+        height: 180px;
+      }
+      .contact-card {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: center;
+        border-radius: 16px;
+        border: 1px solid #dbeafe;
+        background: #eff6ff;
+        padding: 24px;
+      }
+      .contact-info h3 {
+        margin: 0;
+        font-size: 22px;
+      }
+      .contact-info p {
+        margin: 4px 0;
+        color: #475569;
+      }
+      .contact-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .contact-actions a {
+        text-decoration: none;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: #1d4ed8;
+        color: #fff;
+        font-weight: 600;
+      }
+      footer {
+        padding: 0 32px 32px;
+        color: #475569;
+        font-size: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      @media print {
+        body {
+          background: #fff;
+          padding: 0;
+        }
+        .page {
+          box-shadow: none;
+          border-radius: 0;
+        }
+        header.hero {
+          border-radius: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <h1>{{ address }}</h1>
+        {% if city_line %}<div class="location">{{ city_line }}</div>{% endif %}
+        {% if summary_line %}<div class="location" style="margin-top:4px;">{{ summary_line }}</div>{% endif %}
+        <div class="badge-row">
+          {% for badge in badges %}
+            <span class="badge">{{ badge }}</span>
+          {% endfor %}
+        </div>
+        <div class="hero-stats">
+          {% for stat in stats %}
+            <div class="card">
+              <div class="label">{{ stat.label }}</div>
+              <div class="value">{{ stat.value }}</div>
+            </div>
+          {% endfor %}
+          {% if rent_price_display %}
+            <div class="card">
+              <div class="label">שכירות חודשית</div>
+              <div class="value">{{ rent_price_display }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </header>
+      <main>
+        <section class="section">
+          <h2>תיאור הנכס</h2>
+          <div class="description">{{ marketing_description }}</div>
+          <div class="details-grid">
+            {% for item in details %}
+              <div class="detail">
+                <div class="label">{{ item.label }}</div>
+                <div class="value">{{ item.value }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% if analysis_cards %}
+          <section class="section">
+            <h2>מדדים מרכזיים</h2>
+            <div class="analysis-cards">
+              {% for card in analysis_cards %}
+                <div class="analysis-card">
+                  <div class="label">{{ card.label }}</div>
+                  <div class="value">{{ card.value }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+        {% if features %}
+          <section class="section">
+            <h2>מאפייני הנכס</h2>
+            <div class="features-list">
+              {% for feature in features %}
+                <span class="feature-chip">{{ feature }}</span>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+        {% if gallery_photos %}
+          <section class="section">
+            <h2>גלריית תמונות</h2>
+            <div class="gallery">
+              {% for photo in gallery_photos %}
+                <img src="{{ photo }}" alt="צילום של {{ address }}" />
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+        <section class="section contact-card">
+          <div class="contact-info">
+            <h3>{{ contact.name }}</h3>
+            <p>{{ contact.company }} · {{ contact.role }}</p>
+            {% if contact.phone %}<p>טלפון: {{ contact.phone }}</p>{% endif %}
+            {% if contact.email %}<p>דוא"ל: {{ contact.email }}</p>{% endif %}
+          </div>
+          <div class="contact-actions">
+            {% if contact.phone_href %}<a href="{{ contact.phone_href }}">התקשרו עכשיו</a>{% endif %}
+            {% if contact.email_href %}<a href="{{ contact.email_href }}" style="background:#0f172a;">שלחו מייל</a>{% endif %}
+            {% if listing_url %}<a href="{{ listing_url }}" style="background:#059669;">מודעת המקור</a>{% endif %}
+          </div>
+        </section>
+      </main>
+      <footer>
+        <div>
+          {{ asset_reference }} · הודפס ב- {{ generated_at|date:"d.m.Y H:i" }}
+        </div>
+        <div>
+          {% if asset_url %}לצפייה בכל הנתונים: {{ asset_url }}{% endif %}
+          {% if map_link %} · מפת גוגל: {{ map_link }}{% endif %}
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

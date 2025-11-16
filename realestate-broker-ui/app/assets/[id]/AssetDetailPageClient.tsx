@@ -2363,12 +2363,21 @@ useDedupedEffect(() => {
         throw new Error('יש להתחבר למערכת כדי ליצור דף נחיתה')
       }
 
+      console.log('🔄 Generating landing page for asset:', id)
       const response = await fetch(`/api/assets/${id}/landing-page`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
         },
         credentials: 'include',
+      })
+
+      console.log('📥 Landing page response:', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentDisposition: response.headers.get('content-disposition'),
       })
 
       if (!response.ok) {
@@ -2387,25 +2396,62 @@ useDedupedEffect(() => {
         throw new Error(message)
       }
 
+      // Check if response is actually HTML
+      const contentType = response.headers.get('content-type') || ''
+      const isHTML = contentType.includes('text/html') || contentType.includes('html')
+      
+      if (!isHTML) {
+        // If not HTML, try to parse as JSON error
+        const text = await response.text()
+        console.warn('⚠️ Response is not HTML:', { contentType, text: text.substring(0, 200) })
+        try {
+          const errorData = JSON.parse(text)
+          throw new Error(errorData.error || errorData.message || 'Response is not HTML')
+        } catch {
+          throw new Error(`Unexpected response type: ${contentType}`)
+        }
+      }
+
+      // Read response as blob
       const blob = await response.blob()
+      console.log('📦 Blob created:', {
+        size: blob.size,
+        type: blob.type,
+      })
+
+      if (blob.size === 0) {
+        throw new Error('Landing page is empty')
+      }
+
       const contentDisposition = response.headers.get('Content-Disposition') || ''
       const match = contentDisposition.match(/filename="?([^";]+)"?/i)
       const filename = match?.[1] ?? `asset-${id}-landing-page.html`
+      console.log('📄 Filename:', filename)
 
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = filename
+      link.style.display = 'none'
       document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      console.log('⬇️ Triggering download...')
+      
+      // Use setTimeout to ensure the link is in the DOM before clicking
+      setTimeout(() => {
+        link.click()
+        // Clean up after a short delay
+        setTimeout(() => {
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+        }, 100)
+      }, 0)
 
       toast({
         title: 'דף הנחיתה הוכן',
         description: 'הקובץ ירד למחשב שלך וניתן להדפסה ולשיתוף',
       })
     } catch (error) {
+      console.error('❌ Landing page generation error:', error)
       const message = error instanceof Error ? error.message : 'יצירת דף נחיתה נכשלה'
       toast({
         title: 'שגיאה ביצירת דף נחיתה',

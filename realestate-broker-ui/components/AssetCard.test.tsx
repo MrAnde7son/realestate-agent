@@ -85,4 +85,22 @@ describe('AssetCard', () => {
     expect(push).not.toHaveBeenCalled()
     expect(createObjectURLMock).toHaveBeenCalled()
   })
+
+  it('renders watch button and triggers handler', () => {
+    const onToggleWatch = vi.fn()
+    render(<AssetCard asset={mockAsset} onToggleWatch={onToggleWatch} />)
+
+    const watchButton = screen.getByRole('button', { name: 'הוסף לרשימת המעקב' })
+    fireEvent.click(watchButton)
+
+    expect(push).not.toHaveBeenCalled()
+    expect(onToggleWatch).toHaveBeenCalledWith(mockAsset)
+  })
+
+  it('indicates watched state', () => {
+    render(<AssetCard asset={{ ...mockAsset, isWatched: true }} onToggleWatch={() => {}} />)
+
+    const watchButton = screen.getByRole('button', { name: 'הסר מרשימת המעקב' })
+    expect(watchButton).toHaveAttribute('aria-pressed', 'true')
+  })
 })

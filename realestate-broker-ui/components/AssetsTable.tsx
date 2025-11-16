@@ -2550,7 +2550,12 @@ export default function AssetsTable({
             </div>
           ) : (
             data.map(asset => (
-              <AssetCard key={asset.id} asset={asset} />
+              <AssetCard
+                key={asset.id}
+                asset={asset}
+                onToggleWatch={onToggleWatch}
+                watchLoading={watchingAssetIds?.has(asset.id)}
+              />
             ))
           )}
         </div>

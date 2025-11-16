@@ -8,7 +8,7 @@ import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
-import { Bed, Bath, Ruler, Eye, FileText } from 'lucide-react'
+import { Bed, Bath, Ruler, Eye, FileText, Heart } from 'lucide-react'
 import ImageGallery from './ImageGallery'
 
 function exportAssetCsv(asset: Asset) {
@@ -55,13 +55,17 @@ function exportAssetCsv(asset: Asset) {
 
 interface AssetCardProps {
   asset: Asset
+  onToggleWatch?: (asset: Asset) => void
+  watchLoading?: boolean
 }
 
-export default function AssetCard({ asset }: AssetCardProps) {
+export default function AssetCard({ asset, onToggleWatch, watchLoading = false }: AssetCardProps) {
   const status = asset.assetStatus
   const statusVariant = status === 'done' ? 'success' : status === 'failed' ? 'error' : 'warning'
   const statusLabel =
     status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
+  const isWatched = asset.isWatched === true
+  const watchTitle = isWatched ? 'הסר מרשימת המעקב' : 'הוסף לרשימת המעקב'
 
   const router = useRouter()
 
@@ -87,6 +91,15 @@ export default function AssetCard({ asset }: AssetCardProps) {
     [asset]
   )
 
+  const handleWatchClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      event.preventDefault()
+      onToggleWatch?.(asset)
+    },
+    [asset, onToggleWatch]
+  )
+
   return (
     <Card
       variant="elevated"
@@ -109,7 +122,27 @@ export default function AssetCard({ asset }: AssetCardProps) {
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 truncate text-sm font-bold sm:text-base">{asset.address ?? '—'}</div>
-          <Badge variant={statusVariant} className="text-xs sm:text-sm">{statusLabel}</Badge>
+          <div className="flex items-center gap-1">
+            {onToggleWatch && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 text-muted-foreground hover:text-amber-600 ${
+                  isWatched ? 'text-amber-500' : ''
+                } ${watchLoading ? 'pointer-events-none opacity-60' : ''}`}
+                aria-label={watchTitle}
+                aria-pressed={isWatched}
+                title={watchTitle}
+                disabled={watchLoading}
+                onClick={handleWatchClick}
+              >
+                <Heart className="h-4 w-4" fill={isWatched ? 'currentColor' : 'none'} />
+                <span className="sr-only">{watchTitle}</span>
+              </Button>
+            )}
+            <Badge variant={statusVariant} className="text-xs sm:text-sm">{statusLabel}</Badge>
+          </div>
         </div>
         <div className="text-xl font-semibold text-primary sm:text-2xl">
           {asset.price != null ? fmtCurrency(asset.price) : '—'}

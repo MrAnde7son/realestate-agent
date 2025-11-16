@@ -40,6 +40,11 @@ urlpatterns = [
         name='asset_share_message',
     ),
     path(
+        '<int:asset_id>/landing-page',
+        views.asset_landing_page,
+        name='asset_landing_page',
+    ),
+    path(
         '<int:asset_id>/watch',
         views.asset_watch,
         name='asset_watch',

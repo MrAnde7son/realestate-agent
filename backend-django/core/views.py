@@ -6,15 +6,17 @@ import os
 import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
-from typing import Optional, Any
+from typing import Optional, Any, Iterable, List
 from pathlib import Path
 
-from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse
+from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.utils import timezone
+from django.utils.text import slugify
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -157,6 +159,7 @@ from .utils.listings import (
     parse_float,
     parse_int,
 )
+from urllib.parse import quote_plus
 
 User = get_user_model()
 
@@ -4082,6 +4085,450 @@ def asset_plans(request, asset_id):
             {"error": "Failed to retrieve plans", "details": str(e)}, status=500
         )
 
+
+def _landing_numeric(value: Any) -> Optional[float]:
+    """Convert raw numeric-like values to floats for presentation."""
+
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, Decimal):
+        return float(value)
+    try:
+        cleaned = str(value).replace(",", "").strip()
+        if not cleaned:
+            return None
+        return float(cleaned)
+    except (TypeError, ValueError):
+        return None
+
+
+def _format_currency(value: Any) -> Optional[str]:
+    number = _landing_numeric(value)
+    if number is None:
+        return None
+    return f"₪{number:,.0f}"
+
+
+def _format_area(value: Any) -> Optional[str]:
+    number = _landing_numeric(value)
+    if number is None:
+        return None
+    return f"{number:,.0f} מ\"ר"
+
+
+def _format_rooms_display(value: Any, display_hint: Optional[str] = None) -> Optional[str]:
+    normalized = format_rooms_value(value) or display_hint
+    if not normalized:
+        return None
+    stripped = normalized.strip()
+    if not stripped:
+        return None
+    if stripped.replace(".", "", 1).isdigit():
+        return f"{stripped} חדרים"
+    return stripped
+
+
+def _is_affirmative(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return float(value) > 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if not normalized:
+            return False
+        if normalized in {"1", "true", "yes", "on", "y", "כן", "יש"}:
+            return True
+        if normalized in {"0", "false", "no", "off", "לא", "אין"}:
+            return False
+    return bool(value)
+
+
+def _append_unique(collection: List[str], label: Optional[str]) -> None:
+    if not label:
+        return
+    cleaned = label.strip()
+    if cleaned and cleaned not in collection:
+        collection.append(cleaned)
+
+
+def _collect_feature_labels(*sources: Any) -> List[str]:
+    labels: List[str] = []
+    for source in sources:
+        if not source:
+            continue
+        if isinstance(source, dict):
+            iterable = source.values()
+        elif isinstance(source, (list, tuple, set)):
+            iterable = source
+        else:
+            iterable = [source]
+        for item in iterable:
+            if isinstance(item, str):
+                _append_unique(labels, item)
+            elif isinstance(item, dict):
+                for nested in item.values():
+                    if isinstance(nested, str):
+                        _append_unique(labels, nested)
+    return labels
+
+
+def _sanitize_phone(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    digits = re.sub(r"[^0-9+]", "", value)
+    return digits or None
+
+
+def _format_floor_label(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        return f"קומה {int(value)}"
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.lower() == "ground":
+        return "קומת קרקע"
+    if text.lower() == "basement":
+        return "מרתף"
+    if text.isdigit():
+        return f"קומה {text}"
+    return text
+
+
+def _listing_type_label(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = str(value).strip().lower()
+    mapping = {
+        "sale": "מכירה",
+        "rent": "השכרה",
+        "commercial": "מסחרי",
+    }
+    return mapping.get(normalized, value)
+
+
+def _ad_type_label(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = str(value).strip().lower()
+    mapping = {
+        "private": "פרטי",
+        "broker": "מתווך",
+        "agency": "סוכנות",
+        "agent": "מתווך",
+    }
+    return mapping.get(normalized, value)
+
+
+def _build_contact_block(asset_payload: Any, primary_listing: dict, user) -> dict:
+    info = primary_listing.get("contactInfo") if isinstance(primary_listing, dict) else {}
+    if not isinstance(info, dict):
+        info = {}
+    contact_name = (
+        asset_payload.get("contact_name")
+        or info.get("name")
+        or info.get("agent")
+        or user.get_full_name()
+        or user.company
+        or user.email
+    )
+    contact_phone = (
+        asset_payload.get("contact_phone")
+        or info.get("phone")
+        or info.get("brokerPhone")
+        or getattr(user, "phone", None)
+    )
+    contact_email = info.get("email") or getattr(user, "email", None)
+    sanitized = _sanitize_phone(contact_phone)
+    return {
+        "name": contact_name,
+        "phone": contact_phone,
+        "phone_href": f"tel:{sanitized}" if sanitized else None,
+        "email": contact_email,
+        "email_href": f"mailto:{contact_email}" if contact_email else None,
+        "company": getattr(user, "company", None) or "צוות התיווך שלכם",
+        "role": user.get_role_display() if hasattr(user, "get_role_display") else "Broker",
+    }
+
+
+def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, user) -> dict:
+    primary_listing = asset_payload.get("primary_listing") or {}
+    if not isinstance(primary_listing, dict):
+        primary_listing = {}
+
+    address = (
+        asset_payload.get("address")
+        or listing_data.get("address")
+        or asset.normalized_address
+        or " ".join(filter(None, [asset.street, asset.city]))
+    )
+    city = asset_payload.get("city") or asset.city
+    neighborhood = asset_payload.get("neighborhood") or asset.neighborhood
+    city_line = " · ".join(filter(None, [city, neighborhood]))
+
+    price_display = _format_currency(
+        listing_data.get("price") or asset_payload.get("price")
+    )
+    ppm_value = listing_data.get("pricePerSqm") or asset_payload.get("price_per_sqm")
+    price_per_sqm_display = None
+    ppm_number = _landing_numeric(ppm_value)
+    if ppm_number is not None:
+        price_per_sqm_display = f"₪{ppm_number:,.0f} למ\"ר"
+
+    rent_price_display = _format_currency(
+        listing_data.get("rentPrice")
+        or asset_payload.get("rentPrice")
+        or asset_payload.get("rent_price")
+    )
+
+    rooms_display = _format_rooms_display(
+        listing_data.get("rooms")
+        or asset_payload.get("rooms"),
+        primary_listing.get("roomsDisplay")
+    )
+    area_display = _format_area(
+        listing_data.get("netSqm")
+        or listing_data.get("area")
+        or asset_payload.get("area")
+    )
+    floor_display = _format_floor_label(
+        asset_payload.get("floor")
+        or primary_listing.get("floor")
+    )
+    type_display = (
+        asset_payload.get("type")
+        or asset_payload.get("building_type")
+        or listing_data.get("type")
+    )
+    listing_type_label = _listing_type_label(
+        primary_listing.get("listingType")
+        or asset_payload.get("listing_type")
+    )
+    ad_type_label = _ad_type_label(
+        primary_listing.get("adType")
+        or asset_payload.get("ad_type")
+    )
+
+    summary_parts = [rooms_display, area_display, type_display]
+    summary_line = " · ".join(filter(None, summary_parts))
+
+    feature_labels = _collect_feature_labels(
+        primary_listing.get("features"),
+        listing_data.get("features"),
+    )
+
+    if _is_affirmative(asset_payload.get("elevator")):
+        _append_unique(feature_labels, "מעלית")
+    parking_spaces = _landing_numeric(asset_payload.get("parking_spaces"))
+    if parking_spaces:
+        if parking_spaces == 1:
+            _append_unique(feature_labels, "חניה")
+        else:
+            _append_unique(feature_labels, f"{int(parking_spaces)} חניות")
+    balcony_area = _landing_numeric(asset_payload.get("balcony_area"))
+    if balcony_area:
+        _append_unique(feature_labels, f"מרפסת {int(balcony_area)} מ\"ר")
+    if _is_affirmative(asset_payload.get("storage_room")):
+        _append_unique(feature_labels, "מחסן")
+    if _is_affirmative(asset_payload.get("air_conditioning")):
+        _append_unique(feature_labels, "מיזוג אוויר")
+    if _is_affirmative(asset_payload.get("furnished")):
+        _append_unique(feature_labels, "מרוהט")
+    if _is_affirmative(asset_payload.get("renovated")):
+        _append_unique(feature_labels, "משופץ")
+
+    feature_labels = feature_labels[:12]
+
+    stats = []
+    for label, value in (
+        ("מחיר", price_display),
+        ("מחיר למ\"ר", price_per_sqm_display),
+        ("חדרים", rooms_display),
+        ("שטח", area_display),
+    ):
+        if value:
+            stats.append({"label": label, "value": value})
+
+    details = []
+    for label, value in (
+        ("סוג נכס", type_display),
+        ("סוג עסקה", listing_type_label),
+        ("סוג מפרסם", ad_type_label),
+        ("מיקום", city_line or city),
+        ("קומה", floor_display),
+        ("שכונה", neighborhood),
+        ("יעוד", asset_payload.get("zoning")),
+        ("מצב היתרים", asset_payload.get("permit_status")),
+        ("שנת בנייה", asset_payload.get("year_built")),
+        ("זכויות בנייה", asset_payload.get("building_rights")),
+    ):
+        if value:
+            details.append({"label": label, "value": value})
+
+    badges: List[str] = []
+    if _is_affirmative(primary_listing.get("exclusive")):
+        badges.append("בלעדיות")
+    if listing_type_label:
+        badges.append(listing_type_label)
+    if listing_data.get("priceDropped"):
+        badges.append("ירידת מחיר")
+    published_days = primary_listing.get("publishedDays") or listing_data.get("publishedDays")
+    if isinstance(published_days, int) and published_days <= 30:
+        badges.append("חדש בשוק")
+
+    highlights: List[str] = []
+    if asset_payload.get("openSpacesNearby"):
+        highlights.append("קרבה לשטחים ירוקים ומרחבים פתוחים")
+    if asset_payload.get("publicTransport"):
+        highlights.append("נגישות גבוהה לתחבורה ציבורית")
+    if asset_payload.get("nearbyProjects"):
+        highlights.append("התחדשות עירונית בסביבה")
+
+    analysis_cards: List[dict[str, str]] = []
+    cap_rate = _landing_numeric(asset_payload.get("capRatePct"))
+    if cap_rate is not None:
+        analysis_cards.append({"label": "תשואה צפויה", "value": f"{cap_rate:.1f}%"})
+    price_gap = _landing_numeric(asset_payload.get("priceGapPct"))
+    if price_gap is not None:
+        direction = "זול מהשוק" if price_gap < 0 else "יקר מהשוק"
+        analysis_cards.append({"label": "פער מהשוק", "value": f"{abs(price_gap):.0f}% {direction}"})
+    investment_potential = asset_payload.get("investmentPotential")
+    if investment_potential:
+        analysis_cards.append({"label": "פוטנציאל השקעה", "value": investment_potential})
+
+    description = (
+        primary_listing.get("description")
+        or listing_data.get("description")
+    )
+    if description:
+        description = str(description).strip()
+    if not description:
+        fragments = [rooms_display, type_display, city]
+        description = " · ".join(filter(None, fragments)) or "נכס מוביל להשקעה ולמגורים"
+
+    contact = _build_contact_block(asset_payload, primary_listing, user)
+
+    listing_url = primary_listing.get("url") or listing_data.get("url")
+    frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+    asset_url = f"{frontend_url}/assets/{asset.id}" if frontend_url else None
+
+    map_link = None
+    if address:
+        query = quote_plus(" ".join(filter(None, [address, city])))
+        map_link = f"https://www.google.com/maps/search/?api=1&query={query}"
+
+    posted_at_display = None
+    posted_date = (
+        primary_listing.get("datePosted")
+        or primary_listing.get("date_posted")
+        or listing_data.get("datePosted")
+    )
+    parsed_posted = parse_date_value(posted_date)
+    if parsed_posted:
+        try:
+            local_dt = timezone.localtime(parsed_posted)
+        except Exception:
+            local_dt = parsed_posted
+        posted_at_display = local_dt.strftime("%d.%m.%Y")
+
+    photos: List[str] = []
+    for candidate in (
+        primary_listing.get("photos"),
+        asset_payload.get("photos"),
+        primary_listing.get("images"),
+    ):
+        if not candidate:
+            continue
+        for photo in candidate:
+            if isinstance(photo, str) and photo and photo not in photos:
+                photos.append(photo)
+    hero_image = photos[0] if photos else None
+    gallery_photos = photos[1:7]
+
+    return {
+        "asset": asset,
+        "asset_id": asset.id,
+        "asset_reference": f"נכס #{asset.id}",
+        "asset_data": asset_payload,
+        "listing": listing_data,
+        "primary_listing": primary_listing,
+        "address": address,
+        "city_line": city_line,
+        "price_display": price_display,
+        "price_per_sqm_display": price_per_sqm_display,
+        "rent_price_display": rent_price_display,
+        "rooms_display": rooms_display,
+        "area_display": area_display,
+        "floor_display": floor_display,
+        "type_display": type_display,
+        "listing_type_label": listing_type_label,
+        "ad_type_label": ad_type_label,
+        "summary_line": summary_line,
+        "badges": badges,
+        "stats": stats,
+        "details": details,
+        "features": feature_labels,
+        "highlights": highlights,
+        "analysis_cards": analysis_cards,
+        "marketing_description": description,
+        "contact": contact,
+        "listing_url": listing_url,
+        "asset_url": asset_url,
+        "map_link": map_link,
+        "source_label": primary_listing.get("source") or listing_data.get("source"),
+        "posted_date": posted_at_display,
+        "gallery_photos": gallery_photos,
+        "hero_image": hero_image,
+        "generated_at": timezone.now(),
+        "frontend_url": frontend_url,
+    }
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def asset_landing_page(request, asset_id):
+    """Generate a printable HTML landing page with key asset details."""
+
+    try:
+        asset = Asset.objects.get(id=asset_id)
+    except Asset.DoesNotExist:
+        return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    user = request.user
+    if getattr(user, "role", None) not in {User.Role.BROKER, User.Role.ADMIN} and not getattr(
+        user, "is_superuser", False
+    ):
+        return Response(
+            {"error": "Landing page generation is limited to brokers or admins"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    serializer = AssetSerializer(asset, context={"request": request})
+    asset_payload = serializer.data
+    source_records = SourceRecord.objects.filter(asset_id=asset.id).order_by("-fetched_at")
+    listing_data = build_listing(asset, source_records)
+
+    context = _build_landing_page_context(asset, asset_payload, listing_data, user)
+    html = render_to_string("asset_landing_page.html", context)
+    filename_base = slugify(context.get("address") or f"asset-{asset_id}", allow_unicode=True) or f"asset-{asset_id}"
+    filename = f"{filename_base}-landing-page.html"
+
+    track_feature_usage(
+        "marketing_landing_page",
+        user=user,
+        asset_id=asset_id,
+        meta={"format": "html"},
+    )
+    logger.info("Generated broker landing page for asset %s by user %s", asset_id, getattr(user, "id", None))
+
+    response = HttpResponse(html, content_type="text/html; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @api_view(["POST"])

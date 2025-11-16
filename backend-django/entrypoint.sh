@@ -38,8 +38,6 @@ if [ $db_connected -eq 0 ]; then
 fi
 
 # Run database migrations before starting the application.
-echo "Running migrations..."
-python manage.py makemigrations || echo "Warning: makemigrations failed or no changes"
 echo "Applying migrations..."
 if ! python manage.py migrate --noinput 2>&1; then
     echo "ERROR: Migrations failed! Exiting..."

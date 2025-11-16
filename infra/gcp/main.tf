@@ -153,7 +153,7 @@ resource "google_redis_instance" "primary" {
 }
 
 locals {
-  redis_url = "redis://${google_redis_instance.primary.host}:${google_redis_instance.primary.port}"
+  redis_url = "redis://${google_redis_instance.primary.host}:${google_redis_instance.primary.port}/0"
   
   # Use Unix socket for Cloud SQL when db_host is set to use Cloud SQL Proxy
   # Format: /cloudsql/PROJECT_ID:REGION:INSTANCE_NAME

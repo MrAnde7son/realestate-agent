@@ -176,7 +176,7 @@ export default function AuthPage() {
         {!isLogin && (
           <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4 text-center">
             <p className="text-sm text-teal-900 dark:text-teal-100 font-medium">
-              כל הפיצ'רים פתוחים למשתמשים מוקדמים – ללא הגבלה וללא תשלום.
+              כל הפיצ&apos;רים פתוחים למשתמשים מוקדמים – ללא הגבלה וללא תשלום.
             </p>
           </div>
         )}
@@ -299,7 +299,7 @@ export default function AuthPage() {
                   התחבר עם Google
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
-                  ללא צורך בכרטיס אשראי. כל הפיצ'רים זמינים בחינם בתקופת ההרצה.
+                  ללא צורך בכרטיס אשראי. כל הפיצ&apos;רים זמינים בחינם בתקופת ההרצה.
                 </p>
               </div>
             </CardContent>
@@ -442,7 +442,7 @@ export default function AuthPage() {
                     {isLoading ? 'נרשם...' : 'הירשם'}
                   </Button>
                   <p className="text-xs text-center text-muted-foreground mt-1">
-                    ללא צורך בכרטיס אשראי. כל הפיצ'רים זמינים בחינם בתקופת ההרצה.
+                    ללא צורך בכרטיס אשראי. כל הפיצ&apos;רים זמינים בחינם בתקופת ההרצה.
                   </p>
                 </div>
               </form>

@@ -46,8 +46,9 @@ pytest-cov>=4.0.0
 coverage>=7.0.0
 pytest-mock>=3.10.0
 
-# Production (uncomment as needed)
-gunicorn>=20.1.0
+# Production
+gunicorn>=20.1.0  # For WSGI (legacy/fallback)
+uvicorn[standard]>=0.23.0  # For ASGI (required for MCP tool execution)
 # whitenoise>=6.0.0
 # django-storages>=1.11.0
 

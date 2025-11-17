@@ -44,6 +44,7 @@ EXPOSE 8000
 # Use an entrypoint that applies migrations before starting the app
 ENTRYPOINT ["/app/backend-django/entrypoint.sh"]
 
-# Launch gunicorn directly for the backend-only image
+# Launch uvicorn with ASGI for MCP tool execution support
 # Cloud Run sets PORT automatically, but we default to 8000 for local development
-CMD ["sh", "-c", "gunicorn broker_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -"]
+# Using ASGI is required for FastMCP HTTP transport to handle tool calls from ChatGPT
+CMD ["sh", "-c", "uvicorn broker_backend.asgi:application --host 0.0.0.0 --port ${PORT:-8000} --workers 2 --timeout-keep-alive 120 --access-log --log-level info"]

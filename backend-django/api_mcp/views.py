@@ -17,6 +17,65 @@ from .server import mcp
 logger = logging.getLogger(__name__)
 
 
+def _get_mcp_tools_list():
+    """
+    Get tools list from FastMCP server in MCP protocol format.
+    
+    Returns a list of tools formatted according to MCP protocol specification.
+    """
+    try:
+        # Use the tool manager to get tools directly
+        if hasattr(mcp, '_tool_manager'):
+            tool_manager = mcp._tool_manager
+            tools = []
+            
+            # Get all registered tools from _tools dict
+            if hasattr(tool_manager, '_tools'):
+                for tool_name, tool_obj in tool_manager._tools.items():
+                    try:
+                        tool_info = {
+                            "name": tool_name,
+                            "description": getattr(tool_obj, 'description', ''),
+                        }
+                        
+                        # Get input schema - FastMCP FunctionTool has parameters dict
+                        # The parameters dict contains the Pydantic model for the tool
+                        if hasattr(tool_obj, 'parameters') and isinstance(tool_obj.parameters, dict):
+                            # Parameters is a dict, try to get schema from the model if available
+                            # For now, create a basic schema - FastMCP will handle the actual schema
+                            # when tools are called via ASGI transport
+                            tool_info["inputSchema"] = {
+                                "type": "object",
+                                "properties": {},
+                                "description": "Tool parameters. See tool description for details."
+                            }
+                        elif hasattr(tool_obj, 'inputSchema'):
+                            tool_info["inputSchema"] = tool_obj.inputSchema
+                        else:
+                            # Fallback: create minimal schema
+                            tool_info["inputSchema"] = {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        
+                        tools.append(tool_info)
+                    except Exception as e:
+                        logger.warning(f"Error processing tool {tool_name}: {e}")
+                        continue
+            
+            if tools:
+                logger.info(f"Successfully retrieved {len(tools)} tools from FastMCP tool manager")
+                return tools
+        
+        # Fallback: log warning
+        logger.warning("Could not access FastMCP tool manager. Tools may not be available via Django view.")
+        return []
+        
+    except Exception as e:
+        logger.exception(f"Error getting MCP tools list: {e}")
+        return []
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST", "OPTIONS"])
 def mcp_endpoint(request: HttpRequest) -> HttpResponse:
@@ -44,20 +103,8 @@ def mcp_endpoint(request: HttpRequest) -> HttpResponse:
     # Handle GET requests (health check, server info)
     if request.method == "GET":
         try:
-            # Get available tools from the MCP server
-            tools_info = []
-            if hasattr(mcp, 'list_tools'):
-                try:
-                    tools = mcp.list_tools()
-                    tools_info = [
-                        {
-                            "name": tool.name if hasattr(tool, 'name') else str(tool),
-                            "description": getattr(tool, 'description', '')
-                        }
-                        for tool in tools
-                    ]
-                except Exception as e:
-                    logger.warning(f"Could not list MCP tools: {e}")
+            # Get available tools from the MCP server using our helper function
+            tools_info = _get_mcp_tools_list()
             
             # Build OAuth metadata URL (MCP-specific endpoints for ChatGPT integration)
             base_url = request.build_absolute_uri('/').rstrip('/')
@@ -149,14 +196,56 @@ def mcp_endpoint(request: HttpRequest) -> HttpResponse:
                     }
                 })
             elif method == "tools/list":
-                # List available tools
+                # List available tools from FastMCP server
+                try:
+                    tools = _get_mcp_tools_list()
+                    logger.info(f"Returning {len(tools)} tools for tools/list request")
+                    return JsonResponse({
+                        "jsonrpc": jsonrpc_version,
+                        "id": request_id,
+                        "result": {
+                            "tools": tools
+                        }
+                    })
+                except Exception as e:
+                    logger.exception(f"Error listing tools: {e}")
+                    return JsonResponse({
+                        "jsonrpc": jsonrpc_version,
+                        "id": request_id,
+                        "error": {
+                            "code": -32603,
+                            "message": "Internal error",
+                            "data": f"Failed to list tools: {str(e)}"
+                        }
+                    }, status=500)
+            
+            elif method == "tools/call":
+                # Call a tool - Note: Tool calls require ASGI server with FastMCP HTTP transport
+                params = body.get("params", {})
+                tool_name = params.get("name")
+                
+                if not tool_name:
+                    return JsonResponse({
+                        "jsonrpc": jsonrpc_version,
+                        "id": request_id,
+                        "error": {
+                            "code": -32602,
+                            "message": "Invalid params",
+                            "data": "Tool name is required"
+                        }
+                    }, status=400)
+                
+                # Tool calls are not supported via Django WSGI view
+                # They require ASGI server with FastMCP HTTP transport
                 return JsonResponse({
                     "jsonrpc": jsonrpc_version,
                     "id": request_id,
-                    "result": {
-                        "tools": []
+                    "error": {
+                        "code": -32601,
+                        "message": "Method not supported",
+                        "data": "Tool calls require ASGI server with FastMCP HTTP transport. Please use uvicorn or daphne to run the server. See CHATGPT_INTEGRATION.md for setup instructions."
                     }
-                })
+                }, status=501)
             else:
                 # Unknown method
                 return JsonResponse({

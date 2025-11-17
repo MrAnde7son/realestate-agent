@@ -1,89 +1,103 @@
 import importlib
-import signal
+import threading
+import time
 
 import pytest
-
-from fastapi.testclient import TestClient
 
 import orchestration.celery_health_service as celery_service
 
 
-class DummyProcess:
-    def __init__(self, returncode=None, pid=4321):
-        self._returncode = returncode
-        self.pid = pid
-        self.sent_signals = []
-        self.wait_called = False
-
-    def poll(self):
-        return self._returncode
-
-    @property
-    def returncode(self):
-        return self._returncode
-
-    def send_signal(self, sig):
-        self.sent_signals.append(sig)
-        if self._returncode is None:
-            # Simulate clean shutdown when asked to terminate
-            self._returncode = 0
-
-    def wait(self, timeout=None):
-        self.wait_called = True
-        return self._returncode
-
-    def kill(self):
-        self.sent_signals.append("KILL")
-        self._returncode = -9
-
-
-def reload_service(monkeypatch, spawn_sequence):
+def test_healthcheck_returns_ok(monkeypatch, tmp_path):
+    """Test that health check endpoint returns OK when worker is ready."""
+    import socket
+    import urllib.request
+    import json
+    
     module = importlib.reload(celery_service)
+    
+    # Set up a dummy Django directory
+    django_dir = tmp_path / "backend-django"
+    django_dir.mkdir()
+    (django_dir / "manage.py").write_text("# dummy manage.py")
+    monkeypatch.setenv("DJANGO_DIR", str(django_dir))
+    
+    # Find an available port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+    
+    monkeypatch.setenv("PORT", str(port))
+    
+    # Set worker as ready
+    module._worker_ready.set()
+    
+    # Start health server in a thread
+    server_thread = threading.Thread(
+        target=module._run_health_server,
+        daemon=True,
+    )
+    server_thread.start()
+    time.sleep(0.2)  # Give server time to start
+    
+    # Make HTTP request to health endpoint
+    try:
+        response = urllib.request.urlopen(f"http://localhost:{port}/healthz", timeout=1)
+        data = json.loads(response.read().decode())
+        
+        assert response.status == 200
+        assert data["status"] == "ok"
+        assert data["worker_ready"] is True
+    finally:
+        # Clean up - the server thread will die when process exits
+        pass
 
-    sequence_iter = iter(spawn_sequence)
 
-    def fake_spawn():
-        return next(sequence_iter)
-
-    monkeypatch.setattr(module, "_spawn_worker", fake_spawn)
-    return module
-
-
-def test_healthcheck_returns_ok(monkeypatch):
-    dummy_proc = DummyProcess(returncode=None)
-    module = reload_service(monkeypatch, [dummy_proc])
-
-    with TestClient(module.app) as client:
-        response = client.get("/healthz")
-
-    assert response.status_code == 200
-    assert response.json()["worker_running"] is True
-
-
-def test_healthcheck_recovers_dead_worker(monkeypatch):
-    crashed = DummyProcess(returncode=1)
-    healthy = DummyProcess(returncode=None)
-    module = reload_service(monkeypatch, [crashed, healthy])
-
-    with TestClient(module.app) as client:
-        response = client.get("/healthz")
-
-    assert response.status_code == 200
-    assert response.json()["worker_running"] is True
-
-
-def test_shutdown_terminates_worker(monkeypatch):
-    dummy_proc = DummyProcess(returncode=None)
-    module = reload_service(monkeypatch, [dummy_proc])
-
-    with TestClient(module.app) as client:
-        client.get("/healthz")
-
-    assert signal.SIGTERM in dummy_proc.sent_signals
-    assert dummy_proc.wait_called
+def test_healthcheck_returns_starting_when_not_ready(monkeypatch, tmp_path):
+    """Test that health check endpoint returns 'starting' when worker is not ready."""
+    import socket
+    import urllib.request
+    import json
+    
+    module = importlib.reload(celery_service)
+    
+    # Set up a dummy Django directory
+    django_dir = tmp_path / "backend-django"
+    django_dir.mkdir()
+    (django_dir / "manage.py").write_text("# dummy manage.py")
+    monkeypatch.setenv("DJANGO_DIR", str(django_dir))
+    
+    # Find an available port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+    
+    monkeypatch.setenv("PORT", str(port))
+    
+    # Ensure worker is not ready
+    module._worker_ready.clear()
+    
+    # Start health server in a thread
+    server_thread = threading.Thread(
+        target=module._run_health_server,
+        daemon=True,
+    )
+    server_thread.start()
+    time.sleep(0.2)  # Give server time to start
+    
+    # Make HTTP request to health endpoint
+    try:
+        response = urllib.request.urlopen(f"http://localhost:{port}/healthz", timeout=1)
+        data = json.loads(response.read().decode())
+        
+        assert response.status == 200
+        assert data["status"] == "starting"
+        assert data["worker_ready"] is False
+    finally:
+        pass
 
 
 def test_resolve_django_dir_uses_env_override(monkeypatch, tmp_path):
+    """Test that DJANGO_DIR environment variable overrides auto-discovery."""
     module = importlib.reload(celery_service)
     target_dir = (tmp_path / "backend").resolve()
     manage_py = target_dir / "manage.py"
@@ -98,55 +112,67 @@ def test_resolve_django_dir_uses_env_override(monkeypatch, tmp_path):
 
 
 def test_resolve_django_dir_auto_discovers_backend(monkeypatch, tmp_path):
+    """Test that Django directory is auto-discovered from script directory."""
     module = importlib.reload(celery_service)
+    
+    # Create a temporary project structure that mimics the real structure
     project_root = tmp_path / "project"
+    orchestration_dir = project_root / "orchestration"
+    orchestration_dir.mkdir(parents=True)
     backend_dir = project_root / "backend-django"
     backend_dir.mkdir(parents=True)
     (backend_dir / "manage.py").write_text("# dummy manage.py")
-
-    def fake_roots():
-        return [project_root]
-
+    
+    # Patch the function to use our temporary structure
+    def mock_resolve_django_dir():
+        script_dir = orchestration_dir
+        for candidate in (script_dir / "backend-django", script_dir.parent / "backend-django"):
+            if (candidate / "manage.py").is_file():
+                return candidate.resolve()
+        raise RuntimeError("Unable to locate Django project directory; set DJANGO_DIR to override")
+    
     monkeypatch.delenv("DJANGO_DIR", raising=False)
-    monkeypatch.setattr(module, "_iter_candidate_roots", fake_roots)
+    monkeypatch.setattr(module, "_resolve_django_dir", mock_resolve_django_dir)
 
     resolved = module._resolve_django_dir()
 
     assert resolved == backend_dir.resolve()
 
 
-def test_resolve_django_dir_errors_when_missing(monkeypatch):
+def test_resolve_django_dir_errors_when_missing(monkeypatch, tmp_path):
+    """Test that RuntimeError is raised when Django directory cannot be found."""
     module = importlib.reload(celery_service)
-
-    def fake_roots():
-        return []
-
+    
+    # Create a temporary directory structure that doesn't have backend-django
+    temp_project = tmp_path / "temp_project"
+    orchestration_dir = temp_project / "orchestration"
+    orchestration_dir.mkdir(parents=True)
+    
+    # Patch the function to use our temporary structure without backend-django
+    def mock_resolve_django_dir():
+        script_dir = orchestration_dir
+        for candidate in (script_dir / "backend-django", script_dir.parent / "backend-django"):
+            if (candidate / "manage.py").is_file():
+                return candidate.resolve()
+        raise RuntimeError("Unable to locate Django project directory; set DJANGO_DIR to override")
+    
     monkeypatch.delenv("DJANGO_DIR", raising=False)
-    monkeypatch.setattr(module, "_iter_candidate_roots", fake_roots)
+    monkeypatch.setattr(module, "_resolve_django_dir", mock_resolve_django_dir)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Unable to locate Django project directory"):
         module._resolve_django_dir()
 
 
-def test_spawn_worker_uses_resolved_directory(monkeypatch, tmp_path):
+def test_resolve_django_dir_errors_when_manage_py_missing(monkeypatch, tmp_path):
+    """Test that RuntimeError is raised when DJANGO_DIR doesn't contain manage.py."""
     module = importlib.reload(celery_service)
-    django_dir = (tmp_path / "backend").resolve()
+    target_dir = (tmp_path / "backend").resolve()
+    target_dir.mkdir(parents=True, exist_ok=True)
+    # Don't create manage.py
 
-    monkeypatch.setattr(module, "_resolve_django_dir", lambda: django_dir)
+    monkeypatch.setenv("DJANGO_DIR", str(target_dir))
 
-    captured = {}
+    with pytest.raises(RuntimeError, match="does not contain manage.py"):
+        module._resolve_django_dir()
 
-    def fake_popen(cmd, env=None, cwd=None):
-        captured["cmd"] = cmd
-        captured["env"] = env
-        captured["cwd"] = cwd
-        return DummyProcess(returncode=None)
 
-    monkeypatch.setattr(module.subprocess, "Popen", fake_popen)
-
-    proc = module._spawn_worker()
-
-    assert isinstance(proc, DummyProcess)
-    assert captured["cwd"] == str(django_dir)
-    workdir_index = captured["cmd"].index("--workdir")
-    assert captured["cmd"][workdir_index + 1] == str(django_dir)

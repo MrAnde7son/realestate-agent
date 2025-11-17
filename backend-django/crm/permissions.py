@@ -12,7 +12,7 @@ def has_global_crm_access(user) -> bool:
 class HasCrmAccess(BasePermission):
     """Ensure only brokers and appraisers can access CRM features."""
 
-    message = "גישה מותרת למתווכים ושמאים בלבד."
+    message = "גישה מותרת למתווכים בלבד."
 
     allowed_roles = {"broker", "appraiser", "admin"}
 

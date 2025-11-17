@@ -15,17 +15,15 @@ try:
     
     # Check if FastMCP supports http_app method
     if hasattr(mcp, 'http_app'):
-        # Mount FastMCP HTTP app at /mcp (without trailing slash for consistency)
-        mcp_app = mcp.http_app(path="/mcp")
-        
-        # Get the lifespan from mcp_app
-        # FastMCP's http_app returns a Starlette app with lifespan
-        # The lifespan is a context manager function that initializes the task group
         import logging
         logger = logging.getLogger(__name__)
         
+        # Create FastMCP HTTP app without path prefix
+        # Starlette will handle the /mcp path prefix when mounting
+        mcp_app = mcp.http_app()
+        logger.info("FastMCP http_app created successfully")
+        
         mcp_lifespan = None
-        # Try multiple ways to get the lifespan
         if hasattr(mcp_app, 'lifespan'):
             mcp_lifespan = mcp_app.lifespan
             logger.info("FastMCP lifespan found on mcp_app.lifespan")
@@ -77,17 +75,11 @@ try:
             await django_asgi_app(scope, receive, send)
         
         # Create Starlette application with proper lifespan handling
-        # Route OAuth and well-known endpoints explicitly before mounting FastMCP
-        # This ensures they go to Django, not FastMCP
         app_kwargs = {
             "routes": [
-                # Explicitly route OAuth endpoints under /mcp to Django (before FastMCP)
                 Mount("/mcp/oauth", app=mcp_oauth_router),
                 Mount("/mcp/.well-known", app=mcp_wellknown_router),
-                # Mount FastMCP app at /mcp for MCP protocol requests
-                # This will handle everything under /mcp that doesn't match above routes
                 Mount("/mcp", app=mcp_app),
-                # Mount Django at root for everything else
                 Mount("/", app=django_router),
             ],
         }

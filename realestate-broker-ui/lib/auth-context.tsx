@@ -123,13 +123,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
       
+      // Use window.location for navigation after login to ensure cookies are sent with the request
+      // This is necessary because client-side navigation (router.push) may not send cookies
+      // to the middleware immediately after they're set
       if (finalRedirectTo && finalRedirectTo !== '/') {
-        // For relative URLs, use Next.js router
         console.log('Redirecting to relative URL:', finalRedirectTo)
-        router.push(finalRedirectTo)
+        // Use window.location.href for full page navigation to ensure cookies are sent
+        window.location.href = finalRedirectTo
       } else {
         // Default redirect to home
-        router.push('/')
+        window.location.href = '/'
       }
     } catch (error: any) {
       // Provide more specific error messages
@@ -162,13 +165,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
       
-      // If redirectTo is an absolute URL (starts with http:// or https://), use window.location
-      // Otherwise use Next.js router for internal navigation
-      if (redirectTo && (redirectTo.startsWith('http://') || redirectTo.startsWith('https://'))) {
-        window.location.href = redirectTo
-      } else {
-        router.push(redirectTo || '/')
-      }
+      // Use window.location for navigation after registration to ensure cookies are sent with the request
+      // This is necessary because client-side navigation (router.push) may not send cookies
+      // to the middleware immediately after they're set
+      const finalRedirectTo = redirectTo || '/'
+      window.location.href = finalRedirectTo
     } catch (error) {
       throw error
     } finally {

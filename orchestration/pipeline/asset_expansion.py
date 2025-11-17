@@ -179,8 +179,8 @@ def auto_expand_related_assets(
                             "location_hint": candidate.location.to_dict(),
                             "auto_created_at": timezone.now().isoformat(),
                         },
-                        created_by=user,
-                        last_updated_by=user,
+                        created_by=None,  # Auto-created assets don't count toward user's asset limit
+                        last_updated_by=None,
                     )
                 else:
                     new_asset = Asset.objects.create(
@@ -206,8 +206,8 @@ def auto_expand_related_assets(
                             "location_hint": candidate.location.to_dict(),
                             "auto_created_at": timezone.now().isoformat(),
                         },
-                        created_by=user,
-                        last_updated_by=user,
+                        created_by=None,  # Auto-created assets don't count toward user's asset limit
+                        last_updated_by=None,
                     )
         except Exception as exc:  # pragma: no cover - defensive persistence
             logger.warning(

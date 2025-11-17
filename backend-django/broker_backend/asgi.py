@@ -53,12 +53,39 @@ try:
             """Route non-MCP requests to Django."""
             await django_asgi_app(scope, receive, send)
         
+        # Wrapper to route OAuth endpoints under /mcp to Django
+        # These need to be explicitly routed before FastMCP gets them
+        # Starlette strips the /mcp/oauth prefix, so we need to restore it for Django
+        async def mcp_oauth_router(scope, receive, send):
+            """Route OAuth requests under /mcp to Django."""
+            # When mounted at /mcp/oauth, Starlette strips that prefix
+            # Restore the full path so Django can match it correctly
+            original_path = scope.get("path", "")
+            scope = dict(scope)  # Create a copy to avoid mutating the original
+            scope["path"] = "/mcp/oauth" + original_path
+            await django_asgi_app(scope, receive, send)
+        
+        # Wrapper to route well-known endpoints under /mcp to Django
+        # Starlette strips the /mcp/.well-known prefix, so we need to restore it for Django
+        async def mcp_wellknown_router(scope, receive, send):
+            """Route well-known requests under /mcp to Django."""
+            # When mounted at /mcp/.well-known, Starlette strips that prefix
+            # Restore the full path so Django can match it correctly
+            original_path = scope.get("path", "")
+            scope = dict(scope)  # Create a copy to avoid mutating the original
+            scope["path"] = "/mcp/.well-known" + original_path
+            await django_asgi_app(scope, receive, send)
+        
         # Create Starlette application with proper lifespan handling
-        # This is the recommended approach per FastMCP documentation
-        # Mount MCP app at /mcp and route everything else to Django
+        # Route OAuth and well-known endpoints explicitly before mounting FastMCP
+        # This ensures they go to Django, not FastMCP
         app_kwargs = {
             "routes": [
-                # Mount MCP app at /mcp path
+                # Explicitly route OAuth endpoints under /mcp to Django (before FastMCP)
+                Mount("/mcp/oauth", app=mcp_oauth_router),
+                Mount("/mcp/.well-known", app=mcp_wellknown_router),
+                # Mount FastMCP app at /mcp for MCP protocol requests
+                # This will handle everything under /mcp that doesn't match above routes
                 Mount("/mcp", app=mcp_app),
                 # Mount Django at root for everything else
                 Mount("/", app=django_router),

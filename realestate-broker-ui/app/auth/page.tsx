@@ -282,9 +282,6 @@ export default function AuthPage() {
                   >
                     {isLoading ? 'מתחבר...' : 'התחבר'}
                   </Button>
-                  <p className="text-xs text-center text-muted-foreground mt-1">
-                    ללא צורך בכרטיס אשראי. כל הפיצ'רים זמינים בחינם בתקופת ההרצה.
-                  </p>
                 </div>
               </form>
 

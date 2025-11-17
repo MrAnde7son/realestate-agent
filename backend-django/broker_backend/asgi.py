@@ -2,6 +2,7 @@ import os
 
 from django.core.asgi import get_asgi_application
 from starlette.applications import Starlette
+from starlette.routing import Mount
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
 
@@ -20,54 +21,58 @@ try:
         # Get the lifespan from mcp_app
         # FastMCP's http_app returns a Starlette app with lifespan
         # The lifespan is a context manager function that initializes the task group
-        mcp_lifespan = getattr(mcp_app, 'lifespan', None)
-        
-        # Log for debugging (helps identify issues in production)
         import logging
         logger = logging.getLogger(__name__)
-        if mcp_lifespan:
-            logger.info("FastMCP lifespan found, will initialize task group on startup")
-        else:
-            logger.warning("FastMCP lifespan not found on mcp_app. Task group may not initialize properly.")
         
-        # Create a custom ASGI application that routes requests
-        # This handles both MCP and Django routing while preserving lifespan
-        async def routing_app(scope, receive, send):
-            """Route requests to MCP or Django based on path."""
-            if scope["type"] == "http":
-                path = scope.get("path", "")
-                # Route MCP requests to FastMCP app
-                if path.startswith("/mcp"):
-                    await mcp_app(scope, receive, send)
-                else:
-                    # Route everything else to Django
-                    await django_asgi_app(scope, receive, send)
+        mcp_lifespan = None
+        # Try multiple ways to get the lifespan
+        if hasattr(mcp_app, 'lifespan'):
+            mcp_lifespan = mcp_app.lifespan
+            logger.info("FastMCP lifespan found on mcp_app.lifespan")
+        elif hasattr(mcp_app, 'router') and hasattr(mcp_app.router, 'lifespan_context'):
+            # Some Starlette apps store lifespan in router
+            mcp_lifespan = mcp_app.router.lifespan_context
+            logger.info("FastMCP lifespan found on mcp_app.router.lifespan_context")
+        elif hasattr(mcp_app, 'app') and hasattr(mcp_app.app, 'lifespan'):
+            # Try nested app
+            mcp_lifespan = mcp_app.app.lifespan
+            logger.info("FastMCP lifespan found on mcp_app.app.lifespan")
+        
+        if mcp_lifespan:
+            # Verify it's callable (should be an async context manager)
+            if callable(mcp_lifespan):
+                logger.info("FastMCP lifespan is callable, will initialize task group on startup")
             else:
-                # For non-HTTP requests (websockets, etc.), use Django
-                await django_asgi_app(scope, receive, send)
+                logger.warning("FastMCP lifespan found but is not callable. Type: %s", type(mcp_lifespan))
+        else:
+            logger.error("FastMCP lifespan not found. mcp_app type: %s, dir: %s", 
+                        type(mcp_app), [attr for attr in dir(mcp_app) if not attr.startswith('_')])
+        
+        # Create a routing ASGI app for Django (non-MCP paths)
+        async def django_router(scope, receive, send):
+            """Route non-MCP requests to Django."""
+            await django_asgi_app(scope, receive, send)
         
         # Create Starlette application with proper lifespan handling
-        # This ensures FastMCP's task group is properly initialized
-        # The lifespan context manager will be called by uvicorn/ASGI server on startup
-        # Each worker process will call the lifespan on startup
-        # We wrap our routing app in Starlette to get lifespan support
-        application_kwargs = {}
+        # This is the recommended approach per FastMCP documentation
+        # Mount MCP app at /mcp and route everything else to Django
+        app_kwargs = {
+            "routes": [
+                # Mount MCP app at /mcp path
+                Mount("/mcp", app=mcp_app),
+                # Mount Django at root for everything else
+                Mount("/", app=django_router),
+            ],
+        }
         
-        # Only add lifespan if it exists (Starlette requires it for proper initialization)
+        # Only add lifespan if we found it (critical for FastMCP task group initialization)
         if mcp_lifespan:
-            application_kwargs["lifespan"] = mcp_lifespan
+            app_kwargs["lifespan"] = mcp_lifespan
+            logger.info("Passing lifespan to Starlette application")
+        else:
+            logger.error("WARNING: No lifespan to pass to Starlette - FastMCP may not work!")
         
-        # Create a Starlette app that uses our routing function
-        # We need to override the __call__ method to use our routing
-        class RoutingStarletteApp(Starlette):
-            def __init__(self, routing_func, **kwargs):
-                super().__init__(routes=[], **kwargs)
-                self._routing_func = routing_func
-            
-            async def __call__(self, scope, receive, send):
-                await self._routing_func(scope, receive, send)
-        
-        application = RoutingStarletteApp(routing_app, **application_kwargs)
+        application = Starlette(**app_kwargs)
     else:
         # FastMCP doesn't have http_app, use Django only
         application = django_asgi_app

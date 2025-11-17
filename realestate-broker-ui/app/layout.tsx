@@ -13,8 +13,8 @@ import { ConfirmProvider } from '@/hooks/use-confirm'
 import './globals.css'
 
 export const metadata: Metadata = { 
-  title: 'נדל״נר - נדל״ן חכם לאנשים פרטיים, מתווכים ושמאים',
-  description: 'פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים',
+  title: 'נדל״נר - נדל״ן חכם לאנשים פרטיים ומתווכים',
+  description: 'פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -130,7 +130,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
           />
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -146,7 +146,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
           />
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
@@ -174,7 +174,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
           />
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
@@ -202,7 +202,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
           />
           <div className="text-center py-12">
             <div className="bg-destructive/10 text-destructive p-4 rounded-lg max-w-md mx-auto">
@@ -229,7 +229,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
           />
           <div className="text-center py-12">
             <p className="text-muted-foreground">
@@ -302,8 +302,8 @@ export default function HomePage() {
               ? `ברוכים הבאים, ${user?.first_name || "משתמש"}!`
               : "ברוכים הבאים לנדל״נר"
           }
-          text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
-        />
+          text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
+          />
 
         {/* Login Prompt for Guests */}
         {!isAuthenticated && (

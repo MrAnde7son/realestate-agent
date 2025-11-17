@@ -133,7 +133,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error: any) {
       // Provide more specific error messages
-      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      if (error.message?.includes('401') || 
+          error.message?.includes('Unauthorized') || 
+          error.message?.includes('Invalid credentials')) {
         throw new Error('דוא״ל או סיסמה שגויים')
       } else if (error.message?.includes('Network') || error.message?.includes('fetch')) {
         throw new Error('שגיאת רשת - בדוק את החיבור לאינטרנט')

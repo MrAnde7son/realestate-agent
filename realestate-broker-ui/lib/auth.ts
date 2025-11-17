@@ -152,10 +152,21 @@ class AuthAPI {
     try {
       const response = await fetch(url, config)
       
-      // Handle 401 Unauthorized - just throw error, let user re-login
+      // Handle 401 Unauthorized
       if (response.status === 401) {
-        this.clearTokens()
-        throw new Error('Session expired. Please log in again.')
+        // For login endpoint, read the actual error message from the backend
+        // For other endpoints, it's likely a session expiration
+        const isLoginEndpoint = endpoint === '/auth/login'
+        
+        if (isLoginEndpoint) {
+          // Read the error message from response body
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Invalid credentials')
+        } else {
+          // For authenticated endpoints, clear tokens and show session expired
+          this.clearTokens()
+          throw new Error('Session expired. Please log in again.')
+        }
       }
       
       if (!response.ok) {

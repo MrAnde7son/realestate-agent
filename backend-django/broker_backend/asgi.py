@@ -2,7 +2,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 from starlette.applications import Starlette
-from starlette.routing import Route, Mount
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
 
@@ -31,31 +30,44 @@ try:
         else:
             logger.warning("FastMCP lifespan not found on mcp_app. Task group may not initialize properly.")
         
-        # Create a routing function that delegates to Django for non-MCP paths
-        async def django_route(scope, receive, send):
-            """Route non-MCP requests to Django."""
-            await django_asgi_app(scope, receive, send)
+        # Create a custom ASGI application that routes requests
+        # This handles both MCP and Django routing while preserving lifespan
+        async def routing_app(scope, receive, send):
+            """Route requests to MCP or Django based on path."""
+            if scope["type"] == "http":
+                path = scope.get("path", "")
+                # Route MCP requests to FastMCP app
+                if path.startswith("/mcp"):
+                    await mcp_app(scope, receive, send)
+                else:
+                    # Route everything else to Django
+                    await django_asgi_app(scope, receive, send)
+            else:
+                # For non-HTTP requests (websockets, etc.), use Django
+                await django_asgi_app(scope, receive, send)
         
         # Create Starlette application with proper lifespan handling
         # This ensures FastMCP's task group is properly initialized
         # The lifespan context manager will be called by uvicorn/ASGI server on startup
         # Each worker process will call the lifespan on startup
-        application_kwargs = {
-            "routes": [
-                # Mount MCP app at /mcp path
-                Mount("/mcp", app=mcp_app),
-                # Route root path to Django
-                Route("/", endpoint=django_route),
-                # Route everything else to Django (catch-all route)
-                Route("/{rest_of_path:path}", endpoint=django_route),
-            ],
-        }
+        # We wrap our routing app in Starlette to get lifespan support
+        application_kwargs = {}
         
         # Only add lifespan if it exists (Starlette requires it for proper initialization)
         if mcp_lifespan:
             application_kwargs["lifespan"] = mcp_lifespan
         
-        application = Starlette(**application_kwargs)
+        # Create a Starlette app that uses our routing function
+        # We need to override the __call__ method to use our routing
+        class RoutingStarletteApp(Starlette):
+            def __init__(self, routing_func, **kwargs):
+                super().__init__(routes=[], **kwargs)
+                self._routing_func = routing_func
+            
+            async def __call__(self, scope, receive, send):
+                await self._routing_func(scope, receive, send)
+        
+        application = RoutingStarletteApp(routing_app, **application_kwargs)
     else:
         # FastMCP doesn't have http_app, use Django only
         application = django_asgi_app

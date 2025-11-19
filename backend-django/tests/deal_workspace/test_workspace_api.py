@@ -37,7 +37,7 @@ class DealWorkspaceAPITests(TestCase):
         self._create_additional_deals()
 
     def _create_deal(self) -> int:
-        url = f"/api/deal-workspace/deals/{self.asset.id}"
+        url = f"/api/deal-workspace/deals/create/{self.asset.id}"
         response = self.buyer_client.post(
             url,
             {

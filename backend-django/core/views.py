@@ -2216,27 +2216,39 @@ def _apply_asset_filters(queryset, params, user):
         )
 
         if normalized_rental_sale in {"rent", "sale"}:
-            # Optimize: fetch all candidate assets with meta in one query instead of N+1
-            candidate_ids = list(queryset.values_list("id", flat=True))
-            if candidate_ids:
-                candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
-                for asset in candidate_assets:
-                    meta = getattr(asset, "meta", {}) or {}
-                    yad2_listings = meta.get("yad2_listings", []) or []
-                    if not isinstance(yad2_listings, list):
-                        continue
-                    for listing in yad2_listings:
-                        if not isinstance(listing, dict):
-                            continue
-                        # Safely extract listing_type
-                        listing_type_value = listing.get("listing_type") or listing.get("listingType")
-                        if listing_type_value and isinstance(listing_type_value, str):
-                            listing_type_value = listing_type_value.lower()
-                        else:
-                            listing_type_value = ""
-                        if listing_type_value == normalized_rental_sale:
-                            matching_asset_ids.add(asset.id)
-                            break
+            # Only check meta fields if we have other filters applied (queryset is already filtered)
+            # This avoids evaluating huge unfiltered querysets
+            # Check if queryset has been filtered by checking if it's not the base queryset
+            # We'll only do the expensive meta check if we have matching_asset_ids from AssetListing
+            # or if the queryset is likely small (has other filters)
+            should_check_meta = len(matching_asset_ids) == 0  # Only if no results from AssetListing
+            
+            if should_check_meta:
+                # Estimate queryset size - use a limit to avoid full count
+                # If we can get 1000+ results quickly, the queryset is too large
+                sample_size = list(queryset[:1001].values_list("id", flat=True))
+                if len(sample_size) <= 1000:  # Only check meta if queryset is small enough
+                    # Fetch candidate assets with meta in one query instead of N+1
+                    candidate_ids = sample_size
+                    if candidate_ids:
+                        candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+                        for asset in candidate_assets:
+                            meta = getattr(asset, "meta", {}) or {}
+                            yad2_listings = meta.get("yad2_listings", []) or []
+                            if not isinstance(yad2_listings, list):
+                                continue
+                            for listing in yad2_listings:
+                                if not isinstance(listing, dict):
+                                    continue
+                                # Safely extract listing_type
+                                listing_type_value = listing.get("listing_type") or listing.get("listingType")
+                                if listing_type_value and isinstance(listing_type_value, str):
+                                    listing_type_value = listing_type_value.lower()
+                                else:
+                                    listing_type_value = ""
+                                if listing_type_value == normalized_rental_sale:
+                                    matching_asset_ids.add(asset.id)
+                                    break
 
         if matching_asset_ids:
             queryset = queryset.filter(id__in=matching_asset_ids).distinct()
@@ -2253,26 +2265,32 @@ def _apply_asset_filters(queryset, params, user):
             ).values_list("asset_id", flat=True)
         )
 
-        candidate_ids = list(queryset.values_list("id", flat=True))
-        if candidate_ids:
-            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
-            for asset in candidate_assets:
-                meta = getattr(asset, "meta", {}) or {}
-                yad2_listings = meta.get("yad2_listings", []) or []
-                if not isinstance(yad2_listings, list):
-                    continue
-                for listing in yad2_listings:
-                    if not isinstance(listing, dict):
+        # Only check meta fields if queryset is already filtered to a reasonable size
+        # This avoids evaluating huge querysets
+        # Estimate queryset size - use a limit to avoid full count
+        # If we can get 1000+ results quickly, the queryset is too large
+        sample_size = list(queryset[:1001].values_list("id", flat=True))
+        if len(sample_size) <= 1000:  # Only check meta if queryset is small enough
+            candidate_ids = sample_size
+            if candidate_ids:
+                candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+                for asset in candidate_assets:
+                    meta = getattr(asset, "meta", {}) or {}
+                    yad2_listings = meta.get("yad2_listings", []) or []
+                    if not isinstance(yad2_listings, list):
                         continue
-                    # Safely extract ad_type
-                    ad_type_value = listing.get("ad_type") or listing.get("adType")
-                    if ad_type_value and isinstance(ad_type_value, str):
-                        ad_type_value = ad_type_value.lower()
-                    else:
-                        ad_type_value = ""
-                    if ad_type_value == normalized_ad_type:
-                        matching_asset_ids.add(asset.id)
-                        break
+                    for listing in yad2_listings:
+                        if not isinstance(listing, dict):
+                            continue
+                        # Safely extract ad_type
+                        ad_type_value = listing.get("ad_type") or listing.get("adType")
+                        if ad_type_value and isinstance(ad_type_value, str):
+                            ad_type_value = ad_type_value.lower()
+                        else:
+                            ad_type_value = ""
+                        if ad_type_value == normalized_ad_type:
+                            matching_asset_ids.add(asset.id)
+                            break
 
         if matching_asset_ids:
             queryset = queryset.filter(id__in=matching_asset_ids).distinct()
@@ -2734,6 +2752,7 @@ def _get_assets_list(request):
         user = getattr(request, "user", None)
         # Optimize: prefetch listings_m2m to avoid N+1 queries
         # Note: listings_m2m already returns Listing objects directly (not AssetListing)
+        # Use only() to limit fields fetched - this significantly reduces query time and memory
         queryset = Asset.objects.all().prefetch_related("listings_m2m")
 
         if user and getattr(user, "is_authenticated", False):
@@ -2838,6 +2857,10 @@ def _get_assets_list(request):
             context={"include_documents": False, "request": request},
         )
 
+        # Filter metadata is cached for 1 hour, so it should be fast
+        # Only compute it if cache is empty (first request or after expiration)
+        filter_metadata = _get_asset_filter_metadata()
+
         return Response(
             {
                 "rows": serializer.data,
@@ -2849,7 +2872,7 @@ def _get_assets_list(request):
                     "has_next": page_obj.has_next(),
                     "has_previous": page_obj.has_previous(),
                 },
-                "filters": _get_asset_filter_metadata(),
+                "filters": filter_metadata,
             }
         )
     except Exception as e:

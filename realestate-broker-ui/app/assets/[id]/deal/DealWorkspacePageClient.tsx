@@ -327,6 +327,49 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   const [mortgageOffers, setMortgageOffers] = useState<MortgageOffer[]>([])
   const [mortgageOffersLoading, setMortgageOffersLoading] = useState(false)
 
+  const fetchMortgageOffers = useCallback(async (dealId: number) => {
+    setMortgageOffersLoading(true)
+    try {
+      // First get mortgage applications for this deal
+      const appsResponse = await apiClient.get<{ results?: any[] }>(
+        `/api/deal-workspace/mortgages?deal_id=${dealId}`
+      )
+      if (appsResponse.ok && appsResponse.data) {
+        const apps = Array.isArray(appsResponse.data.results) 
+          ? appsResponse.data.results 
+          : Array.isArray(appsResponse.data) 
+            ? appsResponse.data 
+            : []
+        
+        // Get all offers from all applications
+        const allOffers: MortgageOffer[] = []
+        for (const app of apps) {
+          if (app.offers && Array.isArray(app.offers)) {
+            for (const offer of app.offers) {
+              allOffers.push({
+                id: String(offer.id),
+                lender: offer.lender_name || 'לא צוין',
+                productType: offer.product_type === 'fixed' ? 'fixed' : offer.product_type === 'variable' ? 'variable' : 'mixed',
+                ratePct: Number(offer.rate_pct) || 0,
+                aprPct: Number(offer.apr_estimate_pct) || Number(offer.rate_pct) || 0,
+                termMonths: Number(offer.term_months) || 0,
+                monthlyPayment: Number(offer.monthly_payment) || 0,
+                feesTotal: Number(offer.fees_total) || 0,
+                validUntil: offer.valid_until || '',
+                score: Number(offer.score) || 0,
+              })
+            }
+          }
+        }
+        setMortgageOffers(allOffers)
+      }
+    } catch (error) {
+      console.error('Failed to fetch mortgage offers:', error)
+    } finally {
+      setMortgageOffersLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 
@@ -427,7 +470,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     return () => {
       cancelled = true
     }
-  }, [assetId])
+  }, [assetId, fetchMortgageOffers])
 
   const handleUploadDialogChange = useCallback((open: boolean) => {
     setIsUploadDialogOpen(open)
@@ -586,49 +629,6 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   const handleRecommendMortgage = (mortgageId: string) => {
     setRecommendedMortgageId(mortgageId)
   }
-
-  const fetchMortgageOffers = useCallback(async (dealId: number) => {
-    setMortgageOffersLoading(true)
-    try {
-      // First get mortgage applications for this deal
-      const appsResponse = await apiClient.get<{ results?: any[] }>(
-        `/api/deal-workspace/mortgages?deal_id=${dealId}`
-      )
-      if (appsResponse.ok && appsResponse.data) {
-        const apps = Array.isArray(appsResponse.data.results) 
-          ? appsResponse.data.results 
-          : Array.isArray(appsResponse.data) 
-            ? appsResponse.data 
-            : []
-        
-        // Get all offers from all applications
-        const allOffers: MortgageOffer[] = []
-        for (const app of apps) {
-          if (app.offers && Array.isArray(app.offers)) {
-            for (const offer of app.offers) {
-              allOffers.push({
-                id: String(offer.id),
-                lender: offer.lender_name || 'לא צוין',
-                productType: offer.product_type === 'fixed' ? 'fixed' : offer.product_type === 'variable' ? 'variable' : 'mixed',
-                ratePct: Number(offer.rate_pct) || 0,
-                aprPct: Number(offer.apr_estimate_pct) || Number(offer.rate_pct) || 0,
-                termMonths: Number(offer.term_months) || 0,
-                monthlyPayment: Number(offer.monthly_payment) || 0,
-                feesTotal: Number(offer.fees_total) || 0,
-                validUntil: offer.valid_until || '',
-                score: Number(offer.score) || 0,
-              })
-            }
-          }
-        }
-        setMortgageOffers(allOffers)
-      }
-    } catch (error) {
-      console.error('Failed to fetch mortgage offers:', error)
-    } finally {
-      setMortgageOffersLoading(false)
-    }
-  }, [])
 
   const handleUpdateDeal = useCallback(async () => {
     if (!dealId) return
@@ -1199,7 +1199,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
           <AlertDialogHeader>
             <AlertDialogTitle>ארכיון עיסקה</AlertDialogTitle>
             <AlertDialogDescription>
-              האם אתם בטוחים שברצונכם לארכב את העסקה? העסקה תעבור לשלב "ננטש" ותוסר מהרשימה הפעילה.
+              האם אתם בטוחים שברצונכם להעביר את העיסקה לארכיון? העסקה תעבור לשלב &quot;ננטש&quot; ותוסר מהרשימה הפעילה.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

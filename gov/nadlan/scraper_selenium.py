@@ -129,7 +129,8 @@ class NadlanDealsScraper:
 
         # create a unique, throwaway user-data-dir to avoid profile locks across Celery workers
         self._tmp_profile_dir = tempfile.mkdtemp(prefix="nadlan_chrome_")
-        atexit.register(lambda: shutil.rmtree(self._tmp_profile_dir, ignore_errors=True))
+        # Capture self in the lambda to check _tmp_profile_dir at execution time
+        atexit.register(lambda s=self: shutil.rmtree(s._tmp_profile_dir, ignore_errors=True) if s._tmp_profile_dir else None)
 
         opts = Options()
         if self.headless:

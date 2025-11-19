@@ -2191,7 +2191,7 @@ def _is_transaction_commercial(transaction: Dict[str, Any]) -> Optional[bool]:
     asset_type_lower = asset_type.strip().lower()
     
     # Common residential types in Hebrew
-    residential_types = ['דירה', 'בית', 'וילה', 'קוטג', 'נטהאוז', 'דופלקס', 'טריפלקס', 'מרתף', 'גג']
+    residential_types = ['דירה', 'בית', 'וילה', 'קוטג', 'נטהאוז', 'דופלקס', 'טריפלקס', 'חד משפחתי' ,'דו משפחתי', 'מרתף', 'גג']
     
     # If asset_type is explicitly residential, return False
     if asset_type_lower in residential_types:

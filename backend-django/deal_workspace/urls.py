@@ -37,8 +37,9 @@ router.register(
 )
 
 urlpatterns = [
+    path("", include(router.urls)),
     path(
-        "deals/<int:asset_id>",
+        "deals/create/<int:asset_id>",
         views.DealCreateView.as_view(),
         name="workspace-deal-create",
     ),
@@ -47,5 +48,4 @@ urlpatterns = [
         views.NegotiationCreateView.as_view(),
         name="workspace-negotiation-create",
     ),
-    path("", include(router.urls)),
 ]

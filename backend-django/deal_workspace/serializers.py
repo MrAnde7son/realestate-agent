@@ -35,6 +35,7 @@ class DealSerializer(serializers.ModelSerializer):
             "stage",
             "deal_lead",
             "confidentiality_level",
+            "closing_date",
             "created_at",
             "updated_at",
             "party_roles",

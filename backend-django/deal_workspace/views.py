@@ -189,20 +189,110 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
         return qs.order_by("-updated_at", "-created_at")
 
     def perform_update(self, serializer):
-        previous = serializer.instance.stage
-        deal = serializer.save()
-        if previous != deal.stage:
+        deal = serializer.instance
+        party_role = utils.get_party_role_for_user(deal, self.request.user)
+        if not party_role and not self._is_admin():
+            raise PermissionDenied("You are not part of this deal")
+        
+        previous_stage = deal.stage
+        previous_closing_date = deal.closing_date
+        updated_deal = serializer.save()
+        
+        diff_json = {}
+        if previous_stage != updated_deal.stage:
+            diff_json["stage"] = {"from": previous_stage, "to": updated_deal.stage}
+        if previous_closing_date != updated_deal.closing_date:
+            diff_json["closing_date"] = {
+                "from": str(previous_closing_date) if previous_closing_date else None,
+                "to": str(updated_deal.closing_date) if updated_deal.closing_date else None,
+            }
+        
+        if diff_json:
+            action = "updated" if len(diff_json) > 1 or "closing_date" in diff_json else "stage_changed"
             models.AuditLog.objects.create(
                 entity_type="deal",
-                entity_id=str(deal.pk),
-                action="stage_changed",
-                by_partyrole=deal.party_roles.filter(
-                    user=self.request.user
-                ).first(),
-                diff_json={"from": previous, "to": deal.stage},
+                entity_id=str(updated_deal.pk),
+                action=action,
+                by_partyrole=party_role,
+                diff_json=diff_json,
                 ip=self.request.META.get("REMOTE_ADDR"),
                 ua=self.request.META.get("HTTP_USER_AGENT", ""),
             )
+
+    @action(detail=True, methods=["post"])
+    def invite_collaborator(self, request, pk=None):
+        """Invite a collaborator to the deal."""
+        deal = self.get_object()
+        party_role = utils.get_party_role_for_user(deal, request.user)
+        if not party_role and not self._is_admin():
+            raise PermissionDenied("You are not part of this deal")
+        
+        role = request.data.get("role")
+        side = request.data.get("side")
+        user_id = request.data.get("user_id")
+        external_contact = request.data.get("external_contact_json", {})
+        
+        if not role or not side:
+            raise ValidationError("role and side are required")
+        
+        user = None
+        if user_id:
+            user = get_object_or_404(User, pk=user_id)
+        
+        with transaction.atomic():
+            new_role = models.PartyRole.objects.create(
+                deal=deal,
+                user=user,
+                external_contact_json=external_contact,
+                role=role,
+                side=side,
+                invitation_status=(
+                    models.PartyRole.InvitationStatus.ACCEPTED
+                    if user_id
+                    else models.PartyRole.InvitationStatus.PENDING
+                ),
+            )
+            models.AuditLog.objects.create(
+                entity_type="deal",
+                entity_id=str(deal.pk),
+                action="collaborator_invited",
+                by_partyrole=party_role,
+                diff_json={
+                    "role": role,
+                    "side": side,
+                    "user_id": user_id,
+                },
+                ip=request.META.get("REMOTE_ADDR"),
+                ua=request.META.get("HTTP_USER_AGENT", ""),
+            )
+        
+        serializer = serializers.PartyRoleSerializer(new_role)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def archive(self, request, pk=None):
+        """Archive a deal by setting stage to ABANDONED."""
+        deal = self.get_object()
+        party_role = utils.get_party_role_for_user(deal, request.user)
+        if not party_role and not self._is_admin():
+            raise PermissionDenied("You are not part of this deal")
+        
+        previous_stage = deal.stage
+        deal.stage = models.Deal.Stage.ABANDONED
+        deal.save(update_fields=["stage", "updated_at"])
+        
+        models.AuditLog.objects.create(
+            entity_type="deal",
+            entity_id=str(deal.pk),
+            action="archived",
+            by_partyrole=party_role,
+            diff_json={"from": previous_stage, "to": deal.stage},
+            ip=request.META.get("REMOTE_ADDR"),
+            ua=request.META.get("HTTP_USER_AGENT", ""),
+        )
+        
+        serializer = self.get_serializer(deal)
+        return Response(serializer.data)
 
 
 class NegotiationCreateView(APIView):

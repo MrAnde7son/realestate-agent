@@ -125,7 +125,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/deal-workspace/deals/${assetId}`, {
+    const res = await fetch(`${BACKEND_URL}/api/deal-workspace/deals/create/${assetId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

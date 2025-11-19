@@ -83,6 +83,10 @@ import {
   Building,
   Briefcase,
   Trash2,
+  Edit,
+  UserPlus,
+  Archive,
+  Calendar,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { authAPI } from '@/lib/auth'
@@ -294,7 +298,6 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   const [offers, setOffers] = useState<Offer[]>([])
   const [documents, setDocuments] = useState<DealDocument[]>([])
   const [tasks, setTasks] = useState<DealTask[]>([])
-  const [mortgageOffers] = useState<MortgageOffer[]>([])
   const [parties, setParties] = useState<Party[]>([])
   const [dealMetadata, setDealMetadata] = useState<DealWorkspaceMetadata | null>(null)
   const [timelineFilter, setTimelineFilter] = useState<(typeof TIMELINE_FILTERS)[number]['key']>('all')
@@ -308,6 +311,21 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   const [uploadForm, setUploadForm] = useState<UploadFormState>(DEFAULT_UPLOAD_FORM)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isEditDealDialogOpen, setIsEditDealDialogOpen] = useState(false)
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false)
+  const [isUpdatingDeal, setIsUpdatingDeal] = useState(false)
+  const [isInviting, setIsInviting] = useState(false)
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [editClosingDate, setEditClosingDate] = useState<string>('')
+  const [editStage, setEditStage] = useState<DealStage>('discovery')
+  const [inviteRole, setInviteRole] = useState<string>('agent')
+  const [inviteSide, setInviteSide] = useState<'buyer' | 'seller' | 'neutral'>('neutral')
+  const [inviteName, setInviteName] = useState<string>('')
+  const [inviteEmail, setInviteEmail] = useState<string>('')
+  const [invitePhone, setInvitePhone] = useState<string>('')
+  const [mortgageOffers, setMortgageOffers] = useState<MortgageOffer[]>([])
+  const [mortgageOffersLoading, setMortgageOffersLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -339,15 +357,18 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
 
         // Extract metadata from deal
         const assetSummary = activeDeal.asset_summary
+        const closingDate = (activeDeal as any).closing_date || ''
         const metadata: DealWorkspaceMetadata = {
           stage: activeDeal.stage || 'discovery',
           askingPrice: assetSummary?.price || 0,
           acceptedOfferAmount: assetSummary?.price || 0, // TODO: Get from actual accepted offer
-          targetClosingDate: '', // TODO: Get from deal data
+          targetClosingDate: closingDate,
           lastUpdated: activeDeal.updated_at,
           address: assetSummary?.address || `נכס ${assetId}`,
         }
         setDealMetadata(metadata)
+        setEditStage(activeDeal.stage || 'discovery')
+        setEditClosingDate(closingDate ? closingDate.split('T')[0] : '')
 
         // Map party roles to parties
         if (Array.isArray(activeDeal.party_roles)) {
@@ -381,6 +402,11 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
           setDocumentsError(
             docsResponse.error || 'כשל בטעינת המסמכים.'
           )
+        }
+
+        // Fetch mortgage offers
+        if (activeDeal.id) {
+          await fetchMortgageOffers(activeDeal.id)
         }
       } catch (error) {
         if (cancelled) return
@@ -561,6 +587,160 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     setRecommendedMortgageId(mortgageId)
   }
 
+  const fetchMortgageOffers = useCallback(async (dealId: number) => {
+    setMortgageOffersLoading(true)
+    try {
+      // First get mortgage applications for this deal
+      const appsResponse = await apiClient.get<{ results?: any[] }>(
+        `/api/deal-workspace/mortgages?deal_id=${dealId}`
+      )
+      if (appsResponse.ok && appsResponse.data) {
+        const apps = Array.isArray(appsResponse.data.results) 
+          ? appsResponse.data.results 
+          : Array.isArray(appsResponse.data) 
+            ? appsResponse.data 
+            : []
+        
+        // Get all offers from all applications
+        const allOffers: MortgageOffer[] = []
+        for (const app of apps) {
+          if (app.offers && Array.isArray(app.offers)) {
+            for (const offer of app.offers) {
+              allOffers.push({
+                id: String(offer.id),
+                lender: offer.lender_name || 'לא צוין',
+                productType: offer.product_type === 'fixed' ? 'fixed' : offer.product_type === 'variable' ? 'variable' : 'mixed',
+                ratePct: Number(offer.rate_pct) || 0,
+                aprPct: Number(offer.apr_estimate_pct) || Number(offer.rate_pct) || 0,
+                termMonths: Number(offer.term_months) || 0,
+                monthlyPayment: Number(offer.monthly_payment) || 0,
+                feesTotal: Number(offer.fees_total) || 0,
+                validUntil: offer.valid_until || '',
+                score: Number(offer.score) || 0,
+              })
+            }
+          }
+        }
+        setMortgageOffers(allOffers)
+      }
+    } catch (error) {
+      console.error('Failed to fetch mortgage offers:', error)
+    } finally {
+      setMortgageOffersLoading(false)
+    }
+  }, [])
+
+  const handleUpdateDeal = useCallback(async () => {
+    if (!dealId) return
+    setIsUpdatingDeal(true)
+    try {
+      const payload: any = {
+        stage: editStage,
+      }
+      if (editClosingDate) {
+        payload.closing_date = editClosingDate
+      } else {
+        payload.closing_date = null
+      }
+      
+      const response = await apiClient.patch(`/api/deal-workspace/deals/${dealId}`, payload)
+      if (!response.ok) {
+        throw new Error(response.error || 'עדכון העסקה נכשל')
+      }
+      
+      // Refresh deal data
+      const dealsResponse = await apiClient.get<{ deals?: BackendDealSummary[] }>(
+        `/api/deals?asset_id=${assetId}`
+      )
+      if (dealsResponse.ok && dealsResponse.data?.deals?.[0]) {
+        const activeDeal = dealsResponse.data.deals[0]
+        const assetSummary = activeDeal.asset_summary
+        const closingDate = (activeDeal as any).closing_date || ''
+        setDealMetadata({
+          stage: activeDeal.stage || 'discovery',
+          askingPrice: assetSummary?.price || 0,
+          acceptedOfferAmount: assetSummary?.price || 0,
+          targetClosingDate: closingDate,
+          lastUpdated: activeDeal.updated_at,
+          address: assetSummary?.address || `נכס ${assetId}`,
+        })
+        setEditStage(activeDeal.stage || 'discovery')
+        setEditClosingDate(closingDate ? closingDate.split('T')[0] : '')
+      }
+      setIsEditDealDialogOpen(false)
+    } catch (error) {
+      console.error('Failed to update deal:', error)
+      alert(error instanceof Error ? error.message : 'עדכון העסקה נכשל')
+    } finally {
+      setIsUpdatingDeal(false)
+    }
+  }, [dealId, assetId, editStage, editClosingDate])
+
+  const handleInviteCollaborator = useCallback(async () => {
+    if (!dealId) return
+    if (!inviteName.trim() && !inviteEmail.trim()) {
+      alert('יש למלא שם או אימייל')
+      return
+    }
+    setIsInviting(true)
+    try {
+      const payload = {
+        role: inviteRole,
+        side: inviteSide,
+        external_contact_json: {
+          name: inviteName.trim() || undefined,
+          email: inviteEmail.trim() || undefined,
+          phone: invitePhone.trim() || undefined,
+        },
+      }
+      
+      const response = await apiClient.post(`/api/deal-workspace/deals/${dealId}/invite_collaborator`, payload)
+      if (!response.ok) {
+        throw new Error(response.error || 'הזמנת משתף פעולה נכשלה')
+      }
+      
+      // Refresh parties
+      const dealsResponse = await apiClient.get<{ deals?: BackendDealSummary[] }>(
+        `/api/deals?asset_id=${assetId}`
+      )
+      if (dealsResponse.ok && dealsResponse.data?.deals?.[0]) {
+        const activeDeal = dealsResponse.data.deals[0]
+        if (Array.isArray(activeDeal.party_roles)) {
+          setParties(mapPartyRolesToParties(activeDeal.party_roles))
+        }
+      }
+      
+      setIsInviteDialogOpen(false)
+      setInviteName('')
+      setInviteEmail('')
+      setInvitePhone('')
+    } catch (error) {
+      console.error('Failed to invite collaborator:', error)
+      alert(error instanceof Error ? error.message : 'הזמנת משתף פעולה נכשלה')
+    } finally {
+      setIsInviting(false)
+    }
+  }, [dealId, assetId, inviteRole, inviteSide, inviteName, inviteEmail, invitePhone])
+
+  const handleArchiveDeal = useCallback(async () => {
+    if (!dealId) return
+    setIsArchiving(true)
+    try {
+      const response = await apiClient.post(`/api/deal-workspace/deals/${dealId}/archive`)
+      if (!response.ok) {
+        throw new Error(response.error || 'ארכיון העסקה נכשל')
+      }
+      setIsArchiveDialogOpen(false)
+      // Redirect to deals page
+      window.location.href = '/deals'
+    } catch (error) {
+      console.error('Failed to archive deal:', error)
+      alert(error instanceof Error ? error.message : 'ארכיון העסקה נכשל')
+    } finally {
+      setIsArchiving(false)
+    }
+  }, [dealId])
+
   const handleDocumentDeleted = useCallback(async () => {
     // Refresh documents list after deletion
     if (!dealId) return
@@ -671,6 +851,9 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
               targetClosingDate={dealMetadata.targetClosingDate}
               lastUpdated={dealMetadata.lastUpdated}
               documentsCount={documents.length}
+              onEditClick={() => setIsEditDealDialogOpen(true)}
+              onInviteClick={() => setIsInviteDialogOpen(true)}
+              onArchiveClick={() => setIsArchiveDialogOpen(true)}
             />
 
           <div className='grid gap-4 sm:gap-6 md:grid-cols-[2fr_1fr] lg:grid-cols-[2fr_1fr] min-w-0'>
@@ -707,6 +890,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
               offers={mortgageOffers}
               recommendedId={recommendedMortgageId}
               onRecommend={handleRecommendMortgage}
+              isLoading={mortgageOffersLoading}
             />
           </div>
 
@@ -826,6 +1010,178 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Deal Dialog */}
+      <Dialog open={isEditDealDialogOpen} onOpenChange={setIsEditDealDialogOpen}>
+        <DialogContent className='mx-4 sm:mx-0 max-w-[calc(100vw-2rem)] sm:max-w-lg'>
+          <DialogHeader>
+            <DialogTitle className='text-lg sm:text-xl'>ערוך עסקה</DialogTitle>
+            <DialogDescription className='text-sm'>
+              עדכן את שלב העסקה ותאריך הסגירה המתוכנן.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='space-y-4 py-2'>
+            <div className='space-y-2'>
+              <Label htmlFor='edit-stage'>שלב העסקה</Label>
+              <Select value={editStage} onValueChange={(value) => setEditStage(value as DealStage)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAGE_FLOW.map(stage => (
+                    <SelectItem key={stage.key} value={stage.key}>
+                      {stage.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='edit-closing-date'>תאריך סגירה מתוכנן</Label>
+              <Input
+                id='edit-closing-date'
+                type='date'
+                value={editClosingDate}
+                onChange={(e) => setEditClosingDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setIsEditDealDialogOpen(false)} disabled={isUpdatingDeal}>
+              בטל
+            </Button>
+            <Button onClick={handleUpdateDeal} disabled={isUpdatingDeal}>
+              {isUpdatingDeal ? (
+                <>
+                  <Loader2 className='h-4 w-4 ms-2 animate-spin' />
+                  מעדכן...
+                </>
+              ) : (
+                'שמור שינויים'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Collaborator Dialog */}
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className='mx-4 sm:mx-0 max-w-[calc(100vw-2rem)] sm:max-w-lg'>
+          <DialogHeader>
+            <DialogTitle className='text-lg sm:text-xl'>הזמן משתף פעולה</DialogTitle>
+            <DialogDescription className='text-sm'>
+              הוסף משתתף חדש לעסקה - יועץ משכנתא, מתווך, עורך דין, בדק בית או משתתף אחר.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='space-y-4 py-2'>
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='space-y-2'>
+                <Label htmlFor='invite-role'>תפקיד</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='agent'>מתווך</SelectItem>
+                    <SelectItem value='lawyer'>עורך דין</SelectItem>
+                    <SelectItem value='banker'>יועץ משכנתא</SelectItem>
+                    <SelectItem value='architect'>אדריכל</SelectItem>
+                    <SelectItem value='buyer'>קונה</SelectItem>
+                    <SelectItem value='seller'>מוכר</SelectItem>
+                    <SelectItem value='other'>אחר</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='space-y-2'>
+                <Label htmlFor='invite-side'>צד</Label>
+                <Select value={inviteSide} onValueChange={(value) => setInviteSide(value as 'buyer' | 'seller' | 'neutral')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='buyer'>קונה</SelectItem>
+                    <SelectItem value='seller'>מוכר</SelectItem>
+                    <SelectItem value='neutral'>ניטרלי</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='invite-name'>שם</Label>
+              <Input
+                id='invite-name'
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder='שם מלא'
+              />
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='invite-email'>אימייל</Label>
+              <Input
+                id='invite-email'
+                type='email'
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder='email@example.com'
+              />
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='invite-phone'>טלפון</Label>
+              <Input
+                id='invite-phone'
+                type='tel'
+                value={invitePhone}
+                onChange={(e) => setInvitePhone(e.target.value)}
+                placeholder='050-1234567'
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setIsInviteDialogOpen(false)} disabled={isInviting}>
+              בטל
+            </Button>
+            <Button onClick={handleInviteCollaborator} disabled={isInviting}>
+              {isInviting ? (
+                <>
+                  <Loader2 className='h-4 w-4 ms-2 animate-spin' />
+                  מזמין...
+                </>
+              ) : (
+                'הזמן משתף פעולה'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive Deal Dialog */}
+      <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ארכיון עיסקה</AlertDialogTitle>
+            <AlertDialogDescription>
+              האם אתם בטוחים שברצונכם לארכב את העסקה? העסקה תעבור לשלב "ננטש" ותוסר מהרשימה הפעילה.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isArchiving}>בטל</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleArchiveDeal}
+              disabled={isArchiving}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
+              {isArchiving ? (
+                <>
+                  <Loader2 className='h-4 w-4 ms-2 animate-spin' />
+                  מאחסן...
+                </>
+              ) : (
+                'ארכיון'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }
@@ -841,6 +1197,9 @@ type DealHeaderProps = {
   targetClosingDate: string
   lastUpdated: string
   documentsCount: number
+  onEditClick: () => void
+  onInviteClick: () => void
+  onArchiveClick: () => void
 }
 
 function DealHeader({
@@ -854,6 +1213,9 @@ function DealHeader({
   targetClosingDate,
   lastUpdated,
   documentsCount,
+  onEditClick,
+  onInviteClick,
+  onArchiveClick,
 }: DealHeaderProps) {
   const stageIndex = STAGE_FLOW.findIndex(item => item.key === stage)
 
@@ -864,10 +1226,24 @@ function DealHeader({
             <div>
               <CardTitle className='text-2xl sm:text-3xl font-semibold'>{address}</CardTitle>
             </div>
-            <Badge variant='info' className='flex items-center gap-2 w-fit'>
-              <Gavel className='h-4 w-4' />
-              {stageMeta.label}
-            </Badge>
+            <div className='flex flex-wrap items-center gap-2'>
+              <Badge variant='info' className='flex items-center gap-2 w-fit'>
+                <Gavel className='h-4 w-4' />
+                {stageMeta.label}
+              </Badge>
+              <Button size='sm' variant='outline' onClick={onEditClick}>
+                <Edit className='h-4 w-4 ms-2' />
+                ערוך
+              </Button>
+              <Button size='sm' variant='outline' onClick={onInviteClick}>
+                <UserPlus className='h-4 w-4 ms-2' />
+                הזמן משתף פעולה
+              </Button>
+              <Button size='sm' variant='outline' onClick={onArchiveClick} className='text-destructive hover:text-destructive'>
+                <Archive className='h-4 w-4 ms-2' />
+                ארכיון
+              </Button>
+            </div>
           </div>
 
           <div className='grid gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3'>
@@ -1604,9 +1980,10 @@ type MortgageCompareTableProps = {
   offers: MortgageOffer[]
   recommendedId: string
   onRecommend: (id: string) => void
+  isLoading?: boolean
 }
 
-function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCompareTableProps) {
+function MortgageCompareTable({ offers, recommendedId, onRecommend, isLoading }: MortgageCompareTableProps) {
   return (
     <Card className='h-full min-w-0'>
       <CardHeader className='p-4 sm:p-6'>
@@ -1617,8 +1994,18 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
         <CardDescription className='text-xs sm:text-sm'>השוו בין הצעות הבנקים ובחרו את מסלול המימון המתאים ביותר.</CardDescription>
       </CardHeader>
       <CardContent className='space-y-3 sm:space-y-4 p-4 sm:p-6'>
-        <div className='overflow-x-auto'>
-          <Table>
+        {isLoading ? (
+          <div className='rounded-lg border border-dashed p-4 sm:p-6 text-center text-xs sm:text-sm text-muted-foreground'>
+            <Loader2 className='me-2 inline h-4 w-4 animate-spin' />
+            טוען הצעות משכנתא...
+          </div>
+        ) : offers.length === 0 ? (
+          <div className='rounded-lg border border-dashed p-4 sm:p-6 text-center text-xs sm:text-sm text-muted-foreground'>
+            אין הצעות משכנתא להצגה. הוסיפו מסמכי משכנתא כדי לראות השוואות.
+          </div>
+        ) : (
+          <div className='overflow-x-auto'>
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead>בנק</TableHead>
@@ -1657,14 +2044,17 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
               </TableRow>
             ))}
           </TableBody>
-        </Table>
-        </div>
-        <CardFooter className='flex-col sm:flex-row justify-between gap-2 sm:gap-0 px-0 pt-3 sm:pt-0 text-xs text-muted-foreground'>
-          <span>הריביות מוצגות כריבית בפועל כולל הערכת עמלות וביטוחים.</span>
-          {offers.length > 0 && offers[0].validUntil ? (
-            <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
-          ) : null}
-        </CardFooter>
+            </Table>
+          </div>
+        )}
+        {offers.length > 0 && (
+          <CardFooter className='flex-col sm:flex-row justify-between gap-2 sm:gap-0 px-0 pt-3 sm:pt-0 text-xs text-muted-foreground'>
+            <span>הריביות מוצגות כריבית בפועל כולל הערכת עמלות וביטוחים.</span>
+            {offers[0].validUntil ? (
+              <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
+            ) : null}
+          </CardFooter>
+        )}
       </CardContent>
     </Card>
   )

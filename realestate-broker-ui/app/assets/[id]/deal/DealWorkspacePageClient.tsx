@@ -834,9 +834,51 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
         />
 
         <DashboardHeader
-          heading={`סביבת עסקה לנכס ${dealMetadata?.address || assetId}`}
+          heading={
+            <div className='flex items-center gap-2 sm:gap-3 flex-wrap justify-end'>
+              <span>{`סביבת עסקה לנכס ${dealMetadata?.address || assetId}`}</span>
+              {dealMetadata && (
+                <Badge variant='info' size='md' className='flex items-center gap-2 w-fit'>
+                  <Gavel className='h-4 w-4' />
+                  {stageMeta.label}
+                </Badge>
+              )}
+            </div>
+          }
           text='נהלו הצעות, מסמכים, משימות ומשכנתאות במבט אחד מרוכז.'
-        />
+        >
+          {dealMetadata && (
+            <div className='flex flex-wrap items-center gap-1.5 sm:gap-2'>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setIsEditDealDialogOpen(true)}
+                className='h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm'
+              >
+                <Edit className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
+                <span className='hidden sm:inline'>ערוך</span>
+              </Button>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setIsInviteDialogOpen(true)}
+                className='h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm'
+              >
+                <UserPlus className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
+                <span className='hidden sm:inline'>הזמן משתף פעולה</span>
+              </Button>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setIsArchiveDialogOpen(true)}
+                className='h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm text-destructive hover:text-destructive'
+              >
+                <Archive className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
+                <span className='hidden sm:inline'>ארכיון</span>
+              </Button>
+            </div>
+          )}
+        </DashboardHeader>
 
         {dealMetadata ? (
           <div className='grid gap-4 sm:gap-6 pb-6 sm:pb-10 min-w-0'>
@@ -851,9 +893,6 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
               targetClosingDate={dealMetadata.targetClosingDate}
               lastUpdated={dealMetadata.lastUpdated}
               documentsCount={documents.length}
-              onEditClick={() => setIsEditDealDialogOpen(true)}
-              onInviteClick={() => setIsInviteDialogOpen(true)}
-              onArchiveClick={() => setIsArchiveDialogOpen(true)}
             />
 
           <div className='grid gap-4 sm:gap-6 md:grid-cols-[2fr_1fr] lg:grid-cols-[2fr_1fr] min-w-0'>
@@ -1197,9 +1236,6 @@ type DealHeaderProps = {
   targetClosingDate: string
   lastUpdated: string
   documentsCount: number
-  onEditClick: () => void
-  onInviteClick: () => void
-  onArchiveClick: () => void
 }
 
 function DealHeader({
@@ -1213,37 +1249,14 @@ function DealHeader({
   targetClosingDate,
   lastUpdated,
   documentsCount,
-  onEditClick,
-  onInviteClick,
-  onArchiveClick,
 }: DealHeaderProps) {
   const stageIndex = STAGE_FLOW.findIndex(item => item.key === stage)
 
   return (
       <Card className='min-w-0'>
         <CardHeader className='gap-3 sm:gap-4 p-4 sm:p-6'>
-          <div className='flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3'>
-            <div>
-              <CardTitle className='text-2xl sm:text-3xl font-semibold'>{address}</CardTitle>
-            </div>
-            <div className='flex flex-wrap items-center gap-2'>
-              <Badge variant='info' className='flex items-center gap-2 w-fit'>
-                <Gavel className='h-4 w-4' />
-                {stageMeta.label}
-              </Badge>
-              <Button size='sm' variant='outline' onClick={onEditClick}>
-                <Edit className='h-4 w-4 ms-2' />
-                ערוך
-              </Button>
-              <Button size='sm' variant='outline' onClick={onInviteClick}>
-                <UserPlus className='h-4 w-4 ms-2' />
-                הזמן משתף פעולה
-              </Button>
-              <Button size='sm' variant='outline' onClick={onArchiveClick} className='text-destructive hover:text-destructive'>
-                <Archive className='h-4 w-4 ms-2' />
-                ארכיון
-              </Button>
-            </div>
+          <div>
+            <CardTitle className='text-2xl sm:text-3xl font-semibold'>{address}</CardTitle>
           </div>
 
           <div className='grid gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3'>

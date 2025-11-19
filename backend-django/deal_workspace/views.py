@@ -613,6 +613,62 @@ class DocumentViewSet(DealScopedMixin, viewsets.ModelViewSet):
             ua=self.request.META.get("HTTP_USER_AGENT", ""),
         )
 
+    def perform_destroy(self, instance):
+        """Delete the document and its associated file."""
+        from django.core.files.storage import default_storage
+        import re
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Log the deletion
+        party_role = None
+        if instance.uploader_partyrole:
+            party_role = instance.uploader_partyrole
+        elif instance.deal:
+            party_role = utils.get_party_role_for_user(instance.deal, self.request.user)
+        
+        # Extract document ID from storage_url and delete the core Document's file
+        # Pattern: /api/assets/{asset_id}/documents/{doc_id}/download
+        storage_url = instance.storage_url or ""
+        match = re.search(r'/api/assets/(\d+)/documents/(\d+)/download', storage_url)
+        
+        if match:
+            asset_id, doc_id = match.groups()
+            try:
+                from core.models import Document as CoreDocument
+                core_doc = CoreDocument.objects.filter(
+                    id=int(doc_id),
+                    asset_id=int(asset_id)
+                ).first()
+                
+                if core_doc and core_doc.file_path:
+                    # Delete the file using Django's storage system
+                    try:
+                        default_storage.delete(core_doc.file_path)
+                        logger.info(f"Deleted file {core_doc.file_path} for document {doc_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete file {core_doc.file_path}: {e}")
+                    
+                    # Delete the core document record
+                    core_doc.delete()
+            except (ValueError, Exception) as e:
+                logger.warning(f"Error deleting core document from URL {storage_url}: {e}")
+        
+        # Create audit log
+        models.AuditLog.objects.create(
+            entity_type="document",
+            entity_id=str(instance.pk),
+            action="deleted",
+            by_partyrole=party_role,
+            diff_json={"title": instance.title, "kind": instance.kind},
+            ip=self.request.META.get("REMOTE_ADDR"),
+            ua=self.request.META.get("HTTP_USER_AGENT", ""),
+        )
+        
+        # Delete the database record
+        instance.delete()
+
     @action(detail=True, methods=["post"])
     def extract(self, request, pk=None):
         document = self.get_object()

@@ -1105,7 +1105,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
     router.push(dealExpensesHref)
   }, [asset, assetDealPrice, dealExpensesHref, id, router, trackFeatureUsage])
 
-  const handleDealWorkspaceClick = React.useCallback(() => {
+  const handleDealWorkspaceClick = React.useCallback(async () => {
     const assetIdentifier = asset?.id ?? id
     const numericAssetId =
       typeof assetIdentifier === 'number'
@@ -1118,8 +1118,62 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
       { source: 'asset_detail' }
     )
 
-    router.push(`/assets/${id}/deal`)
-  }, [asset, id, router, trackFeatureUsage])
+    try {
+      // Check if a deal already exists for this asset
+      const dealsResponse = await apiClient.get<{ deals?: any[] }>(
+        `/api/deals?asset_id=${id}`
+      )
+
+      const dealsList = Array.isArray(dealsResponse.data?.deals)
+        ? dealsResponse.data?.deals
+        : []
+      const existingDeal = dealsList?.[0]
+
+      // If no deal exists, create one
+      if (!existingDeal?.id) {
+        const payload = {
+          assetId: numericAssetId,
+          stage: 'discovery',
+          confidentialityLevel: 'standard',
+          parties: [],
+        }
+        const createResponse = await apiClient.post('/api/deals', payload)
+        
+        if (!createResponse.ok) {
+          // Check for authentication errors
+          const data = createResponse.data as any
+          if (createResponse.status === 401 || 
+              createResponse.error?.includes('Authentication credentials were not provided') ||
+              createResponse.error?.includes('Authentication') ||
+              data?.detail?.includes('Authentication credentials were not provided')) {
+            toast({
+              title: 'נדרשת התחברות',
+              description: 'עליך להתחבר כדי לפתוח סביבת עסקה',
+              variant: 'destructive'
+            })
+            router.push(`/auth?redirect=${encodeURIComponent(`/assets/${id}/deal`)}`)
+            return
+          }
+          toast({
+            title: 'שגיאה',
+            description: createResponse.error || 'לא ניתן ליצור סביבת עסקה',
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+
+      // Navigate to deal workspace
+      router.push(`/assets/${id}/deal`)
+    } catch (error) {
+      console.error('Error opening deal workspace:', error)
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לפתוח סביבת עסקה',
+        variant: 'destructive',
+      })
+    }
+  }, [asset, id, router, trackFeatureUsage, toast])
 
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))

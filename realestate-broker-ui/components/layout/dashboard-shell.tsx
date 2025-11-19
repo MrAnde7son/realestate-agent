@@ -22,7 +22,7 @@ export function DashboardShell({
 }
 
 interface DashboardHeaderProps {
-  heading: string
+  heading: string | React.ReactNode
   text?: string
   children?: React.ReactNode
 }

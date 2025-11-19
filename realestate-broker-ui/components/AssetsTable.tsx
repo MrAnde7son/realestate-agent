@@ -8,6 +8,8 @@ import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff, Handshake, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -94,12 +96,14 @@ function createColumns({
   onOpenAlert,
   onToggleWatch,
   watchLoadingIds,
+  onDealWorkspaceClick,
 }: {
   onDelete?: (id: number) => void
   onExport?: (asset: Asset) => void
   onOpenAlert?: (assetId: number) => void
   onToggleWatch?: (asset: Asset) => void
   watchLoadingIds?: Set<number>
+  onDealWorkspaceClick?: (asset: Asset, e: React.MouseEvent) => void
 }): ColumnDef<Asset>[] {
   return [
   {
@@ -563,15 +567,17 @@ function createColumns({
             >
               <Eye className="h-4 w-4" />
             </Link>
-            <Link
-              className="text-indigo-600 hover:text-indigo-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-              href={`/assets/${row.original.id}/deal`}
-              onClick={e => e.stopPropagation()}
-              aria-label={`פתח סביבת עסקה לנכס ${row.original.address}`}
-              title="סביבת עסקה"
-            >
-              <Handshake className="h-4 w-4" />
-            </Link>
+            {onDealWorkspaceClick && (
+              <button
+                type="button"
+                onClick={(e) => onDealWorkspaceClick(row.original, e)}
+                className="text-indigo-600 hover:text-indigo-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+                aria-label={`פתח סביבת עסקה לנכס ${row.original.address}`}
+                title="סביבת עסקה"
+              >
+                <Handshake className="h-4 w-4" />
+              </button>
+            )}
             {onToggleWatch && (
               <button
                 type="button"
@@ -1040,6 +1046,7 @@ export default function AssetsTable({
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
+  const { toast } = useToast()
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     // Load saved column preferences from localStorage on component mount
@@ -1206,17 +1213,83 @@ export default function AssetsTable({
     }
   }, [trackFeatureUsage])
 
+  // Handle deal workspace click - check if deal exists, create if not, then navigate
+  const handleDealWorkspaceClick = React.useCallback(async (asset: Asset, e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+
+    const assetId = asset.id
+    if (!assetId) return
+
+    try {
+      // Check if a deal already exists for this asset
+      const dealsResponse = await apiClient.get<{ deals?: any[] }>(
+        `/api/deals?asset_id=${assetId}`
+      )
+
+      const dealsList = Array.isArray(dealsResponse.data?.deals)
+        ? dealsResponse.data?.deals
+        : []
+      const existingDeal = dealsList?.[0]
+
+      // If no deal exists, create one
+      if (!existingDeal?.id) {
+        const payload = {
+          assetId: assetId,
+          stage: 'discovery',
+          confidentialityLevel: 'standard',
+          parties: [],
+        }
+        const createResponse = await apiClient.post('/api/deals', payload)
+        
+        if (!createResponse.ok) {
+          // Check for authentication errors
+          const data = createResponse.data as any
+          if (createResponse.status === 401 || 
+              createResponse.error?.includes('Authentication credentials were not provided') ||
+              createResponse.error?.includes('Authentication') ||
+              data?.detail?.includes('Authentication credentials were not provided')) {
+            toast({
+              title: 'נדרשת התחברות',
+              description: 'עליך להתחבר כדי לפתוח סביבת עסקה',
+              variant: 'destructive'
+            })
+            router.push(`/auth?redirect=${encodeURIComponent(`/assets/${assetId}/deal`)}`)
+            return
+          }
+          toast({
+            title: 'שגיאה',
+            description: createResponse.error || 'לא ניתן ליצור סביבת עסקה',
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+
+      // Navigate to deal workspace
+      router.push(`/assets/${assetId}/deal`)
+    } catch (error) {
+      console.error('Error opening deal workspace:', error)
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לפתוח סביבת עסקה',
+        variant: 'destructive',
+      })
+    }
+  }, [router, toast])
+
   // Create columns with handleExportSingle - only after mounted to prevent hydration mismatch
   const columns = React.useMemo(() => {
     if (!mounted) return []
     return createColumns({
+      onDealWorkspaceClick: handleDealWorkspaceClick,
       onDelete,
       onExport: handleExportSingle,
       onOpenAlert: handleOpenAlertModal,
       onToggleWatch,
       watchLoadingIds: watchingAssetIds,
     })
-  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal, onToggleWatch, watchingAssetIds])
+  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal, onToggleWatch, watchingAssetIds, handleDealWorkspaceClick])
 
   const table = useReactTable({
     data,

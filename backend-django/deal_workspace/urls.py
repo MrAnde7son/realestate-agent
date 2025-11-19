@@ -37,8 +37,9 @@ router.register(
 )
 
 urlpatterns = [
+    # Custom paths must come before router URLs to avoid routing conflicts
     path(
-        "deals/<int:asset_id>",
+        "deals/create/<int:asset_id>",
         views.DealCreateView.as_view(),
         name="workspace-deal-create",
     ),

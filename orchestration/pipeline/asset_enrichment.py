@@ -2178,8 +2178,7 @@ def _is_transaction_commercial(transaction: Dict[str, Any]) -> Optional[bool]:
         
     Returns:
         True if transaction is explicitly commercial,
-        False if transaction is explicitly residential,
-        None if cannot be determined
+        False if transaction is explicitly residential, default
     """
     if not isinstance(transaction, dict):
         return None
@@ -2204,9 +2203,9 @@ def _is_transaction_commercial(transaction: Dict[str, Any]) -> Optional[bool]:
     for indicator in commercial_indicators:
         if indicator in asset_type_lower:
             return True
-    
-    # If asset_type is not residential and not explicitly commercial, return None (unknown)
-    return None
+
+    # By default, non-commercial
+    return False
 
 
 def _is_listing_commercial(listing_data: Dict[str, Any]) -> bool:
@@ -2307,9 +2306,6 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 if price and area and area > 0:
                     # Filter by commercial status: only include transactions that match asset's commercial status
                     transaction_is_commercial = _is_transaction_commercial(transaction)
-                    # If transaction commercial status is unknown (None), exclude it to be safe
-                    if transaction_is_commercial is None:
-                        continue
                     # Only include transactions that match asset's commercial status
                     if transaction_is_commercial != asset_is_commercial:
                         continue

@@ -433,9 +433,9 @@ export default function AuthPage() {
                   <div className="flex items-center justify-center">
                     <span className="text-xs text-teal-600 dark:text-teal-400 font-medium">🎉 תקופת הרצה – שימוש חופשי ללא עלות</span>
                   </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     size="lg"
                     disabled={isLoading}
                   >
@@ -446,6 +446,24 @@ export default function AuthPage() {
                   </p>
                 </div>
               </form>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                  onClick={() => googleLogin(redirectTo)}
+                  disabled={isLoading}
+                >
+                  <Building className="h-4 w-4 ms-2" />
+                  הירשם עם Google
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  התחברות עם Google כדי להתחיל במהירות, ללא צורך בהגדרות נוספות.
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}

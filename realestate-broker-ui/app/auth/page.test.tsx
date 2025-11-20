@@ -20,6 +20,7 @@ describe('AuthPage', () => {
   let mockSearchParams: ReturnType<typeof createSearchParamsMock>
   let modeParam: string | null
   let redirectParam: string | null
+  let googleLoginMock: ReturnType<typeof vi.fn>
 
   function createRouterMock() {
     return {
@@ -66,6 +67,7 @@ describe('AuthPage', () => {
 
     modeParam = null
     redirectParam = null
+    googleLoginMock = vi.fn()
 
     mockRouter = createRouterMock()
     mockSearchParams = createSearchParamsMock()
@@ -77,7 +79,7 @@ describe('AuthPage', () => {
     ;(useAuth as any).mockReturnValue({
       login: vi.fn(),
       register: vi.fn(),
-      googleLogin: vi.fn(),
+      googleLogin: googleLoginMock,
       isLoading: false,
     })
   })
@@ -118,6 +120,22 @@ describe('AuthPage', () => {
 
     expect(mockRouter.replace).not.toHaveBeenCalled()
     expect(screen.queryByRole('heading', { name: 'ברוכים הבאים' })).not.toBeInTheDocument()
+  })
+
+  it('provides a Google signup option that uses redirect parameter', async () => {
+    modeParam = 'signup'
+    redirectParam = '/welcome'
+
+    render(<AuthPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'הירשם עם Google' })).toBeInTheDocument()
+    })
+
+    const googleButton = screen.getByRole('button', { name: 'הירשם עם Google' })
+    fireEvent.click(googleButton)
+
+    expect(googleLoginMock).toHaveBeenCalledWith('/welcome')
   })
 })
 

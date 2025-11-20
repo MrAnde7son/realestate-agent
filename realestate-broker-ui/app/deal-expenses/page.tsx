@@ -38,7 +38,6 @@ import {
   Sofa,
   FileText,
   TrendingUp,
-  Info,
   FileSpreadsheet,
   FileImage,
   Search,
@@ -52,6 +51,7 @@ import {
   ArrowLeft,
   Shield
 } from 'lucide-react'
+import { VatIndicator } from '@/components/vat-indicator'
 
 export default function DealExpensesPage() {
   const { trackCalculatorUsage, trackCalculatorCalculation, trackCalculatorExport } = useAnalytics()
@@ -953,7 +953,9 @@ export default function DealExpensesPage() {
         <DashboardHeader
           heading="מחשבון הוצאות עסקה"
           text="חישוב של כל העלויות הכרוכות ברכישת נכס"
-        />
+        >
+          <VatIndicator vatRate={vatRate} vatUpdated={vatUpdated} />
+        </DashboardHeader>
 
         <div className="mb-6 flex justify-center sm:justify-end">
           <Button
@@ -966,26 +968,6 @@ export default function DealExpensesPage() {
             <span className="sm:hidden">חשב</span>
           </Button>
         </div>
-
-        {/* VAT Rate Display */}
-        <Card className="mb-6">
-          <CardContent className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">מע&quot;מ נוכחי</div>
-                <div className="text-2xl font-bold">{(vatRate * 100).toFixed(1)}%</div>
-              </div>
-            </div>
-            {vatUpdated && (
-              <Badge variant="neutral">
-                עדכון אחרון: {new Date(vatUpdated).toLocaleDateString('he-IL')}
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Transaction details & Buyers */}
         <div className="grid gap-6 lg:grid-cols-2">

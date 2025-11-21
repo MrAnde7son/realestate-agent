@@ -27,6 +27,7 @@ import {
 import { Loader2, Calculator, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Settings, ChevronLeft } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOptionalAuth } from '@/lib/auth-context'
+import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 interface UITranche extends TrancheInput {
   id: string
 }
@@ -883,7 +884,9 @@ export default function MortgageAnalyzePage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader heading="מחשבון משכנתא" text="תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ">
+        <DashboardHeader heading="מחשבון משכנתא" text="תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ" />
+
+        <StickyActionBar description="בצע חישוב תיק משכנתא גם בזמן גלילה" className="mb-4">
           <Button
             onClick={handleAnalyzePortfolio}
             disabled={calculating || tranches.length === 0}
@@ -898,7 +901,7 @@ export default function MortgageAnalyzePage() {
             <span className="hidden sm:inline">חשב תיק</span>
             <span className="sm:hidden">חשב</span>
           </Button>
-        </DashboardHeader>
+        </StickyActionBar>
 
         <div className="grid gap-6 lg:grid-cols-[1fr,400px] xl:grid-cols-[2fr,1fr]">
           {/* Main Content Column */}

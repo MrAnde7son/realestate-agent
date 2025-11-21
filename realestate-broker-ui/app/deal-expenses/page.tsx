@@ -23,6 +23,7 @@ import { calculateServiceCosts, type ServiceInput, type BuildCostEstimate, type 
 import type { Asset } from '@/lib/normalizers/asset'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useSearchParams } from 'next/navigation'
+import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 
 type PropertyType = 'residential' | 'land'
 import {
@@ -957,7 +958,7 @@ export default function DealExpensesPage() {
           <VatIndicator vatRate={vatRate} vatUpdated={vatUpdated} />
         </DashboardHeader>
 
-        <div className="mb-6 flex justify-center sm:justify-end">
+        <StickyActionBar description="לחץ כאן כדי לחשב את כל העלויות בכל רגע" className="mb-4">
           <Button
             onClick={calculate}
             size="lg"
@@ -967,7 +968,7 @@ export default function DealExpensesPage() {
             <span className="hidden sm:inline">חשב הוצאות</span>
             <span className="sm:hidden">חשב</span>
           </Button>
-        </div>
+        </StickyActionBar>
 
         {/* Transaction details & Buyers */}
         <div className="grid gap-6 lg:grid-cols-2">

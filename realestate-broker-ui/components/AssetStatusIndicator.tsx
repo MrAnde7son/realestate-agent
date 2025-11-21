@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/Badge'
 import type { Asset } from '@/lib/normalizers/asset'
 
 type AssetStatus = Asset['assetStatus']
+type AssetStatusValue = Extract<AssetStatus, string>
 
-const STATUS_LABELS: Record<Exclude<AssetStatus, undefined>, string> = {
+const STATUS_LABELS: Record<AssetStatusValue, string> = {
   done: 'מוכן',
   failed: 'שגיאה באיסוף',
   enriching: 'אוסף נתונים על הנכס',
@@ -22,7 +23,9 @@ interface AssetStatusIndicatorProps {
 export function AssetStatusIndicator({ status, size = 'md' }: AssetStatusIndicatorProps) {
   if (!status || status === 'done') return null
 
-  const label = STATUS_LABELS[status]
+  const label = STATUS_LABELS[status as AssetStatusValue]
+
+  if (!label) return null
   const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'
   const textSize = size === 'sm' ? 'text-[11px]' : 'text-xs'
 

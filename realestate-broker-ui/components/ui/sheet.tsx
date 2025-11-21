@@ -50,12 +50,17 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, style, ...props }, ref) => {
+>(
+  ( 
+    { side = "right", className, children, style, ...props },
+    ref
+  ) => {
   const anchoredStyle = React.useMemo<React.CSSProperties | undefined>(() => {
     if (side === "right") {
       return { right: 0, left: "auto", ...style }
@@ -85,7 +90,8 @@ const SheetContent = React.forwardRef<
       </SheetPrimitive.Content>
     </SheetPortal>
   )
-})
+}
+)
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
 const SheetHeader = ({

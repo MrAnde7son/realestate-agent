@@ -10,7 +10,7 @@ import { baseNavigation } from "./app-sidebar"
 import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { User, Users, CreditCard, Settings, LogOut, X, LineChart } from "lucide-react"
+import { User, Users, CreditCard, Settings, LogOut, LineChart } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -120,15 +120,6 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                   <Logo variant="symbol" size={28} color="var(--brand-teal)" />
                   <span className="text-lg font-bold">נדל״נר</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className="h-8 w-8 p-0"
-                  aria-label="סגור תפריט"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
 
               {/* Navigation */}

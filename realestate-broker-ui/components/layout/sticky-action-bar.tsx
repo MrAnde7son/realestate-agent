@@ -21,7 +21,7 @@ export function StickyActionBar({
     >
       <div
         className={cn(
-          'flex flex-col gap-2 rounded-2xl border border-border/70 bg-background/90 px-3 py-2 shadow-lg shadow-black/5 backdrop-blur supports-[backdrop-filter]:backdrop-blur',
+          'flex flex-col gap-2 rounded-2xl bg-background/90 px-3 py-2 shadow-xl shadow-black/10 backdrop-blur supports-[backdrop-filter]:backdrop-blur',
           'sm:flex-row sm:items-center sm:justify-between',
           innerClassName
         )}

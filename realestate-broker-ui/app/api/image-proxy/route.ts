@@ -63,6 +63,8 @@ export async function GET(request: Request) {
       'cdn.yad2.treedis.com',
       'api.nadlaner.com',
       'backend-django-2cpe.onrender.com',
+      "images-processor.madlan.co.il",
+      "images2.madlan.co.il"
     ]
 
     let url: URL

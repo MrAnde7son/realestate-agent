@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import MortgageAnalyzePage from './page'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -143,6 +143,15 @@ describe('MortgageAnalyzePage', () => {
 
     const monthlyIncomeInput = screen.getByDisplayValue('65000') as HTMLInputElement
     expect(monthlyIncomeInput.value).toBe('65000')
+  })
+
+  it('keeps the calculate CTA visible while scrolling', async () => {
+    render(<MortgageAnalyzePage />)
+
+    const stickyBar = await screen.findByTestId('sticky-action-bar')
+    expect(stickyBar).toBeInTheDocument()
+    expect(stickyBar.className).toContain('sticky')
+    expect(within(stickyBar).getByRole('button', { name: /חשב תיק/ })).toBeInTheDocument()
   })
 
   it('prefills equity from authenticated user profile', async () => {

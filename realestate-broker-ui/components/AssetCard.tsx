@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { Bed, Bath, Ruler, Eye, FileText, Heart } from 'lucide-react'
 import ImageGallery from './ImageGallery'
+import AssetStatusIndicator from './AssetStatusIndicator'
 
 function exportAssetCsv(asset: Asset) {
   // Export all available fields from the Asset type
@@ -60,10 +60,6 @@ interface AssetCardProps {
 }
 
 export default function AssetCard({ asset, onToggleWatch, watchLoading = false }: AssetCardProps) {
-  const status = asset.assetStatus
-  const statusVariant = status === 'done' ? 'success' : status === 'failed' ? 'error' : 'warning'
-  const statusLabel =
-    status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
   const isWatched = asset.isWatched === true
   const watchTitle = isWatched ? 'הסר מרשימת המעקב' : 'הוסף לרשימת המעקב'
 
@@ -122,7 +118,8 @@ export default function AssetCard({ asset, onToggleWatch, watchLoading = false }
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 truncate text-sm font-bold sm:text-base">{asset.address ?? '—'}</div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <AssetStatusIndicator status={asset.assetStatus} size="sm" />
             {onToggleWatch && (
               <Button
                 type="button"
@@ -141,7 +138,6 @@ export default function AssetCard({ asset, onToggleWatch, watchLoading = false }
                 <span className="sr-only">{watchTitle}</span>
               </Button>
             )}
-            <Badge variant={statusVariant} className="text-xs sm:text-sm">{statusLabel}</Badge>
           </div>
         </div>
         <div className="text-xl font-semibold text-primary sm:text-2xl">

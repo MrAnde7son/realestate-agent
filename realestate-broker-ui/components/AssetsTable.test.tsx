@@ -76,6 +76,18 @@ describe('AssetsTable', () => {
     expect(loadingRows.length).toBeGreaterThan(0)
   })
 
+  it('shows inline loader when asset status is not done', async () => {
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City', assetStatus: 'pending' } as any]}
+      />
+    )
+
+    await screen.findByRole('columnheader', { name: /נכס/ })
+
+    expect(screen.getByText('מכין נתונים על הנכס')).toBeInTheDocument()
+  })
+
   it('renders listing metadata columns when provided', async () => {
     render(
       <AssetsTable

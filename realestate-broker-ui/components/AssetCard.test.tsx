@@ -76,6 +76,18 @@ describe('AssetCard', () => {
     expect(push).toHaveBeenCalledWith('/assets/42')
   })
 
+  it('shows loader when asset data is still being collected', () => {
+    render(<AssetCard asset={{ ...mockAsset, assetStatus: 'enriching' }} />)
+
+    expect(screen.getByText('אוסף נתונים על הנכס')).toBeInTheDocument()
+  })
+
+  it('hides loader when asset data is ready', () => {
+    render(<AssetCard asset={{ ...mockAsset, assetStatus: 'done' }} />)
+
+    expect(screen.queryByText('אוסף נתונים על הנכס')).not.toBeInTheDocument()
+  })
+
   it('does not trigger navigation when export is clicked', () => {
     render(<AssetCard asset={mockAsset} />)
 

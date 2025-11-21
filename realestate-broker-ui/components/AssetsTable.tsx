@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import AssetCard from './AssetCard'
+import AssetStatusIndicator from './AssetStatusIndicator'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from './TableToolbar'
 import TablePagination from '@/components/TablePagination'
@@ -177,6 +178,7 @@ function createColumns({
                 במעקב
               </Badge>
             )}
+            <AssetStatusIndicator status={row.original.assetStatus} size="sm" />
           </div>
           <div className="text-xs text-sub">
               {row.original.city ?? '—'}
@@ -461,11 +463,10 @@ function createColumns({
     } },
   { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
   { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
-    const status = info.getValue() as string
+    const status = info.getValue() as Asset['assetStatus']
     if (!status) return <Badge variant="neutral">—</Badge>
-    const variant = status === 'done' ? 'success' : status === 'failed' ? 'error' : 'warning'
-    const label = status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
-    return <Badge variant={variant}>{label}</Badge>
+    const indicator = <AssetStatusIndicator status={status} size="sm" />
+    return indicator ?? <Badge variant="neutral">—</Badge>
   }},
   { header:'מחיר שוק', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => {

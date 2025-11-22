@@ -1108,17 +1108,18 @@ export default function AssetsTable({
   const handleColumnVisibilityChange = React.useCallback((updaterOrValue: any) => {
     setColumnVisibility(prev => {
       const newVisibility = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue
+      const normalizedVisibility = { ...newVisibility }
 
       // Save to localStorage
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem(COLUMN_PREFERENCES_KEY, JSON.stringify(newVisibility))
+          localStorage.setItem(COLUMN_PREFERENCES_KEY, JSON.stringify(normalizedVisibility))
         } catch (error) {
           console.warn('Failed to save column preferences:', error)
         }
       }
 
-      return newVisibility
+      return normalizedVisibility
     })
   }, [])
 

@@ -129,4 +129,29 @@ describe('AssetsTable', () => {
     expect(toggleSpy).toHaveBeenCalledTimes(1)
     expect(toggleSpy.mock.calls[0][0]).toMatchObject({ id: 1 })
   })
+
+  it('updates column selector checkmarks immediately when toggled', async () => {
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City' } as any]}
+      />
+    )
+
+    const columnsButton = await screen.findByRole('button', { name: /עמודות/ })
+    fireEvent.pointerDown(columnsButton)
+    fireEvent.keyDown(columnsButton, { key: 'Enter', code: 'Enter', charCode: 13 })
+
+    const priceColumnOption = await screen.findByRole('menuitemcheckbox', { name: '₪' })
+    expect(priceColumnOption).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(priceColumnOption)
+    await waitFor(() => {
+      expect(priceColumnOption).toHaveAttribute('aria-checked', 'false')
+    })
+
+    fireEvent.click(priceColumnOption)
+    await waitFor(() => {
+      expect(priceColumnOption).toHaveAttribute('aria-checked', 'true')
+    })
+  })
 })

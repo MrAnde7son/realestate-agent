@@ -80,6 +80,7 @@ const formatListingTypeLabel = (value?: string | null) => {
   if (normalized === 'rent') return 'השכרה'
   if (normalized === 'sale') return 'מכירה'
   if (normalized === 'commercial') return 'מסחרי'
+  if (normalized === 'auction') return 'מכרז'
   return value
 }
 

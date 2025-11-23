@@ -81,6 +81,7 @@ const formatListingTypeLabel = (value?: string | null) => {
   if (normalized === 'rent') return 'השכרה'
   if (normalized === 'sale') return 'מכירה'
   if (normalized === 'commercial') return 'מסחרי'
+  if (normalized === 'auction') return 'מכרז'
   return value
 }
 
@@ -97,6 +98,7 @@ const formatListingSourceLabel = (value?: string | null) => {
   const normalized = value.toLowerCase()
   if (normalized === 'yad2') return 'יד2'
   if (normalized === 'madlan') return 'מדלן'
+  if (normalized === 'michrazim') return 'מכרז רמ\"י'
   return value
 }
 

@@ -69,6 +69,7 @@ class MichrazimCollector(BaseCollector):
         meta = {
             "source": "michrazim",
             "price_label": "מחיר מכרז",
+            "tender_price": price_int,
             "status": details.get("StatusMichraz"),
             "closingDate": details.get("SgiraDate"),
             "openingDate": details.get("PtichaDate"),
@@ -100,6 +101,8 @@ class MichrazimCollector(BaseCollector):
             raw={
                 **summary,
                 "details": details,
+                "tender_price": price_int,
+                "price_label": "מחיר מכרז",
                 "source": "michrazim",
                 "price_label": "מחיר מכרז",
             },

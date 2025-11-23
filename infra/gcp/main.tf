@@ -313,7 +313,8 @@ resource "google_cloud_run_service" "worker" {
         "run.googleapis.com/vpc-access-egress"      = "private-ranges-only"
         "run.googleapis.com/cloudsql-instances"      = google_sql_database_instance.postgres.connection_name
         "autoscaling.knative.dev/maxScale"           = "5"
-        "autoscaling.knative.dev/minScale"           = "0"  # Scale to zero when idle - tasks wait in Redis
+        "autoscaling.knative.dev/minScale"           = "1"  # Keep at least one worker warm to process tasks
+        "run.googleapis.com/cpu-throttling"          = "false"  # Keep CPU allocated so Celery can poll broker
         # Increase startup timeout for database connection
         "run.googleapis.com/startup-cpu-boost"      = "true"
       }

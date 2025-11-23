@@ -1653,7 +1653,7 @@ function DocsPanel({
           <div className='flex flex-wrap gap-2'>
             <Button onClick={onUploadClick} className='shadow-sm px-4 sm:px-5'>
               <UploadCloud className='h-4 w-4 ms-2' />
-              העלה מסמך עכשיו
+              העלה מסמך
             </Button>
             <Button variant='outline' size='sm' onClick={() => onFilterChange('all')}>
               <FileText className='h-4 w-4 ms-2' />

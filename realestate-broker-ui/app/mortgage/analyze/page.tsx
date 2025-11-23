@@ -631,21 +631,27 @@ export default function MortgageAnalyzePage() {
     const urlScenario = searchParams.get('scenario')
     
     // Update propertyValue if URL param differs from state
-    const parsedPropertyValue = parseNumberParam(urlPropertyValue)
-    if (parsedPropertyValue !== propertyValue) {
-      setPropertyValue(parsedPropertyValue)
+    if (urlPropertyValue !== null) {
+      const parsedPropertyValue = parseNumberParam(urlPropertyValue)
+      if (parsedPropertyValue !== propertyValue) {
+        setPropertyValue(parsedPropertyValue)
+      }
     }
     
     // Update userEquity if URL param differs from state
-    const parsedUserEquity = parseNumberParam(urlUserEquity)
-    if (parsedUserEquity !== userEquity) {
-      setUserEquity(parsedUserEquity)
+    if (urlUserEquity !== null) {
+      const parsedUserEquity = parseNumberParam(urlUserEquity)
+      if (parsedUserEquity !== userEquity) {
+        setUserEquity(parsedUserEquity)
+      }
     }
     
     // Update monthlyIncome if URL param differs from state
-    const parsedMonthlyIncome = parseNumberParam(urlMonthlyIncome)
-    if (parsedMonthlyIncome !== monthlyIncome) {
-      setMonthlyIncome(parsedMonthlyIncome)
+    if (urlMonthlyIncome !== null) {
+      const parsedMonthlyIncome = parseNumberParam(urlMonthlyIncome)
+      if (parsedMonthlyIncome !== monthlyIncome) {
+        setMonthlyIncome(parsedMonthlyIncome)
+      }
     }
     
     // Update envConfig if URL params differ from state

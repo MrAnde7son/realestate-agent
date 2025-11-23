@@ -128,7 +128,7 @@ describe('MortgageAnalyzePage', () => {
     mockReplace.mockClear()
   })
 
-  it('renders the mortgage calculator page with initial values', async () => {
+  it('renders the mortgage calculator page without default numbers', async () => {
     render(<MortgageAnalyzePage />)
 
     await waitFor(() => {
@@ -138,11 +138,11 @@ describe('MortgageAnalyzePage', () => {
     expect(screen.getByText('תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ')).toBeInTheDocument()
     expect(screen.getByText('נתוני בסיס')).toBeInTheDocument()
 
-    const propertyValueInput = screen.getByDisplayValue('3500000') as HTMLInputElement
-    expect(propertyValueInput.value).toBe('3500000')
+    const propertyValueInput = screen.getByLabelText('שווי נכס') as HTMLInputElement
+    expect(propertyValueInput.value).toBe('')
 
-    const monthlyIncomeInput = screen.getByDisplayValue('65000') as HTMLInputElement
-    expect(monthlyIncomeInput.value).toBe('65000')
+    const monthlyIncomeInput = screen.getByLabelText('הכנסה חודשית') as HTMLInputElement
+    expect(monthlyIncomeInput.value).toBe('')
   })
 
   it('keeps the calculate CTA visible while scrolling', async () => {
@@ -165,5 +165,25 @@ describe('MortgageAnalyzePage', () => {
 
     const equityInput = await screen.findByLabelText('הון עצמי')
     expect((equityInput as HTMLInputElement).value).toBe('250000')
+  })
+
+  it('prefills monthly income from authenticated user profile', async () => {
+    mockAuthState.user = { role: 'private', monthly_income: 42000 }
+
+    render(<MortgageAnalyzePage />)
+
+    const monthlyIncomeInput = await screen.findByLabelText('הכנסה חודשית')
+    expect((monthlyIncomeInput as HTMLInputElement).value).toBe('42000')
+  })
+
+  it('shows a callout when required base inputs are missing', async () => {
+    render(<MortgageAnalyzePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('השלימו את שווי הנכס, ההון העצמי וההכנסה החודשית כדי להתחיל.')).toBeInTheDocument()
+    })
+
+    const calculateButton = screen.getByRole('button', { name: /חשב תיק/ })
+    expect(calculateButton).toBeDisabled()
   })
 })

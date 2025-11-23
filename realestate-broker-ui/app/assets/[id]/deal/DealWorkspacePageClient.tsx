@@ -895,29 +895,20 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
               documentsCount={documents.length}
             />
 
-          <div className='grid gap-4 sm:gap-6 md:grid-cols-[2fr_1fr] lg:grid-cols-[2fr_1fr] min-w-0'>
-            <TimelinePanel
-              activeFilter={timelineFilter}
-              events={filteredTimelineEvents}
-              onFilterChange={setTimelineFilter}
-              filterOptions={TIMELINE_FILTERS}
-            />
-
-            <DocsPanel
-              documents={filteredDocuments}
-              allDocuments={documents}
-              activeFilter={docsFilter}
-              onFilterChange={setDocsFilter}
-              onLinkDocument={handleLinkDocument}
-              selectedDocumentId={selectedDocumentId}
-              summary={docsSummary}
-              onUploadClick={() => setIsUploadDialogOpen(true)}
-              isLoading={documentsLoading}
-              error={documentsError}
-              assetId={assetId}
-              onDocumentDeleted={handleDocumentDeleted}
-            />
-          </div>
+          <DocsPanel
+            documents={filteredDocuments}
+            allDocuments={documents}
+            activeFilter={docsFilter}
+            onFilterChange={setDocsFilter}
+            onLinkDocument={handleLinkDocument}
+            selectedDocumentId={selectedDocumentId}
+            summary={docsSummary}
+            onUploadClick={() => setIsUploadDialogOpen(true)}
+            isLoading={documentsLoading}
+            error={documentsError}
+            assetId={assetId}
+            onDocumentDeleted={handleDocumentDeleted}
+          />
 
           <div className='grid gap-4 sm:gap-6 md:grid-cols-[3fr_2fr] lg:grid-cols-[3fr_2fr] min-w-0'>
             <OfferComposer
@@ -936,6 +927,13 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
           <LegalChecklist
             tasks={tasks}
             onStatusChange={handleTaskStatusChange}
+          />
+
+          <TimelinePanel
+            activeFilter={timelineFilter}
+            events={filteredTimelineEvents}
+            onFilterChange={setTimelineFilter}
+            filterOptions={TIMELINE_FILTERS}
           />
         </div>
         ) : (
@@ -1251,6 +1249,9 @@ function DealHeader({
   documentsCount,
 }: DealHeaderProps) {
   const stageIndex = STAGE_FLOW.findIndex(item => item.key === stage)
+  const buyerParties = parties.filter(party => party.side === 'buyer')
+  const sellerParties = parties.filter(party => party.side === 'seller')
+  const neutralParties = parties.filter(party => party.side !== 'buyer' && party.side !== 'seller')
 
   return (
       <Card className='min-w-0'>
@@ -1312,20 +1313,31 @@ function DealHeader({
         </div>
 
         <div className='rounded-lg border bg-muted/40 p-3 sm:p-4'>
-          <div className='text-sm font-semibold text-muted-foreground'>צדדים מעורבים</div>
-          <div className='mt-3 flex flex-wrap gap-2'>
-            {parties.map(party => (
-              <Badge
-                key={party.id}
-                variant={party.side === 'buyer' ? 'success' : party.side === 'seller' ? 'secondary' : 'neutral'}
-                size='sm'
-                className='gap-1'
-              >
-                <ShieldCheck className='h-3 w-3' />
-                {party.role}
-                <span className='text-xs text-muted-foreground'>• {party.name}</span>
-              </Badge>
-            ))}
+          <div className='flex items-center justify-between gap-2'>
+            <div className='text-sm font-semibold text-muted-foreground'>צדדים מעורבים</div>
+            <Badge size='sm' variant='neutral' className='rounded-full'>
+              {parties.length} משתתפים
+            </Badge>
+          </div>
+          <div className='mt-3 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+            <PartyGroupSummary
+              label='צד הקונה'
+              parties={buyerParties}
+              variant='success'
+              placeholder='הוסיפו אנשי קשר בצד הקונה'
+            />
+            <PartyGroupSummary
+              label='צד המוכר'
+              parties={sellerParties}
+              variant='secondary'
+              placeholder='עדיין אין אנשי קשר בצד המוכר'
+            />
+            <PartyGroupSummary
+              label='תומכים וניטרליים'
+              parties={neutralParties}
+              variant='neutral'
+              placeholder='הוסיפו רואה חשבון, אדריכל או עו״ד'
+            />
           </div>
         </div>
       </CardHeader>
@@ -1349,6 +1361,47 @@ function DealHeaderStat({ label, value, helper, icon }: DealHeaderStatProps) {
       </div>
       <div className='mt-2 text-lg sm:text-xl font-semibold'>{value}</div>
       <div className='text-xs text-muted-foreground'>{helper}</div>
+    </div>
+  )
+}
+
+type PartyGroupSummaryProps = {
+  label: string
+  parties: Party[]
+  variant: 'success' | 'secondary' | 'neutral'
+  placeholder: string
+}
+
+function PartyGroupSummary({ label, parties, variant, placeholder }: PartyGroupSummaryProps) {
+  const visible = parties.slice(0, 3)
+  const overflowCount = Math.max(0, parties.length - visible.length)
+
+  return (
+    <div className='rounded-md border bg-background p-3 sm:p-4 shadow-inner'>
+      <div className='flex items-center justify-between gap-2 text-xs sm:text-sm font-semibold text-muted-foreground'>
+        <span>{label}</span>
+        <Badge size='sm' variant={variant} className='rounded-full'>
+          {parties.length}
+        </Badge>
+      </div>
+      {parties.length === 0 ? (
+        <p className='mt-2 text-xs text-muted-foreground'>{placeholder}</p>
+      ) : (
+        <div className='mt-2 flex flex-wrap gap-1.5'>
+          {visible.map(party => (
+            <Badge key={party.id} size='sm' variant={variant} className='gap-1'>
+              <ShieldCheck className='h-3 w-3' />
+              {party.role}
+              {party.name ? <span className='text-[11px] text-muted-foreground'>• {party.name}</span> : null}
+            </Badge>
+          ))}
+          {overflowCount > 0 ? (
+            <Badge size='sm' variant='outline' className='border-dashed text-muted-foreground'>
+              +{overflowCount} נוספים
+            </Badge>
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }
@@ -1585,34 +1638,49 @@ function DocsPanel({
           <FileUp className='h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0' />
           מסמכים ותובנות
         </CardTitle>
-        <CardDescription className='text-xs sm:text-sm'>{summary}</CardDescription>
+        <CardDescription className='text-xs sm:text-sm space-y-1'>
+          <span>הפעולה הראשונה שכדאי לבצע: הוספת מסמך או תובנה לכלל הצדדים.</span>
+          <span className='block text-[11px] sm:text-xs text-muted-foreground'>{summary}</span>
+        </CardDescription>
       </CardHeader>
       <CardContent className='space-y-3 sm:space-y-4 p-4 sm:p-6'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div className='flex flex-wrap gap-2'>
-            {DOC_FILTERS.map(filter => {
-              const count = filter.key === 'all'
-                ? allDocuments.length
-                : allDocuments.filter(doc => doc.kind === filter.key).length
-              return (
-                <Button
-                  key={filter.key}
-                  size='sm'
-                  variant={filter.key === activeFilter ? 'default' : 'outline'}
-                  onClick={() => onFilterChange(filter.key)}
-                >
-                  {filter.label}
-                  <Badge size='sm' variant='neutral' className='me-2'>
-                    {count}
-                  </Badge>
-                </Button>
-              )
-            })}
+        <div className='rounded-lg border bg-primary/5 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+          <div className='space-y-1'>
+            <div className='text-sm font-semibold'>מסמך חדש או תובנה מהירה</div>
+            <p className='text-xs text-muted-foreground'>צרפו קובץ, בחרו חשיפה והמסמך יופיע מיד בציר הפעילות.</p>
+            <div className='text-[11px] text-muted-foreground'>{summary}</div>
           </div>
-          <Button size='sm' onClick={onUploadClick} variant='default'>
-            <UploadCloud className='h-4 w-4 ms-2' />
-            העלה מסמך
-          </Button>
+          <div className='flex flex-wrap gap-2'>
+            <Button onClick={onUploadClick} className='shadow-sm px-4 sm:px-5'>
+              <UploadCloud className='h-4 w-4 ms-2' />
+              העלה מסמך עכשיו
+            </Button>
+            <Button variant='outline' size='sm' onClick={() => onFilterChange('all')}>
+              <FileText className='h-4 w-4 ms-2' />
+              הצג הכל
+            </Button>
+          </div>
+        </div>
+
+        <div className='flex flex-wrap items-center gap-2'>
+          {DOC_FILTERS.map(filter => {
+            const count = filter.key === 'all'
+              ? allDocuments.length
+              : allDocuments.filter(doc => doc.kind === filter.key).length
+            return (
+              <Button
+                key={filter.key}
+                size='sm'
+                variant={filter.key === activeFilter ? 'default' : 'outline'}
+                onClick={() => onFilterChange(filter.key)}
+              >
+                {filter.label}
+                <Badge size='sm' variant='neutral' className='me-2'>
+                  {count}
+                </Badge>
+              </Button>
+            )
+          })}
         </div>
 
         {error ? (

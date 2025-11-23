@@ -118,15 +118,15 @@ class DataPipeline:
     # Per-collector configuration for timeouts and retry counts. These can
     # be overridden via environment variables if needed.
     TIMEOUTS = {
-        "yad2": float(os.getenv("YAD2_TIMEOUT", "120")),
-        "madlan": float(os.getenv("MADLAN_TIMEOUT", "120")),
-        "gis": float(os.getenv("GIS_TIMEOUT", "120")),
-        "gov": float(os.getenv("GOV_TIMEOUT", "120")),
-        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "120")),
-        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "120")),
-        "michrazim": float(os.getenv("MICHRAZIM_TIMEOUT", "120")),
-        "mavat": float(os.getenv("MAVAT_TIMEOUT", "120")),
-        "handasa": float(os.getenv("HANDASA_TIMEOUT", "120")),
+        "yad2": float(os.getenv("YAD2_TIMEOUT", "240")),
+        "madlan": float(os.getenv("MADLAN_TIMEOUT", "240")),
+        "gis": float(os.getenv("GIS_TIMEOUT", "240")),
+        "gov": float(os.getenv("GOV_TIMEOUT", "240")),
+        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "240")),
+        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "240")),
+        "michrazim": float(os.getenv("MICHRAZIM_TIMEOUT", "240")),
+        "mavat": float(os.getenv("MAVAT_TIMEOUT", "240")),
+        "handasa": float(os.getenv("HANDASA_TIMEOUT", "240")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),

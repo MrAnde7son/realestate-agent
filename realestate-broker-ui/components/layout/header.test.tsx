@@ -20,6 +20,8 @@ vi.mock("@/lib/auth-context", () => ({
       email: "test@example.com",
     },
     logout: mockLogout,
+    isAuthenticated: true,
+    isLoading: false,
   }),
 }))
 

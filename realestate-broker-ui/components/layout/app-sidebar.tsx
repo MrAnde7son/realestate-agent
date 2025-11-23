@@ -15,6 +15,7 @@ import {
   CreditCard,
   Settings,
   LogOut,
+  LogIn,
   Receipt,
   Banknote,
   Users,
@@ -89,7 +90,7 @@ export default function AppSidebar({
   isCollapsed = false,
 }: AppSidebarProps) {
   const activePath = usePersistentPathname();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated, isLoading } = useAuth();
 
   const canAccessCrm = ["broker", "appraiser", "admin"].includes(user?.role || "");
 
@@ -234,87 +235,113 @@ export default function AppSidebar({
 
       {/* Footer with User Menu - Moved to bottom of sidebar */}
       <div className="p-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start gap-2 px-2 py-2 h-auto",
-                isCollapsed ? "px-2" : "px-2.5"
-              )}
+        {!isLoading && isAuthenticated ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start gap-2 px-2 py-2 h-auto",
+                  isCollapsed ? "px-2" : "px-2.5"
+                )}
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                  <div className="flex-1 text-start">
+                    <div className="text-sm font-medium">
+                      {getUserDisplayName()}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {user?.email || "demo@example.com"}
+                    </div>
+                  </div>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-56 bg-background border shadow-lg"
+              align={isCollapsed ? "center" : "end"}
+              side={isCollapsed ? "right" : "top"}
+              forceMount
             >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{getUserInitials()}</AvatarFallback>
-              </Avatar>
-              {!isCollapsed && (
-                <div className="flex-1 text-start">
-                  <div className="text-sm font-medium">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
                     {getUserDisplayName()}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
                     {user?.email || "demo@example.com"}
-                  </div>
+                  </p>
+                  {user?.company && (
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.company}
+                    </p>
+                  )}
+                  {user?.role && (
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {getRoleLabel(user.role)}
+                    </p>
+                  )}
                 </div>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-56 bg-background border shadow-lg"
-            align={isCollapsed ? "center" : "end"}
-            side={isCollapsed ? "right" : "top"}
-            forceMount
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="flex items-center">
+                    <User className="ms-2 h-4 w-4" />
+                    <span>פרופיל</span>
+                  </Link>
+                </DropdownMenuItem>
+                {/* <DropdownMenuItem asChild>
+                  <Link href="/billing" className="flex items-center">
+                    <CreditCard className="ms-2 h-4 w-4" />
+                    <span>חבילות ותשלומים</span>
+                  </Link>
+                </DropdownMenuItem> */}
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center">
+                    <Settings className="ms-2 h-4 w-4" />
+                    <span>הגדרות</span>
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onClick={handleLogout}
+              >
+                <LogOut className="ms-2 h-4 w-4" />
+                <span>התנתק</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            asChild
+            variant="default"
+            className={cn(
+              "w-full bg-[var(--brand-teal)] text-white hover:bg-[var(--brand-teal)]/90 shadow-sm",
+              isCollapsed ? "px-2 py-2 h-10 rounded-full" : "px-2.5 py-2 justify-center gap-2"
+            )}
           >
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  {getUserDisplayName()}
-                </p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email || "demo@example.com"}
-                </p>
-                {user?.company && (
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user.company}
-                  </p>
-                )}
-                {user?.role && (
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {getRoleLabel(user.role)}
-                  </p>
-                )}
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link href="/profile" className="flex items-center">
-                  <User className="ms-2 h-4 w-4" />
-                  <span>פרופיל</span>
-                </Link>
-              </DropdownMenuItem>
-              {/* <DropdownMenuItem asChild>
-                <Link href="/billing" className="flex items-center">
-                  <CreditCard className="ms-2 h-4 w-4" />
-                  <span>חבילות ותשלומים</span>
-                </Link>
-              </DropdownMenuItem> */}
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="flex items-center">
-                  <Settings className="ms-2 h-4 w-4" />
-                  <span>הגדרות</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600 focus:text-red-600"
-              onClick={handleLogout}
+            <Link
+              href="/auth"
+              className={cn(
+                "flex items-center w-full",
+                isCollapsed ? "justify-center" : "justify-center gap-2"
+              )}
             >
-              <LogOut className="ms-2 h-4 w-4" />
-              <span>התנתק</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <LogIn className="h-4 w-4" />
+              {isCollapsed ? (
+                <span className="sr-only">התחבר</span>
+              ) : (
+                <span>התחבר</span>
+              )}
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );

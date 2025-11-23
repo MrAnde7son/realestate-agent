@@ -2573,6 +2573,12 @@ useDedupedEffect(() => {
     return currentTab?.label || 'ניתוח כללי'
   }, [activeTab, tabContext])
 
+  const tabListClassName =
+    "flex flex-wrap gap-2 rounded-xl bg-white/90 p-2 shadow-md md:flex-nowrap md:gap-2"
+
+  const tabTriggerClassName =
+    "flex-1 min-w-[110px] cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-muted-foreground shadow-sm transition hover:-translate-y-[1px] hover:shadow-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
+
   const breadcrumbItems: PersistentBreadcrumbItemType[] = React.useMemo(() => {
     const items: PersistentBreadcrumbItemType[] = [
       { label: 'בית', href: '/', icon: Home },
@@ -3623,17 +3629,17 @@ useDedupedEffect(() => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0" dir="rtl">
-            <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
-            <TabsTrigger value="listings">מודעות</TabsTrigger>
-            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="environment">סביבה</TabsTrigger>
-            {canViewCrm && <TabsTrigger value="crm">לקוחות</TabsTrigger>}
-            <TabsTrigger value="rights">זכויות</TabsTrigger>
-            <TabsTrigger value="permits">היתרים</TabsTrigger>
-            <TabsTrigger value="plans">תוכניות</TabsTrigger>
-            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
-            <TabsTrigger value="documents">מסמכים</TabsTrigger>
+          <TabsList className={tabListClassName} dir="rtl">
+            <TabsTrigger className={tabTriggerClassName} value="analysis">ניתוח כללי</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="listings">מודעות</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="transactions">עיסקאות השוואה</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="environment">סביבה</TabsTrigger>
+            {canViewCrm && <TabsTrigger className={tabTriggerClassName} value="crm">לקוחות</TabsTrigger>}
+            <TabsTrigger className={tabTriggerClassName} value="rights">זכויות</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="permits">היתרים</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="plans">תוכניות</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="appraisals">שומות באיזור</TabsTrigger>
+            <TabsTrigger className={tabTriggerClassName} value="documents">מסמכים</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
 

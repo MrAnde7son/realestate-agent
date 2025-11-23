@@ -542,6 +542,7 @@ def auth_profile(request):
                 "company": getattr(user, "company", ""),
                 "role": getattr(user, "role", ""),
                 "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
+                "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
                 "is_verified": getattr(user, "is_verified", False),
                 "created_at": (
                     user.created_at.isoformat()
@@ -604,6 +605,24 @@ def auth_update_profile(request):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 user.equity = equity_decimal
+        if "monthly_income" in data:
+            monthly_income_value = data["monthly_income"]
+            if monthly_income_value in (None, ""):
+                user.monthly_income = None
+            else:
+                try:
+                    monthly_income_decimal = Decimal(str(monthly_income_value))
+                except (InvalidOperation, TypeError):
+                    return Response(
+                        {"error": "Monthly income must be a valid number"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if monthly_income_decimal < 0:
+                    return Response(
+                        {"error": "Monthly income must be a non-negative amount"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.monthly_income = monthly_income_decimal
         # Role changes are not allowed for regular users - only admins can change roles
         # if "role" in data:
         #     user.role = data["role"]
@@ -624,6 +643,7 @@ def auth_update_profile(request):
                     "company": getattr(user, "company", ""),
                     "role": getattr(user, "role", ""),
                     "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
+                    "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
                     "is_verified": getattr(user, "is_verified", False),
                     "onboarding_flags": {
                         "connect_payment": onboarding_progress.connect_payment,

@@ -9,6 +9,7 @@ export interface User {
   company: string
   role: string
   equity?: number | null
+  monthly_income?: number | null
   phone?: string
   notify_email?: boolean
   notify_whatsapp?: boolean
@@ -51,6 +52,7 @@ export interface ProfileUpdateData {
   notify_email?: boolean
   notify_whatsapp?: boolean
   equity?: number | null
+  monthly_income?: number | null
 }
 
 export interface ChangePasswordData {

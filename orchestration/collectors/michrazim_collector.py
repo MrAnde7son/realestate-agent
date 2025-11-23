@@ -125,12 +125,8 @@ class MichrazimCollector(BaseCollector):
         if not search_results:
             return []
 
-        filtered: List[Dict[str, Any]] = []
-        for item in search_results:
-            filtered.append(item)
-
         listings: List[Any] = []
-        for item in filtered:
+        for item in search_results:
             michraz_id = item.get("MichrazID")
             if not michraz_id:
                 continue

@@ -71,6 +71,7 @@ from .models import (
     AlertEvent,
     Asset,
     AssetListing,
+    Listing,
     SourceRecord,
     RealEstateTransaction,
     OnboardingProgress,
@@ -541,6 +542,7 @@ def auth_profile(request):
                 "company": getattr(user, "company", ""),
                 "role": getattr(user, "role", ""),
                 "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
+                "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
                 "is_verified": getattr(user, "is_verified", False),
                 "created_at": (
                     user.created_at.isoformat()
@@ -603,6 +605,24 @@ def auth_update_profile(request):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 user.equity = equity_decimal
+        if "monthly_income" in data:
+            monthly_income_value = data["monthly_income"]
+            if monthly_income_value in (None, ""):
+                user.monthly_income = None
+            else:
+                try:
+                    monthly_income_decimal = Decimal(str(monthly_income_value))
+                except (InvalidOperation, TypeError):
+                    return Response(
+                        {"error": "Monthly income must be a valid number"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if monthly_income_decimal < 0:
+                    return Response(
+                        {"error": "Monthly income must be a non-negative amount"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.monthly_income = monthly_income_decimal
         # Role changes are not allowed for regular users - only admins can change roles
         # if "role" in data:
         #     user.role = data["role"]
@@ -623,6 +643,7 @@ def auth_update_profile(request):
                     "company": getattr(user, "company", ""),
                     "role": getattr(user, "role", ""),
                     "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
+                    "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
                     "is_verified": getattr(user, "is_verified", False),
                     "onboarding_flags": {
                         "connect_payment": onboarding_progress.connect_payment,
@@ -2297,6 +2318,16 @@ def _apply_asset_filters(queryset, params, user):
         else:
             return queryset.none()
 
+    source_filter = params.get("source")
+    if source_filter and source_filter != "all":
+        normalized_source = str(source_filter).strip().lower()
+        queryset = queryset.filter(
+            Q(listings_m2m__source__iexact=normalized_source)
+            | Q(meta__primary_source__iexact=normalized_source)
+            | Q(meta__primarySource__iexact=normalized_source)
+            | Q(meta__source__iexact=normalized_source)
+        ).distinct()
+
     commercial_filter = params.get("commercial")
     if commercial_filter == "commercial":
         queryset = queryset.filter(is_commercial=True)
@@ -2641,6 +2672,16 @@ def _get_asset_filter_metadata():
         }
     )
 
+    listing_sources = sorted(
+        {
+            value
+            for value in Listing.objects.order_by()
+            .values_list("source", flat=True)
+            .distinct()
+            if value not in (None, "")
+        }
+    )
+
     numeric_ranges = base_qs.aggregate(
         bedrooms_min=Min("bedrooms"),
         bedrooms_max=Max("bedrooms"),
@@ -2684,6 +2725,7 @@ def _get_asset_filter_metadata():
         "rooms": room_values,
         "statusCounts": status_counts,
         "listingAdTypes": listing_ad_types,
+        "sources": listing_sources,
         "bedroomCounts": sorted(
             {
                 value
@@ -2770,7 +2812,7 @@ def _get_assets_list(request):
             params.get(key) not in (None, "", "all")
             for key in [
                 "city", "type", "priceMin", "priceMax", "neighborhood", "zoning",
-                "risk", "documents", "status", "rentalSale", "adType", "ad_type",
+                "risk", "documents", "status", "rentalSale", "adType", "ad_type", "source",
                 "commercial", "userAssets", "buildingType", "floorMin", "floorMax",
                 "areaMin", "areaMax", "rooms", "features", "pricePerSqmMin", "pricePerSqmMax"
             ]
@@ -6283,4 +6325,3 @@ def agent_recommendations(request):
     return Response({
         "recommendations": recommendations
     })
-

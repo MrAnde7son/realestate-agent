@@ -211,6 +211,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       setIsLoading(false)
       throw error
+    } finally {
+      setIsLoading(false)
     }
   }
 

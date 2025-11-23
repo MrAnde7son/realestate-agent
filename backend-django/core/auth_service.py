@@ -203,6 +203,18 @@ class AuthenticationService:
                     if equity_value < 0:
                         raise ValueError('Equity must be a non-negative amount')
                     user.equity = equity_value
+            if 'monthly_income' in profile_data:
+                raw_monthly_income = profile_data['monthly_income']
+                if raw_monthly_income in (None, ""):
+                    user.monthly_income = None
+                else:
+                    try:
+                        monthly_income_value = Decimal(str(raw_monthly_income))
+                    except (InvalidOperation, TypeError):
+                        raise ValueError('Monthly income must be a valid number')
+                    if monthly_income_value < 0:
+                        raise ValueError('Monthly income must be a non-negative amount')
+                    user.monthly_income = monthly_income_value
 
             user.save()
 
@@ -423,6 +435,7 @@ class AuthenticationService:
             'company': getattr(user, 'company', ''),
             'role': getattr(user, 'role', ''),
             'equity': float(user.equity) if getattr(user, 'equity', None) is not None else None,
+            'monthly_income': float(user.monthly_income) if getattr(user, 'monthly_income', None) is not None else None,
             'is_verified': getattr(user, 'is_verified', False),
             'created_at': user.created_at.isoformat() if hasattr(user, 'created_at') else None,
             'language': getattr(user, 'language', ''),

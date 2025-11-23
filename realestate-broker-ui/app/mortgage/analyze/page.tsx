@@ -284,6 +284,14 @@ const stressPresets = [
 const DEFAULT_BOI_RATE = 4.75
 const DEFAULT_PRIME_SPREAD = 1.5
 
+const parseNumberParam = (value: string | null): number | null => {
+  if (value === null) return null
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 export default function MortgageAnalyzePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -307,19 +315,10 @@ export default function MortgageAnalyzePage() {
   })
   const [requiredEquity, setRequiredEquity] = useState<number | null>(null)
   const [isClient, setIsClient] = useState(false)
-  const [userEquity, setUserEquity] = useState<number>(() => {
-    const param = searchParams.get('userEquity')
-    return param ? Number(param) || 0 : 0
-  })
+  const [userEquity, setUserEquity] = useState<number | null>(() => parseNumberParam(searchParams.get('userEquity')))
 
-  const [propertyValue, setPropertyValue] = useState<number>(() => {
-    const param = searchParams.get('propertyValue')
-    return param ? Number(param) || 3_500_000 : 3_500_000
-  })
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
-    const param = searchParams.get('monthlyIncome')
-    return param ? Number(param) || 65_000 : 65_000
-  })
+  const [propertyValue, setPropertyValue] = useState<number | null>(() => parseNumberParam(searchParams.get('propertyValue')))
+  const [monthlyIncome, setMonthlyIncome] = useState<number | null>(() => parseNumberParam(searchParams.get('monthlyIncome')))
 
   const [envConfig, setEnvConfig] = useState<Omit<PortfolioInput, 'tranches'>>(() => {
     const boiAnnualParam = searchParams.get('boiAnnual')
@@ -327,7 +326,7 @@ export default function MortgageAnalyzePage() {
     const boiShockParam = searchParams.get('boiShock')
     const bondShockParam = searchParams.get('bondShock')
     const cpiShockParam = searchParams.get('cpiShock')
-    const monthlyIncomeParam = searchParams.get('monthlyIncome')
+    const monthlyIncomeParam = parseNumberParam(searchParams.get('monthlyIncome'))
     
     return {
       boiAnnual: boiAnnualParam ? Number(boiAnnualParam) || DEFAULT_BOI_RATE : DEFAULT_BOI_RATE,
@@ -335,7 +334,7 @@ export default function MortgageAnalyzePage() {
       boiShock: boiShockParam ? Number(boiShockParam) || 0 : 0,
       bondShock: bondShockParam ? Number(bondShockParam) || 0 : 0,
       cpiShock: cpiShockParam ? Number(cpiShockParam) || 0 : 0,
-      monthlyIncome: monthlyIncomeParam ? Number(monthlyIncomeParam) || 65_000 : 65_000
+      monthlyIncome: monthlyIncomeParam ?? 0
     }
   })
 
@@ -353,17 +352,29 @@ export default function MortgageAnalyzePage() {
     return (param && (param === 'even' || param === 'conservative' || param === 'aggressive')) ? param as ScenarioType : null
   })
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false)
+  const hasClearedTranchesRef = useRef(false)
+  const hasInitializedFromProfileRef = useRef({ equity: false, monthlyIncome: false, userId: null as string | number | null })
   
   // Default to compare mode if we have loan amount (scenarios will be generated), otherwise edit mode
   const getInitialViewMode = (): 'compare' | 'edit' => {
-    const targetLoan = Math.max(0, propertyValue - userEquity)
+    const targetLoan = Math.max(0, (propertyValue ?? 0) - (userEquity ?? 0))
     return targetLoan > 0 ? 'compare' : 'edit'
   }
   const [viewMode, setViewMode] = useState<'compare' | 'edit'>(() => {
     // Check initial values - if we have property value without equity, start in compare mode
-    const targetLoan = Math.max(0, propertyValue - userEquity)
+    const targetLoan = Math.max(0, (propertyValue ?? 0) - (userEquity ?? 0))
     return targetLoan > 0 ? 'compare' : 'edit'
   })
+
+  const numericPropertyValue = propertyValue ?? 0
+  const numericUserEquity = userEquity ?? 0
+  const numericMonthlyIncome = monthlyIncome ?? 0
+  const isMissingBasicInputs =
+    propertyValue === null || propertyValue <= 0 ||
+    monthlyIncome === null || monthlyIncome <= 0 ||
+    userEquity === null
+  const isCalculateDisabled = calculating || tranches.length === 0 || isMissingBasicInputs
+
   const trancheRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const scrollTimeoutRef = useRef<number | null>(null)
 
@@ -373,16 +384,16 @@ export default function MortgageAnalyzePage() {
   )
 
   const scenarios = useMemo(() => {
-    const targetLoan = Math.max(0, propertyValue - userEquity)
+    const targetLoan = Math.max(0, numericPropertyValue - numericUserEquity)
     if (targetLoan <= 0) return []
     return createMortgageScenarios(primeRate, targetLoan)
-  }, [propertyValue, userEquity, primeRate])
+  }, [numericPropertyValue, numericUserEquity, primeRate])
 
   const scenarioResults = useMemo(() => {
     return scenarios.map(scenario => {
       const input: PortfolioInput = {
         ...envConfig,
-        monthlyIncome,
+        monthlyIncome: numericMonthlyIncome,
         tranches: scenario.tranches.map(({ id, ...rest }) => rest)
       }
       return {
@@ -390,15 +401,15 @@ export default function MortgageAnalyzePage() {
         result: pricePortfolio(input)
       }
     })
-  }, [scenarios, envConfig, monthlyIncome])
+  }, [scenarios, envConfig, numericMonthlyIncome])
 
   const portfolioInput: PortfolioInput = useMemo(
     () => ({
       ...envConfig,
-      monthlyIncome,
+      monthlyIncome: numericMonthlyIncome,
       tranches: tranches.map(({ id, ...rest }) => rest)
     }),
-    [envConfig, monthlyIncome, tranches]
+    [envConfig, numericMonthlyIncome, tranches]
   )
 
   const portfolioResult: PortfolioResult = useMemo(
@@ -407,13 +418,13 @@ export default function MortgageAnalyzePage() {
   )
 
   const ltv = useMemo(
-    () => calculateLTV(totalLoanAmount, propertyValue),
-    [totalLoanAmount, propertyValue]
+    () => calculateLTV(totalLoanAmount, numericPropertyValue),
+    [totalLoanAmount, numericPropertyValue]
   )
 
   const affordability = useMemo(
-    () => calculateAffordability(monthlyIncome, portfolioResult.blendedFirstPayment),
-    [monthlyIncome, portfolioResult.blendedFirstPayment]
+    () => calculateAffordability(numericMonthlyIncome, portfolioResult.blendedFirstPayment),
+    [numericMonthlyIncome, portfolioResult.blendedFirstPayment]
   )
 
   const registerTrancheRef = useCallback(
@@ -428,7 +439,8 @@ export default function MortgageAnalyzePage() {
       const currentTotal = prev.reduce((sum, tranche) => sum + tranche.amount, 0)
       if (prev.length === 0) return prev
       if (targetLoanAmount <= 0) {
-        return prev.map(tranche => ({ ...tranche, amount: 0 }))
+        const allZero = prev.every(tranche => tranche.amount === 0)
+        return allZero ? prev : prev.map(tranche => ({ ...tranche, amount: 0 }))
       }
       if (Math.abs(currentTotal - targetLoanAmount) < 1) {
         return prev
@@ -442,12 +454,47 @@ export default function MortgageAnalyzePage() {
     })
   }, [])
 
+  // Fill equity from profile if available and not already set
   useEffect(() => {
-    if (user?.equity !== undefined && user.equity !== null) {
-      const equityValue = typeof user.equity === 'number' ? user.equity : 0
-      setUserEquity(equityValue)
+    // Reset initialization flags if user changed
+    const currentUserId = user?.id ?? null
+    if (hasInitializedFromProfileRef.current.userId !== currentUserId) {
+      hasInitializedFromProfileRef.current = { equity: false, monthlyIncome: false, userId: currentUserId }
     }
-  }, [user])
+    
+    // Only initialize if not already done and user has equity value
+    if (hasInitializedFromProfileRef.current.equity) return
+    
+    // Fill from profile if field is null and profile has a value
+    if (userEquity === null && user?.equity !== undefined && user.equity !== null) {
+      const equityValue = typeof user.equity === 'number' ? user.equity : Number(user.equity)
+      if (Number.isFinite(equityValue) && equityValue > 0) {
+        setUserEquity(equityValue)
+        hasInitializedFromProfileRef.current.equity = true
+      }
+    }
+  }, [user, userEquity])
+
+  // Fill monthly income from profile if available and not already set
+  useEffect(() => {
+    // Reset initialization flags if user changed
+    const currentUserId = user?.id ?? null
+    if (hasInitializedFromProfileRef.current.userId !== currentUserId) {
+      hasInitializedFromProfileRef.current = { equity: false, monthlyIncome: false, userId: currentUserId }
+    }
+    
+    // Only initialize if not already done and user has monthly income value
+    if (hasInitializedFromProfileRef.current.monthlyIncome) return
+    
+    // Fill from profile if field is null and profile has a value
+    if (monthlyIncome === null && user?.monthly_income !== undefined && user.monthly_income !== null) {
+      const incomeValue = typeof user.monthly_income === 'number' ? user.monthly_income : Number(user.monthly_income)
+      if (Number.isFinite(incomeValue) && incomeValue > 0) {
+        setMonthlyIncome(incomeValue)
+        hasInitializedFromProfileRef.current.monthlyIncome = true
+      }
+    }
+  }, [monthlyIncome, user])
 
   useEffect(() => {
     setIsClient(true)
@@ -479,17 +526,17 @@ export default function MortgageAnalyzePage() {
     const params = new URLSearchParams()
     
     // Update or remove propertyValue
-    if (propertyValue && propertyValue !== 3_500_000) {
+    if (propertyValue !== null) {
       params.set('propertyValue', propertyValue.toString())
     }
     
     // Update or remove userEquity
-    if (userEquity && userEquity > 0) {
+    if (userEquity !== null) {
       params.set('userEquity', userEquity.toString())
     }
     
     // Update or remove monthlyIncome
-    if (monthlyIncome && monthlyIncome !== 65_000) {
+    if (monthlyIncome !== null) {
       params.set('monthlyIncome', monthlyIncome.toString())
     }
     
@@ -584,26 +631,26 @@ export default function MortgageAnalyzePage() {
     const urlScenario = searchParams.get('scenario')
     
     // Update propertyValue if URL param differs from state
-    if (urlPropertyValue) {
-      const urlValue = Number(urlPropertyValue)
-      if (!Number.isNaN(urlValue) && urlValue !== propertyValue) {
-        setPropertyValue(urlValue)
+    if (urlPropertyValue !== null) {
+      const parsedPropertyValue = parseNumberParam(urlPropertyValue)
+      if (parsedPropertyValue !== propertyValue) {
+        setPropertyValue(parsedPropertyValue)
       }
     }
     
     // Update userEquity if URL param differs from state
     if (urlUserEquity !== null) {
-      const urlValue = Number(urlUserEquity)
-      if (!Number.isNaN(urlValue) && urlValue !== userEquity) {
-        setUserEquity(urlValue)
+      const parsedUserEquity = parseNumberParam(urlUserEquity)
+      if (parsedUserEquity !== userEquity) {
+        setUserEquity(parsedUserEquity)
       }
     }
     
     // Update monthlyIncome if URL param differs from state
-    if (urlMonthlyIncome) {
-      const urlValue = Number(urlMonthlyIncome)
-      if (!Number.isNaN(urlValue) && urlValue !== monthlyIncome) {
-        setMonthlyIncome(urlValue)
+    if (urlMonthlyIncome !== null) {
+      const parsedMonthlyIncome = parseNumberParam(urlMonthlyIncome)
+      if (parsedMonthlyIncome !== monthlyIncome) {
+        setMonthlyIncome(parsedMonthlyIncome)
       }
     }
     
@@ -652,7 +699,7 @@ export default function MortgageAnalyzePage() {
     if (urlScenario && (urlScenario === 'even' || urlScenario === 'conservative' || urlScenario === 'aggressive')) {
       if (urlScenario !== selectedScenarioId) {
         // Use selectScenario to properly load the scenario (includes tranches, view mode, etc.)
-        const targetLoan = Math.max(0, propertyValue - userEquity)
+        const targetLoan = Math.max(0, numericPropertyValue - numericUserEquity)
         if (targetLoan > 0) {
           const scenarioScenarios = createMortgageScenarios(primeRate, targetLoan)
           const scenario = scenarioScenarios.find(s => s.id === urlScenario)
@@ -677,28 +724,30 @@ export default function MortgageAnalyzePage() {
       // Clear scenario if URL doesn't have it
       setSelectedScenarioId(null)
     }
-  }, [isClient, searchParams, propertyValue, userEquity, monthlyIncome, envConfig.boiAnnual, envConfig.primeSpread, envConfig.boiShock, envConfig.bondShock, envConfig.cpiShock, selectedStress, selectedScenarioId, primeRate])
+  }, [isClient, searchParams, numericPropertyValue, numericUserEquity, numericMonthlyIncome, envConfig.boiAnnual, envConfig.primeSpread, envConfig.boiShock, envConfig.bondShock, envConfig.cpiShock, selectedStress, selectedScenarioId, primeRate])
 
   useEffect(() => {
-    const targetLoan = Math.max(0, propertyValue - userEquity)
+    const targetLoan = Math.max(0, numericPropertyValue - numericUserEquity)
     if (viewMode === 'edit') {
       rebalanceTranches(targetLoan)
     }
     // Always switch to compare mode if we have property value entered (whether scenarios exist or not)
     // This ensures we show either scenarios or the empty state message
-    if (propertyValue > 0 && !selectedScenarioId && viewMode === 'edit') {
+    if (numericPropertyValue > 0 && !selectedScenarioId && viewMode === 'edit') {
       setViewMode('compare')
       // Clear tranches when switching to compare mode so scenarios are the focus
-      if (scenarios.length > 0) {
+      if (scenarios.length > 0 && !hasClearedTranchesRef.current && tranches.length > 0) {
         setTranches([])
+        hasClearedTranchesRef.current = true
       }
     }
     // Switch to edit mode only if we don't have property value entered
-    if (propertyValue <= 0 && viewMode === 'compare' && !selectedScenarioId) {
+    if (numericPropertyValue <= 0 && viewMode === 'compare' && !selectedScenarioId) {
       setViewMode('edit')
       setSelectedScenarioId(null)
+      hasClearedTranchesRef.current = false
     }
-  }, [propertyValue, userEquity, rebalanceTranches, viewMode, selectedScenarioId, scenarios.length])
+  }, [numericPropertyValue, numericUserEquity, rebalanceTranches, viewMode, selectedScenarioId, scenarios.length, tranches.length])
 
   const selectScenario = (scenarioId: ScenarioType) => {
     const scenario = scenarios.find(s => s.id === scenarioId)
@@ -721,8 +770,11 @@ export default function MortgageAnalyzePage() {
   }
 
   useEffect(() => {
-    setEnvConfig(prev => ({ ...prev, monthlyIncome }))
-  }, [monthlyIncome])
+    setEnvConfig(prev => {
+      if (prev.monthlyIncome === numericMonthlyIncome) return prev
+      return { ...prev, monthlyIncome: numericMonthlyIncome }
+    })
+  }, [numericMonthlyIncome])
 
   useEffect(() => {
     const newPrime = calcPrime(envConfig.boiAnnual, envConfig.primeSpread)
@@ -780,8 +832,8 @@ export default function MortgageAnalyzePage() {
     setCalculating(true)
 
     trackCalculatorUsage('mortgage', 'calculation_start', {
-      property_value: propertyValue,
-      monthly_income: monthlyIncome,
+      property_value: numericPropertyValue,
+      monthly_income: numericMonthlyIncome,
       boi_rate: envConfig.boiAnnual,
       stress: { boiShock: envConfig.boiShock, cpiShock: envConfig.cpiShock },
       tranches: tranches.map(({ id, ...tranche }) => tranche)
@@ -791,15 +843,15 @@ export default function MortgageAnalyzePage() {
 
     const latestResult = pricePortfolio({
       ...envConfig,
-      monthlyIncome,
+      monthlyIncome: numericMonthlyIncome,
       tranches: tranches.map(({ id, ...tranche }) => tranche)
     })
 
     trackCalculatorCalculation(
       'mortgage',
       {
-        propertyValue,
-        monthlyIncome,
+        propertyValue: numericPropertyValue,
+        monthlyIncome: numericMonthlyIncome,
         boiRate: envConfig.boiAnnual,
         stress: { boiShock: envConfig.boiShock, cpiShock: envConfig.cpiShock },
         trancheCount: tranches.length
@@ -837,7 +889,7 @@ export default function MortgageAnalyzePage() {
     const newTranche: UITranche = {
       id,
       name: 'מסלול חדש',
-      amount: Math.max(0, propertyValue - userEquity - totalLoanAmount),
+      amount: Math.max(0, numericPropertyValue - numericUserEquity - totalLoanAmount),
       termMonths: 360,
       track: 'FIXED_UNLINKED',
       anchorAnnual: 4.5,
@@ -879,6 +931,15 @@ export default function MortgageAnalyzePage() {
     setExpandedTranches(prev => ({ ...prev, [id]: !(prev[id] ?? true) }))
   }
 
+  const handleBasicNumberChange = (value: string, setter: (value: number | null) => void) => {
+    if (value === '') {
+      setter(null)
+      return
+    }
+    const numeric = Number(value)
+    setter(Number.isFinite(numeric) ? numeric : null)
+  }
+
   const monthlyAtYear = (years: number) => portfolioResult.blendedMonthlyAt(years * 12)
 
   return (
@@ -889,7 +950,7 @@ export default function MortgageAnalyzePage() {
         <StickyActionBar description="בצע חישוב תיק משכנתא גם בזמן גלילה" className="mb-4">
           <Button
             onClick={handleAnalyzePortfolio}
-            disabled={calculating || tranches.length === 0}
+            disabled={isCalculateDisabled}
             size="lg"
             className="h-11 sm:h-12 rounded-full px-4 sm:px-6 flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm w-full sm:w-auto"
           >
@@ -912,6 +973,15 @@ export default function MortgageAnalyzePage() {
                 <CardTitle className="text-xl">נתוני בסיס</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {isMissingBasicInputs && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    <AlertTriangle className="h-4 w-4 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-semibold">השלימו את שווי הנכס, ההון העצמי וההכנסה החודשית כדי להתחיל.</p>
+                      <p className="text-[11px] leading-tight">נמלא עבורך נתונים ששמרת בפרופיל או שהעברת מדפים אחרים אם קיימים.</p>
+                    </div>
+                  </div>
+                )}
                 {/* Essential Fields - Always Visible */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
@@ -919,10 +989,10 @@ export default function MortgageAnalyzePage() {
                     <Input
                       id="property-value"
                       type="number"
-                      value={propertyValue}
-                      onChange={event => setPropertyValue(Number(event.target.value) || 0)}
+                      value={propertyValue ?? ''}
+                      onChange={event => handleBasicNumberChange(event.target.value, setPropertyValue)}
                       className="h-9"
-                      placeholder="₪"
+                      placeholder="הזינו את שווי הנכס"
                     />
                   </div>
                   <div>
@@ -930,10 +1000,10 @@ export default function MortgageAnalyzePage() {
                     <Input
                       id="user-equity"
                       type="number"
-                      value={userEquity}
-                      onChange={event => setUserEquity(Number(event.target.value) || 0)}
+                      value={userEquity ?? ''}
+                      onChange={event => handleBasicNumberChange(event.target.value, setUserEquity)}
                       className="h-9"
-                      placeholder="₪"
+                      placeholder="הון עצמי מהפרופיל או הזינו ידנית"
                     />
                   </div>
                   <div>
@@ -941,10 +1011,10 @@ export default function MortgageAnalyzePage() {
                     <Input
                       id="monthly-income"
                       type="number"
-                      value={monthlyIncome}
-                      onChange={event => setMonthlyIncome(Number(event.target.value) || 0)}
+                      value={monthlyIncome ?? ''}
+                      onChange={event => handleBasicNumberChange(event.target.value, setMonthlyIncome)}
                       className="h-9"
-                      placeholder="₪"
+                      placeholder="נמלא אם נשמר בפרופיל, אחרת הזינו"
                     />
                   </div>
                   <div className="flex items-end">
@@ -1067,10 +1137,10 @@ export default function MortgageAnalyzePage() {
                 <CardContent>
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 md:grid-cols-3">
                     {scenarioResults.map(({ scenario, result }) => {
-                      const affordability = calculateAffordability(monthlyIncome, result.blendedFirstPayment)
+                      const affordability = calculateAffordability(numericMonthlyIncome, result.blendedFirstPayment)
                       const ltv = calculateLTV(
                         scenario.tranches.reduce((sum, t) => sum + t.amount, 0),
-                        propertyValue
+                        numericPropertyValue
                       )
                       const isSelected = selectedScenarioId === scenario.id
                       return (
@@ -1160,12 +1230,12 @@ export default function MortgageAnalyzePage() {
                     <Calculator className="h-8 w-8 text-muted-foreground" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2 text-center">
-                    {propertyValue > 0 && userEquity >= propertyValue 
+                    {numericPropertyValue > 0 && numericUserEquity >= numericPropertyValue 
                       ? 'הון עצמי גדול משווי הנכס - לא נדרש מימון'
                       : 'הכנס נתונים כדי לראות תרחישים'}
                   </h3>
                   <p className="text-sm text-muted-foreground text-center max-w-sm">
-                    {propertyValue > 0 && userEquity >= propertyValue
+                    {numericPropertyValue > 0 && numericUserEquity >= numericPropertyValue
                       ? 'כאשר ההון העצמי גדול או שווה לשווי הנכס, לא ניתן ליצור תרחישי משכנתא'
                       : 'הזן שווי נכס והון עצמי (כאשר ההון העצמי קטן משווי הנכס) כדי לראות 3 תרחישי משכנתא אפשריים'}
                   </p>
@@ -1445,8 +1515,8 @@ export default function MortgageAnalyzePage() {
                         const loanAmount = selectedScenario
                           ? selectedScenario.tranches.reduce((sum, t) => sum + t.amount, 0)
                           : 0
-                        const ltvValue = calculateLTV(loanAmount, propertyValue)
-                        const affordabilityValue = calculateAffordability(monthlyIncome, result.blendedFirstPayment)
+                        const ltvValue = calculateLTV(loanAmount, numericPropertyValue)
+                        const affordabilityValue = calculateAffordability(numericMonthlyIncome, result.blendedFirstPayment)
                         return (
                           <>
                             <div className="grid gap-3">

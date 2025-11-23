@@ -471,7 +471,9 @@ class DataPipeline:
                     x_itm = govmap_data["x"]
                     y_itm = govmap_data["y"]
                     # Update location with coordinates
+                    logger.info(f"🔍 Before with_coordinates: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}")
                     location = location.with_coordinates(x_itm, y_itm)
+                    logger.info(f"🔍 After with_coordinates: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}")
                     # Convert ITM to WGS84
                     lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
                     logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
@@ -495,7 +497,7 @@ class DataPipeline:
 
                 block = parcel_props.get("gushnumber", "")
                 parcel = parcel_props.get("parcelnumber", "")
-                logger.debug(f"🔍 Updating location with block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                logger.info(f"🔍 Updating location with block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                 location = LocationQuery(
                     city=location.city,
                     street=location.street,
@@ -506,6 +508,7 @@ class DataPipeline:
                     x_itm=location.x_itm,
                     y_itm=location.y_itm,
                 )
+                logger.info(f"🔍 Location after block/parcel update: x_itm={location.x_itm}, y_itm={location.y_itm}")
 
             logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
 
@@ -531,7 +534,7 @@ class DataPipeline:
                         city_part = match.group(3).strip() if match.group(3) else location.city
                         
                         # Update the location object with corrected address components
-                        logger.debug(f"🔍 Updating location with corrected address. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                        logger.info(f"🔍 Updating location with corrected address. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                         location = LocationQuery(
                             street=street_part,
                             house_number=house_number,
@@ -550,7 +553,7 @@ class DataPipeline:
                         if len(parts) >= 2:
                             street_part = parts[0].strip()
                             city_part = parts[1].strip()
-                            logger.debug(f"🔍 Updating location with corrected address (simple parse). Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                            logger.info(f"🔍 Updating location with corrected address (simple parse). Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                             location = LocationQuery(
                                 street=street_part,
                                 house_number=location.house_number,
@@ -561,6 +564,7 @@ class DataPipeline:
                                 x_itm=location.x_itm,
                                 y_itm=location.y_itm,
                             )
+                            logger.info(f"🔍 Location after simple parse update: x_itm={location.x_itm}, y_itm={location.y_itm}")
                         else:
                             logger.info("📍 Could not parse corrected address, keeping original location")
                 except Exception as e:
@@ -593,6 +597,7 @@ class DataPipeline:
                     if gis_data.get('block') and gis_data.get('parcel'):
                         block = gis_data.get('block', '')
                         parcel = gis_data.get('parcel', '')
+                        logger.info(f"🔍 Updating location with GIS block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
                         location = LocationQuery(
                             city=location.city,
                             street=location.street,
@@ -603,7 +608,7 @@ class DataPipeline:
                             x_itm=location.x_itm,
                             y_itm=location.y_itm,
                         )
-                        logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
+                        logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}, x_itm={location.x_itm}, y_itm={location.y_itm}")
                 except Exception as e:
                     gis_data = {}
                     track("collector_fail", source="gis", error_code=str(e))
@@ -633,6 +638,8 @@ class DataPipeline:
             gov_data = {"decisive": [], "transactions": []}
             has_coordinates = location.x_itm is not None and location.y_itm is not None
             has_block_parcel = bool(block and parcel)
+            
+            logger.info(f"🔍 Before GovCollector: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}, has_coordinates={has_coordinates}")
             
             if has_coordinates or has_block_parcel:
                 try:

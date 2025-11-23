@@ -712,6 +712,11 @@ interface AssetsTableProps {
       onChange: (value: string) => void
       options: Array<{ value: string; label: string; count?: number }>
     }
+    source?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
     rentalSale?: {
       value: string
       onChange: (value: string) => void
@@ -1550,13 +1555,24 @@ export default function AssetsTable({
         })
       }
 
-      if (filters.userAssets) {
-        items.push({
-          key: 'userAssets',
+    if (filters.userAssets) {
+      items.push({
+        key: 'userAssets',
         label: 'נכסים שלי',
         type: 'select',
         value: filters.userAssets.value,
         options: (filters.userAssets.options || []).map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.source) {
+      items.push({
+        key: 'source',
+        label: 'מקור מודעה',
+        type: 'select',
+        value: filters.source.value,
+        options: (filters.source.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'source',
       })
     }
 
@@ -2107,6 +2123,10 @@ export default function AssetsTable({
         case 'userAssets':
           filters.userAssets?.onChange(value)
           trackString('userAssets', value)
+          break
+        case 'source':
+          filters.source?.onChange(value)
+          trackString('source', value)
           break
         case 'buildingType':
           filters.buildingType?.onChange(value)

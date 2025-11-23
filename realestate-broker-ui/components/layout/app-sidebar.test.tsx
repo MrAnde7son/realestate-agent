@@ -21,6 +21,8 @@ vi.mock("@/lib/auth-context", () => ({
       email: "test@example.com",
     },
     logout: mockLogout,
+    isAuthenticated: true,
+    isLoading: false,
   }),
 }));
 
@@ -115,4 +117,3 @@ describe("AppSidebar active navigation state", () => {
     expect(indicator?.className).toContain("opacity-60");
   });
 });
-

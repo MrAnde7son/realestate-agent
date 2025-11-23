@@ -77,6 +77,9 @@ export default function DealExpensesPage() {
   const [assetSearchQuery, setAssetSearchQuery] = useState('')
   const [showAssetDropdown, setShowAssetDropdown] = useState(false)
   const [loadingAssets, setLoadingAssets] = useState(true)
+  const [assetListScrollTop, setAssetListScrollTop] = useState(0)
+  const [assetListHeight, setAssetListHeight] = useState(240)
+  const [assetRowHeight, setAssetRowHeight] = useState<number | null>(null)
 
   // Dekel cost estimation state
   const [buildEstimate, setBuildEstimate] = useState<BuildCostEstimate | null>(null)
@@ -143,7 +146,7 @@ export default function DealExpensesPage() {
     pricePerSqAfter: number
     constructionCost: number
   }>(null)
-
+  const assetListRef = useRef<HTMLDivElement | null>(null)
   const resultsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -197,6 +200,26 @@ export default function DealExpensesPage() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showAssetDropdown])
+
+  useEffect(() => {
+    if (!showAssetDropdown) return
+    const listEl = assetListRef.current
+    if (!listEl) return
+
+    const updateHeight = () => setAssetListHeight(listEl.clientHeight || 240)
+    updateHeight()
+
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateHeight) : null
+    observer?.observe(listEl)
+    return () => observer?.disconnect()
+  }, [showAssetDropdown])
+
+  useEffect(() => {
+    if (assetListRef.current) {
+      assetListRef.current.scrollTop = 0
+    }
+    setAssetListScrollTop(0)
+  }, [assetSearchQuery])
 
   useEffect(() => {
     if (result) {
@@ -362,17 +385,51 @@ export default function DealExpensesPage() {
     setShowAssetDropdown(false)
   }
 
-  function getFilteredAssets() {
-    if (!assetSearchQuery.trim()) return assets.slice(0, 10) // Show first 10 if no search
-    
+  const filteredAssets = useMemo(() => {
+    if (!assetSearchQuery.trim()) return assets
+
     const query = assetSearchQuery.toLowerCase()
-    return assets.filter(asset => 
+    return assets.filter(asset =>
       asset.address?.toLowerCase().includes(query) ||
       asset.city?.toLowerCase().includes(query) ||
       asset.street?.toLowerCase().includes(query) ||
       asset.neighborhood?.toLowerCase().includes(query)
-    ).slice(0, 10)
-  }
+    )
+  }, [assetSearchQuery, assets])
+
+  const assetItemHeight = assetRowHeight ?? 88
+  const assetOverscan = 6
+
+  const virtualAssets = useMemo(() => {
+    const total = filteredAssets.length
+    if (total === 0) {
+      return { items: [] as Asset[], paddingTop: 0, paddingBottom: 0 }
+    }
+
+    const viewportHeight = assetListHeight || 240
+    const visibleCapacity = Math.ceil(viewportHeight / assetItemHeight) + assetOverscan
+    const startIndex = Math.max(
+      0,
+      Math.floor(assetListScrollTop / assetItemHeight) - Math.floor(assetOverscan / 2)
+    )
+    const endIndex = Math.min(total, startIndex + visibleCapacity)
+
+    return {
+      items: filteredAssets.slice(startIndex, endIndex),
+      paddingTop: startIndex * assetItemHeight,
+      paddingBottom: Math.max(0, (total - endIndex) * assetItemHeight)
+    }
+  }, [assetItemHeight, assetListHeight, assetListScrollTop, assetOverscan, filteredAssets])
+
+  const measureAssetRow = useCallback((node: HTMLButtonElement | null) => {
+    if (node) {
+      setAssetRowHeight(node.getBoundingClientRect().height)
+    }
+  }, [])
+
+  const handleAssetListScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setAssetListScrollTop(event.currentTarget.scrollTop)
+  }, [])
 
   function handleBuyerChange(index: number, field: keyof Buyer, value: any) {
     const list = [...buyers]
@@ -1032,30 +1089,39 @@ export default function DealExpensesPage() {
                         className="pe-10"
                       />
                       {showAssetDropdown && (
-                        <div className="absolute top-full start-0 end-0 z-50 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div
+                          className="absolute top-full start-0 end-0 z-50 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                          ref={assetListRef}
+                          onScroll={handleAssetListScroll}
+                        >
                           {loadingAssets ? (
                             <div className="p-3 text-center text-muted-foreground">
                               טוען נכסים...
                             </div>
-                          ) : getFilteredAssets().length > 0 ? (
-                            getFilteredAssets().map(asset => (
-                              <button
-                                key={asset.id}
-                                className="w-full text-start p-3 hover:bg-muted/50 border-b last:border-b-0"
-                                onClick={() => handleAssetSelect(asset)}
-                              >
-                                <div className="font-medium">{asset.address}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {asset.city}
-                                  {asset.neighborhood && ` • ${asset.neighborhood}`}
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {(asset.totalArea ?? asset.area ?? 0)} מ&quot;ר • {fmtCurrency(asset.price || 0)}
-                                  {asset.type && ` • ${asset.type}`}
-                                  {asset.rooms && ` • ${asset.rooms} חדרים`}
-                                </div>
-                              </button>
-                            ))
+                          ) : filteredAssets.length > 0 ? (
+                            <div className="relative">
+                              <div style={{ height: virtualAssets.paddingTop }} />
+                              {virtualAssets.items.map((asset, index) => (
+                                <button
+                                  key={asset.id}
+                                  ref={index === 0 ? measureAssetRow : undefined}
+                                  className="w-full text-start p-3 hover:bg-muted/50 border-b last:border-b-0"
+                                  onClick={() => handleAssetSelect(asset)}
+                                >
+                                  <div className="font-medium">{asset.address}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {asset.city}
+                                    {asset.neighborhood && ` • ${asset.neighborhood}`}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {(asset.totalArea ?? asset.area ?? 0)} מ&quot;ר • {fmtCurrency(asset.price || 0)}
+                                    {asset.type && ` • ${asset.type}`}
+                                    {asset.rooms && ` • ${asset.rooms} חדרים`}
+                                  </div>
+                                </button>
+                              ))}
+                              <div style={{ height: virtualAssets.paddingBottom }} />
+                            </div>
                           ) : (
                             <div className="p-3 text-center text-muted-foreground">
                               לא נמצאו נכסים

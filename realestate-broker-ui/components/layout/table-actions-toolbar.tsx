@@ -93,6 +93,18 @@ export function TableActionsToolbar({
         className
       )}
     >
+      {/* Add new */}
+      {onAddNew && (
+        <Button
+          onClick={onAddNew}
+          size="sm"
+          className={TOOLBAR_PILL_BUTTON_CLASSES}
+        >
+          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span className="hidden sm:inline">הוסף חדש</span>
+        </Button>
+      )}
+
       {/* Column selection */}
       {columns && columns.length > 0 && (
         <DropdownMenu>
@@ -311,19 +323,6 @@ export function TableActionsToolbar({
           <span className="hidden sm:inline">רענן</span>
         </Button>
       )}
-
-      {/* Add new */}
-      {onAddNew && (
-        <Button
-          onClick={onAddNew}
-          size="sm"
-          className={TOOLBAR_PILL_BUTTON_CLASSES}
-        >
-          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-          <span className="hidden sm:inline">הוסף חדש</span>
-        </Button>
-      )}
     </div>
   )
 }
-

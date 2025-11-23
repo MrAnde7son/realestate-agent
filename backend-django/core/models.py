@@ -24,6 +24,13 @@ class User(AbstractUser):
         null=True,
         help_text="Equity amount saved for default mortgage calculations",
     )
+    monthly_income = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Monthly income for mortgage affordability calculations",
+    )
 
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"

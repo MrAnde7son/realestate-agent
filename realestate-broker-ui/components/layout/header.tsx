@@ -10,7 +10,7 @@ import { baseNavigation } from "./app-sidebar"
 import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { User, Users, CreditCard, Settings, LogOut, LineChart } from "lucide-react"
+import { User, Users, CreditCard, Settings, LogOut, LineChart, LogIn } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -33,7 +33,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const activePath = usePersistentPathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
-  const { user, logout } = useAuth()
+  const { user, logout, isAuthenticated, isLoading } = useAuth()
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const filteredMobileNavigation = mobileNavigation.filter(
     (item) => item.href !== '/crm' || canAccessCrm
@@ -178,29 +178,45 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                 <Separator className="my-6" />
 
                 {/* User Info */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
-                    <Avatar className="h-10 w-10 flex-shrink-0">
-                      <AvatarFallback>{getUserInitials()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{getUserDisplayName()}</div>
-                      <div className="text-xs text-muted-foreground truncate">{user?.email || 'demo@example.com'}</div>
-                      {user?.company && (
-                        <div className="text-xs text-muted-foreground truncate">{user.company}</div>
-                      )}
+                {!isLoading && isAuthenticated && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
+                      <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{getUserDisplayName()}</div>
+                        <div className="text-xs text-muted-foreground truncate">{user?.email || 'demo@example.com'}</div>
+                        {user?.company && (
+                          <div className="text-xs text-muted-foreground truncate">{user.company}</div>
+                        )}
+                      </div>
                     </div>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2 min-h-[44px]"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="h-4 w-4 flex-shrink-0" />
+                      <span>התנתק</span>
+                    </Button>
                   </div>
-                  
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-2 min-h-[44px]"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-4 w-4 flex-shrink-0" />
-                    <span>התנתק</span>
-                  </Button>
-                </div>
+                )}
+                {!isLoading && !isAuthenticated && (
+                  <div className="px-2">
+                    <Button 
+                      asChild 
+                      variant="default" 
+                      className="w-full min-h-[44px] bg-[var(--brand-teal)] text-white hover:bg-[var(--brand-teal)]/90 shadow-sm"
+                    >
+                      <Link href="/auth" className="flex items-center justify-center gap-2 w-full">
+                        <LogIn className="h-4 w-4" />
+                        <span className="w-full text-center">התחבר</span>
+                      </Link>
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </SheetContent>

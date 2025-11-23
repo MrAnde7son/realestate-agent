@@ -210,6 +210,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
                         block=block,
                         parcel=parcel,
                         subparcel=subparcel,
+                        x_itm=location.x_itm,
+                        y_itm=location.y_itm,
                     )
             except Exception as exc:  # noqa: BLE001
                 collect_summary["gis"] = False

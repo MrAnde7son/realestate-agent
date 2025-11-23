@@ -41,7 +41,10 @@ class MichrazimClient:
         self.logger = logging.getLogger(__name__)
 
     def search(
-        self, yeshuv_code: Optional[int] = None, extra_payload: Optional[Dict[str, Any]] = None
+        self,
+        yeshuv_code: Optional[int] = None,
+        extra_payload: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> List[Dict[str, Any]]:
         """Return list of tenders from the Search endpoint.
 
@@ -62,7 +65,7 @@ class MichrazimClient:
             self.SEARCH_ENDPOINT,
             json=payload,
             headers=self.headers,
-            timeout=self.timeout,
+            timeout=timeout or self.timeout,
         )
         response.raise_for_status()
         data = response.json()
@@ -71,14 +74,14 @@ class MichrazimClient:
         self.logger.debug("Unexpected search response format: %s", type(data))
         return []
 
-    def get_details(self, michraz_id: int) -> Dict[str, Any]:
+    def get_details(self, michraz_id: int, timeout: Optional[float] = None) -> Dict[str, Any]:
         """Fetch detailed tender information by ID."""
         response = request_with_retry(
             self.session.get,
             self.DETAILS_ENDPOINT,
             params={"michrazID": michraz_id},
             headers=self.headers,
-            timeout=self.timeout,
+            timeout=timeout or self.timeout,
         )
         response.raise_for_status()
         data = response.json()

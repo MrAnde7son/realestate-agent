@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import time
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 
 from gov.michrazim import MichrazimClient
 
@@ -113,11 +115,27 @@ class MichrazimCollector(BaseCollector):
         location: Optional[LocationQuery] = None,
         **kwargs,
     ) -> List[Any]:
-        """Collect tenders relevant to the given location."""
+        """Collect tenders relevant to the given location.
+
+        max_results: limit number of tenders to process to avoid long-running runs.
+        details_timeout: per-request timeout (seconds) when fetching tender details.
+        overall_timeout: total time budget (seconds) for the collector; ``None`` to disable.
+        max_workers: concurrent detail fetches.
+        """
+
+        max_results: int = kwargs.get("max_results", 200)
+        details_timeout: float = kwargs.get("details_timeout", 30.0)
+        overall_timeout: float = kwargs.get("overall_timeout", 180.0)
+        max_workers: int = kwargs.get("max_workers", 5)
+
         query = ensure_location_query(location)
+        deadline = time.perf_counter() + overall_timeout if overall_timeout else None
 
         try:
-            search_results = self.client.search(extra_payload=dict(mtysvShemYishuv=query.city))
+            search_results = self.client.search(
+                extra_payload=dict(mtysvShemYishuv=query.city),
+                timeout=details_timeout,
+            )
         except Exception as exc:
             logger.warning("Michrazim search failed: %s", exc)
             return []
@@ -125,21 +143,44 @@ class MichrazimCollector(BaseCollector):
         if not search_results:
             return []
 
+        if max_results and len(search_results) > max_results:
+            search_results = search_results[:max_results]
+
         listings: List[Any] = []
-        for item in search_results:
-            michraz_id = item.get("MichrazID")
-            if not michraz_id:
-                continue
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        futures = {}
+        try:
+            for item in search_results:
+                if deadline and time.perf_counter() >= deadline:
+                    logger.warning("Michrazim collection stopped after reaching overall timeout")
+                    break
+                michraz_id = item.get("MichrazID")
+                if not michraz_id:
+                    continue
+                futures[executor.submit(self.client.get_details, michraz_id, details_timeout)] = item
+
+            if not futures:
+                return listings
+
+            remaining = max(0.0, deadline - time.perf_counter()) if deadline else None
             try:
-                details = self.client.get_details(michraz_id)
-            except Exception as exc:
-                logger.debug("Skipping michraz %s due to details fetch error: %s", michraz_id, exc)
-                continue
+                for future in as_completed(futures, timeout=remaining):
+                    item = futures.get(future)
+                    try:
+                        details = future.result()
+                    except Exception as exc:
+                        logger.debug("Skipping michraz %s due to details fetch error: %s", item.get("MichrazID") if item else "unknown", exc)
+                        continue
 
-            if not self._matches_asset(details, query.block, query.parcel):
-                continue
-
-            listings.append(self._build_listing_payload(item, details))
+                    if item and self._matches_asset(details, query.block, query.parcel):
+                        listings.append(self._build_listing_payload(item, details))
+            except FuturesTimeoutError:
+                logger.warning(
+                    "Michrazim collection timed out after %.1fs; returning partial results",
+                    overall_timeout or 0,
+                )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         return listings
 

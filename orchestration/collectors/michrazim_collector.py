@@ -117,7 +117,7 @@ class MichrazimCollector(BaseCollector):
         query = ensure_location_query(location)
 
         try:
-            search_results = self.client.search(location={'mtysvShemYishuv': query.city})
+            search_results = self.client.search(extra_payload=dict(mtysvShemYishuv=query.city))
         except Exception as exc:
             logger.warning("Michrazim search failed: %s", exc)
             return []
@@ -146,3 +146,8 @@ class MichrazimCollector(BaseCollector):
             listings.append(self._build_listing_payload(item, details))
 
         return listings
+
+
+if __name__ == "__main__":
+    collector = MichrazimCollector()
+    print(collector.collect(LocationQuery(city='תל אביב יפו')))

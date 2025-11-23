@@ -20,34 +20,6 @@ class MichrazimCollector(BaseCollector):
     def __init__(self, client: Optional[MichrazimClient] = None) -> None:
         self.client = client or MichrazimClient()
 
-    def _extract_yeshuv_code(self, govmap_data: Optional[Dict[str, Any]]) -> Optional[int]:
-        """Try to pull a settlement code from GovMap data if available."""
-        if not govmap_data:
-            return None
-
-        def _coerce_int(value: Any) -> Optional[int]:
-            try:
-                return int(str(value).strip())
-            except Exception:
-                return None
-
-        parcel_props = (
-            govmap_data.get("api_data", {}).get("parcel", {}) if isinstance(govmap_data, dict) else {}
-        )
-        if isinstance(parcel_props, dict):
-            props = parcel_props.get("properties") or parcel_props
-            for key in ("settlementcode", "setlcode", "settlement_code", "setl_code", "city_code"):
-                code = _coerce_int(props.get(key))
-                if code:
-                    return code
-
-        for address in govmap_data.get("addresses", []) if isinstance(govmap_data, dict) else []:
-            code = _coerce_int(address.get("settlement_code") or address.get("setl_code"))
-            if code:
-                return code
-
-        return None
-
     @staticmethod
     def _matches_asset(details: Dict[str, Any], block: Optional[str], parcel: Optional[str]) -> bool:
         """Return True when tender details reference the same block/parcel."""
@@ -136,15 +108,13 @@ class MichrazimCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        govmap_data: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> List[Any]:
         """Collect tenders relevant to the given location."""
         query = ensure_location_query(location)
-        yeshuv_code = self._extract_yeshuv_code(govmap_data)
 
         try:
-            search_results = self.client.search(yeshuv_code=yeshuv_code)
+            search_results = self.client.search(location={'mtysvShemYishuv': query.city})
         except Exception as exc:
             logger.warning("Michrazim search failed: %s", exc)
             return []
@@ -154,12 +124,6 @@ class MichrazimCollector(BaseCollector):
 
         filtered: List[Dict[str, Any]] = []
         for item in search_results:
-            if yeshuv_code and item.get("KodYeshuv") != yeshuv_code:
-                continue
-            if query.city and not yeshuv_code:
-                city_norm = query.city.replace(" ", "")
-                if city_norm and city_norm not in (item.get("Shchuna") or "").replace(" ", ""):
-                    continue
             filtered.append(item)
 
         listings: List[Any] = []

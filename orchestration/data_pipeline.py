@@ -699,7 +699,7 @@ class DataPipeline:
                     track("collector_fail", source="mavat", error_code=str(e))
                     logger.warning(f"⚠️ Mavat collection failed: {e}")
             
-            # Search Michrazim (RAMI/Amidar) tenders
+            # Search tenders from rami (includes Amidar)
             michrazim_listings = []
             try:
                 logger.info("🏠 Searching MichrazimSite for tenders...")
@@ -707,7 +707,6 @@ class DataPipeline:
                     "michrazim",
                     self.michrazim.collect,
                     location=location,
-                    govmap_data=govmap_data,
                     timeout=self.TIMEOUTS.get("michrazim"),
                     retries=self.RETRIES.get("michrazim", 0),
                     asset_id=asset_id,

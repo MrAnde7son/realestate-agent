@@ -49,7 +49,7 @@ class MichrazimClient:
         server-side by settlement code when provided.
         """
         payload: Dict[str, Any] = {
-            "ActiveQuickSearch": True,
+            "ActiveQuickSearch": False,
             "ActiveMichraz": None,
         }
         if yeshuv_code:
@@ -89,3 +89,7 @@ class MichrazimClient:
 
 
 __all__ = ["MichrazimClient"]
+
+if __name__ == "__main__":
+    client = MichrazimClient()
+    print(client.search(extra_payload={'mtysvShemYishuv': 'פתח תקווה'}))

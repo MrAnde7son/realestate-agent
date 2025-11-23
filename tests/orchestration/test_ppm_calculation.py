@@ -19,8 +19,14 @@ class TestPPMModelPriceCalculation:
         asset.total_area = 100  # 100 sqm
         asset.area = 100
         asset.price = None  # No existing price
+        asset.is_commercial = False  # Required for filtering
         asset.meta = {}  # Initialize meta as dict
         asset.save = Mock()  # Mock save method
+        # Ensure required attributes exist for hasattr checks
+        asset.avg_price_per_sqm = None
+        asset.min_price_per_sqm = None
+        asset.max_price_per_sqm = None
+        asset.model_price = None
         
         # Mock Yad2 listings
         listings = [
@@ -56,18 +62,24 @@ class TestPPMModelPriceCalculation:
         asset.total_area = 90  # 90 sqm
         asset.area = 90
         asset.price = None
+        asset.is_commercial = False  # Required for filtering
         asset.meta = {}
         asset.save = Mock()
+        # Ensure required attributes exist for hasattr checks
+        asset.avg_price_per_sqm = None
+        asset.min_price_per_sqm = None
+        asset.max_price_per_sqm = None
+        asset.model_price = None
         
         # Mock listings (empty)
         listings = []
         
-        # Mock gov_data with transactions
+        # Mock gov_data with transactions (need asset_type for filtering)
         gov_data = {
             'transactions': [
-                {'deal_amount': 1800000, 'area': 80, 'address': 'Transaction 1'},
-                {'deal_amount': 2250000, 'area': 90, 'address': 'Transaction 2'},
-                {'deal_amount': 2700000, 'area': 100, 'address': 'Transaction 3'},
+                {'deal_amount': 1800000, 'area': 80, 'address': 'Transaction 1', 'asset_type': 'דירה'},
+                {'deal_amount': 2250000, 'area': 90, 'address': 'Transaction 2', 'asset_type': 'דירה'},
+                {'deal_amount': 2700000, 'area': 100, 'address': 'Transaction 3', 'asset_type': 'דירה'},
             ]
         }
         
@@ -89,10 +101,17 @@ class TestPPMModelPriceCalculation:
         asset.total_area = 110  # 110 sqm
         asset.area = 110
         asset.price = 3000000  # Existing price for gap calculation
+        asset.is_commercial = False  # Required for filtering
         asset.meta = {}
         asset.city = 'Tel Aviv'  # Required for rent calculation
         asset.neighborhood = None
         asset.save = Mock()
+        # Ensure required attributes exist for hasattr checks
+        asset.avg_price_per_sqm = None
+        asset.min_price_per_sqm = None
+        asset.max_price_per_sqm = None
+        asset.model_price = None
+        asset.price_gap_pct = None
         
         # Mock Yad2 listings
         listings = [
@@ -100,11 +119,11 @@ class TestPPMModelPriceCalculation:
             {'price': 2750000, 'area': 110, 'address': 'Listing 2'},
         ]
         
-        # Mock gov_data with transactions
+        # Mock gov_data with transactions (need asset_type for filtering)
         gov_data = {
             'transactions': [
-                {'deal_amount': 2000000, 'area': 90, 'address': 'Transaction 1'},
-                {'deal_amount': 2500000, 'area': 100, 'address': 'Transaction 2'},
+                {'deal_amount': 2000000, 'area': 90, 'address': 'Transaction 1', 'asset_type': 'דירה'},
+                {'deal_amount': 2500000, 'area': 100, 'address': 'Transaction 2', 'asset_type': 'דירה'},
             ]
         }
         
@@ -142,8 +161,11 @@ class TestPPMModelPriceCalculation:
         asset.total_area = 100
         asset.area = 100
         asset.price = None
+        asset.is_commercial = False  # Required for filtering
         asset.meta = {}
         asset.save = Mock()
+        # Ensure required attributes exist for hasattr checks
+        asset.confidence_pct = None
         
         # Mock listings (3 items)
         listings = [
@@ -152,11 +174,11 @@ class TestPPMModelPriceCalculation:
             {'price': 3000000, 'area': 120},
         ]
         
-        # Mock gov_data with transactions (2 items)
+        # Mock gov_data with transactions (2 items, need asset_type for filtering)
         gov_data = {
             'transactions': [
-                {'deal_amount': 1800000, 'area': 80},
-                {'deal_amount': 2200000, 'area': 90},
+                {'deal_amount': 1800000, 'area': 80, 'asset_type': 'דירה'},
+                {'deal_amount': 2200000, 'area': 90, 'asset_type': 'דירה'},
             ]
         }
         
@@ -179,8 +201,11 @@ class TestPPMModelPriceCalculation:
         asset.total_area = None
         asset.area = None
         asset.price = None
+        asset.is_commercial = False  # Required for filtering
         asset.meta = {}
         asset.save = Mock()
+        # Ensure required attributes exist for hasattr checks
+        asset.model_price = None
         
         # Mock listings
         listings = [
@@ -204,8 +229,11 @@ class TestPPMModelPriceCalculation:
         asset.total_area = 100
         asset.area = 100
         asset.price = None
+        asset.is_commercial = False  # Required for filtering
         asset.meta = {}
         asset.save = Mock()
+        # Ensure required attributes exist for hasattr checks
+        asset.confidence_pct = None
         
         # No listings or transactions
         listings = []

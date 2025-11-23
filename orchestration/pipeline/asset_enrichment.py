@@ -2170,6 +2170,63 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         logger.info('[ASSET_FIELDS] Updated asset %s fields: %s', asset.id, list(update_fields))
 
 
+def _is_transaction_commercial(transaction: Dict[str, Any]) -> Optional[bool]:
+    """Check if a transaction is commercial based on asset_type field.
+    
+    Args:
+        transaction: Transaction dictionary with asset_type field
+        
+    Returns:
+        True if transaction is explicitly commercial,
+        False if transaction is explicitly residential, default
+    """
+    if not isinstance(transaction, dict):
+        return None
+    
+    asset_type = transaction.get('asset_type') or transaction.get('assetType')
+    if not asset_type or not isinstance(asset_type, str):
+        return None
+    
+    asset_type_lower = asset_type.strip().lower()
+    
+    # Common residential types in Hebrew
+    residential_types = ['דירה', 'בית', 'וילה', 'קוטג', 'נטהאוז', 'דופלקס', 'טריפלקס', 'חד משפחתי' ,'דו משפחתי', 'מרתף', 'גג']
+    
+    # If asset_type is explicitly residential, return False
+    if asset_type_lower in residential_types:
+        return False
+    
+    # Common commercial indicators
+    commercial_indicators = ['משרד', 'חנות', 'מסחרי', 'מסחר', 'משרדים', 'מחסן', 'בית מסחר', 'קומת מסחר']
+    
+    # Check if asset_type contains commercial indicators
+    for indicator in commercial_indicators:
+        if indicator in asset_type_lower:
+            return True
+
+    # By default, non-commercial
+    return False
+
+
+def _is_listing_commercial(listing_data: Dict[str, Any]) -> bool:
+    """Check if a listing is commercial.
+    
+    Args:
+        listing_data: Listing dictionary
+        
+    Returns:
+        True if listing is commercial, False otherwise
+    """
+    if not isinstance(listing_data, dict):
+        return False
+
+    _, normalized_listing_type = _extract_listing_type(listing_data)
+    if normalized_listing_type == 'commercial':
+        return True
+
+    return listing_data.get('ad_type', '') == 'commercial' or listing_data.get('adType', '') == 'commercial'
+
+
 def _calculate_market_metrics(asset, listings, gov_data):
     """Calculate and persist market metrics.
 
@@ -2180,6 +2237,8 @@ def _calculate_market_metrics(asset, listings, gov_data):
     - Generates risk flags heuristically
     - Stores camelCase metrics in asset.meta['market_metrics'] for backward compatibility
     - Maps a subset to snake_case Asset fields
+    
+    Note: Only compares commercial assets with commercial assets, and non-commercial with non-commercial.
     """
     try:
         listing_dicts = _normalize_listings(listings or []) if listings else []
@@ -2189,6 +2248,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
         transactions = []
         if gov_data and 'transactions' in gov_data:
             transactions = gov_data['transactions'] or []
+
+        # Get asset's commercial status (default to False if None)
+        asset_is_commercial = bool(getattr(asset, 'is_commercial', False))
 
         # --- Calculate Price Per Square Meter (PPM) from both sources ---
         ppm_data = []
@@ -2202,6 +2264,12 @@ def _calculate_market_metrics(asset, listings, gov_data):
                     _, normalized_listing_type = _extract_listing_type(listing)
                     if normalized_listing_type == 'rent':
                         continue
+                    
+                    # Filter by commercial status: only include listings that match asset's commercial status
+                    listing_is_commercial = _is_listing_commercial(listing)
+                    if listing_is_commercial != asset_is_commercial:
+                        continue
+                    
                     ppm = price / area
                     
                     # Determine source from URL or meta
@@ -2236,6 +2304,12 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 price = transaction.get('deal_amount') or transaction.get('price')
                 area = transaction.get('area')
                 if price and area and area > 0:
+                    # Filter by commercial status: only include transactions that match asset's commercial status
+                    transaction_is_commercial = _is_transaction_commercial(transaction)
+                    # Only include transactions that match asset's commercial status
+                    if transaction_is_commercial != asset_is_commercial:
+                        continue
+                    
                     ppm = price / area
                     ppm_data.append({
                         'ppm': ppm,

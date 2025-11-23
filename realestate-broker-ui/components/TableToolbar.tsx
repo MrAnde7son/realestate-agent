@@ -634,6 +634,7 @@ export default function TableToolbar({
         'parking',
         'garden',
         'balcony',
+        'antenna',
         'condition',
         'age',
         'renovated',
@@ -2217,6 +2218,18 @@ export default function TableToolbar({
             data-testid="toolbar-actions-container"
             className="inline-flex flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:justify-end"
           >
+        {/* Add new */}
+        {onAddNew && (
+          <Button
+            onClick={onAddNew}
+            size="sm"
+            className={TOOLBAR_PILL_BUTTON_CLASSES}
+          >
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline">הוסף חדש</span>
+          </Button>
+        )}
+
         {/* Column selection */}
         <DropdownMenu
           onOpenChange={(open) => {
@@ -2460,17 +2473,6 @@ export default function TableToolbar({
           <span className="hidden sm:inline">רענן</span>
         </Button>
 
-        {/* Add new */}
-        {onAddNew && (
-          <Button
-            onClick={onAddNew}
-            size="sm"
-            className={TOOLBAR_PILL_BUTTON_CLASSES}
-          >
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">הוסף חדש</span>
-          </Button>
-        )}
       </div>
         )}
       </div>

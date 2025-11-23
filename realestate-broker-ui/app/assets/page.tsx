@@ -85,6 +85,7 @@ type AssetFilterMetadata = {
   zonings: string[];
   blocks: string[];
   parcels: string[];
+  sources: string[];
   buildingTypes: string[];
   rooms: number[];
   statusCounts: Record<string, number>;
@@ -123,6 +124,7 @@ export default function AssetsPage() {
     zonings: [],
     blocks: [],
     parcels: [],
+    sources: [],
     buildingTypes: [],
     rooms: [],
     statusCounts: {},
@@ -163,6 +165,7 @@ export default function AssetsPage() {
   const [riskFilter, setRiskFilter] = useState<string>(() => searchParams.get("risk") ?? "all");
   const [documentsFilter, setDocumentsFilter] = useState<string>(() => searchParams.get("documents") ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
+  const [sourceFilter, setSourceFilter] = useState<string>(() => searchParams.get("source") ?? "all");
   const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("rentalSale") ?? "all");
   const [sellerTypeFilter, setSellerTypeFilter] = useState<string>(() => searchParams.get("sellerType") ?? searchParams.get("adType") ?? "all");
   const [commercialFilter, setCommercialFilter] = useState<string>(() => searchParams.get("commercial") ?? "all");
@@ -793,6 +796,11 @@ export default function AssetsPage() {
     } else {
       params.delete("status");
     }
+    if (sourceFilter && sourceFilter !== "all") {
+      params.set("source", sourceFilter);
+    } else {
+      params.delete("source");
+    }
     if (rentalSaleFilter && rentalSaleFilter !== "all") {
       params.set("rentalSale", rentalSaleFilter);
     } else {
@@ -1183,6 +1191,7 @@ export default function AssetsPage() {
     riskFilter,
     documentsFilter,
     statusFilter,
+    sourceFilter,
     rentalSaleFilter,
     sellerTypeFilter,
     commercialFilter,
@@ -1275,6 +1284,7 @@ export default function AssetsPage() {
     riskFilter,
     documentsFilter,
     statusFilter,
+    sourceFilter,
     rentalSaleFilter,
     sellerTypeFilter,
     commercialFilter,
@@ -1352,6 +1362,7 @@ export default function AssetsPage() {
     if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
     if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+    if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
     if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
     if (sellerTypeFilter && sellerTypeFilter !== "all") params.set("sellerType", sellerTypeFilter);
     if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
@@ -1438,6 +1449,7 @@ export default function AssetsPage() {
     riskFilter,
     documentsFilter,
     statusFilter,
+    sourceFilter,
     rentalSaleFilter,
     sellerTypeFilter,
     commercialFilter,
@@ -1604,6 +1616,7 @@ export default function AssetsPage() {
             zonings: filters.zonings ?? [],
             blocks: filters.blocks ?? [],
             parcels: filters.parcels ?? [],
+            sources: filters.sources ?? [],
             buildingTypes: filters.buildingTypes ?? [],
             rooms: filters.rooms ?? [],
             statusCounts: filters.statusCounts ?? {},
@@ -2273,6 +2286,7 @@ export default function AssetsPage() {
   });
 
   const onSubmit = async (data: NewAsset) => {
+    const radius = data.radius ?? DEFAULT_RADIUS_METERS;
     try {
       const body =
         data.locationType === "address"
@@ -2286,7 +2300,7 @@ export default function AssetsPage() {
               street: data.street,
               number: data.houseNumber ? Number(data.houseNumber) : undefined,
               apartment: data.apartment,
-              radius: data.radius,
+              radius,
             }
           : {
               scope: {
@@ -2296,7 +2310,7 @@ export default function AssetsPage() {
               block: data.block,
               parcel: data.parcel,
               subparcel: data.subparcel,
-              radius: data.radius,
+              radius,
             };
 
       const response = await apiClient.request("/api/assets", {
@@ -2363,6 +2377,7 @@ export default function AssetsPage() {
       risk: riskFilter,
       documents: documentsFilter,
       status: statusFilter,
+      source: sourceFilter,
       rentalSale: rentalSaleFilter,
       sellerType: sellerTypeFilter,
       commercial: commercialFilter,
@@ -2410,7 +2425,7 @@ export default function AssetsPage() {
     };
   }, [
     debouncedSearch, city, typeFilter, priceMin, priceMax, neighborhood, zoning, riskFilter,
-    documentsFilter, statusFilter, rentalSaleFilter, sellerTypeFilter, commercialFilter,
+    documentsFilter, statusFilter, sourceFilter, rentalSaleFilter, sellerTypeFilter, commercialFilter,
     userAssetsFilter, buildingTypeFilter, floorMin, floorMax, areaMin, areaMax,
     bedroomsMin, bedroomsMax, bathroomsMin, bathroomsMax, totalFloorsMin, totalFloorsMax,
     totalAreaMin, totalAreaMax, balconyAreaMin, balconyAreaMax, parkingSpacesMin, parkingSpacesMax,
@@ -2436,6 +2451,7 @@ export default function AssetsPage() {
     if (filterData.risk !== undefined) setRiskFilter(filterData.risk || 'all');
     if (filterData.documents !== undefined) setDocumentsFilter(filterData.documents || 'all');
     if (filterData.status !== undefined) setStatusFilter(filterData.status || 'all');
+    if (filterData.source !== undefined) setSourceFilter(filterData.source || 'all');
     if (filterData.rentalSale !== undefined) setRentalSaleFilter(filterData.rentalSale || 'all');
     if (filterData.sellerType !== undefined) setSellerTypeFilter(filterData.sellerType || 'all');
     if (filterData.adType !== undefined) setSellerTypeFilter(filterData.adType || 'all'); // Backward compatibility
@@ -2665,6 +2681,17 @@ export default function AssetsPage() {
     []
   );
 
+  const listingSourceOptions = React.useMemo(
+    () => {
+      const sources = (filterMetadata.sources ?? []).length > 0 ? filterMetadata.sources : ['yad2', 'madlan', 'winwin'];
+      return sources.map((value) => ({
+        value,
+        label: value === 'yad2' ? 'יד2' : value === 'madlan' ? 'מדלן' : value === 'winwin' ? 'WinWin' : value,
+      }));
+    },
+    [filterMetadata.sources]
+  );
+
   const buildingTypeOptions = React.useMemo(() => filterMetadata.buildingTypes, [filterMetadata.buildingTypes]);
 
   const roomsFilterOptions = React.useMemo(
@@ -2886,16 +2913,6 @@ export default function AssetsPage() {
                       </>
                     )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="radius">רדיוס (מטרים)</Label>
-                      <Input
-                        id="radius"
-                        type="number"
-                        className="min-h-[44px]"
-                        {...form.register("radius", { valueAsNumber: true })}
-                      />
-                    </div>
-
                     <Button type="submit" className="w-full min-h-[44px]">
                       הוסף נכס
                     </Button>
@@ -2992,6 +3009,11 @@ export default function AssetsPage() {
                   value: statusFilter,
                   onChange: setStatusFilter,
                   options: statusOptions
+                },
+                source: {
+                  value: sourceFilter,
+                  onChange: setSourceFilter,
+                  options: listingSourceOptions
                 },
                 pricePerSqmMin: {
                   value: pricePerSqmMin,

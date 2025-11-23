@@ -32,6 +32,27 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
     if not isinstance(poi, dict):
         return None
 
+    def normalize_image_url(raw_url: Any) -> Optional[str]:
+        """Return a safe, absolute image URL without double prefixes."""
+        if not raw_url or not isinstance(raw_url, str):
+            return None
+        url = raw_url.strip()
+        if not url:
+            return None
+
+        if url.startswith("//"):
+            url = f"https:{url}"
+
+        lower_url = url.lower()
+        if lower_url.startswith(("http://", "https://")):
+            return url
+
+        if lower_url.startswith(("images-processor.madlan.co.il", "images2.madlan.co.il")):
+            return f"https://{url}"
+
+        normalized_path = url.lstrip("/")
+        return f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{normalized_path}"
+
     try:
         listing = RealEstateListing()
         listing.listing_id = poi.get("id")
@@ -118,21 +139,29 @@ def parse_poi_to_listing(poi_item: Dict[str, Any]) -> Optional[RealEstateListing
             listing.date_posted = first_time_seen
 
         # Extract URL
-        listing.url = f"https://www.madlan.co.il/listings/{listing.listing_id}"
+        listing_path = "listings"
+        if poi_type == "project":
+            listing_path = "projects"
+
+        if listing.listing_id:
+            listing.url = f"https://www.madlan.co.il/{listing_path}/{listing.listing_id}"
+        else:
+            listing.url = "https://www.madlan.co.il/"
 
         # Extract images
         images = poi.get("images", [])
         if isinstance(images, list):
             image_urls = []
             for img in images:
+                image_url = None
                 if isinstance(img, dict):
                     image_url = img.get("imageUrl") or img.get("path")
-                    if image_url:
-                        image_url = f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{image_url}"
-                        image_urls.append(image_url)
                 elif isinstance(img, str):
-                    img = f"https://images-processor.madlan.co.il/t:nonce:v=2;resize:height=800;convert:type=webp/{img}"
-                    image_urls.append(img)
+                    image_url = img
+
+                normalized = normalize_image_url(image_url)
+                if normalized:
+                    image_urls.append(normalized)
             listing.images = image_urls
 
         # Extract virtual tours
@@ -399,4 +428,3 @@ def _parse_generic(poi: Dict[str, Any], listing: RealEstateListing) -> None:
         listing.title = listing.address
     elif poi.get("id"):
         listing.title = f"Listing {poi.get('id')}"
-

@@ -96,6 +96,7 @@ const formatListingSourceLabel = (value?: string | null) => {
   if (!value) return '—'
   const normalized = value.toLowerCase()
   if (normalized === 'yad2') return 'יד2'
+  if (normalized === 'madlan') return 'מדלן'
   return value
 }
 

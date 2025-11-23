@@ -71,6 +71,7 @@ from .models import (
     AlertEvent,
     Asset,
     AssetListing,
+    Listing,
     SourceRecord,
     RealEstateTransaction,
     OnboardingProgress,
@@ -2297,6 +2298,16 @@ def _apply_asset_filters(queryset, params, user):
         else:
             return queryset.none()
 
+    source_filter = params.get("source")
+    if source_filter and source_filter != "all":
+        normalized_source = str(source_filter).strip().lower()
+        queryset = queryset.filter(
+            Q(listings_m2m__source__iexact=normalized_source)
+            | Q(meta__primary_source__iexact=normalized_source)
+            | Q(meta__primarySource__iexact=normalized_source)
+            | Q(meta__source__iexact=normalized_source)
+        ).distinct()
+
     commercial_filter = params.get("commercial")
     if commercial_filter == "commercial":
         queryset = queryset.filter(is_commercial=True)
@@ -2641,6 +2652,16 @@ def _get_asset_filter_metadata():
         }
     )
 
+    listing_sources = sorted(
+        {
+            value
+            for value in Listing.objects.order_by()
+            .values_list("source", flat=True)
+            .distinct()
+            if value not in (None, "")
+        }
+    )
+
     numeric_ranges = base_qs.aggregate(
         bedrooms_min=Min("bedrooms"),
         bedrooms_max=Max("bedrooms"),
@@ -2684,6 +2705,7 @@ def _get_asset_filter_metadata():
         "rooms": room_values,
         "statusCounts": status_counts,
         "listingAdTypes": listing_ad_types,
+        "sources": listing_sources,
         "bedroomCounts": sorted(
             {
                 value
@@ -2770,7 +2792,7 @@ def _get_assets_list(request):
             params.get(key) not in (None, "", "all")
             for key in [
                 "city", "type", "priceMin", "priceMax", "neighborhood", "zoning",
-                "risk", "documents", "status", "rentalSale", "adType", "ad_type",
+                "risk", "documents", "status", "rentalSale", "adType", "ad_type", "source",
                 "commercial", "userAssets", "buildingType", "floorMin", "floorMax",
                 "areaMin", "areaMax", "rooms", "features", "pricePerSqmMin", "pricePerSqmMax"
             ]
@@ -6283,4 +6305,3 @@ def agent_recommendations(request):
     return Response({
         "recommendations": recommendations
     })
-

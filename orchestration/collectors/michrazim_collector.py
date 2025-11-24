@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 class MichrazimCollector(BaseCollector):
     """Collect tenders from RAMI/Amidar and convert them into listing-like objects."""
 
-    # Default tender-purpose filters: dense housing, low/ground housing, commercial/industrial.
     _KOD_YEUD_OBJECTS: Dict[int, Dict[str, Any]] = {
         1: {
             "TableID": 318,
@@ -84,8 +83,8 @@ class MichrazimCollector(BaseCollector):
                 helka = str(gush_helka.get("Helka") or "").strip()
                 if block and gush and gush != str(block):
                     continue
-                if parcel and helka and helka != str(parcel):
-                    continue
+                # if parcel and helka and helka != str(parcel):
+                #     continue
                 return True
         return False
 
@@ -115,11 +114,7 @@ class MichrazimCollector(BaseCollector):
         except Exception:
             area_val = None
 
-        address = (
-            details.get("Shchuna")
-            or summary.get("Shchuna")
-            or (tik.get("MitchamName") if isinstance(tik, dict) else None)
-        )
+        address = details.get("Shchuna").strip() or summary.get("Shchuna").strip()
         listing_id = f"michraz_{summary.get('MichrazID')}"
 
         meta = {
@@ -181,7 +176,7 @@ class MichrazimCollector(BaseCollector):
         details_timeout: float = kwargs.get("details_timeout", 30.0)
         overall_timeout: float = kwargs.get("overall_timeout", 180.0)
         max_workers: int = kwargs.get("max_workers", 5)
-        yeud_codes: List[int] = list(kwargs.get("yeud_codes") or [1, 2, 4])
+        yeud_codes: List[int] = list(kwargs.get("yeud_codes") or [1, 2, 3, 4])
 
         query = ensure_location_query(location)
         deadline = time.perf_counter() + overall_timeout if overall_timeout else None
@@ -199,19 +194,32 @@ class MichrazimCollector(BaseCollector):
         yeud_objects = [
             self._KOD_YEUD_OBJECTS[code]
             for code in yeud_codes
-            if code in self._KOD_YEUD_OBJECTS
+            if code in yeud_codes
         ]
+        
+        # Try to find settlement code by name for proper filtering
+        yeshuv_code: Optional[int] = None
+        if query.city:
+            try:
+                yeshuv_code = self.client.find_yishuv_code(query.city, timeout=details_timeout)
+                if yeshuv_code:
+                    logger.info("Found settlement code %d for city '%s'", yeshuv_code, query.city)
+                else:
+                    logger.warning("Could not find settlement code for city '%s', using name filter", query.city)
+            except Exception as exc:
+                logger.warning("Failed to lookup settlement code for '%s': %s", query.city, exc)
+        
         search_filters: Dict[str, Any] = {
             "ActiveQuickSearch": False,
-            "ActiveMichraz": True,
+            "ActiveMichraz": None,
             "KodYeud": yeud_codes,
             "KodYeud_Obj": yeud_objects,
-            "mtysvShemYishuv": query.city,
         }
 
         try:
             logger.info("Searching for michrazim tenders...")
             search_results = self.client.search(
+                yeshuv_code=yeshuv_code,
                 extra_payload=search_filters,
                 timeout=details_timeout,
             )
@@ -312,14 +320,8 @@ class MichrazimCollector(BaseCollector):
 
         elapsed = time.perf_counter() - start_time
         logger.info(
-            "📊 michrazim collector completed: %d listings created from %d tenders "
-            "(completed: %d, failed: %d, filtered: %d) in %.1fs",
-            len(listings),
-            original_count,
-            completed,
-            failed,
-            filtered_out,
-            elapsed,
+            f"📊 michrazim collector completed: {len(listings)} listings created from {original_count} tenders "
+            f"(completed: {completed}, failed: {failed}, filtered: {filtered_out}) in {elapsed:.1f}s",
         )
 
         return listings

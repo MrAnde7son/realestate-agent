@@ -1524,6 +1524,51 @@ export default function AssetsPage() {
     exclusiveFilter,
   ]);
 
+  const fetchFilterMetadata = React.useCallback(async () => {
+    // Only fetch if not already loaded
+    if (filterMetadata.cities.length > 0) {
+      return;
+    }
+    
+    try {
+      const response = await apiClient.get("/api/assets/filter-metadata");
+      if (response.ok && response.data) {
+        const filters = response.data as Partial<AssetFilterMetadata>;
+        setFilterMetadata({
+          cities: filters.cities ?? [],
+          types: filters.types ?? [],
+          neighborhoods: filters.neighborhoods ?? [],
+          zonings: filters.zonings ?? [],
+          blocks: filters.blocks ?? [],
+          parcels: filters.parcels ?? [],
+          sources: filters.sources ?? [],
+          buildingTypes: filters.buildingTypes ?? [],
+          rooms: filters.rooms ?? [],
+          statusCounts: filters.statusCounts ?? {},
+          bedroomCounts: filters.bedroomCounts ?? [],
+          bathroomCounts: filters.bathroomCounts ?? [],
+          totalFloorCounts: filters.totalFloorCounts ?? [],
+          parkingSpaceCounts: filters.parkingSpaceCounts ?? [],
+          balconyAreas: filters.balconyAreas ?? [],
+          totalAreaRange: filters.totalAreaRange ?? { min: null, max: null },
+          yearBuiltRange: filters.yearBuiltRange ?? { min: null, max: null },
+          rentPriceRange: filters.rentPriceRange ?? { min: null, max: null },
+          rentEstimateRange: filters.rentEstimateRange ?? { min: null, max: null },
+          priceGapPctRange: filters.priceGapPctRange ?? { min: null, max: null },
+          capRatePctRange: filters.capRatePctRange ?? { min: null, max: null },
+          bedroomRange: filters.bedroomRange ?? { min: null, max: null },
+          bathroomRange: filters.bathroomRange ?? { min: null, max: null },
+          totalFloorRange: filters.totalFloorRange ?? { min: null, max: null },
+          parkingSpaceRange: filters.parkingSpaceRange ?? { min: null, max: null },
+          balconyAreaRange: filters.balconyAreaRange ?? { min: null, max: null },
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching filter metadata:", error);
+      // Don't show error to user, filters are optional
+    }
+  }, [filterMetadata.cities.length]);
+
   const fetchAssets = React.useCallback(async () => {
     try {
       setLoading(true);
@@ -1607,38 +1652,6 @@ export default function AssetsPage() {
 
         setTotalCount(total);
 
-        if (response.data?.filters) {
-          const filters = response.data.filters as Partial<AssetFilterMetadata>;
-          setFilterMetadata({
-            cities: filters.cities ?? [],
-            types: filters.types ?? [],
-            neighborhoods: filters.neighborhoods ?? [],
-            zonings: filters.zonings ?? [],
-            blocks: filters.blocks ?? [],
-            parcels: filters.parcels ?? [],
-            sources: filters.sources ?? [],
-            buildingTypes: filters.buildingTypes ?? [],
-            rooms: filters.rooms ?? [],
-            statusCounts: filters.statusCounts ?? {},
-            bedroomCounts: filters.bedroomCounts ?? [],
-            bathroomCounts: filters.bathroomCounts ?? [],
-            totalFloorCounts: filters.totalFloorCounts ?? [],
-            parkingSpaceCounts: filters.parkingSpaceCounts ?? [],
-            balconyAreas: filters.balconyAreas ?? [],
-            totalAreaRange: filters.totalAreaRange ?? { min: null, max: null },
-            yearBuiltRange: filters.yearBuiltRange ?? { min: null, max: null },
-            rentPriceRange: filters.rentPriceRange ?? { min: null, max: null },
-            rentEstimateRange: filters.rentEstimateRange ?? { min: null, max: null },
-            priceGapPctRange: filters.priceGapPctRange ?? { min: null, max: null },
-            capRatePctRange: filters.capRatePctRange ?? { min: null, max: null },
-            bedroomRange: filters.bedroomRange ?? { min: null, max: null },
-            bathroomRange: filters.bathroomRange ?? { min: null, max: null },
-            totalFloorRange: filters.totalFloorRange ?? { min: null, max: null },
-            parkingSpaceRange: filters.parkingSpaceRange ?? { min: null, max: null },
-            balconyAreaRange: filters.balconyAreaRange ?? { min: null, max: null },
-          });
-        }
-
         if (rows.length === 0 && total > 0 && requestedPageIndex !== adjustedPageIndex) {
           setPagination(prev => {
             if (prev.pageIndex === adjustedPageIndex && prev.pageSize === pageSizeFromApi) {
@@ -1685,6 +1698,11 @@ export default function AssetsPage() {
   React.useEffect(() => {
     setPagination(prev => (prev.pageIndex !== 0 ? { ...prev, pageIndex: 0 } : prev));
   }, [sorting]);
+
+  // Fetch filter metadata once on initial load
+  React.useEffect(() => {
+    fetchFilterMetadata();
+  }, [fetchFilterMetadata]);
 
   const updateAssetsWatchState = React.useCallback((ids: number[], watched: boolean) => {
     if (!ids.length) return;

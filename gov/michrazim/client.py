@@ -16,6 +16,7 @@ class MichrazimClient:
     BASE_URL = "https://apps.land.gov.il/MichrazimSite"
     SEARCH_ENDPOINT = f"{BASE_URL}/api/SearchApi/Search"
     DETAILS_ENDPOINT = f"{BASE_URL}/api/MichrazDetailsApi/Get"
+    YESHUVIM_ENDPOINT = f"{BASE_URL}/api/YeshuvimApi/Get"
 
     DEFAULT_HEADERS: Dict[str, str] = {
         "Accept": "application/json, text/plain, */*",
@@ -89,6 +90,50 @@ class MichrazimClient:
             return data
         self.logger.debug("Unexpected details response format for %s: %s", michraz_id, type(data))
         return {}
+
+    def get_yishuvim(self, timeout: Optional[float] = None) -> List[Dict[str, Any]]:
+        """Fetch list of all settlements (yishuvim) with their codes and names.
+        
+        Returns a list of settlement objects, each containing fields like:
+        - mtysvSemelYishuv: settlement code (int) - used for filtering searches
+        - mtysvShemYishuv: settlement name (str)
+        - Other settlement metadata fields
+        """
+        response = request_with_retry(
+            self.session.get,
+            self.YESHUVIM_ENDPOINT,
+            headers=self.headers,
+            timeout=timeout or self.timeout,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, list):
+            return data
+        self.logger.debug("Unexpected yishuvim response format: %s", type(data))
+        return []
+
+    def find_yishuv_code(self, yishuv_name: str, timeout: Optional[float] = None) -> Optional[int]:
+        """Find settlement code (mtysvSemelYishuv) by settlement name.
+        
+        Args:
+            yishuv_name: Settlement name to search for (e.g., "תל אביב יפו")
+            timeout: Optional request timeout
+            
+        Returns:
+            Settlement code (mtysvSemelYishuv) if found, None otherwise
+        """
+        yishuvim = self.get_yishuvim(timeout=timeout)
+        yishuv_name_normalized = yishuv_name.strip()
+        for yishuv in yishuvim:
+            name = yishuv.get("mtysvShemYishuv", "").strip()
+            if name == yishuv_name_normalized:
+                code = yishuv.get("mtysvSemelYishuv")
+                if code:
+                    try:
+                        return int(code)
+                    except (ValueError, TypeError):
+                        self.logger.debug("Invalid mtysvSemelYishuv value: %s", code)
+        return None
 
 
 __all__ = ["MichrazimClient"]

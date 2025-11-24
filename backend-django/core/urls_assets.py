@@ -14,6 +14,7 @@ urlpatterns = [
     # Declare collection endpoints before ID-based routes to avoid conflicts.
     path('', views.assets, name='assets'),
     path('bulk-action', views.assets_bulk_action, name='assets_bulk_action'),
+    path('filter-metadata', views.assets_filter_metadata, name='assets_filter_metadata'),
 
     # Asset detail and enrichment routes
     path('<int:asset_id>', views.asset_detail, name='asset_detail'),

@@ -67,9 +67,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // Assets endpoint is open to everyone - no authentication required
   try {
-    const res = await fetch(`${backendUrl}/api/assets/${search}`, {
+    const res = await fetch(`${backendUrl}/api/assets${search}`, {
       headers: {
         ...(token && { Authorization: `Bearer ${token}` })
       }
@@ -82,7 +81,6 @@ export async function GET(request: Request) {
     return NextResponse.json({
       rows: assets,
       pagination: data.pagination,
-      filters: data.filters,
     })
   } catch (error) {
     console.error('Error fetching assets from backend:', error)

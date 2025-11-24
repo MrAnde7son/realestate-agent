@@ -320,10 +320,11 @@ class DataPipeline:
             existing_listing.recent_deal = bool(getattr(listing, "recent_deal", False))
             existing_listing.photos = photos_data
             existing_listing.video_url = video_url
-            if listing.coordinates:
+            coordinates = getattr(listing, "coordinates", None)
+            if coordinates:
                 try:
-                    existing_listing.longitude = listing.coordinates[0]
-                    existing_listing.latitude = listing.coordinates[1]
+                    existing_listing.longitude = coordinates[0]
+                    existing_listing.latitude = coordinates[1]
                 except Exception:
                     pass
             obj = existing_listing
@@ -349,10 +350,11 @@ class DataPipeline:
                 photos=photos_data,
                 video_url=video_url,
             )
-            if listing.coordinates:
+            coordinates = getattr(listing, "coordinates", None)
+            if coordinates:
                 try:
-                    obj.longitude = listing.coordinates[0]
-                    obj.latitude = listing.coordinates[1]
+                    obj.longitude = coordinates[0]
+                    obj.latitude = coordinates[1]
                 except Exception:
                     pass
             session.add(obj)

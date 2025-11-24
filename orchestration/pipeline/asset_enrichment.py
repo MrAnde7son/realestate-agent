@@ -1286,17 +1286,24 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
         
         url = listing_data.get('url', '')
         if isinstance(url, str):
-            if 'madlan.co.il' in url.lower():
+            lower_url = url.lower()
+            if 'michrazimsite' in lower_url or 'michrazim' in lower_url:
+                return 'michrazim'
+            if 'madlan.co.il' in lower_url:
                 return 'madlan'
-            elif 'yad2.co.il' in url.lower():
+            if 'yad2.co.il' in lower_url:
                 return 'yad2'
         
         # Check meta for source
-        meta = listing_data.get('meta', {})
+        meta = listing_data.get('meta', {}) or {}
         if isinstance(meta, dict):
             source = meta.get('source')
-            if source in ('yad2', 'madlan'):
+            if source in ('yad2', 'madlan', 'michrazim'):
                 return source
+        
+        # Check top-level source if provided
+        if listing_data.get('source') in ('yad2', 'madlan', 'michrazim'):
+            return listing_data.get('source')
         
         return 'yad2'  # default fallback
 
@@ -1702,6 +1709,10 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         if not isinstance(listing_data, dict):
             return False
 
+        # Check explicit is_commercial flag (preferred)
+        is_commercial = listing_data.get('is_commercial') or listing_data.get('isCommercial')
+        if is_commercial is not None:
+            return bool(is_commercial)
         _, normalized_listing_type = _extract_listing_type(listing_data)
         if normalized_listing_type == 'commercial':
             return True

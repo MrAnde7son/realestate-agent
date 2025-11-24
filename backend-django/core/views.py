@@ -2779,6 +2779,24 @@ def _get_asset_filter_metadata():
     return result
 
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def assets_filter_metadata(request):
+    """Get asset filter metadata (cities, neighborhoods, types, etc.).
+    
+    This endpoint is separate from the assets list to reduce response size.
+    Filter metadata can be large and is cached for 1 hour.
+    """
+    try:
+        filter_metadata = _get_asset_filter_metadata()
+        return Response(filter_metadata)
+    except Exception as e:
+        logger.error("Error fetching asset filter metadata: %s", e)
+        return Response(
+            {"error": "Failed to fetch filter metadata", "details": str(e)}, status=500
+        )
+
+
 def _get_assets_list(request):
     """Helper function to get paginated assets in listing format."""
 
@@ -2899,10 +2917,6 @@ def _get_assets_list(request):
             context={"include_documents": False, "request": request},
         )
 
-        # Filter metadata is cached for 1 hour, so it should be fast
-        # Only compute it if cache is empty (first request or after expiration)
-        filter_metadata = _get_asset_filter_metadata()
-
         return Response(
             {
                 "rows": serializer.data,
@@ -2914,7 +2928,6 @@ def _get_assets_list(request):
                     "has_next": page_obj.has_next(),
                     "has_previous": page_obj.has_previous(),
                 },
-                "filters": filter_metadata,
             }
         )
     except Exception as e:

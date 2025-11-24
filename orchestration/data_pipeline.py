@@ -14,7 +14,17 @@ from db.models import Listing as DBListing, SourceRecord, Transaction
 from yad2.scrapers.yad2_scraper import RealEstateListing
 
 # collector imports
-from orchestration.collectors import Yad2Collector, MadlanCollector, GISCollector, GovCollector, GovMapCollector, RamiCollector, MavatCollector, HandasaCollector
+from orchestration.collectors import (
+    Yad2Collector,
+    MadlanCollector,
+    GISCollector,
+    GovCollector,
+    GovMapCollector,
+    MichrazimCollector,
+    MavatCollector,
+    RamiCollector,
+    HandasaCollector,
+)
 from orchestration.location import LocationQuery, ensure_location_query
 from orchestration.pipeline import auto_expand_related_assets, create_asset_snapshot, update_asset_with_collected_data
 from orchestration.pipeline.listings import _build_listing_snapshot, _normalize_listings
@@ -108,14 +118,15 @@ class DataPipeline:
     # Per-collector configuration for timeouts and retry counts. These can
     # be overridden via environment variables if needed.
     TIMEOUTS = {
-        "yad2": float(os.getenv("YAD2_TIMEOUT", "120")),
-        "madlan": float(os.getenv("MADLAN_TIMEOUT", "120")),
-        "gis": float(os.getenv("GIS_TIMEOUT", "120")),
-        "gov": float(os.getenv("GOV_TIMEOUT", "120")),
-        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "120")),
-        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "120")),
-        "mavat": float(os.getenv("MAVAT_TIMEOUT", "120")),
-        "handasa": float(os.getenv("HANDASA_TIMEOUT", "120")),
+        "yad2": float(os.getenv("YAD2_TIMEOUT", "240")),
+        "madlan": float(os.getenv("MADLAN_TIMEOUT", "240")),
+        "gis": float(os.getenv("GIS_TIMEOUT", "240")),
+        "gov": float(os.getenv("GOV_TIMEOUT", "240")),
+        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "240")),
+        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "240")),
+        "michrazim": float(os.getenv("MICHRAZIM_TIMEOUT", "240")),
+        "mavat": float(os.getenv("MAVAT_TIMEOUT", "240")),
+        "handasa": float(os.getenv("HANDASA_TIMEOUT", "240")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
@@ -124,6 +135,7 @@ class DataPipeline:
         "gov": int(os.getenv("GOV_RETRIES", "0")),
         "govmap": int(os.getenv("GOVMAP_RETRIES", "0")),
         "gov_rami": int(os.getenv("GOV_RAMI_RETRIES", "0")),
+        "michrazim": int(os.getenv("MICHRAZIM_RETRIES", "0")),
         "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
         "handasa": int(os.getenv("HANDASA_RETRIES", "0")),
     }
@@ -137,6 +149,7 @@ class DataPipeline:
         gis: Optional[GISCollector] = None,
         gov: Optional[GovCollector] = None,
         govmap: Optional[GovMapCollector] = None,
+        michrazim: Optional[MichrazimCollector] = None,
         rami: Optional[RamiCollector] = None,
         mavat: Optional[MavatCollector] = None,
         handasa: Optional[HandasaCollector] = None,
@@ -166,6 +179,7 @@ class DataPipeline:
         self.gis = gis or GISCollector()
         self.gov = gov or GovCollector()
         self.govmap = govmap or GovMapCollector()
+        self.michrazim = michrazim or MichrazimCollector()
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
         self.handasa = handasa or HandasaCollector()
@@ -306,10 +320,11 @@ class DataPipeline:
             existing_listing.recent_deal = bool(getattr(listing, "recent_deal", False))
             existing_listing.photos = photos_data
             existing_listing.video_url = video_url
-            if listing.coordinates:
+            coordinates = getattr(listing, "coordinates", None)
+            if coordinates:
                 try:
-                    existing_listing.longitude = listing.coordinates[0]
-                    existing_listing.latitude = listing.coordinates[1]
+                    existing_listing.longitude = coordinates[0]
+                    existing_listing.latitude = coordinates[1]
                 except Exception:
                     pass
             obj = existing_listing
@@ -335,10 +350,11 @@ class DataPipeline:
                 photos=photos_data,
                 video_url=video_url,
             )
-            if listing.coordinates:
+            coordinates = getattr(listing, "coordinates", None)
+            if coordinates:
                 try:
-                    obj.longitude = listing.coordinates[0]
-                    obj.latitude = listing.coordinates[1]
+                    obj.longitude = coordinates[0]
+                    obj.latitude = coordinates[1]
                 except Exception:
                     pass
             session.add(obj)
@@ -692,6 +708,25 @@ class DataPipeline:
                     track("collector_fail", source="mavat", error_code=str(e))
                     logger.warning(f"⚠️ Mavat collection failed: {e}")
             
+            # Search tenders from rami (includes Amidar)
+            michrazim_listings = []
+            try:
+                logger.info("🏠 Searching MichrazimSite for tenders...")
+                michrazim_listings = self._collect_with_observability(
+                    "michrazim",
+                    self.michrazim.collect,
+                    location=location,
+                    timeout=self.TIMEOUTS.get("michrazim"),
+                    retries=self.RETRIES.get("michrazim", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="michrazim")
+                logger.info(f"📊 Found {len(michrazim_listings)} Michrazim tenders")
+            except Exception as e:
+                track("collector_fail", source="michrazim", error_code=str(e))
+                logger.error(f"❌ Michrazim collection failed: {e}")
+                michrazim_listings = []
+
             # Search Yad2 for listings
             try:
                 logger.info("🏠 Searching Yad2 for listings...")
@@ -748,7 +783,7 @@ class DataPipeline:
                 madlan_listings = []
             
             # Combine listings from both sources
-            all_listings = listings + madlan_listings
+            all_listings = listings + madlan_listings + michrazim_listings
             
             try:
                 # Process listings if any exist

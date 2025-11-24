@@ -134,6 +134,7 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     plans: List[Dict[str, Any]] = []
     mavat_plans: List[Dict[str, Any]] = []
     listings_payload: List[Dict[str, Any]] = []
+    michrazim_listings_payload: List[Dict[str, Any]] = []
     x_itm = y_itm = lon_wgs84 = lat_wgs84 = None
 
     try:
@@ -287,6 +288,23 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
                 logger.warning("Mavat collection failed for asset %s: %s", asset_id, exc)
 
         try:
+            michrazim_listings = pipeline._collect_with_observability(
+                "michrazim",
+                pipeline.michrazim.collect,
+                location=location,
+                govmap_data=govmap_data,
+                timeout=pipeline.TIMEOUTS.get("michrazim"),
+                retries=pipeline.RETRIES.get("michrazim", 0),
+                asset_id=asset_id,
+            )
+            michrazim_listings_payload = [_object_to_payload(item) for item in michrazim_listings or []]
+            collect_summary["michrazim"] = len(michrazim_listings_payload)
+        except Exception as exc:  # noqa: BLE001
+            collect_summary["michrazim"] = 0
+            michrazim_listings_payload = []
+            logger.warning("Michrazim collection failed for asset %s: %s", asset_id, exc)
+
+        try:
             listings = pipeline._collect_with_observability(
                 "yad2",
                 pipeline.yad2.collect,
@@ -301,6 +319,9 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
             collect_summary["yad2"] = 0
             listings_payload = []
             logger.warning("Yad2 collection failed for asset %s: %s", asset_id, exc)
+
+        # Always merge michrazim tenders into the listings payload
+        listings_payload.extend(michrazim_listings_payload)
 
         try:
             madlan_listings = pipeline._collect_with_observability(

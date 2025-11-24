@@ -783,6 +783,7 @@ class SourceRecord(models.Model):
         ("gis_permit", "GIS Permit"),
         ("gis_rights", "GIS Rights"),
         ("rami_plan", "RAMI Plan"),
+        ("michrazim", "Michrazim"),
         ("tabu", "Tabu"),
     ]
 
@@ -816,7 +817,7 @@ class SourceRecord(models.Model):
 
 
 class Listing(models.Model):
-    SOURCE_CHOICES = [('yad2', 'Yad2'), ('madlan', 'Madlan'), ('winwin', 'WinWin')]
+    SOURCE_CHOICES = [('yad2', 'Yad2'), ('madlan', 'Madlan'), ('winwin', 'WinWin'), ('michrazim', 'Michrazim')]
 
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES, db_index=True)
     external_id = models.CharField(max_length=100, db_index=True)

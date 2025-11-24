@@ -141,6 +141,7 @@ steps:
           --memory=2Gi \
           --min-instances=1 \
           --max-instances=5 \
+          --no-cpu-throttling \
           --concurrency=1 \
           --update-annotations=run.googleapis.com/startup-cpu-boost=true,run.googleapis.com/ingress=internal
     id: 'deploy-worker'

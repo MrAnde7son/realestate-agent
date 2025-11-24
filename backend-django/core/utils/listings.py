@@ -258,6 +258,10 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         or raw.get("priceBeforeTag")
         or raw.get("price_before_tag")
     )
+    tender_price = parse_int(
+        raw.get("tender_price") or raw.get("tenderPrice")
+    )
+    price_label = raw.get("price_label") or raw.get("priceLabel")
     price_dropped = (
         previous_price is not None
         and price is not None
@@ -316,6 +320,8 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         # High priority fields
         "priceDropped": price_dropped,
         "previousPrice": previous_price,
+        "tenderPrice": tender_price,
+        "priceLabel": price_label,
         "shelter": bool(shelter) if shelter is not None else None,
         "accessibility": bool(accessibility) if accessibility is not None else None,
         "buildingClass": building_class,

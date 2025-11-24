@@ -1709,6 +1709,10 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         if not isinstance(listing_data, dict):
             return False
 
+        # Check explicit is_commercial flag (preferred)
+        is_commercial = listing_data.get('is_commercial') or listing_data.get('isCommercial')
+        if is_commercial is not None:
+            return bool(is_commercial)
         _, normalized_listing_type = _extract_listing_type(listing_data)
         if normalized_listing_type == 'commercial':
             return True

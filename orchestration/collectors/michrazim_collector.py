@@ -235,6 +235,10 @@ class MichrazimCollector(BaseCollector):
         address = normalize_address(raw_address, city=city) if raw_address else ""
         listing_id = f"michraz_{summary.get('MichrazID')}"
 
+        # Determine ad_type based on KodYeud (yeud code)
+        kod_yeud = details.get("KodYeud") or summary.get("KodYeud")
+        is_commercial = kod_yeud == 4
+
         meta = {
             "source": "michrazim",
             "price_label": "מחיר מכרז",
@@ -260,7 +264,8 @@ class MichrazimCollector(BaseCollector):
             description=None,
             url=f"{MichrazimClient.BASE_URL}/#/michraz/{summary.get('MichrazID')}",
             listing_id=listing_id,
-            listing_type="auction",
+            listing_type="sale",
+            is_commercial=is_commercial,
             ad_type="auction",
             contact_name=None,
             contact_phone=None,
@@ -294,7 +299,7 @@ class MichrazimCollector(BaseCollector):
         details_timeout: float = kwargs.get("details_timeout", 30.0)
         overall_timeout: float = kwargs.get("overall_timeout", 180.0)
         max_workers: int = kwargs.get("max_workers", 5)
-        yeud_codes: List[int] = list(kwargs.get("yeud_codes") or [1, 2, 3, 4])
+        yeud_codes: List[int] = list(kwargs.get("yeud_codes") or [1, 2, 4])
 
         query = ensure_location_query(location)
         deadline = time.perf_counter() + overall_timeout if overall_timeout else None
@@ -319,7 +324,9 @@ class MichrazimCollector(BaseCollector):
         yeshuv_code: Optional[int] = None
         if query.city:
             try:
-                yeshuv_code = self.client.find_yishuv_code(query.city, timeout=details_timeout)
+                # Replace dashes with spaces and collapse multiple spaces into one
+                city_name = re.sub(r'\s+', ' ', query.city.replace("-", " ")).strip()
+                yeshuv_code = self.client.find_yishuv_code(city_name, timeout=details_timeout)
                 if yeshuv_code:
                     logger.info("Found settlement code %d for city '%s'", yeshuv_code, query.city)
                 else:
@@ -447,4 +454,4 @@ class MichrazimCollector(BaseCollector):
 
 if __name__ == "__main__":
     collector = MichrazimCollector()
-    print(collector.collect(LocationQuery(city="תל אביב יפו")))
+    print(collector.collect(LocationQuery(city="תל אביב - יפו")))

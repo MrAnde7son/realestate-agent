@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { PageLoader } from '@/components/ui/page-loader'
@@ -11,9 +11,23 @@ import { CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 export default function GoogleCallbackPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [error, setError] = useState<string>('')
-  const router = useRouter()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const { refreshUser } = useAuth()
+
+  const redirectTarget = useMemo(() => {
+    if (typeof window === 'undefined') return '/assets'
+
+    const storedRedirect =
+      sessionStorage.getItem('post_google_redirect') ||
+      localStorage.getItem('post_google_redirect')
+
+    // Clear the stored redirect to avoid stale navigation on future visits
+    sessionStorage.removeItem('post_google_redirect')
+    localStorage.removeItem('post_google_redirect')
+
+    return searchParams.get('redirect') || storedRedirect || '/assets'
+  }, [searchParams])
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -34,14 +48,12 @@ export default function GoogleCallbackPage() {
 
         // Refresh user profile to update auth context
         await refreshUser()
-        
+
         setStatus('success')
-        
-        // Redirect to home page after a short delay
-        setTimeout(() => {
-          router.push('/')
-        }, 2000)
-        
+
+        // Redirect to the intended page (default to assets)
+        window.location.replace(redirectTarget)
+
       } catch (err: any) {
         console.error('Google callback error:', err)
         setError(err.message || 'Failed to complete Google authentication')
@@ -50,7 +62,7 @@ export default function GoogleCallbackPage() {
     }
 
     handleCallback()
-  }, [searchParams, router, refreshUser])
+  }, [searchParams, refreshUser, redirectTarget])
 
   if (status === 'loading') {
     return (

@@ -201,10 +201,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const googleLogin = async (redirectTo?: string) => {
     try {
       setIsLoading(true)
-      
+
+      // Persist the intended redirect so the callback page can navigate correctly
+      if (typeof window !== 'undefined') {
+        const target = redirectTo || '/assets'
+        try {
+          sessionStorage.setItem('post_google_redirect', target)
+        } catch (error) {
+          // Ignore storage errors (e.g., private mode)
+          console.warn('Failed to persist Google redirect target', error)
+        }
+      }
+
       // Get Google OAuth URL from backend with redirect parameter
       const response = await authAPI.googleLogin(redirectTo)
-      
+
       // Redirect to Google OAuth
       window.location.href = response.auth_url
       

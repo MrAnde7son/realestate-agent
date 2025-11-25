@@ -41,6 +41,11 @@ class MetaSerializerMixin(serializers.ModelSerializer):
         data = super().to_representation(instance)
         meta = getattr(instance, "meta", {}) or {}
         field_meta = {}
+
+        # Allow callers to opt out of returning attribution metadata to reduce payload size
+        include_meta = True
+        if hasattr(self, "context") and isinstance(self.context, dict):
+            include_meta = self.context.get("include_meta", True)
         
         # Process unified metadata structure
         for key, value in meta.items():
@@ -70,9 +75,9 @@ class MetaSerializerMixin(serializers.ModelSerializer):
                     data[key] = value
         
         # Add _meta section if we have attribution data
-        if field_meta:
+        if include_meta and field_meta:
             data["_meta"] = field_meta
-            
+
         return data
 
 
@@ -169,6 +174,13 @@ class AssetSerializer(MetaSerializerMixin):
     recent_deal = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        include_meta = self.context.get("include_meta", True)
+        if not include_meta:
+            # Remove the raw meta blob for lightweight responses
+            self.fields.pop("meta", None)
 
     def get_rentPrice(self, obj):
         value = getattr(obj, "rent_price", None)

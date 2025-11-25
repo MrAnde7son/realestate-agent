@@ -2914,7 +2914,11 @@ def _get_assets_list(request):
         serializer = AssetSerializer(
             page_obj.object_list,
             many=True,
-            context={"include_documents": False, "request": request},
+            context={
+                "include_documents": False,
+                "include_meta": False,  # Exclude heavy metadata to keep list responses small
+                "request": request,
+            },
         )
 
         return Response(

@@ -88,7 +88,12 @@ class AssetsPaginationTests(TestCase):
         pagination = data["pagination"]
         self.assertEqual(pagination["total"], len(rows))
 
-        filters = data.get("filters", {})
+        # Filter metadata is now served from a dedicated endpoint to keep the list payload lean
+        self.assertNotIn("filters", data)
+
+        filter_response = self.client.get("/api/assets/filter-metadata")
+        self.assertEqual(filter_response.status_code, 200)
+        filters = filter_response.json()
         self.assertIn("CityA", filters.get("cities", []))
         self.assertIn("CityB", filters.get("cities", []))
         status_counts = filters.get("statusCounts", {})
@@ -136,3 +141,40 @@ class AssetsPaginationTests(TestCase):
         self.assertFalse(pagination["has_next"])
         self.assertFalse(pagination["has_previous"])
         self.assertEqual(len(data["rows"]), total_assets)
+
+
+class AssetsMetadataTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_assets_list_excludes_meta_blob_but_keeps_overrides(self):
+        asset = Asset.objects.create(
+            scope_type="address",
+            city="Meta City",
+            status="done",
+            meta={
+                "zoning": {"value": "residential", "source": "gov", "fetched_at": "2024-01-01T00:00:00Z"},
+                "listing_prices": {"sale": 1234567},
+            },
+        )
+
+        response = self.client.get("/api/assets", {"pageSize": 1})
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        row = data["rows"][0]
+
+        # Meta blob should be stripped to keep response small
+        self.assertNotIn("meta", row)
+        self.assertNotIn("_meta", row)
+
+        # Meta-derived values should still populate fields
+        self.assertEqual(row.get("zoning"), "residential")
+        self.assertEqual(row.get("price"), 1234567)
+
+        # Asset detail should still include meta and attribution for full views
+        detail_response = self.client.get(f"/api/assets/{asset.id}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json().get("asset", {})
+        self.assertIn("meta", detail)
+        self.assertIn("_meta", detail)

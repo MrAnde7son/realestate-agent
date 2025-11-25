@@ -2316,7 +2316,11 @@ export default function AssetsTable({
   if (!mounted) {
     return (
       <div className="block">
-        <div className="surface-panel overflow-x-auto">
+        <div
+          className="surface-panel overflow-x-auto"
+          style={{ touchAction: 'pan-x pinch-zoom' }}
+          data-testid="assets-table-scroll-container"
+        >
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
           </div>
@@ -2328,7 +2332,11 @@ export default function AssetsTable({
   return (
     <>
       <div className="block w-full max-w-full">
-        <div className="surface-panel overflow-x-auto w-full max-w-full">
+        <div
+          className="surface-panel overflow-x-auto w-full max-w-full"
+          style={{ touchAction: 'pan-x pinch-zoom' }}
+          data-testid="assets-table-scroll-container"
+        >
           {/* Integrated Toolbar */}
           <TableToolbar
             searchValue={searchValue}

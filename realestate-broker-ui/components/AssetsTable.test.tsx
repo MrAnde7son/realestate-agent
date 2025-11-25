@@ -129,4 +129,23 @@ describe('AssetsTable', () => {
     expect(toggleSpy).toHaveBeenCalledTimes(1)
     expect(toggleSpy.mock.calls[0][0]).toMatchObject({ id: 1 })
   })
+
+  it('keeps pinch zoom enabled on horizontal scroll containers for mobile usability', async () => {
+    const { container } = render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City', isWatched: false } as any]}
+        watchingAssetIds={new Set()}
+      />
+    )
+
+    await screen.findByRole('columnheader', { name: /נכס/ })
+
+    const scrollAreas = screen.getAllByTestId('assets-table-scroll-container')
+    expect(scrollAreas.length).toBeGreaterThan(0)
+    const hasPinchZoomEnabled = scrollAreas.some((area) => {
+      const touchAction = (area as HTMLElement).style.touchAction
+      return touchAction?.includes('pan-x pinch-zoom')
+    })
+    expect(hasPinchZoomEnabled).toBe(true)
+  })
 })

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Textarea } from '@/components/ui/textarea'
 import { Mail, Phone, Building, Shield, Key, Star, Save, Edit, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { getRoleDescription, getRoleLabel } from '@/lib/role-constants'
@@ -29,6 +30,21 @@ const profileSchema = z.object({
   notify_whatsapp: z.boolean().optional(),
   equity: z.number().min(0, 'הון עצמי חייב להיות מספר חיובי').nullable().optional(),
   monthly_income: z.number().min(0, 'הכנסה חודשית חייבת להיות מספר חיובי').nullable().optional(),
+  preference_city: z.string().optional(),
+  preference_streets: z.string().optional(),
+  preference_asset_type: z.string().optional(),
+  preference_area_min: z.number().min(0, 'שטח מינימלי חייב להיות מספר חיובי').nullable().optional(),
+  preference_area_max: z.number().min(0, 'שטח מקסימלי חייב להיות מספר חיובי').nullable().optional(),
+  preference_floor: z.string().optional(),
+  preference_notes: z.string().optional(),
+}).refine((data) => {
+  if (data.preference_area_min != null && data.preference_area_max != null) {
+    return data.preference_area_min <= data.preference_area_max
+  }
+  return true
+}, {
+  message: 'מינימום מ"ר לא יכול להיות גדול מהמקסימום',
+  path: ['preference_area_min']
 })
 
 const changePasswordSchema = z.object({
@@ -74,6 +90,13 @@ export default function ProfilePage() {
       notify_whatsapp: user?.notify_whatsapp || false,
       equity: user?.equity ?? null,
       monthly_income: user?.monthly_income ?? null,
+      preference_city: user?.preference_city || '',
+      preference_streets: user?.preference_streets || '',
+      preference_asset_type: user?.preference_asset_type || '',
+      preference_area_min: user?.preference_area_min ?? null,
+      preference_area_max: user?.preference_area_max ?? null,
+      preference_floor: user?.preference_floor || '',
+      preference_notes: user?.preference_notes || '',
     },
   })
 
@@ -99,6 +122,13 @@ export default function ProfilePage() {
         notify_whatsapp: user.notify_whatsapp || false,
         equity: user.equity ?? null,
         monthly_income: user.monthly_income ?? null,
+        preference_city: user.preference_city || '',
+        preference_streets: user.preference_streets || '',
+        preference_asset_type: user.preference_asset_type || '',
+        preference_area_min: user.preference_area_min ?? null,
+        preference_area_max: user.preference_area_max ?? null,
+        preference_floor: user.preference_floor || '',
+        preference_notes: user.preference_notes || '',
       })
     }
   }, [user, form])
@@ -413,6 +443,124 @@ export default function ProfilePage() {
                           {form.formState.errors.monthly_income.message}
                         </p>
                       )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">העדפות נכס</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="preference_city">עיר מועדפת</Label>
+                        <Input
+                          id="preference_city"
+                          {...form.register('preference_city')}
+                          disabled={!isEditing}
+                          placeholder="לדוגמה: תל אביב"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="preference_streets">רחוב/ים מועדפים</Label>
+                        <Textarea
+                          id="preference_streets"
+                          {...form.register('preference_streets')}
+                          disabled={!isEditing}
+                          placeholder="הזן רחובות או אזורים מועדפים (מופרד בפסיקים)"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="preference_asset_type">סוג נכס מועדף</Label>
+                        <Input
+                          id="preference_asset_type"
+                          {...form.register('preference_asset_type')}
+                          disabled={!isEditing}
+                          placeholder="לדוגמה: דירה, פנטהאוז, דופלקס"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="preference_floor">קומה מבוקשת</Label>
+                        <Input
+                          id="preference_floor"
+                          {...form.register('preference_floor')}
+                          disabled={!isEditing}
+                          placeholder="לדוגמה: 3-5, קרקע, פנטהאוז"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="preference_area_min">מינימום מ״ר</Label>
+                        <Input
+                          id="preference_area_min"
+                          type="number"
+                          min={0}
+                          dir="ltr"
+                          inputMode="numeric"
+                          className="text-left"
+                          disabled={!isEditing}
+                          placeholder="לדוגמה: 70"
+                          {...form.register('preference_area_min', {
+                            setValueAs: (value) => {
+                              if (value === '' || value === null || value === undefined) {
+                                return null
+                              }
+                              const numericValue = Number(value)
+                              return Number.isNaN(numericValue) ? null : numericValue
+                            }
+                          })}
+                        />
+                        {form.formState.errors.preference_area_min && (
+                          <p className="text-sm text-destructive">
+                            {form.formState.errors.preference_area_min.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="preference_area_max">מקסימום מ״ר</Label>
+                        <Input
+                          id="preference_area_max"
+                          type="number"
+                          min={0}
+                          dir="ltr"
+                          inputMode="numeric"
+                          className="text-left"
+                          disabled={!isEditing}
+                          placeholder="לדוגמה: 120"
+                          {...form.register('preference_area_max', {
+                            setValueAs: (value) => {
+                              if (value === '' || value === null || value === undefined) {
+                                return null
+                              }
+                              const numericValue = Number(value)
+                              return Number.isNaN(numericValue) ? null : numericValue
+                            }
+                          })}
+                        />
+                        {form.formState.errors.preference_area_max && (
+                          <p className="text-sm text-destructive">
+                            {form.formState.errors.preference_area_max.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="preference_notes">הערות נוספות</Label>
+                      <Textarea
+                        id="preference_notes"
+                        {...form.register('preference_notes')}
+                        disabled={!isEditing}
+                        placeholder="כל מידע נוסף שיעזור להבין את הצרכים שלך"
+                        rows={4}
+                      />
                     </div>
                   </div>
 

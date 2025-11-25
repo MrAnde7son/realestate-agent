@@ -724,7 +724,24 @@ export default function MortgageAnalyzePage() {
       // Clear scenario if URL doesn't have it
       setSelectedScenarioId(null)
     }
-  }, [isClient, searchParams, numericPropertyValue, numericUserEquity, numericMonthlyIncome, envConfig.boiAnnual, envConfig.primeSpread, envConfig.boiShock, envConfig.bondShock, envConfig.cpiShock, selectedStress, selectedScenarioId, primeRate])
+  }, [
+    isClient,
+    searchParams,
+    propertyValue,
+    userEquity,
+    monthlyIncome,
+    numericPropertyValue,
+    numericUserEquity,
+    numericMonthlyIncome,
+    envConfig.boiAnnual,
+    envConfig.primeSpread,
+    envConfig.boiShock,
+    envConfig.bondShock,
+    envConfig.cpiShock,
+    selectedStress,
+    selectedScenarioId,
+    primeRate,
+  ])
 
   useEffect(() => {
     const targetLoan = Math.max(0, numericPropertyValue - numericUserEquity)

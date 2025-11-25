@@ -23,4 +23,16 @@ describe('authAPI', () => {
       method: 'PUT'
     }))
   })
+
+  it('sends preference fields when updating profile', async () => {
+    await authAPI.updateProfile({ preference_city: 'תל אביב', preference_area_min: 70, preference_area_max: 120 })
+
+    const lastCall = (global.fetch as any).mock.calls.at(-1)
+    const options = lastCall[1]
+    const body = JSON.parse(options.body)
+
+    expect(body.preference_city).toBe('תל אביב')
+    expect(body.preference_area_min).toBe(70)
+    expect(body.preference_area_max).toBe(120)
+  })
 })

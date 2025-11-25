@@ -13,6 +13,13 @@ export interface User {
   phone?: string
   notify_email?: boolean
   notify_whatsapp?: boolean
+  preference_city?: string
+  preference_streets?: string
+  preference_asset_type?: string
+  preference_area_min?: number | null
+  preference_area_max?: number | null
+  preference_floor?: string
+  preference_notes?: string
   is_verified: boolean
   created_at?: string
   onboarding_flags?: {
@@ -53,6 +60,13 @@ export interface ProfileUpdateData {
   notify_whatsapp?: boolean
   equity?: number | null
   monthly_income?: number | null
+  preference_city?: string
+  preference_streets?: string
+  preference_asset_type?: string
+  preference_area_min?: number | null
+  preference_area_max?: number | null
+  preference_floor?: string
+  preference_notes?: string
 }
 
 export interface ChangePasswordData {

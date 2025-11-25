@@ -131,7 +131,10 @@ export default function ImageGallery({
 
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-7xl w-[95vw] max-h-[95vh] p-0 flex flex-col">
+        <DialogContent
+          className="max-w-7xl w-[95vw] max-h-[95vh] p-0 flex flex-col"
+          hideCloseButton
+        >
           <DialogHeader className="p-4 pb-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <DialogTitle>

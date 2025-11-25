@@ -12,6 +12,7 @@ describe("ImageGallery accessibility", () => {
     expect(
       await screen.findByLabelText("סגור תצוגת תמונות")
     ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Close/i)).not.toBeInTheDocument();
     expect(
       screen.getByLabelText("הצג תמונה קודמת")
     ).toBeInTheDocument();

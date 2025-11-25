@@ -81,7 +81,10 @@ class AssetFilterExtensionTests(TestCase):
         return [row["id"] for row in data.get("rows", [])]
 
     def test_bedrooms_range_filter(self):
-        response = self.client.get("/api/assets", {"bedroomsMin": 3, "bedroomsMax": 4})
+        response = self.client.get(
+            "/api/assets",
+            {"bedroomsMin": 3, "bedroomsMax": 4},
+        )
         self.assertEqual(response.status_code, 200)
         ids = self._get_asset_ids(response)
         self.assertIn(self.asset_mid.id, ids)
@@ -131,10 +134,14 @@ class AssetFilterExtensionTests(TestCase):
         self.assertNotIn(self.asset_basic.id, ids)
 
     def test_metadata_includes_extended_fields(self):
-        response = self.client.get("/api/assets", {"pageSize": 5})
+        list_response = self.client.get("/api/assets", {"pageSize": 5})
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotIn("filters", list_response.json())
+
+        response = self.client.get("/api/assets/filter-metadata")
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        filters = data.get("filters", {})
+
+        filters = response.json()
 
         self.assertIn("bedroomCounts", filters)
         self.assertIn(2, filters["bedroomCounts"])
@@ -155,13 +162,19 @@ class AssetFilterExtensionTests(TestCase):
         self.assertEqual(balcony_range["max"], 25)
 
         self.assertIn("yearBuiltRange", filters)
-        self.assertEqual(filters["yearBuiltRange"], {"min": 1995, "max": 2012})
+        self.assertEqual(
+            filters["yearBuiltRange"], {"min": 1995, "max": 2012}
+        )
 
         self.assertIn("rentEstimateRange", filters)
-        self.assertEqual(filters["rentEstimateRange"], {"min": 4200, "max": 9800})
+        self.assertEqual(
+            filters["rentEstimateRange"], {"min": 4200, "max": 9800}
+        )
 
         self.assertIn("priceGapPctRange", filters)
-        self.assertEqual(filters["priceGapPctRange"], {"min": -2.3, "max": 6.8})
+        self.assertEqual(
+            filters["priceGapPctRange"], {"min": -2.3, "max": 6.8}
+        )
 
         self.assertIn("capRatePctRange", filters)
         self.assertEqual(filters["capRatePctRange"], {"min": 2.5, "max": 4.9})
@@ -183,4 +196,6 @@ class AssetFilterExtensionTests(TestCase):
         data = response.json()
         ids = {row["id"] for row in data.get("rows", [])}
         self.assertEqual(ids, {self.asset_mid.id, self.asset_premium.id})
-        self.assertTrue(all(row.get("isWatched") for row in data.get("rows", [])))
+        self.assertTrue(
+            all(row.get("isWatched") for row in data.get("rows", []))
+        )

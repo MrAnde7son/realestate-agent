@@ -11,11 +11,12 @@ import AppSidebar from "@/components/layout/app-sidebar";
 
 const mockLogout = vi.fn();
 let mockPathname = "/assets";
+let mockRole = "broker";
 
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({
     user: {
-      role: "broker",
+      role: mockRole,
       first_name: "Test",
       last_name: "User",
       email: "test@example.com",
@@ -49,6 +50,7 @@ describe("AppSidebar accessibility when collapsed", () => {
   beforeEach(() => {
     mockLogout.mockClear();
     mockPathname = "/assets";
+    mockRole = "broker";
     window.history.replaceState(null, "", mockPathname);
   });
 
@@ -81,6 +83,7 @@ describe("AppSidebar active navigation state", () => {
   beforeEach(() => {
     mockLogout.mockClear();
     mockPathname = "/assets";
+    mockRole = "broker";
     window.history.replaceState(null, "", mockPathname);
   });
 
@@ -115,5 +118,36 @@ describe("AppSidebar active navigation state", () => {
     const indicator = assetsLink.querySelector("[data-active-indicator]");
     expect(indicator).not.toBeNull();
     expect(indicator?.className).toContain("opacity-60");
+  });
+});
+
+describe("AppSidebar broker-only navigation", () => {
+  beforeEach(() => {
+    mockLogout.mockClear();
+    mockPathname = "/assets";
+    window.history.replaceState(null, "", mockPathname);
+  });
+
+  it("hides alerts and reports for non-broker roles", () => {
+    mockRole = "agent";
+
+    render(<AppSidebar />);
+
+    expect(screen.queryByRole("link", { name: "התראות" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "דוחות" })).not.toBeInTheDocument();
+  });
+
+  it("shows alerts and reports for broker and admin roles", () => {
+    mockRole = "broker";
+    const { rerender } = render(<AppSidebar />);
+
+    expect(screen.getByRole("link", { name: "התראות" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "דוחות" })).toBeInTheDocument();
+
+    mockRole = "admin";
+    rerender(<AppSidebar />);
+
+    expect(screen.getByRole("link", { name: "התראות" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "דוחות" })).toBeInTheDocument();
   });
 });

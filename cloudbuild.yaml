@@ -109,7 +109,7 @@ steps:
           --service-account=nadlaner-api@${PROJECT_ID}.iam.gserviceaccount.com \
           --timeout=300 \
           --cpu=2 \
-          --memory=2Gi \
+          --memory=16Gi \
           --min-instances=1 \
           --max-instances=10 \
           --port=8000 \
@@ -138,7 +138,7 @@ steps:
           --set-cloudsql-instances=$$CLOUD_SQL_CONNECTION \
           --service-account=nadlaner-worker@${PROJECT_ID}.iam.gserviceaccount.com \
           --cpu=2 \
-          --memory=2Gi \
+          --memory=16Gi \
           --min-instances=1 \
           --max-instances=5 \
           --no-cpu-throttling \

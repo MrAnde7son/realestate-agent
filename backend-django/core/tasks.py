@@ -10,6 +10,7 @@ from celery import chain, shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+import psutil
 
 from .analytics import track
 from .email import send_email
@@ -21,6 +22,17 @@ logger = logging.getLogger(__name__)
 
 _PIPELINE_STATE_DIR = Path(settings.BASE_DIR) / "tmp" / "pipeline_state"
 _PIPELINE_STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def log_worker_memory(prefix: str) -> None:
+    """Log the current worker RSS in megabytes for observability."""
+
+    try:
+        process = psutil.Process(os.getpid())
+        rss_mb = process.memory_info().rss / (1024 ** 2)
+        logger.info("Worker memory [%s]: %.1f MB RSS", prefix, rss_mb)
+    except Exception:  # pragma: no cover - best-effort logging
+        logger.debug("Unable to log worker memory for prefix '%s'", prefix)
 
 
 def _state_path(asset_id: int) -> Path:
@@ -108,6 +120,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
         return {"asset_id": asset_id, "halt": True}
 
     _clear_state(asset_id)
+
+    log_worker_memory(f"collect_asset_data:start asset={asset_id}")
 
     asset.status = "enriching"
     asset.last_enrich_error = None
@@ -360,6 +374,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
         }
         _save_state(asset_id, state)
 
+        log_worker_memory(f"collect_asset_data:finish asset={asset_id}")
+
         return {
             "asset_id": asset_id,
             "listing_count": len(listings_payload),
@@ -381,6 +397,8 @@ def normalize_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
     asset_id = previous["asset_id"]
 
+    log_worker_memory(f"normalize_asset_data:start asset={asset_id}")
+
     try:
         state = _load_state(asset_id)
     except FileNotFoundError:
@@ -392,6 +410,8 @@ def normalize_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
     _save_state(asset_id, state)
 
     previous["normalized_listings"] = len(normalized)
+
+    log_worker_memory(f"normalize_asset_data:finish asset={asset_id}")
     return previous
 
 
@@ -409,6 +429,8 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
         return previous
 
     asset_id = previous["asset_id"]
+
+    log_worker_memory(f"persist_asset_data:start asset={asset_id}")
 
     try:
         state = _load_state(asset_id)
@@ -519,6 +541,8 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
     previous["persisted_listings"] = persisted
     previous["result_sources"] = len(results)
+
+    log_worker_memory(f"persist_asset_data:finish asset={asset_id}")
     return previous
 
 
@@ -533,6 +557,8 @@ def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
         return previous
 
     asset_id = previous["asset_id"]
+
+    log_worker_memory(f"link_asset_data:start asset={asset_id}")
 
     try:
         state = _load_state(asset_id)
@@ -580,6 +606,7 @@ def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
     finally:
         _clear_state(asset_id)
 
+    log_worker_memory(f"link_asset_data:finish asset={asset_id}")
     return previous
 
 

@@ -34,6 +34,16 @@ EOF
 # Wait a moment for health server to start
 sleep 0.5
 
+# Configure Celery worker defaults for Cloud Run memory constraints
+CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-1}
+MAX_TASKS_PER_CHILD=${CELERY_MAX_TASKS_PER_CHILD:-10}
+PREFETCH_MULTIPLIER=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}
+
+echo "Starting Celery worker with concurrency=${CONCURRENCY}, max_tasks_per_child=${MAX_TASKS_PER_CHILD}, prefetch_multiplier=${PREFETCH_MULTIPLIER}"
+
 # Run Celery worker in foreground
-exec celery -A broker_backend worker -l info -c ${CELERY_WORKER_CONCURRENCY:-2}
+exec celery -A broker_backend worker -l info \
+    -c "$CONCURRENCY" \
+    --max-tasks-per-child "$MAX_TASKS_PER_CHILD" \
+    --prefetch-multiplier "$PREFETCH_MULTIPLIER"
 

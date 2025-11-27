@@ -2640,6 +2640,8 @@ export default function AssetsPage() {
           return "טיוטה";
         case "processing":
           return "בעיבוד";
+        case "syncing":
+          return "מסנכרן נתונים";
         case "synced":
           return "מסונכרן";
         case "none":

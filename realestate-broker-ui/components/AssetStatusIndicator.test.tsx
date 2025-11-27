@@ -12,6 +12,13 @@ describe('AssetStatusIndicator', () => {
     expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
   })
 
+  it('renders syncing state with Hebrew label', () => {
+    const { container } = render(<AssetStatusIndicator status="syncing" />)
+
+    expect(screen.getByText('מסנכרן נתונים')).toBeInTheDocument()
+    expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
+  })
+
   it('renders failure badge when enrichment fails', () => {
     const { container } = render(<AssetStatusIndicator status="failed" />)
 

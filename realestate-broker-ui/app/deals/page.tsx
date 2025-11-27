@@ -83,6 +83,7 @@ function translateStatus(status: string | null | undefined): string {
     'archived': 'בארכיון',
     'draft': 'טיוטה',
     'processing': 'בעיבוד',
+    'syncing': 'מסנכרן נתונים',
     'synced': 'מסונכרן',
     'none': 'ללא סטטוס',
   }

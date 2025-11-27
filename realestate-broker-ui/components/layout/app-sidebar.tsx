@@ -93,9 +93,16 @@ export default function AppSidebar({
   const { user, logout, isAuthenticated, isLoading } = useAuth();
 
   const canAccessCrm = ["broker", "appraiser", "admin"].includes(user?.role || "");
+  const canAccessAlertsAndReports = ["broker", "admin"].includes(user?.role || "");
 
   const navigation = baseNavigation
     .filter((item) => item.href !== "/crm" || canAccessCrm)
+    .filter((item) => {
+      if (item.href === "/alerts" || item.href === "/reports") {
+        return canAccessAlertsAndReports;
+      }
+      return true;
+    })
     .map((item) => ({ ...item }));
 
   if (user?.role === "admin") {

@@ -22,6 +22,7 @@ import TablePagination from '@/components/TablePagination'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import ImageGallery from './ImageGallery'
 import { Building } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -1053,6 +1054,8 @@ export default function AssetsTable({
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
+  const { user } = useAuth()
+  const canManageAlertsAndReports = ['broker', 'admin'].includes(user?.role || '')
   const { toast } = useToast()
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -1292,11 +1295,11 @@ export default function AssetsTable({
       onDealWorkspaceClick: handleDealWorkspaceClick,
       onDelete,
       onExport: handleExportSingle,
-      onOpenAlert: handleOpenAlertModal,
+      onOpenAlert: canManageAlertsAndReports ? handleOpenAlertModal : undefined,
       onToggleWatch,
       watchLoadingIds: watchingAssetIds,
     })
-  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal, onToggleWatch, watchingAssetIds, handleDealWorkspaceClick])
+  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal, onToggleWatch, watchingAssetIds, handleDealWorkspaceClick, canManageAlertsAndReports])
 
   const table = useReactTable({
     data,
@@ -2670,16 +2673,18 @@ export default function AssetsTable({
       )}
 
       {/* Alert Modal */}
-      <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>הגדרת התראות לנכס</DialogTitle>
-          </DialogHeader>
-          {selectedAssetId && (
-            <AlertRulesManager assetId={selectedAssetId} />
-          )}
-        </DialogContent>
-      </Dialog>
+      {canManageAlertsAndReports && (
+        <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>הגדרת התראות לנכס</DialogTitle>
+            </DialogHeader>
+            {selectedAssetId && (
+              <AlertRulesManager assetId={selectedAssetId} />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

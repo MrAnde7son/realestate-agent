@@ -2,8 +2,16 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import AssetsTable from './AssetsTable'
+
+let mockRole = 'broker'
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({
+    user: { role: mockRole },
+  }),
+}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -14,6 +22,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: any) => <a {...props}>{children}</a>
 }))
+
+afterEach(() => {
+  mockRole = 'broker'
+})
 
 describe('AssetsTable', () => {
   it('renders placeholders for missing optional fields', () => {
@@ -147,5 +159,20 @@ describe('AssetsTable', () => {
       return touchAction?.includes('pan-x pinch-zoom')
     })
     expect(hasPinchZoomEnabled).toBe(true)
+  })
+
+  it('hides alert actions for users without broker or admin roles', async () => {
+    mockRole = 'private'
+
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City', isWatched: false } as any]}
+        watchingAssetIds={new Set()}
+      />
+    )
+
+    await screen.findByRole('columnheader', { name: /נכס/ })
+
+    expect(screen.queryByLabelText(/הגדר התראות/)).not.toBeInTheDocument()
   })
 })

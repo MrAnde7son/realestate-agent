@@ -10,6 +10,14 @@ import { beforeEach, vi, describe, expect, it} from 'vitest'
 import AssetsTable from '@/components/AssetsTable'
 import type { Asset } from '@/lib/normalizers/asset'
 
+let mockRole = 'broker'
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({
+    user: { role: mockRole },
+  }),
+}))
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() })
 }))
@@ -40,6 +48,7 @@ const baseAsset: Partial<Asset> = {
 describe('AssetsTable default columns', () => {
   beforeEach(() => {
     localStorage.clear()
+    mockRole = 'broker'
   })
 
   it('hides advanced metrics by default', async () => {

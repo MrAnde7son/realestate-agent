@@ -513,7 +513,7 @@ describe('AssetsPage', () => {
       const calls = (global.fetch as any).mock.calls
         .map(([url]: any[]) => url)
         .filter((url: string) => url.startsWith('/api/assets'))
-      expect(calls[0]).toContain('city=%D7%97%D7%99%D7%A4%D7%94')
+      expect(calls.some((url: string) => url.includes('city=%D7%97%D7%99%D7%A4%D7%94'))).toBe(true)
     })
   })
 
@@ -531,7 +531,7 @@ describe('AssetsPage', () => {
       const calls = (global.fetch as any).mock.calls
         .map(([url]: any[]) => url)
         .filter((url: string) => url.startsWith('/api/assets'))
-      expect(calls[0]).toContain('type=%D7%93%D7%99%D7%A8%D7%94')
+      expect(calls.some((url: string) => url.includes('type=%D7%93%D7%99%D7%A8%D7%94'))).toBe(true)
     })
   })
 
@@ -549,7 +549,7 @@ describe('AssetsPage', () => {
       const calls = (global.fetch as any).mock.calls
         .map(([url]: any[]) => url)
         .filter((url: string) => url.startsWith('/api/assets'))
-      expect(calls[0]).toContain('search=Another')
+      expect(calls.some((url: string) => url.includes('search=Another'))).toBe(true)
     })
   })
 
@@ -707,7 +707,9 @@ describe('AssetsPage', () => {
     })
 
     await waitFor(() => {
-      const assetCalls = Object.entries(callCounts).filter(([key]) => key.startsWith('/api/assets'))
+      const assetCalls = Object.entries(callCounts).filter(([key]) =>
+        key.startsWith('/api/assets') && !key.includes('filter-metadata')
+      )
       expect(assetCalls.length).toBe(1)
       expect(assetCalls[0][1]).toBe(1)
     })

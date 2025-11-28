@@ -7,9 +7,23 @@ import { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/Badge'
 import { Bed, Bath, Ruler, Eye, FileText, Heart } from 'lucide-react'
 import ImageGallery from './ImageGallery'
 import AssetStatusIndicator from './AssetStatusIndicator'
+
+const formatListingTypeLabel = (value?: string | null) => {
+  if (!value) return null
+
+  const normalized = value.toLowerCase()
+
+  if (normalized === 'rent') return 'השכרה'
+  if (normalized === 'sale') return 'מכירה'
+  if (normalized === 'commercial') return 'מסחרי'
+  if (normalized === 'auction') return 'מכרז'
+
+  return value
+}
 
 function exportAssetCsv(asset: Asset) {
   // Export all available fields from the Asset type
@@ -62,6 +76,9 @@ interface AssetCardProps {
 export default function AssetCard({ asset, onToggleWatch, watchLoading = false }: AssetCardProps) {
   const isWatched = asset.isWatched === true
   const watchTitle = isWatched ? 'הסר מרשימת המעקב' : 'הוסף לרשימת המעקב'
+  const listingTypeLabel = formatListingTypeLabel(
+    asset.listingType ?? asset.primaryListing?.listingType ?? null
+  )
 
   const router = useRouter()
 
@@ -119,6 +136,11 @@ export default function AssetCard({ asset, onToggleWatch, watchLoading = false }
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 truncate text-sm font-bold sm:text-base">{asset.address ?? '—'}</div>
           <div className="flex items-center gap-2">
+            {listingTypeLabel && (
+              <Badge variant="outline" className="px-2 py-1 text-[10px] sm:text-xs">
+                {listingTypeLabel}
+              </Badge>
+            )}
             <AssetStatusIndicator status={asset.assetStatus} size="sm" />
             {onToggleWatch && (
               <Button

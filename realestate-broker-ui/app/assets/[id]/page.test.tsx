@@ -25,7 +25,7 @@ beforeAll(() => {
 
 const mockUseAuth = {
   isAuthenticated: true,
-  user: { id: '1', onboarding_flags: {} },
+  user: { id: '1', onboarding_flags: {}, role: 'broker' },
 }
 
 const searchParamsGetMock = vi.fn<(key: string) => string | null>(() => null)

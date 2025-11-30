@@ -88,6 +88,12 @@ describe('AssetCard', () => {
     expect(screen.queryByText('אוסף נתונים על הנכס')).not.toBeInTheDocument()
   })
 
+  it('shows listing type label when available', () => {
+    render(<AssetCard asset={{ ...mockAsset, listingType: 'rent' }} />)
+
+    expect(screen.getByText('השכרה')).toBeInTheDocument()
+  })
+
   it('does not trigger navigation when export is clicked', () => {
     render(<AssetCard asset={mockAsset} />)
 

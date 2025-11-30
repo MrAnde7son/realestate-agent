@@ -53,12 +53,22 @@ class SQLAlchemyDatabase(Database):
     def __init__(self, database_url=None):
         # Try to get DATABASE_URL from environment, with intelligent default
         default_url = os.getenv("DATABASE_URL")
+        if not default_url and os.getenv("USE_POSTGRES", "false").lower() == "true":
+            postgres_host = os.getenv("POSTGRES_HOST", "postgres")
+            postgres_port = os.getenv("POSTGRES_PORT", "")
+            port_part = f":{postgres_port}" if postgres_port else ""
+            default_url = (
+                f"postgresql+psycopg2://{os.getenv('POSTGRES_USER', 'postgres')}"
+                f":{os.getenv('POSTGRES_PASSWORD', 'postgres')}@{postgres_host}{port_part}/"
+                f"{os.getenv('POSTGRES_DB', 'realestate')}"
+            )
+
         if not default_url:
-            # Default to db.sqlite3 in backend-django directory
+            # Default to db.sqlite3 in backend-django directory for local development/tests
             backend_django_dir = Path(__file__).resolve().parent.parent / 'backend-django'
             db_file = backend_django_dir / 'db.sqlite3'
             default_url = f"sqlite:///{db_file}"
-        
+
         self.database_url = database_url or default_url
         self.engine = None
         self.SessionLocal = None
@@ -72,18 +82,25 @@ class SQLAlchemyDatabase(Database):
                 self.engine = create_engine(
                     self.database_url,
                     connect_args={"check_same_thread": False},
-                    poolclass=StaticPool
+                    poolclass=StaticPool,
+                    future=True,
                 )
             else:
                 # PostgreSQL configuration
                 self.engine = create_engine(
                     self.database_url,
                     pool_pre_ping=True,
-                    pool_recycle=300
+                    pool_recycle=300,
+                    future=True,
                 )
-            
+
             # Create session factory
-            self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+            self.SessionLocal = sessionmaker(
+                autocommit=False,
+                autoflush=False,
+                expire_on_commit=True,
+                bind=self.engine,
+            )
             
             self.logger.info("Database initialized successfully: %s", self.database_url)
             return True
@@ -97,6 +114,20 @@ class SQLAlchemyDatabase(Database):
         if not self.SessionLocal:
             self.init_db()
         return self.SessionLocal()
+
+    @contextmanager
+    def session_scope(self) -> Iterator[Session]:
+        """Context manager that commits and cleans up the session safely."""
+
+        session = self.get_session()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
     
     def create_tables(self):
         """Create all tables defined in models."""

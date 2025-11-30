@@ -31,6 +31,39 @@ class User(AbstractUser):
         null=True,
         help_text="Monthly income for mortgage affordability calculations",
     )
+    preference_city = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Preferred city for requested assets",
+    )
+    preference_streets = models.TextField(
+        blank=True,
+        help_text="Preferred streets or neighbourhoods for requested assets",
+    )
+    preference_asset_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Preferred asset type (e.g. דירה, פנטהאוז)",
+    )
+    preference_area_min = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Minimum desired asset area in square meters",
+    )
+    preference_area_max = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Maximum desired asset area in square meters",
+    )
+    preference_floor = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Preferred floor or range",
+    )
+    preference_notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the user's preferences",
+    )
 
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"

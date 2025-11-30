@@ -35,9 +35,15 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const [mounted, setMounted] = React.useState(false)
   const { user, logout, isAuthenticated, isLoading } = useAuth()
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
-  const filteredMobileNavigation = mobileNavigation.filter(
-    (item) => item.href !== '/crm' || canAccessCrm
-  )
+  const canAccessAlertsAndReports = ['broker', 'admin'].includes(user?.role || '')
+  const filteredMobileNavigation = mobileNavigation
+    .filter((item) => item.href !== '/crm' || canAccessCrm)
+    .filter((item) => {
+      if (item.href === '/alerts' || item.href === '/reports') {
+        return canAccessAlertsAndReports
+      }
+      return true
+    })
   
   // Add admin navigation items for mobile
   if (user?.role === 'admin') {

@@ -13,6 +13,7 @@ const STATUS_LABELS: Record<AssetStatusValue, string> = {
   failed: 'שגיאה באיסוף',
   enriching: 'אוסף נתונים על הנכס',
   pending: 'מכין נתונים על הנכס',
+  syncing: 'מסנכרן נתונים',
 }
 
 interface AssetStatusIndicatorProps {

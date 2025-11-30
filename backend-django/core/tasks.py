@@ -5,11 +5,13 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from contextlib import nullcontext
 
 from celery import chain, shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+import psutil
 
 from .analytics import track
 from .email import send_email
@@ -21,6 +23,17 @@ logger = logging.getLogger(__name__)
 
 _PIPELINE_STATE_DIR = Path(settings.BASE_DIR) / "tmp" / "pipeline_state"
 _PIPELINE_STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def log_worker_memory(prefix: str) -> None:
+    """Log the current worker RSS in megabytes for observability."""
+
+    try:
+        process = psutil.Process(os.getpid())
+        rss_mb = process.memory_info().rss / (1024 ** 2)
+        logger.info("Worker memory [%s]: %.1f MB RSS", prefix, rss_mb)
+    except Exception:  # pragma: no cover - best-effort logging
+        logger.debug("Unable to log worker memory for prefix '%s'", prefix)
 
 
 def _state_path(asset_id: int) -> Path:
@@ -108,6 +121,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
         return {"asset_id": asset_id, "halt": True}
 
     _clear_state(asset_id)
+
+    log_worker_memory(f"collect_asset_data:start asset={asset_id}")
 
     asset.status = "enriching"
     asset.last_enrich_error = None
@@ -360,6 +375,8 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
         }
         _save_state(asset_id, state)
 
+        log_worker_memory(f"collect_asset_data:finish asset={asset_id}")
+
         return {
             "asset_id": asset_id,
             "listing_count": len(listings_payload),
@@ -381,6 +398,8 @@ def normalize_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
     asset_id = previous["asset_id"]
 
+    log_worker_memory(f"normalize_asset_data:start asset={asset_id}")
+
     try:
         state = _load_state(asset_id)
     except FileNotFoundError:
@@ -392,6 +411,8 @@ def normalize_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
     _save_state(asset_id, state)
 
     previous["normalized_listings"] = len(normalized)
+
+    log_worker_memory(f"normalize_asset_data:finish asset={asset_id}")
     return previous
 
 
@@ -410,6 +431,8 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
     asset_id = previous["asset_id"]
 
+    log_worker_memory(f"persist_asset_data:start asset={asset_id}")
+
     try:
         state = _load_state(asset_id)
     except FileNotFoundError:
@@ -417,8 +440,13 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
         return previous
 
     pipeline = DataPipeline()
-    session = pipeline.session or (pipeline.db.get_session() if pipeline.db else None)
-    if session is None:
+    if pipeline.session is not None:
+        session_factory = lambda: nullcontext(pipeline.session)
+        manage_per_listing = False
+    elif pipeline.db is not None:
+        session_factory = pipeline.db.session_scope
+        manage_per_listing = True
+    else:
         raise RuntimeError("Data pipeline database session unavailable")
 
     govmap_data = state.get("govmap_data", {})
@@ -433,51 +461,66 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
     results: List[Dict[str, Any]] = []
     persisted = 0
 
+    def _persist_listing(session, payload: Dict[str, Any]) -> None:
+        listing_obj = SimpleNamespace(**payload)
+        db_listing = pipeline._store_listing(session, listing_obj)
+
+        autocomplete = govmap_data.get("api_data", {}).get("autocomplete")
+        if autocomplete:
+            pipeline._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete)
+
+        parcel_api = govmap_data.get("api_data", {}).get("parcel")
+        if parcel_api:
+            pipeline._add_source_record(session, db_listing.id, "govmap_parcel", parcel_api)
+
+        if gis_data:
+            pipeline._add_source_record(session, db_listing.id, "gis", gis_data)
+
+        decisive = gov_data.get("decisive")
+        if decisive:
+            pipeline._add_source_record(session, db_listing.id, "gov_decisive", decisive)
+
+        transactions = gov_data.get("transactions")
+        if transactions:
+            pipeline._add_source_record(session, db_listing.id, "gov_transactions", transactions)
+            pipeline._add_transactions(session, db_listing.id, transactions)
+
+        if plans:
+            pipeline._add_source_record(session, db_listing.id, "gov_rami", plans)
+
+        if mavat_plans:
+            pipeline._add_source_record(session, db_listing.id, "mavat", mavat_plans)
+
+        if handasa_archive:
+            pipeline._add_source_record(session, db_listing.id, "handasa", handasa_archive)
+
+        session.flush()
+
     try:
-        for payload in listings_raw:
-            listing_obj = SimpleNamespace(**payload)
-            db_listing = pipeline._store_listing(session, listing_obj)
-            persisted += 1
-
-            autocomplete = govmap_data.get("api_data", {}).get("autocomplete")
-            if autocomplete:
-                pipeline._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete)
-
-            parcel_api = govmap_data.get("api_data", {}).get("parcel")
-            if parcel_api:
-                pipeline._add_source_record(session, db_listing.id, "govmap_parcel", parcel_api)
-
-            if gis_data:
-                pipeline._add_source_record(session, db_listing.id, "gis", gis_data)
-
-            decisive = gov_data.get("decisive")
-            if decisive:
-                pipeline._add_source_record(session, db_listing.id, "gov_decisive", decisive)
-
-            transactions = gov_data.get("transactions")
-            if transactions:
-                pipeline._add_source_record(session, db_listing.id, "gov_transactions", transactions)
-                pipeline._add_transactions(session, db_listing.id, transactions)
-
-            if plans:
-                pipeline._add_source_record(session, db_listing.id, "gov_rami", plans)
-
-            if mavat_plans:
-                pipeline._add_source_record(session, db_listing.id, "mavat", mavat_plans)
-
-            if handasa_archive:
-                pipeline._add_source_record(session, db_listing.id, "handasa", handasa_archive)
-
-        session.commit()
+        if manage_per_listing:
+            for payload in listings_raw:
+                with session_factory() as session:
+                    _persist_listing(session, payload)
+                    persisted += 1
+        else:
+            with session_factory() as session:
+                for payload in listings_raw:
+                    _persist_listing(session, payload)
+                    session.commit()
+                    session.expunge_all()
+                    persisted += 1
     except Exception as exc:  # noqa: BLE001
-        session.rollback()
+        if not manage_per_listing and pipeline.session is not None:
+            try:
+                pipeline.session.rollback()
+            except Exception:  # pragma: no cover - best effort cleanup
+                logger.debug("Failed to rollback shared pipeline session")
         logger.exception("Persistence stage failed for asset %s", asset_id)
         _mark_asset_failed(asset_id, str(exc))
         _clear_state(asset_id)
         raise
-    finally:
-        if pipeline.session is None and session is not None:
-            session.close()
+
+    log_worker_memory(f"persist_asset_data:after_persist asset={asset_id}")
 
     try:
         update_asset_with_collected_data(
@@ -519,6 +562,8 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
     previous["persisted_listings"] = persisted
     previous["result_sources"] = len(results)
+
+    log_worker_memory(f"persist_asset_data:finish asset={asset_id}")
     return previous
 
 
@@ -533,6 +578,8 @@ def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
         return previous
 
     asset_id = previous["asset_id"]
+
+    log_worker_memory(f"link_asset_data:start asset={asset_id}")
 
     try:
         state = _load_state(asset_id)
@@ -580,6 +627,7 @@ def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
     finally:
         _clear_state(asset_id)
 
+    log_worker_memory(f"link_asset_data:finish asset={asset_id}")
     return previous
 
 

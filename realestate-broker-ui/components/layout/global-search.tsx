@@ -87,6 +87,7 @@ export function GlobalSearch() {
   const { trackSearch, trackFeatureUsage } = useAnalytics()
   const { user } = useAuth()
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
+  const canAccessAlertsAndReports = ['broker', 'admin'].includes(user?.role || '')
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -212,28 +213,35 @@ export function GlobalSearch() {
             }
           }}
         />
-        <CommandList className="max-h-[400px] overflow-y-auto">
-          <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">לא נמצאו תוצאות.</CommandEmpty>
-          <CommandGroup heading="ניווט מהיר" className="text-start">
-            {searchItems.map((item) => (
-              <CommandItem
-                key={item.href}
-                onSelect={() => runCommand(() => router.push(item.href))}
-                className="group"
-              >
+          <CommandList className="max-h-[400px] overflow-y-auto">
+            <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">לא נמצאו תוצאות.</CommandEmpty>
+            <CommandGroup heading="ניווט מהיר" className="text-start">
+              {searchItems
+                .filter((item) => {
+                  if (item.href === '/alerts' || item.href === '/reports') {
+                    return canAccessAlertsAndReports
+                  }
+                  return true
+                })
+                .map((item) => (
+                <CommandItem
+                  key={item.href}
+                  onSelect={() => runCommand(() => router.push(item.href))}
+                  className="group"
+                >
                 <span className="ms-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
                 <div className="flex-1 text-start">
                   <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">{item.title}</div>
                   <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">
                     {item.description}
                   </div>
-                </div>
-                <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-200 opacity-60 group-hover:opacity-100">
-                  Enter
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+                  </div>
+                  <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-200 opacity-60 group-hover:opacity-100">
+                    Enter
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
           
           {/* CRM Search Results */}
           {canAccessCrm && searchQuery.trim() && (

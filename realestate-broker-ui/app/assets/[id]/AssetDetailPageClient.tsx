@@ -837,6 +837,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isAuthenticated } = useAuth()
+  const canManageAlertsAndReports = ['broker', 'admin'].includes(user?.role || '')
   const { toast } = useToast()
   
   const [asset, setAsset] = useState<any>(null)
@@ -2399,6 +2400,9 @@ useDedupedEffect(() => {
   }, [id, asset, isAuthenticated, toast, router])
 
   const handleOpenAlerts = React.useCallback(() => {
+    if (!canManageAlertsAndReports) {
+      return
+    }
     if (!isAuthenticated) {
       toast({
         title: "נדרשת התחברות",
@@ -2409,7 +2413,7 @@ useDedupedEffect(() => {
       return
     }
     setAlertModalOpen(true)
-  }, [isAuthenticated, id, toast, router])
+  }, [canManageAlertsAndReports, isAuthenticated, id, toast, router])
 
   const handleGenerateLandingPage = useCallback(async () => {
     if (!id) return
@@ -3054,26 +3058,28 @@ useDedupedEffect(() => {
             )}
             <div className="flex flex-wrap gap-2 items-center justify-end md:justify-start">
               {/* Primary Actions - Always Visible */}
-              <Button
-                size="sm"
-                onClick={() => setSectionsModal(true)}
-                disabled={generatingReport}
-                className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
-              >
-                {generatingReport ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 animate-spin" />
-                    <span className="hidden sm:inline">יוצר דוח...</span>
-                    <span className="sm:hidden">יוצר...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                    <span className="hidden sm:inline">צור דוח</span>
-                    <span className="sm:hidden">דוח</span>
-                  </>
-                )}
-              </Button>
+              {canManageAlertsAndReports && (
+                <Button
+                  size="sm"
+                  onClick={() => setSectionsModal(true)}
+                  disabled={generatingReport}
+                  className="h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
+                >
+                  {generatingReport ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 animate-spin" />
+                      <span className="hidden sm:inline">יוצר דוח...</span>
+                      <span className="sm:hidden">יוצר...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                      <span className="hidden sm:inline">צור דוח</span>
+                      <span className="sm:hidden">דוח</span>
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 size="sm"
                 onClick={handleDealWorkspaceClick}
@@ -3166,12 +3172,14 @@ useDedupedEffect(() => {
                     <Share2 className="h-4 w-4 ms-2" />
                     צור הודעת פרסום
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={handleOpenAlerts}
-                  >
-                    <Bell className="h-4 w-4 ms-2" />
-                    הגדר התראות
-                  </DropdownMenuItem>
+                  {canManageAlertsAndReports && (
+                    <DropdownMenuItem
+                      onClick={handleOpenAlerts}
+                    >
+                      <Bell className="h-4 w-4 ms-2" />
+                      הגדר התראות
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setDeleteConfirmOpen(true)}
@@ -3190,10 +3198,11 @@ useDedupedEffect(() => {
                       </>
                     )}
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              {/* Dialogs */}
+            {/* Dialogs */}
+            {canManageAlertsAndReports && (
               <Dialog open={sectionsModal} onOpenChange={setSectionsModal}>
                 <DialogContent>
                   <DialogHeader>
@@ -3230,6 +3239,7 @@ useDedupedEffect(() => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+            )}
 
               <Dialog
                 open={shareModal}
@@ -3332,14 +3342,16 @@ useDedupedEffect(() => {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>הגדרת התראות לנכס</DialogTitle>
-                  </DialogHeader>
-                  {id && <AlertRulesManager assetId={Number(id)} />}
-                </DialogContent>
-              </Dialog>
+              {canManageAlertsAndReports && (
+                <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>הגדרת התראות לנכס</DialogTitle>
+                    </DialogHeader>
+                    {id && <AlertRulesManager assetId={Number(id)} />}
+                  </DialogContent>
+                </Dialog>
+              )}
 
               <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <DialogContent>

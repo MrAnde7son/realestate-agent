@@ -2,8 +2,16 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import AssetsTable from './AssetsTable'
+
+let mockRole = 'broker'
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({
+    user: { role: mockRole },
+  }),
+}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -14,6 +22,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: any) => <a {...props}>{children}</a>
 }))
+
+afterEach(() => {
+  mockRole = 'broker'
+})
 
 describe('AssetsTable', () => {
   it('renders placeholders for missing optional fields', () => {
@@ -128,5 +140,39 @@ describe('AssetsTable', () => {
 
     expect(toggleSpy).toHaveBeenCalledTimes(1)
     expect(toggleSpy.mock.calls[0][0]).toMatchObject({ id: 1 })
+  })
+
+  it('keeps pinch zoom enabled on horizontal scroll containers for mobile usability', async () => {
+    const { container } = render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City', isWatched: false } as any]}
+        watchingAssetIds={new Set()}
+      />
+    )
+
+    await screen.findByRole('columnheader', { name: /נכס/ })
+
+    const scrollAreas = screen.getAllByTestId('assets-table-scroll-container')
+    expect(scrollAreas.length).toBeGreaterThan(0)
+    const hasPinchZoomEnabled = scrollAreas.some((area) => {
+      const touchAction = (area as HTMLElement).style.touchAction
+      return touchAction?.includes('pan-x pinch-zoom')
+    })
+    expect(hasPinchZoomEnabled).toBe(true)
+  })
+
+  it('hides alert actions for users without broker or admin roles', async () => {
+    mockRole = 'private'
+
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City', isWatched: false } as any]}
+        watchingAssetIds={new Set()}
+      />
+    )
+
+    await screen.findByRole('columnheader', { name: /נכס/ })
+
+    expect(screen.queryByLabelText(/הגדר התראות/)).not.toBeInTheDocument()
   })
 })

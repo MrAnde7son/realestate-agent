@@ -543,6 +543,13 @@ def auth_profile(request):
                 "role": getattr(user, "role", ""),
                 "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
                 "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
+                "preference_city": getattr(user, "preference_city", ""),
+                "preference_streets": getattr(user, "preference_streets", ""),
+                "preference_asset_type": getattr(user, "preference_asset_type", ""),
+                "preference_area_min": getattr(user, "preference_area_min", None),
+                "preference_area_max": getattr(user, "preference_area_max", None),
+                "preference_floor": getattr(user, "preference_floor", ""),
+                "preference_notes": getattr(user, "preference_notes", ""),
                 "is_verified": getattr(user, "is_verified", False),
                 "created_at": (
                     user.created_at.isoformat()
@@ -623,6 +630,46 @@ def auth_update_profile(request):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 user.monthly_income = monthly_income_decimal
+        if "preference_city" in data:
+            user.preference_city = data["preference_city"] or ""
+        if "preference_streets" in data:
+            user.preference_streets = data["preference_streets"] or ""
+        if "preference_asset_type" in data:
+            user.preference_asset_type = data["preference_asset_type"] or ""
+        if "preference_floor" in data:
+            user.preference_floor = data["preference_floor"] or ""
+        if "preference_notes" in data:
+            user.preference_notes = data["preference_notes"] or ""
+
+        for area_field in ["preference_area_min", "preference_area_max"]:
+            if area_field in data:
+                value = data[area_field]
+                if value in (None, ""):
+                    setattr(user, area_field, None)
+                else:
+                    try:
+                        numeric_value = int(value)
+                    except (TypeError, ValueError):
+                        return Response(
+                            {"error": f"{area_field} must be a valid number"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if numeric_value < 0:
+                        return Response(
+                            {"error": f"{area_field} must be a non-negative number"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    setattr(user, area_field, numeric_value)
+
+        if (
+            getattr(user, "preference_area_min", None) is not None
+            and getattr(user, "preference_area_max", None) is not None
+            and user.preference_area_min > user.preference_area_max
+        ):
+            return Response(
+                {"error": "Minimum area cannot be greater than maximum area"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         # Role changes are not allowed for regular users - only admins can change roles
         # if "role" in data:
         #     user.role = data["role"]
@@ -644,6 +691,13 @@ def auth_update_profile(request):
                     "role": getattr(user, "role", ""),
                     "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
                     "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
+                    "preference_city": getattr(user, "preference_city", ""),
+                    "preference_streets": getattr(user, "preference_streets", ""),
+                    "preference_asset_type": getattr(user, "preference_asset_type", ""),
+                    "preference_area_min": getattr(user, "preference_area_min", None),
+                    "preference_area_max": getattr(user, "preference_area_max", None),
+                    "preference_floor": getattr(user, "preference_floor", ""),
+                    "preference_notes": getattr(user, "preference_notes", ""),
                     "is_verified": getattr(user, "is_verified", False),
                     "onboarding_flags": {
                         "connect_payment": onboarding_progress.connect_payment,

@@ -301,7 +301,7 @@
       /* Smooth scrolling */
       scroll-behavior: smooth;
       /* Better touch handling */
-      touch-action: pan-x;
+      touch-action: pan-x pinch-zoom;
     }
     
     /* Ensure table has minimum width for scrolling */

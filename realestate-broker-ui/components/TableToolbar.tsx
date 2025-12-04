@@ -1548,7 +1548,7 @@ export default function TableToolbar({
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
+            className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-base"
             dir="rtl"
             aria-label="חיפוש נכסים"
             aria-describedby="search-help-text"

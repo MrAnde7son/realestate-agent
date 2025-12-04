@@ -469,6 +469,10 @@ describe('AssetsPage', () => {
         expect.objectContaining({ method: 'POST' })
       )
     })
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/assets/new-asset')
+    })
   })
 
   it('filters assets by search term', async () => {

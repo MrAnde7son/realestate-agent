@@ -179,6 +179,17 @@ describe("TableToolbar quick filters", () => {
     expect(container).toHaveClass("w-full");
   });
 
+  it("uses a 16px font size on the search input to avoid mobile zooming", () => {
+    renderToolbar();
+
+    const searchInput = screen.getByRole("textbox", { name: "חיפוש נכסים" });
+
+    const classList = searchInput.className.split(" ");
+
+    expect(classList).toContain("text-base");
+    expect(classList).not.toContain("text-sm");
+  });
+
   it("keeps toolbar actions grouped in a wrapping container", () => {
     renderToolbar();
 

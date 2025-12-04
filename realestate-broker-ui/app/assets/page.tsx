@@ -2337,17 +2337,32 @@ export default function AssetsPage() {
       });
 
       if (response.ok) {
+        const createdAsset = response.data?.asset || response.data;
+        const newAssetId = createdAsset?.id ?? createdAsset?.assetId;
+
         form.reset();
         setOpen(false);
-        // Refresh assets to show the new asset
-        await fetchAssets();
         // Refresh user data to update onboarding progress
         await refreshUser();
-        toast({
-          title: "הצלחה",
-          description: "הנכס נוסף בהצלחה",
-          variant: "success",
-        });
+
+        if (newAssetId) {
+          // Keep the assets list fresh if the user navigates back
+          void fetchAssets();
+          toast({
+            title: "הצלחה",
+            description: "הנכס נוסף בהצלחה, אנחנו מכינים את הנתונים עבורך",
+            variant: "success",
+          });
+          router.push(`/assets/${newAssetId}`);
+        } else {
+          // Refresh assets to show the new asset when id is missing for any reason
+          await fetchAssets();
+          toast({
+            title: "הצלחה",
+            description: "הנכס נוסף בהצלחה",
+            variant: "success",
+          });
+        }
       } else {
         console.error("Failed to create asset:", response.error);
         

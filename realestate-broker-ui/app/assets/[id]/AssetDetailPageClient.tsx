@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DataBadge from '@/components/DataBadge'
+import AssetStatusIndicator from '@/components/AssetStatusIndicator'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
@@ -935,6 +936,8 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const transactionsControllerRef = React.useRef<AbortController | null>(null)
   const plansControllerRef = React.useRef<AbortController | null>(null)
   const rightsControllerRef = React.useRef<AbortController | null>(null)
+  const pipelineStatusControllerRef = React.useRef<AbortController | null>(null)
+  const pipelinePollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeMountsRef = React.useRef(0)
 
   // Responsive: detect mobile to tweak gallery props
@@ -1796,6 +1799,85 @@ useDedupedEffect(() => {
       }
     })()
   }, [id])
+
+  const pipelineStatus = React.useMemo(() => {
+    const status = asset?.assetStatus ?? asset?.status
+    return typeof status === 'string' ? status : undefined
+  }, [asset])
+
+  const isPipelineRunning = Boolean(
+    pipelineStatus && !['done', 'failed'].includes(pipelineStatus)
+  )
+
+  useEffect(() => {
+    if (!id) return
+
+    if (!isPipelineRunning) {
+      pipelineStatusControllerRef.current?.abort()
+      pipelineStatusControllerRef.current = null
+      if (pipelinePollTimeoutRef.current) {
+        clearTimeout(pipelinePollTimeoutRef.current)
+        pipelinePollTimeoutRef.current = null
+      }
+      return
+    }
+
+    let isCancelled = false
+
+    const scheduleNextPoll = (delayMs: number) => {
+      if (pipelinePollTimeoutRef.current) {
+        clearTimeout(pipelinePollTimeoutRef.current)
+      }
+
+      pipelinePollTimeoutRef.current = setTimeout(async () => {
+        if (isCancelled) return
+
+        pipelineStatusControllerRef.current?.abort()
+        const controller = new AbortController()
+        pipelineStatusControllerRef.current = controller
+
+        try {
+          const response = await apiClient.get(`/api/assets/${id}`, { signal: controller.signal })
+          if (!response.ok) throw new Error(response.error || 'Failed to refresh asset status')
+          if (controller.signal.aborted || isCancelled) return
+
+          const assetData = response.data?.asset || response.data
+          setAsset(assetData)
+          const nextStatus = assetData?.assetStatus ?? assetData?.status
+
+          if (nextStatus && !['done', 'failed'].includes(nextStatus)) {
+            scheduleNextPoll(3000)
+            return
+          }
+        } catch (err) {
+          if (isAbortError(err) || controller.signal.aborted || isCancelled) {
+            return
+          }
+          console.error('Error polling asset status:', err)
+          scheduleNextPoll(5000)
+        } finally {
+          if (pipelineStatusControllerRef.current === controller) {
+            pipelineStatusControllerRef.current = null
+          }
+          if (!isPipelineRunning) {
+            pipelinePollTimeoutRef.current = null
+          }
+        }
+      }, delayMs)
+    }
+
+    scheduleNextPoll(3000)
+
+    return () => {
+      isCancelled = true
+      pipelineStatusControllerRef.current?.abort()
+      pipelineStatusControllerRef.current = null
+      if (pipelinePollTimeoutRef.current) {
+        clearTimeout(pipelinePollTimeoutRef.current)
+        pipelinePollTimeoutRef.current = null
+      }
+    }
+  }, [id, isPipelineRunning])
 
 const loadAppraisals = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
@@ -3007,8 +3089,35 @@ useDedupedEffect(() => {
           </div>
         </div>
         <div className="p-3 sm:p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {isPipelineRunning && (
+            <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-md backdrop-blur-sm">
+              <CardBody className="flex items-start gap-4 p-6">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse" />
+                    <div className="relative bg-primary/10 rounded-full p-2.5">
+                      <AssetStatusIndicator status={pipelineStatus} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-base text-foreground">מכינים את נתוני הנכס</p>
+                    <div className="flex gap-1">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0ms' }} />
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '150ms' }} />
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    אנחנו מפעילים את צינור הנתונים עבורך. המידע יתעדכן אוטומטית ברגע שהתהליך יסתיים.
+                  </p>
+                </div>
+              </CardBody>
+            </Card>
+          )}
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <h1 className="text-3xl font-bold">{asset.address}</h1>

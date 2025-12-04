@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import AssetDetailPage from './page'
 import AssetDetailPageClient from './AssetDetailPageClient'
 import { useRouter } from 'next/navigation'
+import { apiClient } from '@/lib/api-client'
 
 // Local mock for matchMedia for this test file only
 beforeAll(() => {
@@ -390,6 +391,55 @@ describe('AssetDetailPage', () => {
 
     mockUseAuth.isAuthenticated = true
     mockUseAuth.user = { id: '1', onboarding_flags: {} }
+  })
+
+  it('shows pipeline status while asset enrichment is running', async () => {
+    const baseFetch = global.fetch as any
+    let callCount = 0
+
+    const assetPayload = {
+      id: '1',
+      address: 'Test Street 1',
+      city: 'Tel Aviv',
+      type: 'house',
+      area: 80,
+      price: 1000000,
+      pricePerSqm: 12500,
+      documents: [] as any[]
+    }
+
+    const originalApiGet = apiClient.get.bind(apiClient)
+    const apiGetMock = vi.spyOn(apiClient, 'get').mockImplementation(async (url: string, options?: RequestInit) => {
+      if (url === '/api/assets/1') {
+        const status = callCount === 0 ? 'pending' : 'done'
+        callCount += 1
+        return {
+          data: { ...assetPayload, assetStatus: status },
+          ok: true,
+          status: 200,
+          error: undefined,
+        }
+      }
+
+      return originalApiGet(url, options)
+    })
+
+    try {
+      await act(async () => {
+        render(<AssetDetailPageClient assetId="1" />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('מכינים את נתוני הנכס')).toBeInTheDocument()
+      })
+
+      await waitFor(() => {
+        expect(screen.queryByText('מכינים את נתוני הנכס')).not.toBeInTheDocument()
+      }, { timeout: 7000 })
+    } finally {
+      ;(global.fetch as any) = baseFetch
+      apiGetMock.mockRestore()
+    }
   })
 
   it('navigates to deal expenses calculator with asset price prefilled', async () => {

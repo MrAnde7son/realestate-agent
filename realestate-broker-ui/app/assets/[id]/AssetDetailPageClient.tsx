@@ -3090,12 +3090,26 @@ useDedupedEffect(() => {
         </div>
         <div className="p-3 sm:p-6 space-y-6">
           {isPipelineRunning && (
-            <Card className="border-dashed border-primary/30 bg-primary/5">
-              <CardBody className="flex items-start gap-3">
-                <AssetStatusIndicator status={pipelineStatus} />
-                <div className="space-y-1">
-                  <p className="font-semibold">מכינים את נתוני הנכס</p>
-                  <p className="text-sm text-muted-foreground">
+            <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-md backdrop-blur-sm">
+              <CardBody className="flex items-start gap-4 p-6">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse" />
+                    <div className="relative bg-primary/10 rounded-full p-2.5">
+                      <AssetStatusIndicator status={pipelineStatus} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-base text-foreground">מכינים את נתוני הנכס</p>
+                    <div className="flex gap-1">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0ms' }} />
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '150ms' }} />
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     אנחנו מפעילים את צינור הנתונים עבורך. המידע יתעדכן אוטומטית ברגע שהתהליך יסתיים.
                   </p>
                 </div>

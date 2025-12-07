@@ -186,6 +186,8 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
             return value
+        # Read from meta to populate rent price even when include_meta is False
+        # (include_meta only controls whether meta blob is included in response)
         meta = getattr(obj, "meta", {}) or {}
         listing_prices = meta.get("listing_prices")
         if isinstance(listing_prices, dict):
@@ -200,6 +202,8 @@ class AssetSerializer(MetaSerializerMixin):
         if value not in (None, ""):
             return value
         # Try reading from meta hint first
+        # Note: include_meta flag only controls whether meta blob is included in response,
+        # not whether we can read from it to populate derived fields
         meta = getattr(obj, "meta", {}) or {}
         listing_prices = meta.get("listing_prices")
         if isinstance(listing_prices, dict):
@@ -255,6 +259,10 @@ class AssetSerializer(MetaSerializerMixin):
         # First try the direct building_type field
         if obj.building_type:
             return obj.building_type
+        
+        # Skip meta access if include_meta is False (optimization for list views)
+        if not self.context.get("include_meta", True):
+            return None
         
         # Fallback: try to get property type from Yad2 listings
         yad2_listings = obj.get_property_value('yad2_listings', [])

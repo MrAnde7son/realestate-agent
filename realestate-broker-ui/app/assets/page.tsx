@@ -166,7 +166,7 @@ export default function AssetsPage() {
   const [documentsFilter, setDocumentsFilter] = useState<string>(() => searchParams.get("documents") ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
   const [sourceFilter, setSourceFilter] = useState<string>(() => searchParams.get("source") ?? "all");
-  const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("rentalSale") ?? "all");
+  const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("listingType") ?? searchParams.get("rentalSale") ?? "all");
   const [sellerTypeFilter, setSellerTypeFilter] = useState<string>(() => searchParams.get("sellerType") ?? searchParams.get("adType") ?? "all");
   const [commercialFilter, setCommercialFilter] = useState<string>(() => searchParams.get("commercial") ?? "all");
   const [userAssetsFilter, setUserAssetsFilter] = useState<string>(() => searchParams.get("userAssets") ?? "all");
@@ -649,7 +649,7 @@ export default function AssetsPage() {
     setRiskFilter(searchParams.get("risk") ?? "all");
     setDocumentsFilter(searchParams.get("documents") ?? "all");
     setStatusFilter(searchParams.get("status") ?? "all");
-    setRentalSaleFilter(searchParams.get("rentalSale") ?? "all");
+    setRentalSaleFilter(searchParams.get("listingType") ?? searchParams.get("rentalSale") ?? "all");
     setSellerTypeFilter(searchParams.get("sellerType") ?? "all");
     setCommercialFilter(searchParams.get("commercial") ?? "all");
     setUserAssetsFilter(searchParams.get("userAssets") ?? "all");
@@ -802,8 +802,10 @@ export default function AssetsPage() {
       params.delete("source");
     }
     if (rentalSaleFilter && rentalSaleFilter !== "all") {
-      params.set("rentalSale", rentalSaleFilter);
+      params.set("listingType", rentalSaleFilter);
+      params.delete("rentalSale"); // Remove old param for backward compatibility
     } else {
+      params.delete("listingType");
       params.delete("rentalSale");
     }
     if (sellerTypeFilter && sellerTypeFilter !== "all") {
@@ -1363,7 +1365,13 @@ export default function AssetsPage() {
     if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
     if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
-    if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
+    if (rentalSaleFilter && rentalSaleFilter !== "all") {
+      params.set("listingType", rentalSaleFilter);
+      params.delete("rentalSale"); // Remove old param for backward compatibility
+    } else {
+      params.delete("listingType");
+      params.delete("rentalSale");
+    }
     if (sellerTypeFilter && sellerTypeFilter !== "all") params.set("sellerType", sellerTypeFilter);
     if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
     if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);

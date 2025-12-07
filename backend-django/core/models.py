@@ -639,6 +639,9 @@ class Asset(models.Model):
             models.Index(fields=["block_area"]),
             models.Index(fields=["permit_housing_units"]),
             models.Index(fields=["permit_residential_area"]),
+            # Performance optimization: composite index for default ordering (-created_at, -id)
+            # This significantly speeds up ORDER BY -created_at, -id queries used in list views
+            models.Index(fields=["created_at", "id"]),
         ]
 
     # Attribution fields

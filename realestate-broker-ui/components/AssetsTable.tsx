@@ -1531,7 +1531,7 @@ export default function AssetsTable({
 
     if (filters.rentalSale) {
       items.push({
-        key: 'rentalSale',
+        key: 'listingType',
         label: 'השכרה/מכירה',
         type: 'select',
         value: filters.rentalSale.value,
@@ -2113,8 +2113,9 @@ export default function AssetsTable({
           trackString('documents', value)
           break
         case 'rentalSale':
+        case 'listingType':
           filters.rentalSale?.onChange(value)
-          trackString('rentalSale', value)
+          trackString('listingType', value)
           break
         case 'sellerType':
           filters.sellerType?.onChange(value)

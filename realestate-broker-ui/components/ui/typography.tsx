@@ -28,7 +28,7 @@ const defaultElementByVariant = {
   muted: 'p'
 } as const satisfies Record<
   NonNullable<VariantProps<typeof typographyVariants>['variant']>,
-  keyof JSX.IntrinsicElements
+  keyof React.JSX.IntrinsicElements
 >
 
 type TypographyVariant = VariantProps<typeof typographyVariants>['variant']

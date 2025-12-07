@@ -178,6 +178,7 @@ class AssetSerializer(MetaSerializerMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         include_meta = self.context.get("include_meta", True)
+        self._skip_meta_fields = self.context.get("skip_meta", not include_meta)
         if not include_meta:
             # Remove the raw meta blob for lightweight responses
             self.fields.pop("meta", None)
@@ -186,14 +187,15 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
             return value
-        # Read from meta to populate rent price even when include_meta is False
-        # (include_meta only controls whether meta blob is included in response)
-        meta = getattr(obj, "meta", {}) or {}
-        listing_prices = meta.get("listing_prices")
-        if isinstance(listing_prices, dict):
-            rent_val = listing_prices.get("rent")
-            if rent_val not in (None, ""):
-                return rent_val
+        if not self._skip_meta_fields:
+            # Read from meta to populate rent price even when include_meta is False
+            # (include_meta only controls whether meta blob is included in response)
+            meta = getattr(obj, "meta", {}) or {}
+            listing_prices = meta.get("listing_prices")
+            if isinstance(listing_prices, dict):
+                rent_val = listing_prices.get("rent")
+                if rent_val not in (None, ""):
+                    return rent_val
         return None
 
     def get_price(self, obj):
@@ -201,15 +203,16 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "price", None)
         if value not in (None, ""):
             return value
-        # Try reading from meta hint first
-        # Note: include_meta flag only controls whether meta blob is included in response,
-        # not whether we can read from it to populate derived fields
-        meta = getattr(obj, "meta", {}) or {}
-        listing_prices = meta.get("listing_prices")
-        if isinstance(listing_prices, dict):
-            listing_val = listing_prices.get("sale") or listing_prices.get("price")
-            if listing_val not in (None, ""):
-                return listing_val
+        if not self._skip_meta_fields:
+            # Try reading from meta hint first
+            # Note: include_meta flag only controls whether meta blob is included in response,
+            # not whether we can read from it to populate derived fields
+            meta = getattr(obj, "meta", {}) or {}
+            listing_prices = meta.get("listing_prices")
+            if isinstance(listing_prices, dict):
+                listing_val = listing_prices.get("sale") or listing_prices.get("price")
+                if listing_val not in (None, ""):
+                    return listing_val
         # Fallback to primary listing normalized data
         primary_price = self._get_primary_value(obj, "price", "price_value", "listing_price")
         return primary_price
@@ -516,23 +519,24 @@ class AssetSerializer(MetaSerializerMixin):
 
         data = normalize_listing_from_model(listing)
         
-        # Enhance with fields from asset.meta if available (from enrichment pipeline)
-        # These fields were extracted during enrichment and stored in primary_listing_source
-        if obj.meta and isinstance(obj.meta, dict):
-            primary_listing_source = obj.meta.get('primary_listing_source', {})
-            if isinstance(primary_listing_source, dict):
-                # List of high-priority fields to merge from enrichment pipeline
-                # Only merge if not already set in normalized data
-                enrichment_fields = [
-                    'priceDropped', 'previousPrice', 'shelter', 'accessibility',
-                    'buildingClass', 'generalCondition', 'investmentYield', 'approximateRent',
-                    'commuteTime', 'publishedDays', 'datePosted',
-                    'tagBestSchool', 'tagSafety', 'tagFamilyFriendly', 'tagLightRail',
-                    'tagParkAccess', 'tagQuietStreet', 'tagCommute', 'exclusive'
-                ]
-                for field in enrichment_fields:
-                    if field in primary_listing_source and data.get(field) is None:
-                        data[field] = primary_listing_source[field]
+        if not self._skip_meta_fields:
+            # Enhance with fields from asset.meta if available (from enrichment pipeline)
+            # These fields were extracted during enrichment and stored in primary_listing_source
+            if obj.meta and isinstance(obj.meta, dict):
+                primary_listing_source = obj.meta.get('primary_listing_source', {})
+                if isinstance(primary_listing_source, dict):
+                    # List of high-priority fields to merge from enrichment pipeline
+                    # Only merge if not already set in normalized data
+                    enrichment_fields = [
+                        'priceDropped', 'previousPrice', 'shelter', 'accessibility',
+                        'buildingClass', 'generalCondition', 'investmentYield', 'approximateRent',
+                        'commuteTime', 'publishedDays', 'datePosted',
+                        'tagBestSchool', 'tagSafety', 'tagFamilyFriendly', 'tagLightRail',
+                        'tagParkAccess', 'tagQuietStreet', 'tagCommute', 'exclusive'
+                    ]
+                    for field in enrichment_fields:
+                        if field in primary_listing_source and data.get(field) is None:
+                            data[field] = primary_listing_source[field]
         
         obj._primary_listing_data_cache = data
         return data
@@ -601,6 +605,10 @@ class AssetSerializer(MetaSerializerMixin):
     # GIS Environment field getters
     def _get_property(self, obj, key):
         """Helper to get property value from meta or direct field."""
+        if self._skip_meta_fields:
+            # Avoid triggering meta fetches when meta is deferred for list views
+            return getattr(obj, key, None)
+
         return obj.get_property_value(key)
     
     def get_openSpacesNearby(self, obj):

@@ -108,3 +108,29 @@ class AssetListingsUiTests(TestCase):
         private_ids = {row["id"] for row in response.json()["rows"]}
         self.assertIn(self.asset_rent.id, private_ids)
         self.assertNotIn(self.asset_sale.id, private_ids)
+
+    def test_assets_list_prefers_listing_price_over_meta_hint(self):
+        asset = Asset.objects.create(
+            scope_type="address",
+            city="Tel Aviv",
+            normalized_address="meta street 1",
+            meta={"listing_prices": {"sale": 999999}},
+        )
+
+        listing = Listing.objects.create(
+            source="yad2",
+            external_id="meta-sale-1",
+            listing_type="sale",
+            price=123456,
+            address="meta street 1",
+        )
+        listing.assets.add(asset)
+
+        response = self.client.get("/api/assets")
+        self.assertEqual(response.status_code, 200)
+
+        rows = response.json()["rows"]
+        asset_row = next(row for row in rows if row["id"] == asset.id)
+
+        # With meta hints skipped in list responses, the price should come from the primary listing
+        self.assertEqual(asset_row.get("price"), 123456)

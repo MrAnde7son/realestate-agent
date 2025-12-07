@@ -2890,7 +2890,38 @@ def _get_assets_list(request):
                 "video_url", "photos", "raw"
             )
         )
-        queryset = Asset.objects.all().prefetch_related(listings_prefetch)
+        # Limit columns fetched for list view to reduce row materialization time
+        queryset = Asset.objects.all().only(
+            "id", "scope_type", "city", "neighborhood", "street", "number",
+            "block", "parcel", "subparcel", "lat", "lon", "normalized_address",
+            "status", "building_type", "is_commercial", "floor", "apartment",
+            "total_floors", "rooms", "bedrooms", "bathrooms", "area", "total_area",
+            "balcony_area", "parking_spaces", "storage_room", "elevator",
+            "air_conditioning", "furnished", "renovated", "year_built",
+            "last_renovation", "price", "rent_price", "price_per_sqm",
+            "rent_estimate", "price_gap_pct", "expected_price_range", "model_price",
+            "confidence_pct", "delta_vs_area_pct", "cap_rate_pct", "competition_1km",
+            "risk_flags", "dom_percentile", "avg_price_per_sqm", "min_price_per_sqm",
+            "max_price_per_sqm", "zoning", "building_rights", "permit_status",
+            "permit_date", "rights_usage_pct", "legal_restrictions",
+            "urban_renewal_potential", "betterment_levy", "building_coverage_pct",
+            "height_analysis", "setback_analysis", "parcel_area",
+            "parcel_registered_area", "parcel_status", "parcel_accuracy",
+            "block_area", "block_registered_area", "block_total_parcels",
+            "block_status", "block_last_update", "total_permits", "permit_request_num",
+            "permit_permission_num", "permit_building_num", "permit_housing_units",
+            "permit_commercial_area", "permit_residential_area",
+            "permit_residential_units", "permit_public_area", "permit_parking_area",
+            "permit_parking_units", "permit_small_apartments",
+            "permit_unified_housing_area", "permit_unified_housing_units",
+            "permit_accessible_apartments", "permit_public_built_area",
+            "permit_total_area", "permit_mavat_plan_num",
+            "permit_parking_rooms_calculated", "permit_full_utilization",
+            "permit_subject_type", "permit_process", "permit_rights_notification",
+            "permit_repartition", "permit_urban_renewal",
+            "permit_open_request_date", "permit_construction_start_date",
+            "last_enriched_at", "created_at",
+        ).prefetch_related(listings_prefetch)
 
         if user and getattr(user, "is_authenticated", False):
             queryset = queryset.annotate(
@@ -3015,6 +3046,7 @@ def _get_assets_list(request):
             context={
                 "include_documents": False,
                 "include_meta": False,  # Exclude heavy metadata to keep list responses small
+                "skip_meta": True,
                 "request": request,
             },
         )

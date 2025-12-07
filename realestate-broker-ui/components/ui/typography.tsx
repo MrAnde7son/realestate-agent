@@ -42,26 +42,29 @@ type TypographyOwnProps<T extends React.ElementType> = {
 export type TypographyProps<T extends React.ElementType = 'p'> = TypographyOwnProps<T> &
   Omit<React.ComponentPropsWithoutRef<T>, keyof TypographyOwnProps<T>>
 
+const TypographyInner = React.forwardRef<
+  HTMLElement,
+  TypographyProps<React.ElementType>
+>(({ as, variant = 'body', className, ...props }, ref) => {
+  const resolvedVariant = (variant ?? 'body') as NonNullable<TypographyVariant>
+
+  const Component = (as ?? defaultElementByVariant[resolvedVariant]) as React.ElementType
+
+  return (
+    <Component
+      ref={ref as React.Ref<HTMLElement>}
+      className={cn(typographyVariants({ variant: resolvedVariant }), className)}
+      {...(props as React.ComponentPropsWithoutRef<typeof Component>)}
+    />
+  )
+})
+
+TypographyInner.displayName = 'Typography'
+
 type TypographyComponent = (<T extends React.ElementType = 'p'>(
   props: TypographyProps<T> & { ref?: React.ComponentPropsWithRef<T>['ref'] }
-) => React.ReactElement | null) & { displayName?: string }
+) => React.ReactElement | null) & { displayName: string }
 
-export const Typography = React.forwardRef(
-  <T extends React.ElementType = 'p'>({ as, variant = 'body', className, ...props }: TypographyProps<T>, ref: React.Ref<React.ElementRef<T>>) => {
-    const resolvedVariant = (variant ?? 'body') as NonNullable<TypographyVariant>
-
-    const Component = (as ?? defaultElementByVariant[resolvedVariant]) as React.ElementType
-
-    return (
-      <Component
-        ref={ref}
-        className={cn(typographyVariants({ variant: resolvedVariant }), className)}
-        {...(props as React.ComponentPropsWithoutRef<typeof Component>)}
-      />
-    )
-  }
-) as TypographyComponent
-
-Typography.displayName = 'Typography'
+export const Typography = TypographyInner as TypographyComponent
 
 export { typographyVariants }

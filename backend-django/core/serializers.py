@@ -186,9 +186,8 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
             return value
-        # Skip meta access if include_meta is False (optimization for list views)
-        if not self.context.get("include_meta", True):
-            return None
+        # Read from meta to populate rent price even when include_meta is False
+        # (include_meta only controls whether meta blob is included in response)
         meta = getattr(obj, "meta", {}) or {}
         listing_prices = meta.get("listing_prices")
         if isinstance(listing_prices, dict):
@@ -202,14 +201,15 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "price", None)
         if value not in (None, ""):
             return value
-        # Try reading from meta hint first (skip if include_meta is False for performance)
-        if self.context.get("include_meta", True):
-            meta = getattr(obj, "meta", {}) or {}
-            listing_prices = meta.get("listing_prices")
-            if isinstance(listing_prices, dict):
-                listing_val = listing_prices.get("sale") or listing_prices.get("price")
-                if listing_val not in (None, ""):
-                    return listing_val
+        # Try reading from meta hint first
+        # Note: include_meta flag only controls whether meta blob is included in response,
+        # not whether we can read from it to populate derived fields
+        meta = getattr(obj, "meta", {}) or {}
+        listing_prices = meta.get("listing_prices")
+        if isinstance(listing_prices, dict):
+            listing_val = listing_prices.get("sale") or listing_prices.get("price")
+            if listing_val not in (None, ""):
+                return listing_val
         # Fallback to primary listing normalized data
         primary_price = self._get_primary_value(obj, "price", "price_value", "listing_price")
         return primary_price

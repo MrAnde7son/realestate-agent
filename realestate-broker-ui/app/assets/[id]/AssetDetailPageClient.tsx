@@ -1090,20 +1090,8 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
       return
     }
 
-    const assetIdentifier = asset.id ?? id
-    const numericAssetId =
-      typeof assetIdentifier === 'number'
-        ? assetIdentifier
-        : Number.parseInt(String(assetIdentifier), 10)
-
-    const meta: Record<string, any> = { source: 'asset_detail' }
-    if (assetDealPrice !== null) {
-      meta.price = assetDealPrice
-    }
-
-
     router.push(dealExpensesHref)
-  }, [asset, assetDealPrice, dealExpensesHref, id, router])
+  }, [asset, dealExpensesHref, router])
 
   const handleDealWorkspaceClick = React.useCallback(async () => {
     const assetIdentifier = asset?.id ?? id

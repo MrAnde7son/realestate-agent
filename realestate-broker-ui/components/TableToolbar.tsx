@@ -1631,7 +1631,7 @@ export default function TableToolbar({
                     value={rentalSaleFilter.value}
                     onValueChange={(value) => {
                       if (onAdditionalFilterChange) {
-                        onAdditionalFilterChange('listingType', value);
+                        onAdditionalFilterChange('rentalSale', value);
                       } else {
                         rentalSaleFilter.onChange(value);
                       }

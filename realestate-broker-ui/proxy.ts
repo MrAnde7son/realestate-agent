@@ -12,7 +12,7 @@ const protectedRoutes = [
   '/crm'
 ]
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Check if the route requires authentication
@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get('refresh_token')?.value
   
   // Debug logging
-  console.log(`🔍 Middleware: ${pathname}`, {
+  console.log(`🔍 Proxy: ${pathname}`, {
     isProtectedRoute,
     isAuthRoute,
     hasAccessToken: !!accessToken,
@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
     needsRefresh = tokenValidation.needsRefresh
     
     if (tokenValidation.isExpired) {
-      console.log('🔄 Access token is expired in middleware')
+      console.log('🔄 Access token is expired in proxy')
     }
   }
   
@@ -149,3 +149,4 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|public).*)'
   ]
 }
+

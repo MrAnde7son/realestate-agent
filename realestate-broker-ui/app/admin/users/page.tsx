@@ -3,6 +3,9 @@ import AdminUsersClient from "./AdminUsersClient";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { DashboardShell, DashboardHeader } from "@/components/layout/dashboard-shell";
 
+// Force dynamic rendering since we use cookies()
+export const dynamic = 'force-dynamic';
+
 async function getMe() {
   try {
     // Get the access token from cookies (similar to middleware)

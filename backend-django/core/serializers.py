@@ -186,6 +186,9 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
             return value
+        # Skip meta access if include_meta is False (optimization for list views)
+        if not self.context.get("include_meta", True):
+            return None
         meta = getattr(obj, "meta", {}) or {}
         listing_prices = meta.get("listing_prices")
         if isinstance(listing_prices, dict):
@@ -199,13 +202,14 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "price", None)
         if value not in (None, ""):
             return value
-        # Try reading from meta hint first
-        meta = getattr(obj, "meta", {}) or {}
-        listing_prices = meta.get("listing_prices")
-        if isinstance(listing_prices, dict):
-            listing_val = listing_prices.get("sale") or listing_prices.get("price")
-            if listing_val not in (None, ""):
-                return listing_val
+        # Try reading from meta hint first (skip if include_meta is False for performance)
+        if self.context.get("include_meta", True):
+            meta = getattr(obj, "meta", {}) or {}
+            listing_prices = meta.get("listing_prices")
+            if isinstance(listing_prices, dict):
+                listing_val = listing_prices.get("sale") or listing_prices.get("price")
+                if listing_val not in (None, ""):
+                    return listing_val
         # Fallback to primary listing normalized data
         primary_price = self._get_primary_value(obj, "price", "price_value", "listing_price")
         return primary_price
@@ -255,6 +259,10 @@ class AssetSerializer(MetaSerializerMixin):
         # First try the direct building_type field
         if obj.building_type:
             return obj.building_type
+        
+        # Skip meta access if include_meta is False (optimization for list views)
+        if not self.context.get("include_meta", True):
+            return None
         
         # Fallback: try to get property type from Yad2 listings
         yad2_listings = obj.get_property_value('yad2_listings', [])

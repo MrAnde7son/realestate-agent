@@ -30,11 +30,14 @@ from django.db.models import (
     Value,
     FloatField,
     ExpressionWrapper,
+    Exists,
+    OuterRef,
     F,
     CharField,
     Count,
     Exists,
     OuterRef,
+    Subquery,
 )
 from datetime import datetime
 from asgiref.sync import async_to_sync
@@ -2280,23 +2283,25 @@ def _apply_asset_filters(queryset, params, user):
     if status_filter and status_filter != "all":
         queryset = queryset.filter(status__iexact=status_filter)
 
-    rental_sale = params.get("rentalSale")
-    if rental_sale and rental_sale != "all":
-        rental_sale_str = str(rental_sale) if rental_sale else ""
-        normalized_rental_sale = rental_sale_str.strip().lower()
+    # Support both listingType and listing_type (and rentalSale for backward compatibility)
+    listing_type_filter = params.get("listingType") or params.get("listing_type") or params.get("rentalSale")
+    if listing_type_filter and listing_type_filter != "all":
+        listing_type_str = str(listing_type_filter) if listing_type_filter else ""
+        normalized_listing_type = listing_type_str.strip().lower()
+        
+        # Filter by listing_type - check both listings_m2m and listing_links relationships
+        # First, get all assets that have listings with the requested type
         matching_asset_ids = set(
-            AssetListing.objects.filter(
-                listing__listing_type__iexact=normalized_rental_sale
-            ).values_list("asset_id", flat=True)
+            queryset.filter(
+                Q(listings_m2m__listing_type__iexact=normalized_listing_type)
+                | Q(listing_links__listing__listing_type__iexact=normalized_listing_type)
+            ).values_list("id", flat=True).distinct()
         )
 
-        if normalized_rental_sale in {"rent", "sale"}:
-            # Only check meta fields if we have other filters applied (queryset is already filtered)
+        if normalized_listing_type in {"rent", "sale"}:
+            # Only check meta fields if we have no results from listings
             # This avoids evaluating huge unfiltered querysets
-            # Check if queryset has been filtered by checking if it's not the base queryset
-            # We'll only do the expensive meta check if we have matching_asset_ids from AssetListing
-            # or if the queryset is likely small (has other filters)
-            should_check_meta = len(matching_asset_ids) == 0  # Only if no results from AssetListing
+            should_check_meta = len(matching_asset_ids) == 0
             
             if should_check_meta:
                 # Estimate queryset size - use a limit to avoid full count
@@ -2306,9 +2311,13 @@ def _apply_asset_filters(queryset, params, user):
                     # Fetch candidate assets with meta in one query instead of N+1
                     candidate_ids = sample_size
                     if candidate_ids:
-                        candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+                        candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta", "normalized_address")
                         for asset in candidate_assets:
                             meta = getattr(asset, "meta", {}) or {}
+                            normalized_addr = getattr(asset, "normalized_address", "") or ""
+                            if not normalized_addr:
+                                continue
+                            
                             yad2_listings = meta.get("yad2_listings", []) or []
                             if not isinstance(yad2_listings, list):
                                 continue
@@ -2321,9 +2330,13 @@ def _apply_asset_filters(queryset, params, user):
                                     listing_type_value = listing_type_value.lower()
                                 else:
                                     listing_type_value = ""
-                                if listing_type_value == normalized_rental_sale:
-                                    matching_asset_ids.add(asset.id)
-                                    break
+                                
+                                # Check if listing type matches AND address matches (primary listing candidate)
+                                if listing_type_value == normalized_listing_type:
+                                    listing_addr = listing.get("address") or ""
+                                    if listing_addr and normalized_addr.lower() in listing_addr.lower():
+                                        matching_asset_ids.add(asset.id)
+                                        break
 
         if matching_asset_ids:
             queryset = queryset.filter(id__in=matching_asset_ids).distinct()
@@ -2866,8 +2879,18 @@ def _get_assets_list(request):
         user = getattr(request, "user", None)
         # Optimize: prefetch listings_m2m to avoid N+1 queries
         # Note: listings_m2m already returns Listing objects directly (not AssetListing)
-        # Use only() to limit fields fetched - this significantly reduces query time and memory
-        queryset = Asset.objects.all().prefetch_related("listings_m2m")
+        # Use Prefetch with only() to limit fields fetched from listings - significantly reduces query time and memory
+        from django.db.models import Prefetch
+        # Only fetch fields needed for primary listing calculation and price/type lookups
+        listings_prefetch = Prefetch(
+            "listings_m2m",
+            queryset=Listing.objects.only(
+                "id", "address", "price", "area", "listing_type", "ad_type",
+                "contact_name", "contact_phone", "fetched_at", "recent_deal",
+                "video_url", "photos", "raw"
+            )
+        )
+        queryset = Asset.objects.all().prefetch_related(listings_prefetch)
 
         if user and getattr(user, "is_authenticated", False):
             queryset = queryset.annotate(
@@ -2884,7 +2907,7 @@ def _get_assets_list(request):
             params.get(key) not in (None, "", "all")
             for key in [
                 "city", "type", "priceMin", "priceMax", "neighborhood", "zoning",
-                "risk", "documents", "status", "rentalSale", "adType", "ad_type", "source",
+                "risk", "documents", "status", "listingType", "listing_type", "rentalSale", "adType", "ad_type", "source",
                 "commercial", "userAssets", "buildingType", "floorMin", "floorMax",
                 "areaMin", "areaMax", "rooms", "features", "pricePerSqmMin", "pricePerSqmMax"
             ]
@@ -2902,10 +2925,31 @@ def _get_assets_list(request):
         
         queryset = _apply_asset_filters(queryset, params, user)
 
+        # Optimize: defer the large meta JSONField since it's excluded from list responses
+        # This significantly reduces memory usage and query time
+        # Note: Some SerializerMethodFields may access meta, but they'll trigger minimal
+        # additional queries only when needed, which is still faster than loading meta for all assets
+        queryset = queryset.defer("meta")
+
         # Handle ordering parameter
         ordering_param = params.get("ordering", "-created_at")
         if ordering_param:
             ordering_field = ordering_param.lstrip("-")
+            
+            # Annotate listing_type and ad_type from primary listing when needed for sorting
+            # These fields come from the related Listing model, not directly from Asset
+            if ordering_field in ("listing_type", "ad_type"):
+                # Get the first listing's field value for sorting
+                # Access through the many-to-many reverse relationship (listings_m2m on Asset)
+                # From Listing side, we access assets through the M2M relationship
+                listing_subquery = Listing.objects.filter(
+                    assets__id=OuterRef('pk')
+                ).order_by('id').values(ordering_field)[:1]
+                
+                queryset = queryset.annotate(
+                    **{f"_sort_{ordering_field}": Subquery(listing_subquery)}
+                )
+            
             ordering_map = {
                 "address": "normalized_address",
                 "city": "city",
@@ -2921,8 +2965,8 @@ def _get_assets_list(request):
                 "built_area": "built_area",
                 "floor": "floor",
                 "total_floors": "total_floors",
-                "listing_type": "listing_type",
-                "ad_type": "ad_type",
+                "listing_type": "_sort_listing_type" if ordering_field == "listing_type" else "listing_type",
+                "ad_type": "_sort_ad_type" if ordering_field == "ad_type" else "ad_type",
                 "price": "price",
                 "rent_price": "rent_price",
                 "price_per_sqm": "price_per_sqm",

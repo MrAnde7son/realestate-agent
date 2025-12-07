@@ -1677,10 +1677,10 @@ export default function TableToolbar({
                     value={rentalSaleFilter.value}
                     onValueChange={(value) => {
                       if (onAdditionalFilterChange) {
-                        onAdditionalFilterChange('rentalSale', value);
+                        onAdditionalFilterChange('listingType', value);
                       } else {
                         rentalSaleFilter.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'rentalSale', value });
+                        trackFeatureUsage('filter', undefined, { filter_type: 'listingType', value });
                       }
                     }}
                   >

@@ -46,7 +46,6 @@ import {
   MoreHorizontal,
   SlidersHorizontal,
 } from "lucide-react";
-import { useAnalytics } from "@/hooks/useAnalytics";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
 export type AdditionalFilterValue =
@@ -335,7 +334,6 @@ export default function TableToolbar({
   statusFilters,
   dateRange,
 }: TableToolbarProps) {
-  const { trackFeatureUsage } = useAnalytics()
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
@@ -753,7 +751,6 @@ export default function TableToolbar({
       }
     });
     // Track filter usage
-    trackFeatureUsage('filter', undefined, { action: 'clear_all' });
     statusFilters?.onChange('all');
     dateRange?.onChange(undefined, undefined);
     if (!onAdditionalFilterChange) {
@@ -765,11 +762,9 @@ export default function TableToolbar({
   };
 
   const renderAdditionalFilterControl = React.useCallback((filter: AdditionalFilterConfig) => {
-    const track = (metadata: Record<string, any>) =>
-      trackFeatureUsage('filter', undefined, {
-        filter_type: filter.analyticsKey ?? filter.key,
-        ...metadata,
-      });
+    const track = (_metadata: Record<string, any>) => {
+      // Analytics removed
+    };
 
     if (filter.type === 'number-range') {
       return (
@@ -898,7 +893,7 @@ export default function TableToolbar({
         </SelectContent>
       </Select>
     );
-  }, [trackFeatureUsage, onAdditionalFilterChange]);
+  }, [onAdditionalFilterChange]);
 
   const primarySectionItems = React.useMemo<Array<{ key: string; node: React.ReactNode; searchText?: string }>>(() => {
     const items: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
@@ -914,10 +909,6 @@ export default function TableToolbar({
             value={cityFilter.value}
             onValueChange={(value) => {
               cityFilter.onChange(value);
-              trackFeatureUsage('filter', undefined, {
-                filter_type: cityFilter.analyticsKey ?? 'city',
-                value,
-              });
             }}
           >
             <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
@@ -993,10 +984,6 @@ export default function TableToolbar({
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : undefined;
                       priceMinFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: priceMinFilter.analyticsKey ?? 'price_min',
-                        value,
-                      });
                     }}
                     aria-label={priceMinFilter.label ?? 'מחיר מינימלי'}
                   />
@@ -1018,10 +1005,6 @@ export default function TableToolbar({
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : undefined;
                       priceMaxFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
-                        value,
-                      });
                     }}
                     aria-label={priceMaxFilter.label ?? 'מחיר מקסימלי'}
                   />
@@ -1034,7 +1017,7 @@ export default function TableToolbar({
     }
 
     return items;
-  }, [cityFilter, activePrimaryAdditionalFilters, priceMinFilter, priceMaxFilter, trackFeatureUsage, renderAdditionalFilterControl]);
+  }, [cityFilter, activePrimaryAdditionalFilters, priceMinFilter, priceMaxFilter, renderAdditionalFilterControl]);
 
   const propertySectionItems = React.useMemo<Array<{ key: string; node: React.ReactNode; searchText?: string }>>(() => {
     const items: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
@@ -1052,10 +1035,6 @@ export default function TableToolbar({
               value={typeFilter.value}
               onValueChange={(value) => {
                 typeFilter.onChange(value);
-                trackFeatureUsage('filter', undefined, {
-                  filter_type: typeFilter.analyticsKey ?? 'type',
-                  value,
-                });
               }}
             >
               <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
@@ -1110,10 +1089,6 @@ export default function TableToolbar({
                     onChange={(event) => {
                       const parsed = event.target.value ? Number(event.target.value) : undefined;
                       areaMinFilter.onChange(parsed);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: areaMinFilter.analyticsKey ?? 'area_min',
-                        value: parsed ?? 'clear',
-                      });
                     }}
                     aria-label="שטח מינימלי"
                   />
@@ -1135,10 +1110,6 @@ export default function TableToolbar({
                     onChange={(event) => {
                       const parsed = event.target.value ? Number(event.target.value) : undefined;
                       areaMaxFilter.onChange(parsed);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
-                        value: parsed ?? 'clear',
-                      });
                     }}
                     aria-label="שטח מקסימלי"
                   />
@@ -1170,7 +1141,7 @@ export default function TableToolbar({
     }
 
     return items;
-  }, [typeFilter, areaMinFilter, areaMaxFilter, activePropertyAdditionalFilters, trackFeatureUsage, renderAdditionalFilterControl]);
+  }, [typeFilter, areaMinFilter, areaMaxFilter, activePropertyAdditionalFilters, renderAdditionalFilterControl]);
 
   const transactionSectionItems = React.useMemo<Array<{ key: string; node: React.ReactNode; searchText?: string }>>(() => {
     const items: Array<{ key: string; node: React.ReactNode; searchText?: string }> = [];
@@ -1296,10 +1267,6 @@ export default function TableToolbar({
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : undefined;
                       pricePerSqmMinFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: pricePerSqmMinFilter.analyticsKey ?? 'price_per_sqm_min',
-                        value,
-                      });
                     }}
                     aria-label={pricePerSqmMinFilter.label ?? 'מחיר למ״ר מינימלי'}
                   />
@@ -1321,10 +1288,6 @@ export default function TableToolbar({
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : undefined;
                       pricePerSqmMaxFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: pricePerSqmMaxFilter.analyticsKey ?? 'price_per_sqm_max',
-                        value,
-                      });
                     }}
                     aria-label={pricePerSqmMaxFilter.label ?? 'מחיר למ״ר מקסימלי'}
                   />
@@ -1366,10 +1329,6 @@ export default function TableToolbar({
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : undefined;
                       remainingRightsMinFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: remainingRightsMinFilter.analyticsKey ?? 'remaining_rights_min',
-                        value,
-                      });
                     }}
                     aria-label={remainingRightsMinFilter.label ?? 'יתרת זכויות מינימלית'}
                   />
@@ -1391,10 +1350,6 @@ export default function TableToolbar({
                     onChange={(e) => {
                       const value = e.target.value ? Number(e.target.value) : undefined;
                       remainingRightsMaxFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: remainingRightsMaxFilter.analyticsKey ?? 'remaining_rights_max',
-                        value,
-                      });
                     }}
                     aria-label={remainingRightsMaxFilter.label ?? 'יתרת זכויות מקסימלית'}
                   />
@@ -1426,7 +1381,7 @@ export default function TableToolbar({
     }
 
     return items;
-  }, [pricePerSqmMinFilter, pricePerSqmMaxFilter, remainingRightsMinFilter, remainingRightsMaxFilter, activeAdvancedAdditionalFilters, trackFeatureUsage, renderAdditionalFilterControl]);
+  }, [pricePerSqmMinFilter, pricePerSqmMaxFilter, remainingRightsMinFilter, remainingRightsMaxFilter, activeAdvancedAdditionalFilters, renderAdditionalFilterControl]);
 
   // Helper to check if section has matching filters for search
   const sectionHasMatchingFilters = React.useCallback((sectionItems: Array<{ key: string; node: React.ReactNode; searchText?: string }>, sectionTitle: string): boolean => {
@@ -1641,7 +1596,6 @@ export default function TableToolbar({
                         onAdditionalFilterChange('userAssets', value);
                       } else {
                         userAssetsQuickFilter.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value });
                       }
                     }}
                   >
@@ -1680,7 +1634,6 @@ export default function TableToolbar({
                         onAdditionalFilterChange('listingType', value);
                       } else {
                         rentalSaleFilter.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'listingType', value });
                       }
                     }}
                   >
@@ -1719,7 +1672,6 @@ export default function TableToolbar({
                         onAdditionalFilterChange('sellerType', value);
                       } else {
                         sellerTypeFilter.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'sellerType', value });
                       }
                     }}
                   >
@@ -1758,7 +1710,6 @@ export default function TableToolbar({
                         onAdditionalFilterChange('commercial', value);
                       } else {
                         commercialFilter.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'commercial', value });
                       }
                     }}
                   >
@@ -1810,10 +1761,6 @@ export default function TableToolbar({
                             onChange={(event) => {
                               const parsed = event.target.value ? Number(event.target.value) : undefined;
                               priceMinFilter.onChange(parsed);
-                              trackFeatureUsage('filter', undefined, {
-                                filter_type: priceMinFilter.analyticsKey ?? 'price_min',
-                                value: parsed ?? 'clear',
-                              });
                             }}
                             aria-label="מחיר מינימלי"
                           />
@@ -1835,10 +1782,6 @@ export default function TableToolbar({
                             onChange={(event) => {
                               const parsed = event.target.value ? Number(event.target.value) : undefined;
                               priceMaxFilter.onChange(parsed);
-                              trackFeatureUsage('filter', undefined, {
-                                filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
-                                value: parsed ?? 'clear',
-                              });
                             }}
                             aria-label="מחיר מקסימלי"
                           />
@@ -1853,17 +1796,9 @@ export default function TableToolbar({
                         onClick={() => {
                           if (priceMinFilter) {
                             priceMinFilter.onChange(undefined);
-                            trackFeatureUsage('filter', undefined, {
-                              filter_type: priceMinFilter.analyticsKey ?? 'price_min',
-                              value: 'clear',
-                            });
                           }
                           if (priceMaxFilter) {
                             priceMaxFilter.onChange(undefined);
-                            trackFeatureUsage('filter', undefined, {
-                              filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
-                              value: 'clear',
-                            });
                           }
                         }}
                       >
@@ -1915,10 +1850,6 @@ export default function TableToolbar({
                             onChange={(event) => {
                               const parsed = event.target.value ? Number(event.target.value) : undefined;
                               areaMinFilter.onChange(parsed);
-                              trackFeatureUsage('filter', undefined, {
-                                filter_type: areaMinFilter.analyticsKey ?? 'area_min',
-                                value: parsed ?? 'clear',
-                              });
                             }}
                             aria-label="שטח מינימלי"
                           />
@@ -1940,10 +1871,6 @@ export default function TableToolbar({
                             onChange={(event) => {
                               const parsed = event.target.value ? Number(event.target.value) : undefined;
                               areaMaxFilter.onChange(parsed);
-                              trackFeatureUsage('filter', undefined, {
-                                filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
-                                value: parsed ?? 'clear',
-                              });
                             }}
                             aria-label="שטח מקסימלי"
                           />
@@ -1958,17 +1885,9 @@ export default function TableToolbar({
                         onClick={() => {
                           if (areaMinFilter) {
                             areaMinFilter.onChange(undefined);
-                            trackFeatureUsage('filter', undefined, {
-                              filter_type: areaMinFilter.analyticsKey ?? 'area_min',
-                              value: 'clear',
-                            });
                           }
                           if (areaMaxFilter) {
                             areaMaxFilter.onChange(undefined);
-                            trackFeatureUsage('filter', undefined, {
-                              filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
-                              value: 'clear',
-                            });
                           }
                         }}
                       >
@@ -2004,10 +1923,6 @@ export default function TableToolbar({
                     value={typeFilter.value}
                     onValueChange={(value) => {
                       typeFilter.onChange(value);
-                      trackFeatureUsage('filter', undefined, {
-                        filter_type: typeFilter.analyticsKey ?? 'type',
-                        value,
-                      });
                     }}
                   >
                     <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
@@ -2103,7 +2018,6 @@ export default function TableToolbar({
                               onAdditionalFilterChange('userAssets', value);
                             } else {
                               userAssetsQuickFilter?.onChange(value);
-                              trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value });
                             }
                           }}
                         >

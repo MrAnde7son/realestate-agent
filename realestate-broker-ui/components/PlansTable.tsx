@@ -23,7 +23,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Calendar, Building, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar';
 import TablePagination from '@/components/TablePagination';
-import { useAnalytics } from '@/hooks/useAnalytics';
 import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
 interface Plan {
@@ -183,7 +182,6 @@ export default function PlansTable({
   filterOptions,
   advancedFilters,
 }: PlansTableProps) {
-  const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(sortingState ?? []);
@@ -408,10 +406,8 @@ export default function PlansTable({
       if (key === 'description' && advancedFilters?.description) {
         advancedFilters.description.onChange(value);
       }
-      trackFeatureUsage('filter', undefined, { filter_type: key, value });
       return;
     }
-    trackFeatureUsage('filter', undefined, { filter_type: key, value });
   };
 
   const recordCount = manualPagination ? (totalCount ?? data.length) : filteredData.length;
@@ -425,7 +421,6 @@ export default function PlansTable({
             onSearchChange(value);
           }
           if (value.trim()) {
-            trackFeatureUsage('search', undefined, { query: value.trim() });
           }
         }}
         searchPlaceholder="חיפוש בתוכניות..."

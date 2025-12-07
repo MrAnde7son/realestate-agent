@@ -19,7 +19,6 @@ import AssetStatusIndicator from './AssetStatusIndicator'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from './TableToolbar'
 import TablePagination from '@/components/TablePagination'
-import { useAnalytics } from '@/hooks/useAnalytics'
 import ImageGallery from './ImageGallery'
 import { Building } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
@@ -29,16 +28,8 @@ function RiskCell({ flags }: { flags?: string[] }){
   return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
 }
 
-function exportAssetsCsv(assets: Asset[], visibleColumns?: any[], trackFeatureUsage?: (feature: string, assetId?: number, meta?: Record<string, any>) => void) {
+function exportAssetsCsv(assets: Asset[], visibleColumns?: any[]) {
   if (assets.length === 0) return
-  
-  // Track export usage
-  if (trackFeatureUsage) {
-    trackFeatureUsage('export', undefined, {
-      asset_count: assets.length,
-      export_type: 'csv'
-    })
-  }
   
   // If visibleColumns is provided, use them; otherwise fall back to default columns
   const headers = visibleColumns ? 
@@ -1052,7 +1043,6 @@ export default function AssetsTable({
   onSortingChange,
   onToolbarActionsReady,
 }: AssetsTableProps){
-  const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
   const { user } = useAuth()
   const canManageAlertsAndReports = ['broker', 'admin'].includes(user?.role || '')
@@ -1219,9 +1209,9 @@ export default function AssetsTable({
   // Define handleExportSingle that uses the table ref
   const handleExportSingle = React.useCallback((asset: Asset) => {
     if (tableRef.current) {
-      exportAssetsCsv([asset], tableRef.current.getVisibleLeafColumns(), trackFeatureUsage)
+      exportAssetsCsv([asset], tableRef.current.getVisibleLeafColumns())
     }
-  }, [trackFeatureUsage])
+  }, [])
 
   // Handle deal workspace click - check if deal exists, create if not, then navigate
   const handleDealWorkspaceClick = React.useCallback(async (asset: Asset, e: React.MouseEvent) => {
@@ -1355,27 +1345,27 @@ export default function AssetsTable({
 
   const handleExportSelected = React.useCallback(() => {
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
-    exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
-  }, [table, trackFeatureUsage])
+    exportAssetsCsv(selected, table.getVisibleLeafColumns())
+  }, [table])
 
   const handleExportAll = React.useCallback(async () => {
     if (exportingAll) {
       return
     }
     if (!onExportAllRequest) {
-      exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)
+      exportAssetsCsv(data, table.getVisibleLeafColumns())
       return
     }
     try {
       setExportingAll(true)
       const assets = await onExportAllRequest()
-      exportAssetsCsv(assets, table.getVisibleLeafColumns(), trackFeatureUsage)
+      exportAssetsCsv(assets, table.getVisibleLeafColumns())
     } catch (error) {
       console.error('Failed to export assets', error)
     } finally {
       setExportingAll(false)
     }
-  }, [data, exportingAll, onExportAllRequest, table, trackFeatureUsage])
+  }, [data, exportingAll, onExportAllRequest, table])
 
   const selectedAssets = React.useMemo(
     () => {
@@ -2082,148 +2072,112 @@ export default function AssetsTable({
   const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {
     if (!filters) return
 
-    const trackString = (filterType: string, filterValue: string) => {
-      trackFeatureUsage('filter', undefined, { filter_type: filterType, value: filterValue })
-    }
-
-    const trackRange = (filterType: string, range: { min?: number; max?: number }) => {
-      trackFeatureUsage('filter', undefined, {
-        filter_type: filterType,
-        min: range.min ?? 'any',
-        max: range.max ?? 'any',
-      })
-    }
-
     if (typeof value === 'string') {
       switch (key) {
         case 'neighborhood':
           filters.neighborhood?.onChange(value)
-          trackString('neighborhood', value)
           break
         case 'zoning':
           filters.zoning?.onChange(value)
-          trackString('zoning', value)
           break
         case 'risk':
           filters.risk?.onChange(value)
-          trackString('risk', value)
           break
         case 'documents':
           filters.documents?.onChange(value)
-          trackString('documents', value)
           break
         case 'rentalSale':
         case 'listingType':
           filters.rentalSale?.onChange(value)
-          trackString('listingType', value)
           break
         case 'sellerType':
           filters.sellerType?.onChange(value)
-          trackString('sellerType', value)
           break
         case 'commercial':
           filters.commercial?.onChange(value)
-          trackString('commercial', value)
           break
         case 'userAssets':
           filters.userAssets?.onChange(value)
-          trackString('userAssets', value)
           break
         case 'source':
           filters.source?.onChange(value)
-          trackString('source', value)
           break
         case 'buildingType':
           filters.buildingType?.onChange(value)
-          trackString('buildingType', value)
           break
         case 'rooms':
           filters.rooms?.onChange(value)
-          trackString('rooms', value)
           break
         case 'features':
           filters.features?.onChange(value)
-          trackString('features', value)
           break
         case 'block':
           filters.block?.onChange(value)
-          trackString('block', value)
           break
         case 'parcel':
           filters.parcel?.onChange(value)
-          trackString('parcel', value)
           break
         case 'renovated':
           filters.renovated?.onChange(value)
-          trackString('renovated', value)
           break
         case 'furnished':
           filters.furnished?.onChange(value)
-          trackString('furnished', value)
           break
         case 'airConditioning':
           filters.airConditioning?.onChange(value)
-          trackString('air_conditioning', value)
           break
         case 'storageRoom':
           filters.storageRoom?.onChange(value)
-          trackString('storage_room', value)
           break
         case 'hasElevator':
           filters.hasElevator?.onChange(value)
-          trackString('elevator', value)
           break
         case 'recentDeal':
           filters.recentDeal?.onChange(value)
-          trackString('recent_deal', value)
           break
         case 'greenWithin300m':
           filters.greenWithin300m?.onChange(value)
-          trackString('green_within_300m', value)
           break
         case 'schoolsWithin500m':
           filters.schoolsWithin500m?.onChange(value)
-          trackString('schools_within_500m', value)
           break
         case 'priceDropped':
           filters.priceDropped?.onChange(value)
-          trackString('price_dropped', value)
           break
         case 'shelter':
           filters.shelter?.onChange(value)
-          trackString('shelter', value)
           break
         case 'accessibility':
           filters.accessibility?.onChange(value)
-          trackString('accessibility', value)
+          
           break
         case 'buildingClass':
           filters.buildingClass?.onChange(value)
-          trackString('building_class', value)
+          
           break
         case 'generalCondition':
           filters.generalCondition?.onChange(value)
-          trackString('general_condition', value)
+          
           break
         case 'tagBestSchool':
           filters.tagBestSchool?.onChange(value)
-          trackString('tag_best_school', value)
+          
           break
         case 'tagSafety':
           filters.tagSafety?.onChange(value)
-          trackString('tag_safety', value)
+          
           break
         case 'tagFamilyFriendly':
           filters.tagFamilyFriendly?.onChange(value)
-          trackString('tag_family_friendly', value)
+          
           break
         case 'tagLightRail':
           filters.tagLightRail?.onChange(value)
-          trackString('tag_light_rail', value)
+          
           break
         case 'exclusive':
           filters.exclusive?.onChange(value)
-          trackString('exclusive', value)
+          
           break
         default:
           break
@@ -2236,85 +2190,85 @@ export default function AssetsTable({
       switch (key) {
         case 'bedrooms':
           filters.bedrooms?.onChange(rangeValue)
-          trackRange('bedrooms', rangeValue)
+          
           break
         case 'bathrooms':
           filters.bathrooms?.onChange(rangeValue)
-          trackRange('bathrooms', rangeValue)
+          
           break
         case 'totalFloors':
           filters.totalFloors?.onChange(rangeValue)
-          trackRange('total_floors', rangeValue)
+          
           break
         case 'totalArea':
           filters.totalArea?.onChange(rangeValue)
-          trackRange('total_area', rangeValue)
+          
           break
         case 'balconyArea':
           filters.balconyArea?.onChange(rangeValue)
-          trackRange('balcony_area', rangeValue)
+          
           break
         case 'parkingSpaces':
           filters.parkingSpaces?.onChange(rangeValue)
-          trackRange('parking_spaces', rangeValue)
+          
           break
         case 'yearBuilt':
           filters.yearBuilt?.onChange(rangeValue)
-          trackRange('year_built', rangeValue)
+          
           break
         case 'rentPrice':
           filters.rentPrice?.onChange(rangeValue)
-          trackRange('rent_price', rangeValue)
+          
           break
         case 'rentEstimate':
           filters.rentEstimate?.onChange(rangeValue)
-          trackRange('rent_estimate', rangeValue)
+          
           break
         case 'priceGapPct':
           filters.priceGapPct?.onChange(rangeValue)
-          trackRange('price_gap_pct', rangeValue)
+          
           break
         case 'capRatePct':
           filters.capRatePct?.onChange(rangeValue)
-          trackRange('cap_rate_pct', rangeValue)
+          
           break
         case 'modelPrice':
           filters.modelPrice?.onChange(rangeValue)
-          trackRange('model_price', rangeValue)
+          
           break
         case 'antennaDistanceM':
           filters.antennaDistanceM?.onChange(rangeValue)
-          trackRange('antenna_distance', rangeValue)
+          
           break
         case 'shelterDistanceM':
           filters.shelterDistanceM?.onChange(rangeValue)
-          trackRange('shelter_distance', rangeValue)
+          
           break
         case 'noiseLevel':
           filters.noiseLevel?.onChange(rangeValue)
-          trackRange('noise_level', rangeValue)
+          
           break
         case 'investmentYield':
           filters.investmentYield?.onChange(rangeValue)
-          trackRange('investment_yield', rangeValue)
+          
           break
         case 'approximateRent':
           filters.approximateRent?.onChange(rangeValue)
-          trackRange('approximate_rent', rangeValue)
+          
           break
         case 'commuteTime':
           filters.commuteTime?.onChange(rangeValue)
-          trackRange('commute_time', rangeValue)
+          
           break
         case 'publishedDays':
           filters.publishedDays?.onChange(rangeValue)
-          trackRange('published_days', rangeValue)
+          
           break
         default:
           break
       }
     }
-  }, [filters, trackFeatureUsage])
+  }, [filters])
 
   // Don't render table until mounted to prevent hydration mismatch
   if (!mounted) {
@@ -2348,10 +2302,6 @@ export default function AssetsTable({
               if (onSearchChange) {
                 onSearchChange(value)
               }
-              // Track search usage
-              if (value.trim()) {
-                trackSearch(value.trim(), {}, 0)
-              }
             }}
             searchPlaceholder="חיפוש בכתובת או עיר..."
             hideActionsContainer={!!onToolbarActionsReady}
@@ -2382,7 +2332,6 @@ export default function AssetsTable({
               value: filters.status.value,
               onChange: (value: string) => {
                 filters.status?.onChange(value)
-                trackFeatureUsage('filter', undefined, { filter_type: 'status', value })
               },
               options: filters.status.options
             } : undefined}

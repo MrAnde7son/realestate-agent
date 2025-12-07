@@ -15,7 +15,6 @@ import { SectionHeader } from '@/components/layout/section-header';
 import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
 import { useAuth } from '@/lib/auth-context';
-import { useAnalytics } from '@/hooks/useAnalytics';
 import { CombinedCrmTable } from '@/components/crm/combined-crm-table';
 
 export default function CrmUnifiedPage() {
@@ -25,7 +24,6 @@ export default function CrmUnifiedPage() {
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '');
-  const { trackEvent } = useAnalytics();
   const hasTrackedOpen = useRef(false);
   // Saved filters - reserved for future page-level filter functionality
   // Currently filters are handled within CombinedCrmTable component
@@ -102,13 +100,9 @@ export default function CrmUnifiedPage() {
 
   useEffect(() => {
     if (!authLoading && canAccessCrm && !hasTrackedOpen.current) {
-      trackEvent({
-        event: 'crm_opened',
-        meta: { view: 'combined' },
-      });
       hasTrackedOpen.current = true;
     }
-  }, [authLoading, canAccessCrm, trackEvent]);
+  }, [authLoading, canAccessCrm]);
 
   const stats = useMemo(() => {
     const totalLeads = leads.length;

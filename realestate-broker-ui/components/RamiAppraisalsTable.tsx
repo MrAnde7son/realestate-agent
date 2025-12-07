@@ -23,7 +23,6 @@ import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from '@/c
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';
-import { useAnalytics } from '@/hooks/useAnalytics';
 import TablePagination from '@/components/TablePagination';
 import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
@@ -181,7 +180,6 @@ export default function RamiAppraisalsTable({
   filters,
   onRefresh,
 }: RamiAppraisalsTableProps) {
-  const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -368,31 +366,26 @@ export default function RamiAppraisalsTable({
   const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {
     if (key === 'source' && typeof value === 'string' && filters?.source?.onChange) {
       filters.source.onChange(value);
-      trackFeatureUsage('filter', undefined, { filter_type: 'rami_source', value });
       return;
     }
     if (key === 'status' && typeof value === 'string' && filters?.status?.onChange) {
       filters.status.onChange(value);
-      trackFeatureUsage('filter', undefined, { filter_type: 'rami_status', value });
       return;
     }
     if (key === 'planNumber' && typeof value === 'string') {
       setPlanNumberFilter(value);
-      trackFeatureUsage('filter', undefined, { filter_type: 'rami_plan_number', value });
       return;
     }
     if (key === 'date' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'from' in value) {
       const nextValue = value as { from?: string; to?: string };
       setDateRange({ from: nextValue.from, to: nextValue.to });
-      trackFeatureUsage('filter', undefined, { filter_type: 'rami_date', value });
       return;
     }
     if (key === 'value' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'min' in value) {
       const nextValue = value as { min?: number; max?: number };
       setValueRange({ min: nextValue.min, max: nextValue.max });
-      trackFeatureUsage('filter', undefined, { filter_type: 'rami_value', value });
     }
-  }, [filters?.source, filters?.status, trackFeatureUsage]);
+  }, [filters?.source, filters?.status]);
 
   return (
     <div
@@ -405,7 +398,6 @@ export default function RamiAppraisalsTable({
         onSearchChange={(value) => {
           onSearchChange?.(value);
           if (value.trim()) {
-            trackFeatureUsage('search', undefined, { query: value.trim(), context: 'rami_appraisals' });
           }
         }}
         searchPlaceholder="חיפוש בשומות רמ״י..."

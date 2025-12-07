@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAnalytics } from '@/hooks/useAnalytics'
 import {
   Card,
   CardHeader,
@@ -834,7 +833,6 @@ interface AssetDetailPageClientProps {
 
 export default function AssetDetailPageClient({ assetId }: AssetDetailPageClientProps) {
   // All hooks must be called at the top level, in the same order every render
-  const { trackFeatureUsage } = useAnalytics()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isAuthenticated } = useAuth()
@@ -1103,14 +1101,9 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
       meta.price = assetDealPrice
     }
 
-    trackFeatureUsage(
-      'deal_expense_cta',
-      Number.isFinite(numericAssetId) ? numericAssetId : undefined,
-      meta
-    )
 
     router.push(dealExpensesHref)
-  }, [asset, assetDealPrice, dealExpensesHref, id, router, trackFeatureUsage])
+  }, [asset, assetDealPrice, dealExpensesHref, id, router])
 
   const handleDealWorkspaceClick = React.useCallback(async () => {
     const assetIdentifier = asset?.id ?? id
@@ -1119,11 +1112,6 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
         ? assetIdentifier
         : Number.parseInt(String(assetIdentifier), 10)
 
-    trackFeatureUsage(
-      'deal_workspace_open',
-      Number.isFinite(numericAssetId) ? numericAssetId : undefined,
-      { source: 'asset_detail' }
-    )
 
     try {
       // Check if a deal already exists for this asset
@@ -1180,7 +1168,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
         variant: 'destructive',
       })
     }
-  }, [asset, id, router, trackFeatureUsage, toast])
+  }, [asset, id, router, toast])
 
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -2973,14 +2961,6 @@ useDedupedEffect(() => {
           setShareUrl(parsedUrl)
           setIsAIGenerated(isAIGenerated)
 
-          // Track marketing message creation only when AI-generated
-          if (isAIGenerated) {
-            trackFeatureUsage('marketing_message', parseInt(id), {
-              message_type: 'share_message',
-              language: language,
-              provider
-            })
-          }
         }
       }
       

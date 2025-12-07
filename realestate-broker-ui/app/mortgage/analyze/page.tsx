@@ -25,7 +25,6 @@ import {
   type RepaymentMethod
 } from '@/lib/mortgage'
 import { Loader2, Calculator, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Settings, ChevronLeft } from 'lucide-react'
-import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOptionalAuth } from '@/lib/auth-context'
 import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 interface UITranche extends TrancheInput {
@@ -301,7 +300,6 @@ export default function MortgageAnalyzePage() {
     initialTranchesRef.current = createDefaultTranches(initialPrimeRate)
   }
 
-  const { trackCalculatorUsage, trackCalculatorCalculation } = useAnalytics()
   const auth = useOptionalAuth()
   const user = auth?.user ?? null
 
@@ -499,8 +497,6 @@ export default function MortgageAnalyzePage() {
   useEffect(() => {
     setIsClient(true)
     fetchBOIRateFromApi()
-    trackCalculatorUsage('mortgage', 'page_view')
-  }, [trackCalculatorUsage])
 
   // Read URL parameters on initial load
   useEffect(() => {
@@ -512,12 +508,10 @@ export default function MortgageAnalyzePage() {
       const expensesValue = Number(totalExpenses)
       if (!Number.isNaN(expensesValue)) {
         setRequiredEquity(expensesValue)
-        trackCalculatorUsage('mortgage', 'prefilled_from_expenses', {
           total_expenses: totalExpenses
         })
       }
     }
-  }, [isClient, trackCalculatorUsage, searchParams])
 
   // Sync state to URL parameters
   useEffect(() => {
@@ -848,7 +842,6 @@ export default function MortgageAnalyzePage() {
   const handleAnalyzePortfolio = async () => {
     setCalculating(true)
 
-    trackCalculatorUsage('mortgage', 'calculation_start', {
       property_value: numericPropertyValue,
       monthly_income: numericMonthlyIncome,
       boi_rate: envConfig.boiAnnual,
@@ -864,7 +857,6 @@ export default function MortgageAnalyzePage() {
       tranches: tranches.map(({ id, ...tranche }) => tranche)
     })
 
-    trackCalculatorCalculation(
       'mortgage',
       {
         propertyValue: numericPropertyValue,

@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ExternalLink, RefreshCw, Loader2, ArrowDown, ArrowUp, ArrowUpDown, Phone, Play } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar'
-import { useAnalytics } from '@/hooks/useAnalytics'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
@@ -228,7 +227,6 @@ interface ListingsPanelProps {
 }
 
 export function ListingsPanel({ assetId }: ListingsPanelProps) {
-  const { trackFeatureUsage } = useAnalytics()
   const [listingsState, setListingsState] = useState<ListingsState>(DEFAULT_LISTINGS_STATE)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -263,10 +261,8 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
 
   const handleAdditionalFilterChange = useCallback((key: string, value: AdditionalFilterValue) => {
     if (typeof value !== 'string') {
-      trackFeatureUsage('filter', undefined, { filter_type: key, value })
       return
     }
-    trackFeatureUsage('filter', undefined, { filter_type: key, value })
     switch (key) {
       case 'rooms':
         setRoomsFilter(value)
@@ -284,7 +280,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
         break
     }
     resetPageIndex()
-  }, [resetPageIndex, trackFeatureUsage])
+  }, [resetPageIndex])
 
   const toggleOrdering = useCallback((field: string) => {
     setOrdering((prev) => {

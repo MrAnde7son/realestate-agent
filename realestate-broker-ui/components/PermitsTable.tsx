@@ -25,7 +25,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar';
 import TablePagination from '@/components/TablePagination';
-import { useAnalytics } from '@/hooks/useAnalytics';
 import { ArrowDown, ArrowUp, ArrowUpDown, Building, ExternalLink, FileDown } from 'lucide-react';
 import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
@@ -380,7 +379,6 @@ export default function PermitsTable({
   filterOptions,
   advancedFilters,
 }: PermitsTableProps) {
-  const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(sortingState ?? []);
@@ -781,7 +779,6 @@ export default function PermitsTable({
             onSearchChange(value);
           }
           if (value.trim()) {
-            trackFeatureUsage('search', undefined, { query: value.trim() });
           }
         }}
         searchPlaceholder="חיפוש בהיתרים..."

@@ -16,7 +16,6 @@ import {
 import {
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useAnalytics } from "@/hooks/useAnalytics"
 import { CrmApi, Contact, Lead } from "@/lib/api/crm"
 import { useAuth } from "@/lib/auth-context"
 
@@ -84,7 +83,6 @@ export function GlobalSearch() {
   const [crmContacts, setCrmContacts] = React.useState<Contact[]>([])
   const [crmLeads, setCrmLeads] = React.useState<Lead[]>([])
   const [isSearchingCrm, setIsSearchingCrm] = React.useState(false)
-  const { trackSearch, trackFeatureUsage } = useAnalytics()
   const { user } = useAuth()
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const canAccessAlertsAndReports = ['broker', 'admin'].includes(user?.role || '')
@@ -175,16 +173,9 @@ export function GlobalSearch() {
   const runCommand = React.useCallback((command: () => unknown, searchQuery?: string) => {
     setOpen(false)
     
-    // Track search usage
-    if (searchQuery) {
-      trackSearch(searchQuery, {}, 1)
-    }
-    
-    // Track feature usage
-    trackFeatureUsage('global_search')
     
     command()
-  }, [trackSearch, trackFeatureUsage])
+  }, [])
 
   return (
     <>
@@ -208,9 +199,6 @@ export function GlobalSearch() {
           value={searchQuery}
           onValueChange={(value) => {
             setSearchQuery(value)
-            if (value.trim()) {
-              trackSearch(value.trim(), {}, 0)
-            }
           }}
         />
           <CommandList className="max-h-[400px] overflow-y-auto">

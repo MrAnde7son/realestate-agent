@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/table'
 import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, Home, Building } from 'lucide-react'
 import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar'
-import { useAnalytics } from '@/hooks/useAnalytics'
 import TablePagination from '@/components/TablePagination'
 import { TableSkeletonRows } from '@/components/TableSkeletonRows'
 
@@ -231,7 +230,6 @@ export default function TransactionsTable({
   totalCount,
   filterOptions,
 }: TransactionsTableProps) {
-  const { trackFeatureUsage } = useAnalytics()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
@@ -504,9 +502,6 @@ export default function TransactionsTable({
         onSearchChange={(value) => {
           if (onSearchChange) {
             onSearchChange(value);
-          }
-          if (value.trim()) {
-            trackFeatureUsage('search', undefined, { query: value.trim() });
           }
         }}
         searchPlaceholder="חיפוש בעסקאות..."

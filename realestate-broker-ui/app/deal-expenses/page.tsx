@@ -21,7 +21,6 @@ import {
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput, type BuildCostEstimate, type CostEstimateOptions, fetchBuildCostEstimate, fetchCostOptions, mergeBuildEstimateIntoDeal } from '@/lib/deal-expenses'
 import type { Asset } from '@/lib/normalizers/asset'
-import { useAnalytics } from '@/hooks/useAnalytics'
 import { useSearchParams } from 'next/navigation'
 import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 
@@ -55,7 +54,6 @@ import {
 import { VatIndicator } from '@/components/vat-indicator'
 
 export default function DealExpensesPage() {
-  const { trackCalculatorUsage, trackCalculatorCalculation, trackCalculatorExport } = useAnalytics()
   
   const [price, setPrice] = useState(3_000_000)
   const [area, setArea] = useState(100)
@@ -166,8 +164,6 @@ export default function DealExpensesPage() {
       .catch(console.error)
     
     // Track calculator page view
-    trackCalculatorUsage('expense', 'page_view')
-  }, [trackCalculatorUsage])
 
   // Load assets when component mounts
   useEffect(() => {
@@ -286,7 +282,6 @@ export default function DealExpensesPage() {
       setShowAssetDropdown(false)
 
       if (track) {
-        trackCalculatorUsage('expense', 'asset_selected', {
           asset_id: asset.id,
           asset_address: asset.address,
           asset_city: asset.city,
@@ -313,7 +308,6 @@ export default function DealExpensesPage() {
         const assetIsLand = normalizedType.includes('קרקע') || normalizedType.includes('land')
         setPropertyType(assetIsLand ? 'land' : 'residential')
         if (track) {
-          trackCalculatorUsage('expense', 'input_change', {
             field: 'propertyType',
             value: assetIsLand ? 'land' : 'residential',
             selected_asset_id: asset.id,
@@ -322,7 +316,6 @@ export default function DealExpensesPage() {
         }
       }
     },
-    [extractNumericPrice, trackCalculatorUsage]
   )
 
   const handleAssetSelect = useCallback(
@@ -449,7 +442,6 @@ export default function DealExpensesPage() {
     setServices(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }))
     
     // Track service input change
-    trackCalculatorUsage('expense', 'service_input_change', {
       service_key: key,
       field,
       value,
@@ -476,7 +468,6 @@ export default function DealExpensesPage() {
     }
     
     // Track default value application
-    trackCalculatorUsage('expense', 'default_value_applied', {
       service_key: key,
       default_value: defaultValue,
       area: key === 'renovation' ? area : undefined
@@ -498,7 +489,6 @@ export default function DealExpensesPage() {
     setServices(updatedServices)
     
     // Track all defaults application
-    trackCalculatorUsage('expense', 'all_defaults_applied', {
       default_values: updatedServices,
       area: area
     })
@@ -518,7 +508,6 @@ export default function DealExpensesPage() {
     setServices(clearedServices)
     
     // Track clear all
-    trackCalculatorUsage('expense', 'all_services_cleared')
   }
 
   function applyDefaultConstructionCost() {
@@ -526,7 +515,6 @@ export default function DealExpensesPage() {
     setConstructionIncludesVat(true)
     
     // Track default construction cost application
-    trackCalculatorUsage('expense', 'default_construction_cost_applied', {
       default_cost: defaultConstructionCost,
       includes_vat: true
     })
@@ -535,7 +523,6 @@ export default function DealExpensesPage() {
   // Input change handlers with analytics
   const handlePriceChange = (value: number) => {
     setPrice(value)
-    trackCalculatorUsage('expense', 'input_change', {
       field: 'price',
       value,
       selected_asset_id: selectedAsset?.id
@@ -544,7 +531,6 @@ export default function DealExpensesPage() {
 
   const handleAreaChange = (value: number) => {
     setArea(value)
-    trackCalculatorUsage('expense', 'input_change', {
       field: 'area',
       value,
       selected_asset_id: selectedAsset?.id
@@ -553,7 +539,6 @@ export default function DealExpensesPage() {
 
   const handlePropertyTypeChange = (value: PropertyType) => {
     setPropertyType(value)
-    trackCalculatorUsage('expense', 'input_change', {
       field: 'propertyType',
       value,
       selected_asset_id: selectedAsset?.id
@@ -562,7 +547,6 @@ export default function DealExpensesPage() {
 
   const handleConstructionAreaChange = (value: number) => {
     setConstructionArea(value)
-    trackCalculatorUsage('expense', 'input_change', {
       field: 'constructionArea',
       value,
       property_type: propertyType,
@@ -572,7 +556,6 @@ export default function DealExpensesPage() {
 
   const handleConstructionCostChange = (value: number) => {
     setConstructionCostPerSqm(value)
-    trackCalculatorUsage('expense', 'input_change', {
       field: 'constructionCostPerSqm',
       value,
       property_type: propertyType,
@@ -582,7 +565,6 @@ export default function DealExpensesPage() {
 
   const handleConstructionVatChange = (value: boolean) => {
     setConstructionIncludesVat(value)
-    trackCalculatorUsage('expense', 'input_change', {
       field: 'constructionIncludesVat',
       value,
       property_type: propertyType,
@@ -612,7 +594,6 @@ export default function DealExpensesPage() {
       const baseCostPerSqm = estimate.metadata.base_cost_per_sqm
       setConstructionCostPerSqm(baseCostPerSqm)
       
-      trackCalculatorUsage('expense', 'dekel_estimate', {
         area: dekelArea,
         region: dekelRegion,
         quality: dekelQuality,
@@ -677,7 +658,6 @@ export default function DealExpensesPage() {
 
   function calculate() {
     // Track calculation start
-    trackCalculatorUsage('expense', 'calculation_start', {
       input_data: {
         price,
         area,
@@ -718,7 +698,6 @@ export default function DealExpensesPage() {
     setResult(result)
 
     // Track calculation completion
-    trackCalculatorCalculation('expense', {
       price,
       area,
       propertyType,
@@ -744,7 +723,6 @@ export default function DealExpensesPage() {
     if (!result) return
 
     // Track export action
-    trackCalculatorExport('expense', 'csv', {
       total_amount: result.total,
       price: price,
       area: area,
@@ -827,7 +805,6 @@ export default function DealExpensesPage() {
     if (!result) return
 
     // Track export action
-    trackCalculatorExport('expense', 'pdf', {
       total_amount: result.total,
       price: price,
       area: area,
@@ -986,7 +963,6 @@ export default function DealExpensesPage() {
     if (!result) return
     
     // Track navigation to mortgage calculator
-    trackCalculatorUsage('expense', 'navigate_to_mortgage', {
       total_cost: result.total,
       property_value: price,
       total_expenses: result.totalTax + result.serviceTotal + result.constructionCost

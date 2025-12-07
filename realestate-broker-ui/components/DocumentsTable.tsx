@@ -23,7 +23,6 @@ import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, ExternalLink } from 'lucide-react';
-import { useAnalytics } from '@/hooks/useAnalytics';
 import TablePagination from '@/components/TablePagination';
 import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
@@ -297,7 +296,6 @@ export default function DocumentsTable({
   disableInternalFiltering = false,
   availableFilters,
 }: DocumentsTableProps) {
-  const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([]);
@@ -524,7 +522,6 @@ export default function DocumentsTable({
         onSearchChange={(value) => {
           onSearchChange?.(value);
           if (value.trim()) {
-            trackFeatureUsage('search', undefined, { query: value.trim(), context: 'documents' });
           }
         }}
         searchPlaceholder="חיפוש במסמכים..."

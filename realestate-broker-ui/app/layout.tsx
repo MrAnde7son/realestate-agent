@@ -3,7 +3,7 @@ import { ReactNode } from 'react'
 import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth-context'
-import { AnalyticsProvider } from '@/components/analytics-provider'
+// AnalyticsProvider disabled - using Vercel Analytics and Google Analytics instead
 import { Toaster } from '@/components/ui/toaster'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { AgentChat } from '@/components/AgentChat'
@@ -46,14 +46,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           disableTransitionOnChange
         >
           <AuthProvider>
-            <AnalyticsProvider>
-              <ConfirmProvider>
-                {children}
-                <Toaster />
-                <ConfirmationDialog />
-                <AgentChat fetchRecommendationsFromAPI={true} />
-              </ConfirmProvider>
-            </AnalyticsProvider>
+            <ConfirmProvider>
+              {children}
+              <Toaster />
+              <ConfirmationDialog />
+              <AgentChat fetchRecommendationsFromAPI={true} />
+            </ConfirmProvider>
           </AuthProvider>
         </ThemeProvider>
         <Analytics /> 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 const loadConfig = async () => {
-  const module = await import("../next.config.mjs");
-  return module.default;
+  const nextConfigModule = await import("../next.config.mjs");
+  return nextConfigModule.default;
 };
 
 describe("next.config.mjs", () => {

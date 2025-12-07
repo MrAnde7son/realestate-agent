@@ -354,7 +354,7 @@ export default function DecisiveAppraisalsTable({
       const nextValue = value as { min?: number; max?: number };
       setValueRange({ min: nextValue.min, max: nextValue.max });
     }
-  }, [filters?.source?.onChange]);
+  }, [filters?.source]);
 
   return (
     <div

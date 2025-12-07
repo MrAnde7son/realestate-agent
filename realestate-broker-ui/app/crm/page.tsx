@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -24,7 +24,6 @@ export default function CrmUnifiedPage() {
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '');
-  const hasTrackedOpen = useRef(false);
   // Saved filters - reserved for future page-level filter functionality
   // Currently filters are handled within CombinedCrmTable component
 
@@ -97,12 +96,6 @@ export default function CrmUnifiedPage() {
 
     void loadInitialData();
   }, [authLoading, canAccessCrm, loadInitialData]);
-
-  useEffect(() => {
-    if (!authLoading && canAccessCrm && !hasTrackedOpen.current) {
-      hasTrackedOpen.current = true;
-    }
-  }, [authLoading, canAccessCrm]);
 
   const stats = useMemo(() => {
     const totalLeads = leads.length;

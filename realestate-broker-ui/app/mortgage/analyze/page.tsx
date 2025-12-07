@@ -497,6 +497,7 @@ export default function MortgageAnalyzePage() {
   useEffect(() => {
     setIsClient(true)
     fetchBOIRateFromApi()
+  }, [])
 
   // Read URL parameters on initial load
   useEffect(() => {
@@ -508,10 +509,10 @@ export default function MortgageAnalyzePage() {
       const expensesValue = Number(totalExpenses)
       if (!Number.isNaN(expensesValue)) {
         setRequiredEquity(expensesValue)
-          total_expenses: totalExpenses
-        })
+        // Tracking removed - incomplete implementation
       }
     }
+  }, [searchParams])
 
   // Sync state to URL parameters
   useEffect(() => {
@@ -842,13 +843,6 @@ export default function MortgageAnalyzePage() {
   const handleAnalyzePortfolio = async () => {
     setCalculating(true)
 
-      property_value: numericPropertyValue,
-      monthly_income: numericMonthlyIncome,
-      boi_rate: envConfig.boiAnnual,
-      stress: { boiShock: envConfig.boiShock, cpiShock: envConfig.cpiShock },
-      tranches: tranches.map(({ id, ...tranche }) => tranche)
-    })
-
     await new Promise(resolve => setTimeout(resolve, 400))
 
     const latestResult = pricePortfolio({
@@ -856,24 +850,6 @@ export default function MortgageAnalyzePage() {
       monthlyIncome: numericMonthlyIncome,
       tranches: tranches.map(({ id, ...tranche }) => tranche)
     })
-
-      'mortgage',
-      {
-        propertyValue: numericPropertyValue,
-        monthlyIncome: numericMonthlyIncome,
-        boiRate: envConfig.boiAnnual,
-        stress: { boiShock: envConfig.boiShock, cpiShock: envConfig.cpiShock },
-        trancheCount: tranches.length
-      },
-      {
-        blendedFirstPayment: latestResult.blendedFirstPayment,
-        blendedMaxPayment: latestResult.blendedMaxPayment,
-        totalPaid: latestResult.totals.paid,
-        totalInterest: latestResult.totals.interest,
-        totalIndexation: latestResult.totals.indexation,
-        affordability: latestResult.affordability
-      }
-    )
 
     setCalculating(false)
   }

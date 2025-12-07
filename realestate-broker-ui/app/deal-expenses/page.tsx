@@ -53,6 +53,31 @@ import {
 } from 'lucide-react'
 import { VatIndicator } from '@/components/vat-indicator'
 
+const labelMap: Record<string, string> = {
+  broker: 'עמלת תיווך',
+  mortgage: 'יועץ משכנתא',
+  inspection: 'בדק בית',
+  lawyer: 'עו"ד',
+  appraiser: 'שמאי',
+  renovation: 'שיפוץ',
+  furniture: 'ריהוט',
+  insurance: 'ביטוח',
+}
+
+const getServiceIcon = (key: string) => {
+  const iconMap: Record<string, React.ReactNode> = {
+    broker: <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
+    mortgage: <PiggyBank className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
+    inspection: <ClipboardCheck className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
+    lawyer: <FileText className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
+    appraiser: <Scale className="h-4 w-4 text-green-600 dark:text-green-400" />,
+    renovation: <Hammer className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
+    furniture: <Sofa className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
+    insurance: <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+  }
+  return iconMap[key] || <Calculator className="h-4 w-4 text-muted-foreground" />
+}
+
 export default function DealExpensesPage() {
   
   const [price, setPrice] = useState(3_000_000)
@@ -164,6 +189,7 @@ export default function DealExpensesPage() {
       .catch(console.error)
     
     // Track calculator page view
+  }, [])
 
   // Load assets when component mounts
   useEffect(() => {
@@ -281,14 +307,7 @@ export default function DealExpensesPage() {
       setAssetSearchQuery('')
       setShowAssetDropdown(false)
 
-      if (track) {
-          asset_id: asset.id,
-          asset_address: asset.address,
-          asset_city: asset.city,
-          asset_price: asset.price,
-          asset_area: asset.totalArea ?? asset.area
-        })
-      }
+      // Tracking removed - incomplete implementation
 
       const resolvedPrice =
         price !== undefined && price !== null
@@ -307,15 +326,10 @@ export default function DealExpensesPage() {
         const normalizedType = asset.type.toLowerCase()
         const assetIsLand = normalizedType.includes('קרקע') || normalizedType.includes('land')
         setPropertyType(assetIsLand ? 'land' : 'residential')
-        if (track) {
-            field: 'propertyType',
-            value: assetIsLand ? 'land' : 'residential',
-            selected_asset_id: asset.id,
-            source
-          })
-        }
+        // Tracking removed - incomplete implementation
       }
     },
+    []
   )
 
   const handleAssetSelect = useCallback(
@@ -441,12 +455,7 @@ export default function DealExpensesPage() {
   function handleServiceChange(key: ServiceKey, field: string, value: any) {
     setServices(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }))
     
-    // Track service input change
-      service_key: key,
-      field,
-      value,
-      includes_vat: field === 'includesVat' ? value : services[key].includesVat
-    })
+    // Tracking removed - incomplete implementation
   }
 
   function applyDefaultValue(key: ServiceKey) {
@@ -467,11 +476,7 @@ export default function DealExpensesPage() {
       setServices(prev => ({ ...prev, [key]: { ...defaultValue } }))
     }
     
-    // Track default value application
-      service_key: key,
-      default_value: defaultValue,
-      area: key === 'renovation' ? area : undefined
-    })
+    // Tracking removed - incomplete implementation
   }
 
   function applyAllDefaults() {
@@ -488,10 +493,7 @@ export default function DealExpensesPage() {
     
     setServices(updatedServices)
     
-    // Track all defaults application
-      default_values: updatedServices,
-      area: area
-    })
+    // Tracking removed - incomplete implementation
   }
 
   function clearAllServices() {
@@ -514,62 +516,38 @@ export default function DealExpensesPage() {
     setConstructionCostPerSqm(defaultConstructionCost)
     setConstructionIncludesVat(true)
     
-    // Track default construction cost application
-      default_cost: defaultConstructionCost,
-      includes_vat: true
-    })
+    // Tracking removed - incomplete implementation
   }
 
   // Input change handlers with analytics
   const handlePriceChange = (value: number) => {
     setPrice(value)
-      field: 'price',
-      value,
-      selected_asset_id: selectedAsset?.id
-    })
+    // Tracking removed - incomplete implementation
   }
 
   const handleAreaChange = (value: number) => {
     setArea(value)
-      field: 'area',
-      value,
-      selected_asset_id: selectedAsset?.id
-    })
+    // Tracking removed - incomplete implementation
   }
 
   const handlePropertyTypeChange = (value: PropertyType) => {
     setPropertyType(value)
-      field: 'propertyType',
-      value,
-      selected_asset_id: selectedAsset?.id
-    })
+    // Tracking removed - incomplete implementation
   }
 
   const handleConstructionAreaChange = (value: number) => {
     setConstructionArea(value)
-      field: 'constructionArea',
-      value,
-      property_type: propertyType,
-      selected_asset_id: selectedAsset?.id
-    })
+    // Tracking removed - incomplete implementation
   }
 
   const handleConstructionCostChange = (value: number) => {
     setConstructionCostPerSqm(value)
-      field: 'constructionCostPerSqm',
-      value,
-      property_type: propertyType,
-      selected_asset_id: selectedAsset?.id
-    })
+    // Tracking removed - incomplete implementation
   }
 
   const handleConstructionVatChange = (value: boolean) => {
     setConstructionIncludesVat(value)
-      field: 'constructionIncludesVat',
-      value,
-      property_type: propertyType,
-      selected_asset_id: selectedAsset?.id
-    })
+    // Tracking removed - incomplete implementation
   }
 
   const handleDekelEstimate = async () => {
@@ -593,13 +571,7 @@ export default function DealExpensesPage() {
       setConstructionArea(dekelArea)
       const baseCostPerSqm = estimate.metadata.base_cost_per_sqm
       setConstructionCostPerSqm(baseCostPerSqm)
-      
-        area: dekelArea,
-        region: dekelRegion,
-        quality: dekelQuality,
-        scope: dekelScope,
-        selected_asset_id: selectedAsset?.id
-      })
+      // Tracking removed - incomplete implementation
     } catch (error) {
       console.error('Error fetching build estimate:', error)
       alert('שגיאה בחישוב האומדן')
@@ -657,23 +629,7 @@ export default function DealExpensesPage() {
   }
 
   function calculate() {
-    // Track calculation start
-      input_data: {
-        price,
-        area,
-        propertyType,
-        buyers_count: buyers.length,
-        vatRate,
-        constructionArea,
-        constructionCostPerSqm,
-        constructionIncludesVat,
-        selected_asset_id: selectedAsset?.id,
-        services: Object.keys(services).filter(key => {
-          const service = services[key as ServiceKey]
-          return service && ((service.percent ?? 0) > 0 || (service.amount ?? 0) > 0)
-        })
-      }
-    })
+    // Tracking removed - incomplete implementation
 
     const { totalTax, breakdown } = calculatePurchaseTax(price, buyers, { propertyType })
     const serviceInputs: ServiceInput[] = (
@@ -697,37 +653,13 @@ export default function DealExpensesPage() {
     }
     setResult(result)
 
-    // Track calculation completion
-      price,
-      area,
-      propertyType,
-      buyers_count: buyers.length,
-      vatRate,
-      constructionArea,
-      constructionCostPerSqm,
-      constructionIncludesVat,
-      selected_asset_id: selectedAsset?.id
-    }, {
-      totalTax,
-      serviceTotal,
-      constructionCost,
-      total,
-      pricePerSqBefore,
-      pricePerSqAfter,
-      breakdown_count: breakdown.length,
-      service_breakdown_count: serviceBreakdown.length
-    })
+    // Tracking removed - incomplete implementation
   }
 
   function exportToCSV() {
     if (!result) return
 
-    // Track export action
-      total_amount: result.total,
-      price: price,
-      area: area,
-      buyers_count: buyers.length
-    })
+    // Tracking removed - incomplete implementation
 
     const propertyTypeLabel = isLand ? 'קרקע' : 'נכס בנוי'
 
@@ -804,12 +736,7 @@ export default function DealExpensesPage() {
   function exportToPDF() {
     if (!result) return
 
-    // Track export action
-      total_amount: result.total,
-      price: price,
-      area: area,
-      buyers_count: buyers.length
-    })
+    // Tracking removed - incomplete implementation
 
     // Create a new window for PDF generation
     const printWindow = window.open('', '_blank')
@@ -962,11 +889,7 @@ export default function DealExpensesPage() {
   function goToMortgageCalculator() {
     if (!result) return
     
-    // Track navigation to mortgage calculator
-      total_cost: result.total,
-      property_value: price,
-      total_expenses: result.totalTax + result.serviceTotal + result.constructionCost
-    })
+    // Tracking removed - incomplete implementation
     
     // Pass the total cost (property + all expenses) to mortgage calculator
     // The user will input their own equity amount in the mortgage calculator
@@ -1825,29 +1748,4 @@ export default function DealExpensesPage() {
       </DashboardShell>
     </DashboardLayout>
   )
-}
-
-const labelMap: Record<string, string> = {
-  broker: 'עמלת תיווך',
-  mortgage: 'יועץ משכנתא',
-  inspection: 'בדק בית',
-  lawyer: 'עו"ד',
-  appraiser: 'שמאי',
-  renovation: 'שיפוץ',
-  furniture: 'ריהוט',
-  insurance: 'ביטוח',
-}
-
-const getServiceIcon = (key: string) => {
-  const iconMap: Record<string, React.ReactNode> = {
-    broker: <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
-    mortgage: <PiggyBank className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
-    inspection: <ClipboardCheck className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
-    lawyer: <FileText className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
-    appraiser: <Scale className="h-4 w-4 text-green-600 dark:text-green-400" />,
-    renovation: <Hammer className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
-    furniture: <Sofa className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
-    insurance: <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-  }
-  return iconMap[key] || <Calculator className="h-4 w-4 text-muted-foreground" />
 }

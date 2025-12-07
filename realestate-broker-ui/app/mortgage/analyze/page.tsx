@@ -951,7 +951,7 @@ export default function MortgageAnalyzePage() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr,400px] xl:grid-cols-[2fr,1fr]">
           {/* Main Content Column */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Basic Data - Compact at top */}
             <Card className="border-primary/10">
               <CardHeader className="pb-3">
@@ -1024,7 +1024,7 @@ export default function MortgageAnalyzePage() {
                 {showAdvancedSettings && (
                   <>
                     <Separator />
-                    <div className="space-y-4">
+                    <div className="space-y-4 min-w-0">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-2 block">ריביות וסביבה</label>
                         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

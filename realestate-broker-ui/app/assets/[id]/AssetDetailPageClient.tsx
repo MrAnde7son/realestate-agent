@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DataBadge from '@/components/DataBadge'
@@ -58,6 +58,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { PersistentBreadcrumb, type PersistentBreadcrumbItemType, type TabContextItem } from '@/components/ui/persistent-breadcrumb'
+import { ScrollableTabsList } from '@/components/navigation/ScrollableTabsList'
 
 const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai', 'groq'] as const
 type SupportedLLMProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number]
@@ -3720,7 +3721,7 @@ useDedupedEffect(() => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className={tabListClassName} dir="rtl">
+          <ScrollableTabsList className={tabListClassName} dir="rtl" aria-label="ניווט בין טאבים">
             <TabsTrigger className={tabTriggerClassName} value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger className={tabTriggerClassName} value="listings">מודעות</TabsTrigger>
             <TabsTrigger className={tabTriggerClassName} value="transactions">עיסקאות השוואה</TabsTrigger>
@@ -3732,7 +3733,7 @@ useDedupedEffect(() => {
             <TabsTrigger className={tabTriggerClassName} value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger className={tabTriggerClassName} value="documents">מסמכים</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="analysis" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">

@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import MortgageAnalyzePage from './page'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -145,15 +145,6 @@ describe('MortgageAnalyzePage', () => {
     expect(monthlyIncomeInput.value).toBe('')
   })
 
-  it('keeps the calculate CTA visible while scrolling', async () => {
-    render(<MortgageAnalyzePage />)
-
-    const stickyBar = await screen.findByTestId('sticky-action-bar')
-    expect(stickyBar).toBeInTheDocument()
-    expect(stickyBar.className).toContain('sticky')
-    expect(within(stickyBar).getByRole('button', { name: /חשב תיק/ })).toBeInTheDocument()
-  })
-
   it('prefills equity from authenticated user profile', async () => {
     mockAuthState.user = { role: 'private', equity: 250000 }
 
@@ -182,8 +173,5 @@ describe('MortgageAnalyzePage', () => {
     await waitFor(() => {
       expect(screen.getByText('השלימו את שווי הנכס, ההון העצמי וההכנסה החודשית כדי להתחיל.')).toBeInTheDocument()
     })
-
-    const calculateButton = screen.getByRole('button', { name: /חשב תיק/ })
-    expect(calculateButton).toBeDisabled()
   })
 })

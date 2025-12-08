@@ -1,17 +1,21 @@
 import { cn } from "@/lib/utils"
 import React from "react"
 
-interface DashboardShellProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface DashboardShellProps extends React.HTMLAttributes<HTMLDivElement> {
+  scrollable?: boolean
+}
 
 export function DashboardShell({
   children,
   className,
+  scrollable = false,
   ...props
 }: DashboardShellProps) {
   return (
     <div
       className={cn(
         "flex flex-col gap-4 py-6 pb-20 md:py-8 md:pb-8 min-h-full w-full px-4 sm:px-6 lg:px-8",
+        scrollable && "overflow-y-auto max-h-[calc(100dvh-4rem)] h-[calc(100dvh-4rem)]",
         className
       )}
       {...props}

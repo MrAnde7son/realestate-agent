@@ -2343,42 +2343,88 @@ def _apply_asset_filters(queryset, params, user):
         else:
             queryset = queryset.none()
 
-    ad_type_filter = params.get("adType") or params.get("ad_type")
+    # Support sellerType (new) and adType/ad_type (legacy) parameters
+    ad_type_filter = params.get("sellerType") or params.get("adType") or params.get("ad_type")
     if ad_type_filter and ad_type_filter != "all":
         ad_type_str = str(ad_type_filter) if ad_type_filter else ""
         normalized_ad_type = ad_type_str.strip().lower()
-        matching_asset_ids = set(
-            AssetListing.objects.filter(
-                listing__ad_type__iexact=normalized_ad_type
-            ).values_list("asset_id", flat=True)
-        )
-
-        # Only check meta fields if queryset is already filtered to a reasonable size
-        # This avoids evaluating huge querysets
-        # Estimate queryset size - use a limit to avoid full count
-        # If we can get 1000+ results quickly, the queryset is too large
-        sample_size = list(queryset[:1001].values_list("id", flat=True))
-        if len(sample_size) <= 1000:  # Only check meta if queryset is small enough
-            candidate_ids = sample_size
-            if candidate_ids:
-                candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
-                for asset in candidate_assets:
-                    meta = getattr(asset, "meta", {}) or {}
-                    yad2_listings = meta.get("yad2_listings", []) or []
-                    if not isinstance(yad2_listings, list):
+        
+        # Filter by primary listing's ad_type only
+        # Use AssetSerializer to get the primary listing for each asset
+        from .serializers import AssetSerializer
+        
+        matching_asset_ids = set()
+        
+        # Get candidate assets to check
+        sample_size = list(queryset.distinct()[:1001].values_list("id", "normalized_address"))
+        if len(sample_size) <= 1000:  # Only check if queryset is small enough
+            candidate_assets = Asset.objects.filter(
+                id__in=[asset_id for asset_id, _ in sample_size]
+            ).prefetch_related("listings_m2m").only("id", "normalized_address", "meta")
+            
+            serializer = AssetSerializer()
+            for asset in candidate_assets:
+                # Get the primary listing using the serializer
+                primary_listing = serializer._get_primary_listing_instance(asset)
+                
+                if primary_listing:
+                    # Check if primary listing's ad_type matches
+                    listing_ad_type = getattr(primary_listing, "ad_type", "") or ""
+                    if listing_ad_type.lower() == normalized_ad_type:
+                        matching_asset_ids.add(asset.id)
                         continue
-                    for listing in yad2_listings:
-                        if not isinstance(listing, dict):
-                            continue
-                        # Safely extract ad_type
-                        ad_type_value = listing.get("ad_type") or listing.get("adType")
-                        if ad_type_value and isinstance(ad_type_value, str):
-                            ad_type_value = ad_type_value.lower()
-                        else:
-                            ad_type_value = ""
-                        if ad_type_value == normalized_ad_type:
-                            matching_asset_ids.add(asset.id)
-                            break
+                
+                # Also check meta fields for legacy listings (yad2_listings) if no primary listing found
+                if asset.id not in matching_asset_ids:
+                    normalized_addr = getattr(asset, "normalized_address", "") or ""
+                    if normalized_addr:
+                        asset_address = normalized_addr.lower()
+                        meta = getattr(asset, "meta", {}) or {}
+                        yad2_listings = meta.get("yad2_listings", []) or []
+                        if isinstance(yad2_listings, list):
+                            for listing in yad2_listings:
+                                if not isinstance(listing, dict):
+                                    continue
+                                # Safely extract ad_type
+                                ad_type_value = listing.get("ad_type") or listing.get("adType")
+                                if ad_type_value and isinstance(ad_type_value, str):
+                                    ad_type_value = ad_type_value.lower()
+                                else:
+                                    ad_type_value = ""
+                                
+                                # Check if address matches (primary listing candidate)
+                                listing_addr = listing.get("address") or ""
+                                if listing_addr and asset_address in listing_addr.lower():
+                                    if ad_type_value == normalized_ad_type:
+                                        matching_asset_ids.add(asset.id)
+                                        break
+        else:
+            # For larger querysets, use a simpler approach: filter by listings with matching ad_type
+            # and then verify primary listing match using the serializer
+            from .models import Listing
+            matching_listing_ids = list(
+                Listing.objects.filter(ad_type__iexact=normalized_ad_type).values_list("id", flat=True)
+            )
+            if matching_listing_ids:
+                # Get assets that have these listings
+                asset_ids_with_listings = set(
+                    AssetListing.objects.filter(
+                        listing_id__in=matching_listing_ids
+                    ).values_list("asset_id", flat=True)
+                )
+                # Then filter to only those where the primary listing matches
+                candidate_assets = Asset.objects.filter(
+                    id__in=asset_ids_with_listings
+                ).prefetch_related("listings_m2m").only("id", "normalized_address")
+                
+                serializer = AssetSerializer()
+                for asset in candidate_assets:
+                    # Get the primary listing using the serializer
+                    primary_listing = serializer._get_primary_listing_instance(asset)
+                    
+                    # Check if primary listing is one of the matching listings
+                    if primary_listing and primary_listing.id in matching_listing_ids:
+                        matching_asset_ids.add(asset.id)
 
         if matching_asset_ids:
             queryset = queryset.filter(id__in=matching_asset_ids).distinct()
@@ -2907,7 +2953,7 @@ def _get_assets_list(request):
             params.get(key) not in (None, "", "all")
             for key in [
                 "city", "type", "priceMin", "priceMax", "neighborhood", "zoning",
-                "risk", "documents", "status", "listingType", "listing_type", "rentalSale", "adType", "ad_type", "source",
+                "risk", "documents", "status", "listingType", "listing_type", "rentalSale", "sellerType", "adType", "ad_type", "source",
                 "commercial", "userAssets", "buildingType", "floorMin", "floorMax",
                 "areaMin", "areaMax", "rooms", "features", "pricePerSqmMin", "pricePerSqmMax"
             ]

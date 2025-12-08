@@ -82,8 +82,30 @@ def test_pipeline_sends_alerts(monkeypatch):
         def collect(self, block, parcel, city=None):
             return []
 
+    class DummyMadlan:
+        def collect(self, location):
+            return []
+
+    class DummyMichrazim:
+        def collect(self, location):
+            return []
+
+    class DummyGovMap:
+        def collect(self, location):
+            return {}
+
     db = SQLAlchemyDatabase("sqlite:///:memory:")
-    pipeline = DataPipeline(db=db, yad2=DummyYad2(), gis=DummyGIS(), gov=DummyGov(), rami=DummyRami(), mavat=DummyMavat())
+    pipeline = DataPipeline(
+        db=db,
+        yad2=DummyYad2(),
+        madlan=DummyMadlan(),
+        gis=DummyGIS(),
+        gov=DummyGov(),
+        govmap=DummyGovMap(),
+        michrazim=DummyMichrazim(),
+        rami=DummyRami(),
+        mavat=DummyMavat()
+    )
 
     class DummyNotifier:
         def __init__(self):

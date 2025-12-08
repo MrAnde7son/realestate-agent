@@ -253,6 +253,7 @@ class TestDecisiveAppraisalClient:
         """Test successful fetch of appraisals."""
         # Mock response
         mock_response = mock.Mock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "Results": [
                 {
@@ -308,6 +309,7 @@ class TestDecisiveAppraisalClient:
     def test_fetch_appraisals_json_error(self, mock_post):
         """Test handling of JSON parsing errors."""
         mock_response = mock.Mock()
+        mock_response.status_code = 200
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "doc", 0)
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response

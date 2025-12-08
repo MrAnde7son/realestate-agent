@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 from dataclasses import dataclass
@@ -8,6 +9,8 @@ from dataclasses import dataclass
 import requests
 
 from .constants import DEFAULT_TIMEOUT
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -184,7 +187,18 @@ class DecisiveAppraisalClient:
                     json=request_body,
                     timeout=self.timeout
                 )
-                response.raise_for_status()
+                
+                # Handle HTTP errors gracefully
+                if response.status_code >= 500:
+                    logger.warning(f"Error fetching decisive appraisals: {response.status_code} Server Error for url: {self.api_endpoint}")
+                    # Continue with other pages if available, but log the error
+                    if page == 0:
+                        # If first page fails, return what we have
+                        break
+                    continue
+                elif response.status_code >= 400:
+                    logger.warning(f"Error fetching decisive appraisals: {response.status_code} Client Error for url: {self.api_endpoint}")
+                    break
                 
                 # Parse response
                 response_data = response.json()
@@ -201,11 +215,16 @@ class DecisiveAppraisalClient:
                 if len(all_appraisals) >= total_results:
                     break
                     
+            except requests.exceptions.HTTPError as e:
+                logger.warning(f"HTTP error fetching decisive appraisals: {e}")
+                # For HTTP errors, break to avoid retrying invalid requests
+                break
             except requests.exceptions.RequestException as e:
-                print(f"Error fetching decisive appraisals: {e}")
+                logger.warning(f"Error fetching decisive appraisals: {e}")
+                # For network errors, break to avoid retrying
                 break
             except json.JSONDecodeError as e:
-                print(f"Error parsing API response: {e}")
+                logger.warning(f"Error parsing API response: {e}")
                 break
         
         return all_appraisals

@@ -691,12 +691,12 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                 <Table className="rtl">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-start rtl:text-start">כותרת</TableHead>
-                      <TableHead className="text-start rtl:text-start">סוג עסקה</TableHead>
-                      <TableHead className="text-start rtl:text-start">איש קשר</TableHead>
-                      <TableHead className="text-start rtl:text-start">נמכר לאחרונה</TableHead>
-                      <TableHead className="text-start rtl:text-start">וידאו</TableHead>
-                      <TableHead className="text-start rtl:text-start">
+                      <TableHead className="text-start rtl:text-start w-[200px] min-w-[200px]">כותרת</TableHead>
+                      <TableHead className="text-start rtl:text-start w-[120px] min-w-[120px]">סוג עסקה</TableHead>
+                      <TableHead className="text-start rtl:text-start w-[150px] min-w-[150px]">איש קשר</TableHead>
+                      <TableHead className="text-start rtl:text-start w-[120px] min-w-[120px]">נמכר לאחרונה</TableHead>
+                      <TableHead className="text-start rtl:text-start w-[80px] min-w-[80px]">וידאו</TableHead>
+                      <TableHead className="text-start rtl:text-start w-[100px] min-w-[100px]">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('price')}
@@ -706,7 +706,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                           {getSortIcon('price')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-start rtl:text-start">
+                      <TableHead className="text-start rtl:text-start w-[90px] min-w-[90px]">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('rooms')}
@@ -716,7 +716,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                           {getSortIcon('rooms')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-start rtl:text-start">
+                      <TableHead className="text-start rtl:text-start w-[90px] min-w-[90px]">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('size')}
@@ -726,7 +726,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                           {getSortIcon('size')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-start rtl:text-start">
+                      <TableHead className="text-start rtl:text-start w-[90px] min-w-[90px]">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('source')}
@@ -736,7 +736,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                           {getSortIcon('source')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-start rtl:text-start">
+                      <TableHead className="text-start rtl:text-start w-[100px] min-w-[100px]">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('date_posted')}
@@ -746,24 +746,24 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                           {getSortIcon('date_posted')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-start rtl:text-start">פעולות</TableHead>
+                      <TableHead className="text-start rtl:text-start w-[80px] min-w-[80px]">פעולות</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {listingsState.items.map((listing, index) => (
                       <TableRow key={listing.id || `${listing.source || 'listing'}-${index}`} className="hover:bg-muted/50">
-                        <TableCell className="text-start rtl:text-start">
-                          <div className="space-y-1">
-                            <p className="font-medium">{listing.title || '—'}</p>
+                        <TableCell className="text-start rtl:text-start align-top whitespace-normal">
+                          <div className="space-y-1 pr-2">
+                            <p className="font-medium break-words">{listing.title || '—'}</p>
                             {listing.address && (
-                              <p className="text-sm text-muted-foreground">{listing.address}</p>
+                              <p className="text-sm text-muted-foreground break-words">{listing.address}</p>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
-                          <Badge>{formatListingType(listing.listingType ?? listing.listing_type)}</Badge>
+                        <TableCell className="text-start rtl:text-start align-top">
+                          <Badge className="whitespace-nowrap">{formatListingType(listing.listingType ?? listing.listing_type)}</Badge>
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           {(() => {
                             const name = listing.contactName ?? listing.contact_name ?? listing.contactInfo?.name ?? listing.contact_info?.name
                             const phone =
@@ -778,15 +778,15 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                             }
                             const sanitizedPhone = phone ? phone.replace(/[^+\d]/g, '') : ''
                             return (
-                              <div className="flex flex-col gap-1 text-xs">
-                                {name && <span className="font-medium text-foreground">{name}</span>}
+                              <div className="flex flex-col gap-1 text-xs pr-2">
+                                {name && <span className="font-medium text-foreground break-words">{name}</span>}
                                 {phone && (
                                   <a
                                     href={sanitizedPhone ? `tel:${sanitizedPhone}` : undefined}
-                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline whitespace-nowrap"
                                     onClick={event => event.stopPropagation()}
                                   >
-                                    <Phone className="h-3 w-3" />
+                                    <Phone className="h-3 w-3 flex-shrink-0" />
                                     <span dir="ltr">{phone}</span>
                                   </a>
                                 )}
@@ -794,16 +794,16 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                             )
                           })()}
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           {typeof (listing.recentDeal ?? listing.recent_deal) === 'boolean' ? (
-                            <Badge variant={(listing.recentDeal ?? listing.recent_deal) ? 'success' : 'neutral'}>
+                            <Badge variant={(listing.recentDeal ?? listing.recent_deal) ? 'success' : 'neutral'} className="whitespace-nowrap">
                               {(listing.recentDeal ?? listing.recent_deal) ? 'כן' : 'לא'}
                             </Badge>
                           ) : (
                             <Badge variant="neutral">—</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           {(() => {
                             const videoUrl = listing.videoUrl ?? listing.video_url ?? listing.url
                             if (!videoUrl) {
@@ -825,30 +825,30 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                           )
                         })()}
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           <span dir="ltr" className="block text-end font-medium">
                             {formatPrice(listing.price)}
                           </span>
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           {formatRooms(listing.rooms, listing.rooms_display)}
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           <span dir="ltr" className="block text-end">
                             {formatSize(listing.size)}
                           </span>
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           <Badge className={getSourceColor(listing.source)}>
                             {getSourceDisplay(listing.source)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           <span dir="ltr" className="block text-end">
                             {formatDate(listing.date_posted)}
                           </span>
                         </TableCell>
-                        <TableCell className="text-start rtl:text-start">
+                        <TableCell className="text-start rtl:text-start align-top">
                           <Button
                             variant="ghost"
                             size="sm"

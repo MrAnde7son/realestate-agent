@@ -48,11 +48,19 @@ class Yad2Collector(BaseCollector):
                 listings.extend(map_listings)
 
             if len(listings) > 0:
-                search_params = self.client.fetch_location_autocomplete(f"{listings[0].meta['neighborhood']} {listings[0].meta['city']}")
-                if search_params:
-                    self.client.set_search_parameters(search_params)
-                latest_deals = self.client.fetch_latest_deals()
-                listings.extend(latest_deals)
+                # Safely extract neighborhood and city from meta
+                neighborhood = listings[0].meta.get('neighborhood', '')
+                city = listings[0].meta.get('city', '')
+                
+                # Only fetch latest deals if we have location information
+                if neighborhood or city:
+                    location_query = f"{neighborhood} {city}".strip()
+                    if location_query:
+                        search_params = self.client.fetch_location_autocomplete(location_query)
+                        if search_params:
+                            self.client.set_search_parameters(search_params)
+                    latest_deals = self.client.fetch_latest_deals()
+                    listings.extend(latest_deals)
 
         except Exception as e:
             logger.error(f"Yad2 collector failed: {e}")

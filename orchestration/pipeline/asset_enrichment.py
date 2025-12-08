@@ -1989,14 +1989,10 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     
     if should_extract_neighborhood:
         listing_neighborhood = _extract_listing_neighborhood(best_listing)
-        if listing_neighborhood:
-            old_neighborhood = asset.neighborhood
+        if listing_neighborhood and not asset.neighborhood:
             asset.neighborhood = listing_neighborhood
             update_fields.add('neighborhood')
-            if old_neighborhood and old_neighborhood != listing_neighborhood:
-                logger.info('[ASSET_FIELDS] Overwrote neighborhood from "%s" to "%s" based on exact address match from listing', old_neighborhood, listing_neighborhood)
-            else:
-                logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
+            logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
     
     listing_type_value, listing_type_normalized = _extract_listing_type(best_listing)
 
@@ -2376,7 +2372,17 @@ def _calculate_market_metrics(asset, listings, gov_data):
                     if listing_is_commercial != asset_is_commercial:
                         continue
                     
+                    # Filter out outliers: area < 10 sqm or unrealistic price per sqm
+                    # This prevents data errors from skewing the model price
+                    if area < 10:
+                        continue  # Skip very small areas (likely data errors, parking spaces, or storage units)
+                    
                     ppm = price / area
+                    
+                    # Filter out unrealistic PPM values (outside 1K-500K range)
+                    # This prevents outliers from skewing the average PPM calculation
+                    if ppm < 1000 or ppm > 500000:
+                        continue  # Skip unrealistic price per sqm values
                     
                     # Determine source from URL or meta
                     url = listing.get('url', '')
@@ -2416,7 +2422,18 @@ def _calculate_market_metrics(asset, listings, gov_data):
                     if transaction_is_commercial != asset_is_commercial:
                         continue
                     
+                    # Filter out outliers: area < 10 sqm or unrealistic price per sqm
+                    # This prevents data errors (like 1 sqm transactions) from skewing the model price
+                    if area < 10:
+                        continue  # Skip very small areas (likely data errors, parking spaces, or storage units)
+                    
                     ppm = price / area
+                    
+                    # Filter out unrealistic PPM values (outside 1K-500K range)
+                    # This prevents outliers from skewing the average PPM calculation
+                    if ppm < 1000 or ppm > 500000:
+                        continue  # Skip unrealistic price per sqm values
+                    
                     ppm_data.append({
                         'ppm': ppm,
                         'price': price,

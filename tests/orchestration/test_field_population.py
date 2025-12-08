@@ -135,6 +135,8 @@ class MockAsset:
         self.normalized_address = None
         self.street = None
         self.neighborhood = None
+        self.block = None
+        self.parcel = None
         self.meta = {}
         self.save_called = False
         self.is_commercial = False

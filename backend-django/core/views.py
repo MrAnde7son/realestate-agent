@@ -3572,6 +3572,41 @@ def asset_transactions(request, asset_id):
         source_filter = (request.GET.get("source") or "").strip()
         area_filter = (request.GET.get("area") or "").strip()
         ordering_param = request.GET.get("ordering", "-date")
+        
+        # Parse price per sqm filters
+        try:
+            price_per_sqm_min = float(request.GET.get("price_per_sqm_min", 0)) if request.GET.get("price_per_sqm_min") else None
+        except (TypeError, ValueError):
+            price_per_sqm_min = None
+        
+        try:
+            price_per_sqm_max = float(request.GET.get("price_per_sqm_max", 0)) if request.GET.get("price_per_sqm_max") else None
+        except (TypeError, ValueError):
+            price_per_sqm_max = None
+        
+        # Parse price filters
+        try:
+            price_min = float(request.GET.get("price_min", 0)) if request.GET.get("price_min") else None
+        except (TypeError, ValueError):
+            price_min = None
+        
+        try:
+            price_max = float(request.GET.get("price_max", 0)) if request.GET.get("price_max") else None
+        except (TypeError, ValueError):
+            price_max = None
+        
+        # Parse area filters
+        try:
+            area_min = float(request.GET.get("area_min", 0)) if request.GET.get("area_min") else None
+        except (TypeError, ValueError):
+            area_min = None
+        
+        try:
+            area_max = float(request.GET.get("area_max", 0)) if request.GET.get("area_max") else None
+        except (TypeError, ValueError):
+            area_max = None
+        
+        address_filter = (request.GET.get("address") or "").strip()
 
         # Get transactions for comparable analysis
         # Always include transactions directly linked to this asset
@@ -3671,6 +3706,57 @@ def asset_transactions(request, asset_id):
                         )
                     except ValueError:
                         pass
+        
+        # Apply user-provided filters
+        if price_min is not None:
+            transactions = transactions.filter(price__gte=price_min)
+        if price_max is not None:
+            transactions = transactions.filter(price__lte=price_max)
+        
+        if area_min is not None:
+            transactions = transactions.filter(area__gte=area_min)
+        if area_max is not None:
+            transactions = transactions.filter(area__lte=area_max)
+        
+        if price_per_sqm_min is not None:
+            transactions = transactions.filter(price_per_sqm__gte=price_per_sqm_min)
+        if price_per_sqm_max is not None:
+            transactions = transactions.filter(price_per_sqm__lte=price_per_sqm_max)
+        
+        if address_filter:
+            transactions = transactions.filter(address__icontains=address_filter)
+        
+        # Filter out outliers by default (unless user explicitly wants to see them)
+        # Exclude transactions with unrealistic data that skew statistics:
+        # - Area < 10 sqm (likely data errors, parking spaces, or storage units)
+        # - Price per sqm > 500K (unrealistic for residential/commercial)
+        # - Price per sqm < 1K (too low, likely data errors)
+        
+        # Always filter out very small areas unless user explicitly requests them
+        filter_small_areas = True
+        if area_min is not None and area_min < 10:
+            # User explicitly wants to see small areas
+            filter_small_areas = False
+        
+        if filter_small_areas:
+            transactions = transactions.filter(
+                Q(area__isnull=True) | Q(area__gte=10),  # Area >= 10 sqm or null
+            )
+        
+        # Filter PPM outliers unless user explicitly sets a range that includes them
+        filter_ppm_outliers = True
+        if price_per_sqm_max is not None and price_per_sqm_max >= 500000:
+            # User explicitly wants to see high PPM values
+            filter_ppm_outliers = False
+        if price_per_sqm_min is not None and price_per_sqm_min < 1000:
+            # User explicitly wants to see low PPM values
+            filter_ppm_outliers = False
+        
+        if filter_ppm_outliers:
+            # Filter out unrealistic PPM: between 1K and 500K (or null)
+            transactions = transactions.filter(
+                Q(price_per_sqm__isnull=True) | (Q(price_per_sqm__gte=1000) & Q(price_per_sqm__lte=500000)),
+            )
 
         ordering_field = ordering_param.lstrip("-")
         ordering_map = {

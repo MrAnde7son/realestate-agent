@@ -570,9 +570,29 @@ export default function TableToolbar({
     if (statusValue !== 'all') count++;
     if (dateRangeFrom || dateRangeTo) count++;
     if (userAssetsActive) count++;
-    // Count active additional filters
+    
     additionalFilters?.forEach(filter => {
-      if (isAdditionalFilterActive(filter)) count++;
+      if (!isAdditionalFilterActive(filter)) return;
+      
+      let alreadyCounted = false;
+      
+      if (filter.key === 'sellerType' && sellerTypeValue !== 'all' && filter.value === sellerTypeValue) {
+        alreadyCounted = true;
+      } else if (filter.key === 'commercial' && commercialValue !== 'all' && filter.value === commercialValue) {
+        alreadyCounted = true;
+      } else if (filter.key === 'listingType' && rentalSaleValue !== 'all' && filter.value === rentalSaleValue) {
+        alreadyCounted = true;
+      } else if (filter.key === 'userAssets' && userAssetsActive) {
+        // For userAssets, check if the value matches
+        const userAssetsValue = userAssetsQuickFilter?.value ?? userAssetsAdditionalFilter?.value;
+        if (userAssetsValue && userAssetsValue !== 'all' && filter.value === userAssetsValue) {
+          alreadyCounted = true;
+        }
+      }
+      
+      if (!alreadyCounted) {
+        count++;
+      }
     });
     return count;
   }, [
@@ -600,8 +620,27 @@ export default function TableToolbar({
   const hasActiveFilters = activeFilterCount > 0;
 
   const sanitizedAdditionalFilters = React.useMemo(
-    () => additionalFilters.filter((filter) => filter.key !== 'userAssets'),
-    [additionalFilters],
+    () => additionalFilters.filter((filter) => {
+      // Filter out filters that are already counted in direct filters
+      // by checking if their values match the direct filter values
+      if (filter.key === 'sellerType' && sellerTypeValue !== 'all' && filter.value === sellerTypeValue) {
+        return false;
+      }
+      if (filter.key === 'commercial' && commercialValue !== 'all' && filter.value === commercialValue) {
+        return false;
+      }
+      if (filter.key === 'listingType' && rentalSaleValue !== 'all' && filter.value === rentalSaleValue) {
+        return false;
+      }
+      if (filter.key === 'userAssets' && userAssetsActive) {
+        const userAssetsValue = userAssetsQuickFilter?.value ?? userAssetsAdditionalFilter?.value;
+        if (userAssetsValue && userAssetsValue !== 'all' && filter.value === userAssetsValue) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [additionalFilters, sellerTypeValue, commercialValue, rentalSaleValue, userAssetsActive, userAssetsQuickFilter, userAssetsAdditionalFilter],
   );
 
   const categorizeAdditionalFilter = React.useCallback((key: string) => {

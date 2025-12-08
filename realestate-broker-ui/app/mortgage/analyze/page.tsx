@@ -502,7 +502,7 @@ export default function MortgageAnalyzePage() {
   // Read URL parameters on initial load
   useEffect(() => {
     if (!isClient) return
-    
+
     // Handle prefilled parameters from other pages
     const totalExpenses = searchParams.get('totalExpenses')
     if (totalExpenses) {
@@ -512,7 +512,7 @@ export default function MortgageAnalyzePage() {
         // Tracking removed - incomplete implementation
       }
     }
-  }, [searchParams])
+  }, [isClient, searchParams])
 
   // Sync state to URL parameters
   useEffect(() => {

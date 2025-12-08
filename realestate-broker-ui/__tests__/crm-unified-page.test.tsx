@@ -72,10 +72,7 @@ describe('CrmUnifiedPage', () => {
     });
 
     expect(screen.getByTestId('combined-table')).toBeInTheDocument();
-    expect(trackEventMock).toHaveBeenCalledWith({
-      event: 'crm_opened',
-      meta: { view: 'combined' },
-    });
+    expect(trackEventMock).not.toHaveBeenCalled();
   });
 
   it('shows KPI cards with correct values', async () => {

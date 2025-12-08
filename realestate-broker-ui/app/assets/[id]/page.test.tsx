@@ -468,14 +468,7 @@ describe('AssetDetailPage', () => {
     })
 
     expect(mockUseRouter.push).toHaveBeenCalledWith('/deal-expenses?assetId=1&price=1000000')
-    expect(trackFeatureUsageMock).toHaveBeenCalledWith(
-      'deal_expense_cta',
-      1,
-      expect.objectContaining({
-        price: 1000000,
-        source: 'asset_detail'
-      })
-    )
+    expect(trackFeatureUsageMock).not.toHaveBeenCalled()
   })
 
   it('passes provider from search params when creating a share message', async () => {

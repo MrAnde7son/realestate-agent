@@ -329,7 +329,7 @@ export default function DealExpensesPage() {
         // Tracking removed - incomplete implementation
       }
     },
-    []
+    [extractNumericPrice]
   )
 
   const handleAssetSelect = useCallback(

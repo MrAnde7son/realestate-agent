@@ -5508,9 +5508,115 @@ def asset_listings(request, asset_id):
 
         listings_all = []
         seen_keys = set()
+        city_name = asset.city.strip() if asset.city else None
 
-        # Include listings linked through the new Listing model
-        for listing_obj in asset_listings_all(asset):
+        # Build location filters to query listings by location (similar to transactions)
+        listing_filters = Q()
+        
+        # Match by block and parcel (most precise)
+        if asset.block and asset.parcel and city_name:
+            listing_filters |= (
+                Q(raw__parcel_block=str(asset.block), raw__parcel_parcel=str(asset.parcel))
+            )
+            if asset.subparcel:
+                listing_filters |= (
+                    Q(raw__parcel_block=str(asset.block), raw__parcel_parcel=str(asset.parcel), raw__parcel_sub_parcel=str(asset.subparcel))
+                )
+        
+        # Match by neighborhood (requires city match)
+        if asset.neighborhood and city_name:
+            neighborhood_name = asset.neighborhood.strip()
+            city_lower = city_name.lower()
+            # Check if neighborhood appears in address field (with city)
+            listing_filters |= (
+                Q(address__icontains=neighborhood_name) & Q(address__icontains=city_lower)
+            )
+            # Also check raw data for neighborhood
+            listing_filters |= Q(raw__neighborhood=neighborhood_name)
+            listing_filters |= Q(raw__address_details__neighbourhood=neighborhood_name)
+            # Also check if listing is linked to assets in the same neighborhood
+            listing_filters |= (
+                Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
+            )
+        
+        # Match by street name (requires city match)
+        if asset.street and city_name:
+            street_name = asset.street.strip()
+            city_lower = city_name.lower()
+            listing_filters |= (
+                Q(address__icontains=street_name) & Q(address__icontains=city_lower)
+            )
+            listing_filters |= Q(raw__address_details__streetName=street_name)
+        
+        # Query listings by location (not just linked ones)
+        location_matched_listings = []
+        if listing_filters:
+            location_matched_listings = list(Listing.objects.filter(
+                listing_filters,
+                status='active'  # Only active listings
+            ).distinct())
+        
+        # Combine: linked listings + location-matched listings
+        linked_listings = list(asset_listings_all(asset))
+        all_listing_objs = linked_listings + location_matched_listings
+        # Remove duplicates by ID
+        seen_ids = set()
+        unique_listings = []
+        for listing in all_listing_objs:
+            if listing.id not in seen_ids:
+                seen_ids.add(listing.id)
+                unique_listings.append(listing)
+        all_listing_objs = unique_listings
+        
+        # Process all listings
+        for listing_obj in all_listing_objs:
+            listing_address = (listing_obj.address or "").lower()
+            
+            # Verify location match
+            location_match = False
+            
+            # Match by block and parcel (most precise)
+            if asset.block and asset.parcel and city_name:
+                raw_data = listing_obj.raw or {}
+                listing_block = str(raw_data.get('parcel_block') or raw_data.get('block') or '')
+                listing_parcel = str(raw_data.get('parcel_parcel') or raw_data.get('parcel') or '')
+                if listing_block == str(asset.block) and listing_parcel == str(asset.parcel):
+                    location_match = True
+            
+            # Match by neighborhood (requires city match)
+            if not location_match and asset.neighborhood and city_name:
+                neighborhood_name = asset.neighborhood.strip().lower()
+                city_lower = city_name.lower()
+                # Check address field
+                if neighborhood_name in listing_address and city_lower in listing_address:
+                    location_match = True
+                # Check raw data
+                if not location_match:
+                    raw_data = listing_obj.raw or {}
+                    raw_neighborhood = raw_data.get('neighborhood') or (raw_data.get('address_details') or {}).get('neighbourhood')
+                    if raw_neighborhood and neighborhood_name in str(raw_neighborhood).lower():
+                        location_match = True
+                # Check if listing is linked to assets in the same neighborhood
+                if not location_match:
+                    linked_assets = listing_obj.assets.filter(
+                        neighborhood=asset.neighborhood,
+                        city=city_name
+                    )
+                    if linked_assets.exists():
+                        location_match = True
+            
+            # Match by street name (requires city match)
+            if not location_match and asset.street and city_name:
+                street_name = asset.street.strip().lower()
+                city_lower = city_name.lower()
+                if street_name in listing_address and city_lower in listing_address:
+                    location_match = True
+            
+            # If we have location info but no match, skip this listing
+            has_location_info = bool(asset.block or asset.neighborhood or asset.street)
+            if has_location_info and not location_match:
+                continue
+            
             normalized = normalize_listing_from_model(listing_obj)
             key = normalized["id"] or f"{normalized.get('source', 'external')}:{normalized.get('external_id') or listing_obj.id}"
             if key in seen_keys:
@@ -5519,8 +5625,40 @@ def asset_listings(request, asset_id):
             listings_all.append(normalized)
 
         # Include legacy metadata listings (e.g., scraped Yad2 entries)
+        # Filter these strictly by location (neighborhood/block/parcel/street)
         yad2_listings = asset.get_property_value("yad2_listings", []) or []
         for idx, meta_listing in enumerate(yad2_listings):
+            if not meta_listing:
+                continue
+            
+            meta_address = (meta_listing.get('address') or "").lower()
+            should_include = False
+            
+            # Match by block and parcel (most precise)
+            if asset.block and asset.parcel and city_name:
+                meta_block = str(meta_listing.get('parcel_block') or meta_listing.get('block') or '')
+                meta_parcel = str(meta_listing.get('parcel_parcel') or meta_listing.get('parcel') or '')
+                if meta_block == str(asset.block) and meta_parcel == str(asset.parcel):
+                    should_include = True
+            
+            # Match by neighborhood (requires city match)
+            if not should_include and asset.neighborhood and city_name:
+                neighborhood_name = asset.neighborhood.strip().lower()
+                city_lower = city_name.lower()
+                if neighborhood_name in meta_address and city_lower in meta_address:
+                    should_include = True
+            
+            # Match by street (requires city match)
+            if not should_include and asset.street and city_name:
+                street_name = asset.street.strip().lower()
+                city_lower = city_name.lower()
+                if street_name in meta_address and city_lower in meta_address:
+                    should_include = True
+            
+            # If no location match, skip this listing
+            if not should_include:
+                continue
+            
             normalized = normalize_listing_from_meta(meta_listing or {}, idx)
             key = normalized["id"] or f"{normalized.get('source', 'yad2')}:{idx}"
             if key in seen_keys:

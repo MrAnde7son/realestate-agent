@@ -3575,35 +3575,44 @@ def asset_transactions(request, asset_id):
 
         # Get transactions for comparable analysis
         # Always include transactions directly linked to this asset
-        # Additionally include transactions from the same neighborhood if available
+        # Additionally include transactions from the same neighborhood, block/parcel, or street
         transaction_filters = Q(asset_id=asset_id) | Q(assets__id=asset_id)
         
-        # Check for transactions matching by city (from GovMap deals)
-        # GovMap deals have neighborhood and settlementNameHeb in their raw data
-        if asset.city:
-            city_name = asset.city.strip()
-            if asset.neighborhood:
-                neighborhood_name = asset.neighborhood.strip()
-                transaction_filters |= (
-                    Q(asset__neighborhood=neighborhood_name, asset__city=city_name)
-                    | Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
-                    | Q(raw__neighborhood=neighborhood_name)
-                )
-            
-            # Also match by city in linked assets
+        city_name = asset.city.strip() if asset.city else None
+        
+        # Match by block and parcel (most precise)
+        if asset.block and asset.parcel and city_name:
             transaction_filters |= (
-                Q(asset__city=city_name) | Q(assets__city=city_name)
+                Q(asset__block=asset.block, asset__parcel=asset.parcel, asset__city=city_name)
+                | Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__city=city_name)
+                | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
             )
-            
-            # If we have a street, also match by street name in address
-            if asset.street:
-                street_name = asset.street.strip()
+            # If subparcel is available, make it even more precise
+            if asset.subparcel:
                 transaction_filters |= (
-                    Q(address__icontains=street_name) |
-                    Q(asset__street=street_name, asset__city=city_name) |
-                    Q(assets__street=street_name, assets__city=city_name)
-                    | Q(raw__streetNameHeb__icontains=street_name)
+                    Q(asset__block=asset.block, asset__parcel=asset.parcel, asset__subparcel=asset.subparcel, asset__city=city_name)
+                    | Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__subparcel=asset.subparcel, assets__city=city_name)
+                    | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel, raw__parcel_sub_parcel=asset.subparcel)
                 )
+        
+        # Match by neighborhood (requires city match)
+        if asset.neighborhood and city_name:
+            neighborhood_name = asset.neighborhood.strip()
+            transaction_filters |= (
+                Q(asset__neighborhood=neighborhood_name, asset__city=city_name)
+                | Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
+                | Q(raw__neighborhood=neighborhood_name)
+            )
+        
+        # Match by street name (requires city match)
+        if asset.street and city_name:
+            street_name = asset.street.strip()
+            transaction_filters |= (
+                Q(address__icontains=street_name, asset__city=city_name) |
+                Q(asset__street=street_name, asset__city=city_name) |
+                Q(assets__street=street_name, assets__city=city_name)
+                | Q(raw__streetNameHeb__icontains=street_name)
+            )
         
         transactions = RealEstateTransaction.objects.filter(transaction_filters).distinct()
 

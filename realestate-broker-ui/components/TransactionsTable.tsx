@@ -179,8 +179,12 @@ function createColumns(): ColumnDef<Transaction>[] {
         const source = row.getValue('source') as string
         const getSourceDisplay = (source: string) => {
           switch (source) {
-            case 'collected_government': return 'ממשלתי'
-            case 'government': return 'ממשלתי'
+            case 'govmap':
+              return 'GovMap'
+            case 'collected_government':
+            case 'government':
+            case 'nadlan':
+              return 'ממשלתי'
             case 'internal': return 'מאגר פנימי'
             default: return source || 'לא ידוע'
           }

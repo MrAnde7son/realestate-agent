@@ -1038,28 +1038,75 @@ def _process_government_data(asset, gov_data):
 
 
 def _extract_neighborhood_from_transactions(asset, transactions):
-    """Extract neighborhood information from transaction data and update asset."""
+    """Extract neighborhood information from transaction data and update asset.
+    """
     if not transactions or asset.neighborhood:
         # Only update if asset doesn't already have neighborhood info
+        return
+    
+    filtered_transactions = _filter_transactions_by_asset_location(asset, transactions)
+    
+    if not filtered_transactions:
+        logger.debug(f"No matching transactions found for asset {asset.id} location, skipping neighborhood extraction")
         return
         
     neighborhood_counts = {}
     
-    for transaction in transactions:
+    for transaction in filtered_transactions:
         if isinstance(transaction, dict):
             neighborhood = transaction.get('neighborhood')
             if neighborhood and isinstance(neighborhood, str) and neighborhood.strip():
                 neighborhood_counts[neighborhood] = neighborhood_counts.get(neighborhood, 0) + 1
     
     if neighborhood_counts:
-        # Use the most common neighborhood from transactions
+        # Use the most common neighborhood from matching transactions
         most_common_neighborhood = max(neighborhood_counts.items(), key=lambda x: x[1])[0]
         asset.neighborhood = most_common_neighborhood
-        logger.info(f"Updated asset {asset.id} neighborhood from transactions: {most_common_neighborhood}")
+        logger.info(f"Updated asset {asset.id} neighborhood from {len(filtered_transactions)} matching transactions: {most_common_neighborhood}")
         
         # Store neighborhood source information
         asset.set_property('neighborhoodSource', 'Nadlan Transactions', source='Nadlan', url='https://nadlan.gov.il/')
         asset.set_property('neighborhoodConfidence', len(neighborhood_counts), source='Nadlan', url='https://nadlan.gov.il/')
+
+
+def _filter_transactions_by_asset_location(asset, transactions):
+    """Filter transactions to only include those matching the asset's block/parcel.
+    
+    Only uses block + parcel matching, which is the most reliable location identifier.
+    Street and city matching are too unreliable and can lead to incorrect neighborhood
+    assignments from nearby areas.
+    
+    Returns filtered list of transactions that match the asset's block/parcel.
+    Returns empty list if asset doesn't have block/parcel info.
+    """
+    if not transactions:
+        return []
+    
+    # Normalize asset location fields
+    asset_block = str(asset.block or '').strip().lower()
+    asset_parcel = str(asset.parcel or '').strip().lower()
+    
+    # Only proceed if asset has both block and parcel (required for reliable matching)
+    if not asset_block or not asset_parcel:
+        logger.debug(f"Asset {asset.id} missing block/parcel info, skipping neighborhood extraction from transactions")
+        return []
+    
+    filtered = []
+    
+    for tx in transactions:
+        if not isinstance(tx, dict):
+            continue
+        
+        # Get transaction location fields (handle both Nadlan and GovMap field names)
+        tx_block = str(_safe_get(tx, 'parcel_block') or _safe_get(tx, 'gush_num') or _safe_get(tx, 'block') or '').strip().lower()
+        tx_parcel = str(_safe_get(tx, 'parcel_parcel') or _safe_get(tx, 'parcel_num') or _safe_get(tx, 'parcel') or '').strip().lower()
+        
+        # Only match on exact block + parcel (most reliable)
+        if tx_block and tx_parcel:
+            if asset_block == tx_block and asset_parcel == tx_parcel:
+                filtered.append(tx)
+    
+    return filtered
 
 
 def _process_rami_plans(asset, plans):
@@ -1663,7 +1710,12 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         )
     
     def _extract_listing_neighborhood(listing_data):
-        """Extract neighborhood text from a normalized listing dictionary."""
+        """Extract neighborhood text from a normalized listing dictionary.
+        
+        Handles both Yad2 and Madlan listing structures:
+        - Yad2: meta["neighborhood"]
+        - Madlan: meta["address_details"]["neighbourhood"] or meta["madlan_raw"]["addressDetails"]["neighbourhood"]
+        """
         if not isinstance(listing_data, dict):
             return None
 
@@ -1673,9 +1725,26 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
 
         meta = listing_data.get('meta')
         if isinstance(meta, dict):
+            # Yad2: direct neighborhood in meta
             candidate = meta.get('neighborhood')
             if isinstance(candidate, str) and candidate.strip():
                 return candidate.strip()
+
+            # Madlan: address_details.neighbourhood (British spelling)
+            address_details = meta.get('address_details')
+            if isinstance(address_details, dict):
+                candidate = address_details.get('neighbourhood')  # Note: British spelling
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+
+            # Madlan: madlan_raw.addressDetails.neighbourhood
+            madlan_raw = meta.get('madlan_raw')
+            if isinstance(madlan_raw, dict):
+                address_details_raw = madlan_raw.get('addressDetails')
+                if isinstance(address_details_raw, dict):
+                    candidate = address_details_raw.get('neighbourhood')  # Note: British spelling
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
 
             address_meta = meta.get('address') or meta.get('address_components')
             if isinstance(address_meta, dict):
@@ -1896,12 +1965,38 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         return
 
     # Populate asset fields from the best listing
-    if not asset.neighborhood:
+    asset_block = str(asset.block or '').strip().lower()
+    asset_parcel = str(asset.parcel or '').strip().lower()
+    
+    should_extract_neighborhood = True
+    
+    # If asset has block/parcel, verify listing also matches (if listing has this info)
+    if asset_block and asset_parcel:
+        listing_block = str(_safe_get(best_listing, 'parcel_block') or _safe_get(best_listing.get('meta', {}), 'parcel_block') or _safe_get(best_listing.get('meta', {}), 'block') or '').strip().lower()
+        listing_parcel = str(_safe_get(best_listing, 'parcel_parcel') or _safe_get(best_listing.get('meta', {}), 'parcel_parcel') or _safe_get(best_listing.get('meta', {}), 'parcel') or '').strip().lower()
+        
+        # If listing has block/parcel info, verify it matches
+        if listing_block and listing_parcel:
+            if asset_block != listing_block or asset_parcel != listing_parcel:
+                # Listing doesn't match block/parcel - skip to avoid incorrect assignment
+                should_extract_neighborhood = False
+                logger.debug('[ASSET_FIELDS] Listing address matches but block/parcel differs, skipping neighborhood extraction')
+            else:
+                logger.debug('[ASSET_FIELDS] Listing matches asset block/parcel and address, extracting neighborhood')
+        else:
+            # Listing doesn't have block/parcel (typical for Yad2/Madlan), but address matches exactly
+            logger.debug('[ASSET_FIELDS] Listing matches exact address (no block/parcel in listing), extracting neighborhood')
+    
+    if should_extract_neighborhood:
         listing_neighborhood = _extract_listing_neighborhood(best_listing)
         if listing_neighborhood:
+            old_neighborhood = asset.neighborhood
             asset.neighborhood = listing_neighborhood
             update_fields.add('neighborhood')
-            logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
+            if old_neighborhood and old_neighborhood != listing_neighborhood:
+                logger.info('[ASSET_FIELDS] Overwrote neighborhood from "%s" to "%s" based on exact address match from listing', old_neighborhood, listing_neighborhood)
+            else:
+                logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
     
     listing_type_value, listing_type_normalized = _extract_listing_type(best_listing)
 

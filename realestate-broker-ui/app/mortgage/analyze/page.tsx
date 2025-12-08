@@ -929,25 +929,8 @@ export default function MortgageAnalyzePage() {
 
   return (
     <DashboardLayout>
-      <DashboardShell>
+      <DashboardShell scrollable>
         <DashboardHeader heading="מחשבון משכנתא" text="תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ" />
-
-        <StickyActionBar description="בצע חישוב תיק משכנתא גם בזמן גלילה" className="mb-4">
-          <Button
-            onClick={handleAnalyzePortfolio}
-            disabled={isCalculateDisabled}
-            size="lg"
-            className="h-11 sm:h-12 rounded-full px-4 sm:px-6 flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm w-full sm:w-auto"
-          >
-            {calculating ? (
-              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 animate-spin" />
-            ) : (
-              <Calculator className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-            )}
-            <span className="hidden sm:inline">חשב תיק</span>
-            <span className="sm:hidden">חשב</span>
-          </Button>
-        </StickyActionBar>
 
         <div className="grid gap-6 lg:grid-cols-[1fr,400px] xl:grid-cols-[2fr,1fr]">
           {/* Main Content Column */}

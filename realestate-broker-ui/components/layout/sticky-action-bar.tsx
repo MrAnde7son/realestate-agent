@@ -16,7 +16,7 @@ export function StickyActionBar({
 }: StickyActionBarProps) {
   return (
     <div
-      className={cn('sticky top-3 z-30', className)}
+      className={cn('sticky top-4 z-30', className)}
       data-testid="sticky-action-bar"
     >
       <div

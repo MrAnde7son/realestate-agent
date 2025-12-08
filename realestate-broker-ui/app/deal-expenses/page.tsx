@@ -906,7 +906,7 @@ export default function DealExpensesPage() {
 
   return (
     <DashboardLayout>
-      <DashboardShell>
+      <DashboardShell scrollable>
         <DashboardHeader
           heading="מחשבון הוצאות עסקה"
           text="חישוב של כל העלויות הכרוכות ברכישת נכס"

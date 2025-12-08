@@ -1501,8 +1501,11 @@ React.useEffect(() => {
   const transactionSourceOptions = useMemo(() => {
     const mapLabel = (value: string) => {
       switch (value) {
+        case 'govmap':
+          return 'GovMap'
         case 'collected_government':
         case 'government':
+        case 'nadlan':
           return 'ממשלתי'
         case 'internal':
           return 'מאגר פנימי'

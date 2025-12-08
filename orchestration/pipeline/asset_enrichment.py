@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -1555,11 +1557,20 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
             # Generate a unique deal_id from address + date + price if not present
             deal_id = transaction.get('deal_id')
             if not deal_id:
-                # Create a unique identifier from available fields
-                address = transaction.get('address', '')
-                deal_date = transaction.get('deal_date', '')
-                deal_amount = transaction.get('deal_amount', '')
-                deal_id = f"{address}_{deal_date}_{deal_amount}".replace(' ', '_')
+                # Try to extract objectid from raw data (GovMap deals have this)
+                raw_data = transaction.get('raw', {})
+                if isinstance(raw_data, dict):
+                    objectid = raw_data.get('objectid') or raw_data.get('objectId') or raw_data.get('object_id')
+                    if objectid:
+                        deal_id = f"govmap_{objectid}"
+                
+                # If still no deal_id, create from address + date + price
+                if not deal_id:
+                    address = transaction.get('address', '')
+                    deal_date = transaction.get('deal_date', '')
+                    deal_amount = transaction.get('deal_amount', '')
+                    # Truncate deal_id to max 100 chars (database limit)
+                    deal_id = f"{address}_{deal_date}_{deal_amount}".replace(' ', '_')[:100]
             
             # Parse deal_date to proper date format
             # Handle both Nadlan format (DD/MM/YYYY) and GovMap format (YYYY-MM-DD or YYYY-MM)
@@ -1622,15 +1633,24 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                 'raw': transaction,
             }
 
+            # Ensure deal_id is not empty (database constraint)
+            if not deal_id or not str(deal_id).strip():
+                # Generate a fallback deal_id using transaction hash if all else fails
+                transaction_str = json.dumps(transaction, sort_keys=True, default=str)
+                deal_id = f"fallback_{hashlib.md5(transaction_str.encode()).hexdigest()[:16]}"
+            
             transaction_obj = None
             created_transaction = False
             try:
                 transaction_obj, created_transaction = RealEstateTransaction.objects.get_or_create(
-                    deal_id=str(deal_id),
+                    deal_id=str(deal_id)[:100],  # Ensure it fits in database field
                     defaults=transaction_defaults,
                 )
             except IntegrityError:
-                transaction_obj = RealEstateTransaction.objects.filter(deal_id=str(deal_id)).first()
+                transaction_obj = RealEstateTransaction.objects.filter(deal_id=str(deal_id)[:100]).first()
+            except Exception as e:
+                logger.warning(f"Failed to create transaction with deal_id {deal_id[:50]}...: {e}")
+                continue
 
             if transaction_obj:
                 updates = []

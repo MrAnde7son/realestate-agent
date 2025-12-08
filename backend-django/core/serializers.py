@@ -224,8 +224,11 @@ class AssetSerializer(MetaSerializerMixin):
         if primary_ppm not in (None, ""):
             return primary_ppm
         # Compute from price and area if available
+        # Prefer total_area over area (consistent with enrichment pipeline)
         price_val = self.get_price(obj)
-        area_val = getattr(obj, "area", None)
+        area_val = getattr(obj, "total_area", None)
+        if area_val in (None, ""):
+            area_val = getattr(obj, "area", None)
         if area_val in (None, ""):
             area_val = self._get_primary_value(obj, "size", "area", "square_meters", "squareMeters")
         try:

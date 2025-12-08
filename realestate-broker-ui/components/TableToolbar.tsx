@@ -615,6 +615,8 @@ export default function TableToolbar({
     userAssetsActive,
     additionalFilters,
     isAdditionalFilterActive,
+    userAssetsQuickFilter?.value,
+    userAssetsAdditionalFilter?.value,
   ]);
 
   const hasActiveFilters = activeFilterCount > 0;

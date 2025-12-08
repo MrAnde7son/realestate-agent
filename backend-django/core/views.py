@@ -3691,9 +3691,21 @@ def asset_transactions(request, asset_id):
         paginated_transactions = list(transactions[offset : offset + limit])
 
         # Build market analysis from the filtered result set (before pagination)
+        # Filter out invalid transactions for statistics (area > 0, price > 0, reasonable price_per_sqm)
+        valid_transactions_for_stats = transactions.filter(
+            price__isnull=False,
+            price__gt=0,
+            area__isnull=False,
+            area__gt=0,
+            price_per_sqm__isnull=False,
+            price_per_sqm__gt=0,
+            price_per_sqm__lt=500000,  # Reasonable upper bound: 500K per sqm
+        )
+        
+        valid_count = valid_transactions_for_stats.count()
         market_analysis = {}
-        if total_count:
-            price_stats = transactions.aggregate(
+        if valid_count > 0:
+            price_stats = valid_transactions_for_stats.aggregate(
                 avg_price=Avg("price"),
                 min_price=Min("price"),
                 max_price=Max("price"),
@@ -3703,8 +3715,7 @@ def asset_transactions(request, asset_id):
             )
 
             prices = list(
-                transactions.filter(price__isnull=False)
-                .order_by("price")
+                valid_transactions_for_stats.order_by("price")
                 .values_list("price", flat=True)
             )
 
@@ -3730,7 +3741,7 @@ def asset_transactions(request, asset_id):
                 "min_price": _coerce(price_stats.get("min_price")),
                 "max_price": _coerce(price_stats.get("max_price")),
                 "median_price": _coerce(median_price),
-                "transaction_count": len(prices),
+                "transaction_count": valid_count,
             }
 
             market_analysis.update(

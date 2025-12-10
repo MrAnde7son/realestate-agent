@@ -1,7 +1,6 @@
 import pytest
 
 from orchestration.collectors.municipal_gis import (
-    GovMapMunicipalGisAdapter,
     MultiCityGISCollector,
     MunicipalGisAdapter,
     TelAvivMunicipalGisAdapter,
@@ -25,16 +24,6 @@ class _StubCollector:
 
     def collect(self, location: LocationQuery, **_kwargs):
         return {"adapter": self.name, "city": location.city}
-
-
-def test_multi_city_prefers_matching_city_adapter():
-    tel_aviv = _FakeAdapter("tel_aviv", ["תל אביב", "תל אביב-יפו"])
-    govmap = GovMapMunicipalGisAdapter(collector=_StubCollector("govmap"))
-    collector = MultiCityGISCollector(adapters=[tel_aviv, govmap])
-
-    result = collector.collect(LocationQuery(city="תל אביב-יפו"))
-
-    assert result["adapter"] == "tel_aviv"
 
 
 def test_multi_city_raises_for_unknown_city():

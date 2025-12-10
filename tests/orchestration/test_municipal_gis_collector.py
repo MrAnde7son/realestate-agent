@@ -1,0 +1,80 @@
+import pytest
+
+from orchestration.collectors.municipal_gis import (
+    GovMapMunicipalGisAdapter,
+    MultiCityGISCollector,
+    MunicipalGisAdapter,
+    TelAvivMunicipalGisAdapter,
+)
+from orchestration.location import LocationQuery
+
+
+class _FakeAdapter(MunicipalGisAdapter):
+    def __init__(self, name: str, supported_cities):
+        super().__init__()
+        self._name = name
+        self.supported_cities = supported_cities
+
+    def collect(self, location: LocationQuery):
+        return {"adapter": self._name, "city": location.city}
+
+
+class _StubCollector:
+    def __init__(self, name: str):
+        self.name = name
+
+    def collect(self, location: LocationQuery, **_kwargs):
+        return {"adapter": self.name, "city": location.city}
+
+
+def test_multi_city_prefers_matching_city_adapter():
+    tel_aviv = _FakeAdapter("tel_aviv", ["תל אביב", "תל אביב-יפו"])
+    govmap = GovMapMunicipalGisAdapter(collector=_StubCollector("govmap"))
+    collector = MultiCityGISCollector(adapters=[tel_aviv, govmap])
+
+    result = collector.collect(LocationQuery(city="תל אביב-יפו"))
+
+    assert result["adapter"] == "tel_aviv"
+
+
+def test_multi_city_raises_for_unknown_city():
+    collector = MultiCityGISCollector(adapters=[TelAvivMunicipalGisAdapter(collector=_StubCollector("ta"))])
+
+    with pytest.raises(ValueError):
+        collector.collect(LocationQuery(city="מודיעין"))
+
+
+@pytest.mark.parametrize(
+    "city_variant",
+    ["Tel Aviv", "tel aviv", "תל אביב", "תל אביב - יפו"],
+)
+def test_tel_aviv_adapter_city_normalization(city_variant):
+    adapter = TelAvivMunicipalGisAdapter(collector=None)
+
+    assert adapter.supports(city_variant)
+
+
+def test_multi_city_defaults_to_tel_aviv_when_city_missing():
+    tel_aviv = TelAvivMunicipalGisAdapter(collector=_StubCollector("tel_aviv"))
+    collector = MultiCityGISCollector(adapters=[tel_aviv])
+
+    result = collector.collect(LocationQuery(city=""))
+
+    assert result["adapter"] == "tel_aviv"
+
+
+def test_multi_city_uses_configurable_default_city():
+    jerusalem = _FakeAdapter("jerusalem", ["ירושלים"])
+    collector = MultiCityGISCollector(adapters=[jerusalem], default_city="ירושלים")
+
+    result = collector.collect(LocationQuery(city=""))
+
+    assert result["adapter"] == "jerusalem"
+
+
+def test_multi_city_requires_city_when_no_default_configured():
+    jerusalem = _FakeAdapter("jerusalem", ["ירושלים"])
+    collector = MultiCityGISCollector(adapters=[jerusalem], default_city=None)
+
+    with pytest.raises(ValueError):
+        collector.collect(LocationQuery(city=""))

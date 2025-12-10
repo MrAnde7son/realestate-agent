@@ -2,6 +2,12 @@
 
 from .base_collector import BaseCollector
 from .gis_collector import GISCollector
+from .municipal_gis import (
+    GovMapMunicipalGisAdapter,
+    MultiCityGISCollector,
+    MunicipalGisAdapter,
+    TelAvivMunicipalGisAdapter,
+)
 from .handasa_collector import HandasaCollector
 from .gov_collector import GovCollector
 from .govmap_collector import GovMapCollector
@@ -15,6 +21,10 @@ __all__ = [
     'BaseCollector',
     'Yad2Collector', 
     'GISCollector',
+    'MunicipalGisAdapter',
+    'TelAvivMunicipalGisAdapter',
+    'GovMapMunicipalGisAdapter',
+    'MultiCityGISCollector',
     'HandasaCollector',
     'GovCollector',
     'GovMapCollector',

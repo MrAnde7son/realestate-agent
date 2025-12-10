@@ -18,6 +18,7 @@ from orchestration.collectors import (
     Yad2Collector,
     MadlanCollector,
     GISCollector,
+    MultiCityGISCollector,
     GovCollector,
     GovMapCollector,
     MichrazimCollector,
@@ -25,6 +26,7 @@ from orchestration.collectors import (
     RamiCollector,
     HandasaCollector,
 )
+from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query
 from orchestration.pipeline import auto_expand_related_assets, create_asset_snapshot, update_asset_with_collected_data
 from orchestration.pipeline.listings import _build_listing_snapshot, _normalize_listings
@@ -146,7 +148,7 @@ class DataPipeline:
         db_session: Optional["Session"] = None,
         yad2: Optional[Yad2Collector] = None,
         madlan: Optional[MadlanCollector] = None,
-        gis: Optional[GISCollector] = None,
+        gis: Optional[BaseCollector] = None,
         gov: Optional[GovCollector] = None,
         govmap: Optional[GovMapCollector] = None,
         michrazim: Optional[MichrazimCollector] = None,
@@ -176,7 +178,7 @@ class DataPipeline:
 
         self.yad2 = yad2 or Yad2Collector()
         self.madlan = madlan or MadlanCollector()
-        self.gis = gis or GISCollector()
+        self.gis = gis or MultiCityGISCollector()
         self.gov = gov or GovCollector()
         self.govmap = govmap or GovMapCollector()
         self.michrazim = michrazim or MichrazimCollector()

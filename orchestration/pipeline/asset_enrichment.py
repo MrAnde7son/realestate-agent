@@ -7,6 +7,8 @@ import os
 import re
 import time
 from contextlib import contextmanager
+from dataclasses import asdict, dataclass
+from statistics import median
 from datetime import datetime, date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -39,6 +41,58 @@ from orchestration.planning_legal_analyzer import (
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FeatureVector:
+    """Represents all adjustment factors for the valuation model."""
+
+    comps_factor: float = 0.0
+    size_factor: float = 0.0
+    age_factor: float = 0.0
+    potential_factor: float = 0.0
+    new_build_factor: float = 0.0
+    attachments_factor: float = 0.0
+    finish_level_factor: float = 0.0
+    elevator_factor: float = 0.0
+    proximity_factor: float = 0.0
+    noise_factor: float = 0.0
+    floor_factor: float = 0.0
+
+    @property
+    def total_adjustment(self) -> float:
+        return sum(
+            (
+                self.comps_factor,
+                self.size_factor,
+                self.age_factor,
+                self.potential_factor,
+                self.new_build_factor,
+                self.attachments_factor,
+                self.finish_level_factor,
+                self.elevator_factor,
+                self.proximity_factor,
+                self.noise_factor,
+                self.floor_factor,
+            )
+        )
+
+    def to_dict(self) -> Dict[str, float]:
+        data = asdict(self)
+        data['total'] = self.total_adjustment
+        return data
+
+
+def _safe_numeric(value: Any) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _safe_bool(value: Any) -> bool:
+    return bool(value) if isinstance(value, bool) else False
 
 
 def _normalize_listing_type_value(value: Any) -> Optional[str]:
@@ -74,6 +128,239 @@ def _extract_listing_type(listing_data: Any) -> Tuple[Optional[str], Optional[st
                 return candidate, normalized
 
     return None, None
+
+
+def _parse_iso_date(date_value: Any) -> Optional[date]:
+    if isinstance(date_value, date):
+        return date_value
+    if isinstance(date_value, datetime):
+        return date_value.date()
+    if isinstance(date_value, str):
+        try:
+            return datetime.fromisoformat(date_value).date()
+        except ValueError:
+            return None
+    return None
+
+
+def _compute_recency_weight(deal_date: Any) -> float:
+    parsed = _parse_iso_date(deal_date)
+    if not parsed:
+        return 1.0
+
+    days_diff = (date.today() - parsed).days
+    # Fade weight linearly over a 24 month window (≈730 days)
+    recency_weight = max(0.2, 1 - (days_diff / 730))
+    return recency_weight
+
+
+def _compute_ppm_weight(entry: Dict[str, Any]) -> float:
+    base_weight = 1.0
+    if entry.get('source') == 'nadlan':
+        base_weight += 0.5  # Transactions are more reliable than listings
+
+    recency_weight = _compute_recency_weight(entry.get('deal_date'))
+    return base_weight * recency_weight
+
+
+def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
+    if not ppm_data:
+        return None, None
+
+    ppm_values = [d['ppm'] for d in ppm_data]
+    weights = [_compute_ppm_weight(d) for d in ppm_data]
+    weighted_sum = sum(ppm * weight for ppm, weight in zip(ppm_values, weights))
+    weight_total = sum(weights) or 1
+    weighted_ppm = weighted_sum / weight_total
+
+    base_value = None
+    if asset_total_area and asset_total_area > 0:
+        comparable_prices = [d['ppm'] * asset_total_area for d in ppm_data]
+        base_value = median(comparable_prices)
+
+    return weighted_ppm, base_value
+
+
+def _size_adjustment(area: Optional[float]) -> float:
+    area_value = _safe_numeric(area)
+    if not area_value or area_value <= 0:
+        return 0.0
+    if 40 <= area_value < 70:
+        return 0.06
+    if 70 <= area_value <= 100:
+        return 0.0
+    if 100 < area_value < 150:
+        return -0.04
+    if area_value >= 150:
+        return -0.08
+    return 0.0
+
+
+def _age_adjustment(year_built: Optional[int]) -> float:
+    year_value = _safe_numeric(year_built)
+    if not year_value:
+        return 0.0
+    age = date.today().year - int(year_value)
+    if age <= 5:
+        return 0.12
+    if age <= 20:
+        return 0.06
+    if age <= 40:
+        return 0.0
+    if age <= 60:
+        return -0.05
+    return -0.1
+
+
+def _potential_adjustment(asset: Any) -> float:
+    potential = None
+    raw_potential = getattr(asset, 'urban_renewal_potential', None)
+    if isinstance(raw_potential, str):
+        potential = raw_potential.lower()
+    elif isinstance(getattr(asset, 'meta', None), dict):
+        potential = str(asset.meta.get('planning_potential', '')).lower()
+
+    if _safe_bool(getattr(asset, 'permit_urban_renewal', False)):
+        potential = potential or 'high'
+
+    if potential in ('high', 'גבוה', 'tama38', 'pinui_binui'):
+        return 0.15
+    if potential in ('medium', 'בינוני', 'mid'):
+        return 0.08
+    if potential in ('negative', 'low', 'שלילי'):
+        return -0.08
+    return 0.0
+
+
+def _new_build_adjustment(asset: Any) -> float:
+    year_built = _safe_numeric(getattr(asset, 'year_built', None))
+    if year_built and (date.today().year - year_built) <= 5:
+        return 0.18
+
+    meta = getattr(asset, 'meta', {}) or {}
+    if isinstance(meta, dict):
+        if meta.get('new_project'):
+            return 0.2
+        if meta.get('tama38_completed'):
+            return 0.12
+    return 0.0
+
+
+def _attachments_adjustment(asset: Any) -> float:
+    adjustment = 0.0
+    parking_spaces = _safe_numeric(getattr(asset, 'parking_spaces', None)) or 0
+    if parking_spaces >= 1:
+        adjustment += 0.1
+        if parking_spaces > 1:
+            adjustment += 0.02
+
+    if _safe_bool(getattr(asset, 'storage_room', False)):
+        adjustment += 0.02
+
+    balcony_area = _safe_numeric(getattr(asset, 'balcony_area', None))
+    if balcony_area and balcony_area > 0:
+        adjustment += 0.05
+        if balcony_area >= 20:
+            adjustment += 0.02
+        elif balcony_area >= 10:
+            adjustment += 0.01
+
+    meta = getattr(asset, 'meta', {}) or {}
+    if isinstance(meta, dict):
+        garden_area = _safe_numeric(meta.get('garden_area')) or 0
+        roof_space = _safe_numeric(meta.get('roof_space')) or 0
+        if garden_area and garden_area > 0:
+            adjustment += 0.1
+        if roof_space and roof_space > 0:
+            adjustment += 0.07
+
+    return adjustment
+
+
+def _finish_level_adjustment(asset: Any) -> float:
+    meta = getattr(asset, 'meta', {}) or {}
+    finish_level = str(meta.get('finish_level', '')).lower()
+    renovation_state = str(meta.get('renovation_state', '')).lower()
+
+    if _safe_bool(getattr(asset, 'renovated', False)) or finish_level in ('high', 'premium'):
+        return 0.15
+    if renovation_state in ('poor', 'needs_renovation'):
+        return -0.15
+    return 0.0
+
+
+def _elevator_adjustment(asset: Any) -> float:
+    floor = _safe_numeric(getattr(asset, 'floor', None))
+    has_elevator = _safe_bool(getattr(asset, 'elevator', False))
+    if has_elevator:
+        return 0.06
+    if floor is not None and floor >= 3:
+        return -0.1
+    return 0.0
+
+
+def _proximity_adjustment(asset: Any) -> float:
+    meta = getattr(asset, 'meta', {}) or {}
+    adjustment = 0.0
+
+    transit_distance = _safe_numeric(meta.get('distance_to_transit_m'))
+    if isinstance(transit_distance, (int, float)):
+        if transit_distance < 300:
+            adjustment += 0.07
+        elif transit_distance < 600:
+            adjustment += 0.05
+
+    beach_distance = _safe_numeric(meta.get('distance_to_beach_m'))
+    if isinstance(beach_distance, (int, float)) and beach_distance < 600:
+        adjustment += 0.12
+
+    return adjustment
+
+
+def _noise_adjustment(asset: Any) -> float:
+    meta = getattr(asset, 'meta', {}) or {}
+    nuisance_index = _safe_numeric(meta.get('nuisance_index'))
+    if isinstance(nuisance_index, (int, float)):
+        return -min(0.12, max(0.0, nuisance_index))
+
+    road_distance = _safe_numeric(meta.get('distance_to_main_road_m'))
+    if isinstance(road_distance, (int, float)) and road_distance < 80:
+        return -0.08
+    return 0.0
+
+
+def _floor_adjustment(asset: Any) -> float:
+    floor = _safe_numeric(getattr(asset, 'floor', None))
+    meta = getattr(asset, 'meta', {}) or {}
+    garden_area = _safe_numeric(meta.get('garden_area')) or 0
+
+    if floor is None:
+        return 0.0
+    if floor == 0:
+        return 0.1 if garden_area else -0.07
+    if floor == 1:
+        return -0.02
+    if 3 <= floor <= 7:
+        return 0.04
+    if floor > 7:
+        return 0.1
+    return 0.0
+
+
+def _build_feature_vector(asset: Any) -> FeatureVector:
+    size = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
+    return FeatureVector(
+        size_factor=_size_adjustment(size),
+        age_factor=_age_adjustment(getattr(asset, 'year_built', None)),
+        potential_factor=_potential_adjustment(asset),
+        new_build_factor=_new_build_adjustment(asset),
+        attachments_factor=_attachments_adjustment(asset),
+        finish_level_factor=_finish_level_adjustment(asset),
+        elevator_factor=_elevator_adjustment(asset),
+        proximity_factor=_proximity_adjustment(asset),
+        noise_factor=_noise_adjustment(asset),
+        floor_factor=_floor_adjustment(asset),
+    )
 
 
 def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None) -> None:
@@ -2470,43 +2757,58 @@ def _calculate_market_metrics(asset, listings, gov_data):
             ppm_values = [d['ppm'] for d in ppm_data]
             prices = [d['price'] for d in ppm_data]
             areas = [d['area'] for d in ppm_data]
-            
-            # Calculate average PPM
-            avg_ppm = sum(ppm_values) / len(ppm_values)
-            
-            # Calculate model price as PPM × asset total area
-            asset_total_area = asset.total_area or asset.area
-            if asset_total_area and asset_total_area > 0:
-                model_price = int(avg_ppm * asset_total_area)
-                metrics['modelPrice'] = model_price
-                
+
+            asset_total_area = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
+            base_ppm, base_value = _calculate_base_ppm_and_value(ppm_data, asset_total_area)
+
+            feature_vector = _build_feature_vector(asset)
+            adjustment_multiplier = 1 + feature_vector.total_adjustment
+
+            # Calculate model price as BaseValue × (1 + Σ adjustments)
+            if base_ppm is not None:
+                if base_value is None and asset_total_area and asset_total_area > 0:
+                    base_value = base_ppm * asset_total_area
+
+                if base_value is None:
+                    # Fallback to median comparable price if no area
+                    base_value = median(prices)
+
+                adjusted_model_price = int(base_value * adjustment_multiplier)
+                metrics['baseModelPrice'] = int(base_value)
+                metrics['modelPrice'] = adjusted_model_price
+                metrics['adjustments'] = {
+                    'multiplier': adjustment_multiplier,
+                    'totalPct': round(feature_vector.total_adjustment * 100, 2),
+                    'featureVector': feature_vector.to_dict(),
+                }
+
+                if asset_total_area and asset_total_area > 0:
+                    adjusted_ppm = base_ppm * adjustment_multiplier
+                    metrics['adjustedPricePerSqm'] = round(adjusted_ppm, 2)
+
                 # Calculate price gap if asset has a price
-                if asset.price and model_price > 0:
-                    metrics['priceGapPct'] = round(((asset.price - model_price) / model_price) * 100, 2)
-            else:
-                # Fallback to simple average price if no area available
-                avg_price = sum(prices) / len(prices)
-                metrics['modelPrice'] = int(avg_price)
-                if asset.price and avg_price > 0:
-                    metrics['priceGapPct'] = round(((asset.price - avg_price) / avg_price) * 100, 2)
+                price_value = _safe_numeric(getattr(asset, 'price', None))
+                if price_value and adjusted_model_price > 0:
+                    metrics['priceGapPct'] = round(((price_value - adjusted_model_price) / adjusted_model_price) * 100, 2)
 
             # Store PPM statistics
-            metrics['avgPricePerSqm'] = round(avg_ppm, 2)
+            if base_ppm is not None:
+                metrics['avgPricePerSqm'] = round(base_ppm, 2)
             metrics['minPricePerSqm'] = round(min(ppm_values), 2)
             metrics['maxPricePerSqm'] = round(max(ppm_values), 2)
             metrics['expectedPriceRange'] = f"{min(prices):,} - {max(prices):,}"
-            
+
             # Enhanced confidence calculation
             # Weight transactions higher than listings (transactions are actual sales)
             transaction_count = len([d for d in ppm_data if d['source'] == 'nadlan'])
             yad2_listing_count = len([d for d in ppm_data if d['source'] == 'yad2'])
             madlan_listing_count = len([d for d in ppm_data if d['source'] == 'madlan'])
             listing_count = yad2_listing_count + madlan_listing_count
-            
+
             # Base confidence: 15% per transaction, 10% per listing, max 100%
             confidence = min(100, (transaction_count * 15) + (listing_count * 10))
             metrics['confidencePct'] = confidence
-            
+
             # Store source breakdown
             metrics['ppmSources'] = {
                 'transactions': transaction_count,
@@ -2517,10 +2819,11 @@ def _calculate_market_metrics(asset, listings, gov_data):
             }
 
             # Area comparison
-            if areas and asset.area:
+            asset_area_value = _safe_numeric(getattr(asset, 'area', None))
+            if areas and asset_area_value:
                 avg_area = sum(areas) / len(areas)
                 if avg_area > 0:
-                    metrics['deltaVsAreaPct'] = round(((asset.area - avg_area) / avg_area) * 100, 2)
+                    metrics['deltaVsAreaPct'] = round(((asset_area_value - avg_area) / avg_area) * 100, 2)
 
             # Competition heuristic based on total comparable data
             n = len(ppm_data)

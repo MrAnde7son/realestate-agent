@@ -5,6 +5,7 @@ Test the improved PPM-based model price calculation.
 """
 
 import pytest
+from statistics import median
 from unittest.mock import Mock
 from orchestration.pipeline.asset_enrichment import _calculate_market_metrics
 
@@ -46,7 +47,7 @@ class TestPPMModelPriceCalculation:
         assert hasattr(asset, 'min_price_per_sqm')
         assert hasattr(asset, 'max_price_per_sqm')
         assert hasattr(asset, 'model_price')
-        
+
         # Expected PPM values: 2000000/80=25000, 2500000/100=25000, 3000000/120=25000
         # Average PPM = 25000
         # Model price = 25000 * 100 = 2,500,000
@@ -87,12 +88,11 @@ class TestPPMModelPriceCalculation:
         _calculate_market_metrics(asset, listings, gov_data)
         
         # Expected PPM values: 1800000/80=22500, 2250000/90=25000, 2700000/100=27000
-        # Average PPM = (22500 + 25000 + 27000) / 3 = 24833.33
-        # Model price = 24833.33 * 90 = 2,235,000
+        # Weighted PPM should be close to the simple average in this neutral case
         assert asset.avg_price_per_sqm == pytest.approx(24833.33, rel=1e-2)
         assert asset.min_price_per_sqm == 22500.0
         assert asset.max_price_per_sqm == 27000.0
-        assert asset.model_price == 2235000
+        assert asset.model_price == 2250000
 
     def test_calculate_ppm_from_both_sources(self):
         """Test PPM calculation from both Yad2 listings and Nadlan transactions."""
@@ -103,6 +103,7 @@ class TestPPMModelPriceCalculation:
         asset.price = 3000000  # Existing price for gap calculation
         asset.is_commercial = False  # Required for filtering
         asset.meta = {}
+        asset.year_built = 2000
         asset.city = 'Tel Aviv'  # Required for rent calculation
         asset.neighborhood = None
         asset.save = Mock()
@@ -130,28 +131,26 @@ class TestPPMModelPriceCalculation:
         # Calculate metrics
         _calculate_market_metrics(asset, listings, gov_data)
         
-        # Expected PPM values:
-        # Listings: 2200000/100=22000, 2750000/110=25000
-        # Transactions: 2000000/90=22222.22, 2500000/100=25000
-        # All PPMs: [22000, 25000, 22222.22, 25000]
-        # Average PPM = (22000 + 25000 + 22222.22 + 25000) / 4 = 23555.56
-        # Model price = 23555.56 * 110 = 2,591,111
-        expected_avg_ppm = (22000 + 25000 + 22222.22 + 25000) / 4
-        expected_model_price = int(expected_avg_ppm * 110)
-        
-        # The test expects model price to be near the actual calculation
-        # Let's adjust the expected value based on actual calculation
-        calculated_model_price = asset.model_price
-        
+        # Base PPM is derived from a weighted average of all comps
+        expected_avg_ppm = 23555.56
         assert asset.avg_price_per_sqm == pytest.approx(expected_avg_ppm, rel=0.01)
         assert asset.min_price_per_sqm == pytest.approx(22000, rel=0.01)
         assert asset.max_price_per_sqm == 25000.0
-        # Allow for some rounding differences in model price
-        assert abs(asset.model_price - expected_model_price) <= 1000
-        
+
+        # Size adjustment for 110 sqm is -4%, so model price should reflect a 4% reduction
+        comparable_prices = []
+        for listing in listings:
+            comparable_prices.append((listing['price'] / listing['area']) * asset.total_area)
+        for transaction in gov_data['transactions']:
+            comparable_prices.append((transaction['deal_amount'] / transaction['area']) * asset.total_area)
+
+        expected_base_value = int(median(comparable_prices))
+        expected_model_price = int(expected_base_value * 0.96)
+        assert asset.model_price == expected_model_price
+
         # Verify price gap calculation
         if hasattr(asset, 'price_gap_pct'):
-            expected_gap = ((3000000 - calculated_model_price) / calculated_model_price) * 100
+            expected_gap = ((asset.price - expected_model_price) / expected_model_price) * 100
             assert asset.price_gap_pct == pytest.approx(expected_gap, rel=1e-1)
 
     def test_confidence_calculation_with_both_sources(self):
@@ -193,6 +192,39 @@ class TestPPMModelPriceCalculation:
         assert asset.meta['market_metrics']['ppmSources']['transactions'] == 2
         assert asset.meta['market_metrics']['ppmSources']['listings'] == 3
         assert asset.meta['market_metrics']['ppmSources']['total'] == 5
+
+    def test_adjustments_applied_from_features(self):
+        """Ensure feature-driven adjustments are applied transparently."""
+        asset = Mock()
+        asset.total_area = 120
+        asset.area = 120
+        asset.floor = 4
+        asset.elevator = False
+        asset.parking_spaces = 1
+        asset.balcony_area = 12
+        asset.year_built = 1985
+        asset.price = None
+        asset.is_commercial = False
+        asset.meta = {'distance_to_transit_m': 200}
+        asset.save = Mock()
+        asset.model_price = None
+
+        listings = [
+            {'price': 3000000, 'area': 120},
+        ]
+
+        gov_data = {'transactions': []}
+
+        _calculate_market_metrics(asset, listings, gov_data)
+
+        metrics = asset.meta['market_metrics']
+        assert 'adjustments' in metrics
+        total_pct = metrics['adjustments']['totalPct']
+        assert total_pct > 0  # parking + balcony + transit - elevator/size/age net positive
+
+        base_price = metrics['baseModelPrice']
+        adjusted_price = metrics['modelPrice']
+        assert adjusted_price > base_price
 
     def test_fallback_to_simple_average_when_no_area(self):
         """Test fallback to simple average price when asset has no area."""

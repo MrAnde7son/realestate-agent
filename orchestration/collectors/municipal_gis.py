@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Iterable, List, Optional
 
 from orchestration.collectors.gis_collector import GISCollector
-from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query
 
@@ -25,7 +24,7 @@ class MunicipalGisAdapter(ABC):
 
     supported_cities: Iterable[str] = ()
 
-    def __init__(self, *, aliases: Optional[Iterable[str]] = None) -> None:
+    def __init__(self, aliases: Optional[Iterable[str]] = None) -> None:
         self._aliases = {self._normalize(city) for city in (aliases or [])}
 
     def supports(self, city: str) -> bool:
@@ -58,37 +57,17 @@ class TelAvivMunicipalGisAdapter(MunicipalGisAdapter):
         return collector.collect(location)
 
 
-class GovMapMunicipalGisAdapter(MunicipalGisAdapter):
-    """Fallback adapter that uses GovMap for nationwide coverage."""
-
-    supported_cities: Iterable[str] = ()  # Supports all cities
-
-    def __init__(self, collector: Optional[GovMapCollector] = None) -> None:
-        super().__init__()
-        self.collector = collector or GovMapCollector()
-
-    def supports(self, city: str) -> bool:  # type: ignore[override]
-        # GovMap is the wide-coverage fallback, so it always supports the city.
-        return True
-
-    def collect(self, location: LocationQuery) -> Dict:
-        return self.collector.collect(location)
-
-
 class MultiCityGISCollector(BaseCollector):
     """Routes GIS collection to the best adapter for the given city."""
 
     def __init__(
         self,
         adapters: Optional[List[MunicipalGisAdapter]] = None,
-        *,
-        default_city: Optional[str] = "תל אביב-יפו",
     ) -> None:
         # Default to Tel Aviv-only support to preserve existing behavior until
         # more city-specific adapters are implemented. The default city can be
         # overridden to keep this logic flexible as additional adapters arrive.
         self.adapters = adapters or [TelAvivMunicipalGisAdapter()]
-        self.default_city = default_city
 
     def collect(self, location: Optional[LocationQuery] = None, **kwargs) -> Dict:
         query = ensure_location_query(location)
@@ -98,17 +77,16 @@ class MultiCityGISCollector(BaseCollector):
 
     def _select_adapter(self, city: Optional[str]) -> MunicipalGisAdapter:
         normalized_city = (city or "").strip()
-        target_city = normalized_city or (self.default_city or "").strip()
 
-        if not target_city:
+        if not normalized_city:
             raise ValueError("City must be provided when no default city is configured")
 
         for adapter in self.adapters:
-            if adapter.supports(target_city):
+            if adapter.supports(normalized_city):
                 return adapter
 
         available = ", ".join({c for adapter in self.adapters for c in adapter.supported_cities}) or "none"
         raise ValueError(
-            f"No municipal GIS adapter available for city '{target_city}'. "
+            f"No municipal GIS adapter available for city '{normalized_city}'. "
             f"Supported cities: {available}"
         )

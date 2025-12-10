@@ -3,7 +3,6 @@
 from .base_collector import BaseCollector
 from .gis_collector import GISCollector
 from .municipal_gis import (
-    GovMapMunicipalGisAdapter,
     MultiCityGISCollector,
     MunicipalGisAdapter,
     TelAvivMunicipalGisAdapter,
@@ -23,7 +22,6 @@ __all__ = [
     'GISCollector',
     'MunicipalGisAdapter',
     'TelAvivMunicipalGisAdapter',
-    'GovMapMunicipalGisAdapter',
     'MultiCityGISCollector',
     'HandasaCollector',
     'GovCollector',

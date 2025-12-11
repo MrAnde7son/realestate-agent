@@ -220,7 +220,7 @@
     
     /* Ensure the main content wrapper is properly sized */
     main > div {
-      min-height: 100%;
+      min-height: auto;
       width: 100%;
     }
     
@@ -366,6 +366,21 @@
     .table-cell-nowrap {
       white-space: nowrap;
       min-width: fit-content;
+    }
+  }
+  
+  /* Desktop: Prevent forced heights on main content */
+  @media (min-width: 768px) {
+    /* Reset any forced heights on main's direct children */
+    main > div {
+      min-height: auto !important;
+      height: auto !important;
+    }
+    
+    /* Ensure main content wrappers are natural height */
+    main > div.w-full {
+      min-height: auto !important;
+      height: auto !important;
     }
   }
   

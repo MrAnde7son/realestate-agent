@@ -147,7 +147,7 @@ export default function AppSidebar({
       )}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 flex-shrink-0 items-center border-b px-4">
         <Link href="/assets" className="flex items-center gap-3">
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
           {!isCollapsed && (
@@ -241,7 +241,7 @@ export default function AppSidebar({
       </div>
 
       {/* Footer with User Menu - Moved to bottom of sidebar */}
-      <div className="p-3">
+      <div className="p-3 flex-shrink-0">
         {!isLoading && isAuthenticated ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -30,20 +30,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-[100dvh] supports-[height:100dvh]:min-h-[100dvh] bg-background overflow-hidden">
+    <div className="flex h-[100dvh] supports-[height:100dvh]:h-[100dvh] bg-background overflow-hidden">
       {/* Sidebar - hidden on mobile, visible on medium screens and larger */}
-      <div className="hidden md:flex-shrink-0 md:block">
+      <div className="hidden md:flex-shrink-0 md:block h-full">
         <AppSidebar isCollapsed={!sidebarOpen} />
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
         <Header onToggleSidebar={handleToggleSidebar} />
 
-        <main className="flex-1 pt-16">
-          <div className="min-h-[calc(100dvh-4rem)] supports-[height:100dvh]:min-h-[calc(100dvh-4rem)]">
-            {children}
-          </div>
+        <main className="pt-16 flex-1 overflow-y-auto min-h-0">
+          {children}
         </main>
       </div>
     </div>

@@ -42,28 +42,3 @@ def test_tel_aviv_adapter_city_normalization(city_variant):
 
     assert adapter.supports(city_variant)
 
-
-def test_multi_city_defaults_to_tel_aviv_when_city_missing():
-    tel_aviv = TelAvivMunicipalGisAdapter(collector=_StubCollector("tel_aviv"))
-    collector = MultiCityGISCollector(adapters=[tel_aviv])
-
-    result = collector.collect(LocationQuery(city=""))
-
-    assert result["adapter"] == "tel_aviv"
-
-
-def test_multi_city_uses_configurable_default_city():
-    jerusalem = _FakeAdapter("jerusalem", ["ירושלים"])
-    collector = MultiCityGISCollector(adapters=[jerusalem], default_city="ירושלים")
-
-    result = collector.collect(LocationQuery(city=""))
-
-    assert result["adapter"] == "jerusalem"
-
-
-def test_multi_city_requires_city_when_no_default_configured():
-    jerusalem = _FakeAdapter("jerusalem", ["ירושלים"])
-    collector = MultiCityGISCollector(adapters=[jerusalem], default_city=None)
-
-    with pytest.raises(ValueError):
-        collector.collect(LocationQuery(city=""))

@@ -163,6 +163,44 @@ def _compute_ppm_weight(entry: Dict[str, Any]) -> float:
     return base_weight * recency_weight
 
 
+def _get_listing_area_for_ppm(listing: Dict[str, Any]) -> Optional[float]:
+    """Return the best available area for PPM calculation.
+
+    Prefers total/gross area fields when present to ensure PPM is based on the
+    property's full size, falling back to net/built area if necessary.
+    """
+
+    if not isinstance(listing, dict):
+        return None
+
+    meta = listing.get('meta') if isinstance(listing.get('meta'), dict) else {}
+
+    total_area_value = _safe_numeric(
+        _first_nonempty(
+            listing.get('total_size'),
+            listing.get('total_area'),
+            _safe_get(meta, 'total_size'),
+            _safe_get(meta, 'totalSqm'),
+            _safe_get(meta, 'total_area'),
+        )
+    )
+    if total_area_value and total_area_value > 0:
+        return total_area_value
+
+    net_area_value = _safe_numeric(
+        _first_nonempty(
+            listing.get('area'),
+            listing.get('size'),
+            _safe_get(meta, 'area'),
+            _safe_get(meta, 'size'),
+        )
+    )
+    if net_area_value and net_area_value > 0:
+        return net_area_value
+
+    return None
+
+
 def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
     if not ppm_data:
         return None, None
@@ -2668,7 +2706,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
         if listing_dicts:
             for listing in listing_dicts:
                 price = listing.get('price')
-                area = listing.get('area')
+                area = _get_listing_area_for_ppm(listing)
                 if price and area and area > 0:
                     _, normalized_listing_type = _extract_listing_type(listing)
                     if normalized_listing_type == 'rent':

@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
 import { getRouteMatchState, usePersistentPathname } from "@/lib/navigation-state"
+import { Badge } from "@/components/ui/Badge"
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -240,21 +241,26 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           <span className="sr-only">Toggle sidebar</span>
         </Button>
 
-        <Link
-          href="/assets"
-          aria-label="עמוד הנכסים"
-          className="flex items-center gap-2 min-h-[44px]"
-        >
-          <div className="sm:hidden">
-            <Logo variant="symbol" size={24} color="var(--brand-teal)" />
-          </div>
-          <div className="hidden sm:block">
-            <Logo variant="symbol" size={28} color="var(--brand-teal)" />
-          </div>
-          <span className="text-sm font-semibold text-foreground whitespace-nowrap sm:text-base md:text-lg">
-            נדל״נר
-          </span>
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/assets"
+            aria-label="עמוד הנכסים"
+            className="flex items-center gap-2 min-h-[44px]"
+          >
+            <div className="sm:hidden">
+              <Logo variant="symbol" size={24} color="var(--brand-teal)" />
+            </div>
+            <div className="hidden sm:block">
+              <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+            </div>
+            <span className="text-sm font-semibold text-foreground whitespace-nowrap sm:text-base md:text-lg">
+              נדל״נר
+            </span>
+          </Link>
+          <Badge variant="info" size="sm" className="rounded-md font-semibold text-[13px] leading-none">
+            בהרצה
+          </Badge>
+        </div>
       </div>
 
       {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}

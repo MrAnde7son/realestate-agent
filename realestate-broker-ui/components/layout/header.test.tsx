@@ -73,4 +73,11 @@ describe("Header mobile navigation", () => {
     expect(closeButtons).toHaveLength(1)
     expect(screen.queryByLabelText("סגור תפריט")).not.toBeInTheDocument()
   })
+
+  it("shows the beta badge next to the logo", () => {
+    render(<Header />)
+
+    const badge = screen.getByText("בהרצה")
+    expect(badge).toBeInTheDocument()
+  })
 })

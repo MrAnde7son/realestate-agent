@@ -1623,7 +1623,6 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                     floor = None
             
             transaction_defaults = {
-                'asset': asset,
                 'date': parsed_date,
                 'price': transaction.get('deal_amount'),
                 'rooms': rooms,
@@ -1658,12 +1657,9 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                     updates.extend(
                         _collect_field_updates(
                             transaction_obj,
-                            {k: v for k, v in transaction_defaults.items() if k != 'asset'},
+                            transaction_defaults,
                         )
                     )
-                    if getattr(transaction_obj, 'asset_id', None) is None:
-                        transaction_obj.asset = asset
-                        updates.append('asset')
                     if updates:
                         transaction_obj.save(update_fields=list(dict.fromkeys(updates)))
                 _ensure_transaction_link(transaction_obj, asset)

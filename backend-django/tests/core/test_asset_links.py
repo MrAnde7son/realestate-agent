@@ -113,6 +113,7 @@ class AssetLinkMigrationTest(TestCase):
             asset=self.asset,
             deal_id='TX2',
         )
+        AssetTransaction.objects.create(transaction=transaction, asset=self.asset)
         AssetTransaction.objects.create(transaction=transaction, asset=self.other_asset)
 
         self.assertEqual(
@@ -125,6 +126,19 @@ class AssetLinkMigrationTest(TestCase):
         )
         self.assertEqual(asset_documents_all(self.asset).count(), 1)
         self.assertEqual(asset_transactions_all(self.other_asset).count(), 1)
+
+    def test_transactions_require_m2m_links(self):
+        transaction = RealEstateTransaction.objects.create(
+            asset=self.asset,
+            deal_id='TX-M2M',
+        )
+
+        # Without a through-table link, the transaction should not appear for the asset
+        self.assertEqual(asset_transactions_all(self.asset).count(), 0)
+
+        AssetTransaction.objects.create(transaction=transaction, asset=self.asset)
+
+        self.assertEqual(asset_transactions_all(self.asset).count(), 1)
 
     def test_asset_deletion_preserves_related_records(self):
         document = Document.objects.create(

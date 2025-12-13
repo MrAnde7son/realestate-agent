@@ -167,20 +167,18 @@ class HebrewPDFGenerator:
         if not asset:
             return {"items": [], "stats": {}}
 
-        filters = Q(asset=asset) | Q(assets=asset)
+        filters = Q(assets=asset)
         city_name = asset.city.strip() if asset.city else None
         
         # Match by block and parcel (most precise)
         if asset.block and asset.parcel and city_name:
             filters |= (
-                Q(asset__block=asset.block, asset__parcel=asset.parcel, asset__city=city_name)
-                | Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__city=city_name)
+                Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__city=city_name)
                 | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
             )
             if asset.subparcel:
                 filters |= (
-                    Q(asset__block=asset.block, asset__parcel=asset.parcel, asset__subparcel=asset.subparcel, asset__city=city_name)
-                    | Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__subparcel=asset.subparcel, assets__city=city_name)
+                    Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__subparcel=asset.subparcel, assets__city=city_name)
                     | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel, raw__parcel_sub_parcel=asset.subparcel)
                 )
         
@@ -188,16 +186,14 @@ class HebrewPDFGenerator:
         if asset.neighborhood and city_name:
             neighborhood = asset.neighborhood.strip()
             filters |= (
-                Q(asset__neighborhood=neighborhood, asset__city=city_name)
-                | Q(assets__neighborhood=neighborhood, assets__city=city_name)
+                Q(assets__neighborhood=neighborhood, assets__city=city_name)
             )
         
         # Match by street name (requires city match)
         if asset.street and city_name:
             street = asset.street.strip()
             filters |= (
-                Q(address__icontains=street, asset__city=city_name)
-                | Q(asset__street=street, asset__city=city_name)
+                Q(address__icontains=street, assets__city=city_name)
                 | Q(assets__street=street, assets__city=city_name)
             )
 

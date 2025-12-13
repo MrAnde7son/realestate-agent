@@ -1,5 +1,6 @@
 import base64
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -26,7 +27,7 @@ async def test_handasa_archive_success(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self) -> None:
             self.calls = 0
 
-        def get_archive(self, block: str, parcel: str | None = None, page_size: int = 50):
+        def get_archive(self, block: str, parcel: Optional[str] = None, page_size: int = 50):
             self.calls += 1
             return [{"external_id": "123"}]
 
@@ -48,7 +49,7 @@ async def test_handasa_archive_retries(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self) -> None:
             self.calls = 0
 
-        def get_archive(self, block: str, parcel: str | None = None, page_size: int = 50):
+        def get_archive(self, block: str, parcel: Optional[str] = None, page_size: int = 50):
             self.calls += 1
             if self.calls < 2:
                 raise RuntimeError("temporary error")
@@ -85,7 +86,12 @@ async def test_download_handasa_document(monkeypatch: pytest.MonkeyPatch) -> Non
     }
 
     class FakeClient:
-        def download_document(self, unique_id: str, save_to=None, overwrite=False):
+        def download_document(
+            self,
+            unique_id: str,
+            save_to: Optional[str] = None,
+            overwrite: bool = False,
+        ):
             assert unique_id == "doc-1"
             return payload
 

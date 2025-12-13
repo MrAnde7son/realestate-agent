@@ -161,6 +161,7 @@ if "prometheus_client" not in sys.modules:
 if "opentelemetry" not in sys.modules:
     otel_module = ModuleType("opentelemetry")
     trace_module = ModuleType("opentelemetry.trace")
+    context_module = ModuleType("opentelemetry.context")
 
     class _DummyTracer:
         def start_as_current_span(self, *args, **kwargs):
@@ -174,6 +175,14 @@ if "opentelemetry" not in sys.modules:
 
     def _set_tracer_provider(*args, **kwargs):
         return None
+
+    def _context_identity(*args, **kwargs):
+        return None
+
+    context_module.attach = _context_identity
+    context_module.detach = _context_identity
+    context_module.get_current = _context_identity
+    context_module.set_value = _context_identity
 
     trace_module.get_tracer = _get_tracer
     trace_module.set_tracer_provider = _set_tracer_provider
@@ -225,9 +234,11 @@ if "opentelemetry" not in sys.modules:
 
     otel_module.trace = trace_module
     otel_module.sdk = sdk_module
+    otel_module.context = context_module
 
     sys.modules["opentelemetry"] = otel_module
     sys.modules["opentelemetry.trace"] = trace_module
+    sys.modules["opentelemetry.context"] = context_module
     sys.modules["opentelemetry.sdk"] = sdk_module
     sys.modules["opentelemetry.sdk.resources"] = resources_module
     sys.modules["opentelemetry.sdk.trace"] = sdk_trace_module

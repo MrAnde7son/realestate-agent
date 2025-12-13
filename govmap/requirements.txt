@@ -6,7 +6,7 @@ requests>=2.25.0
 pyproj>=3.2.0
 
 # MCP Server (optional)
-fastmcp==2.11.3
+fastmcp==2.14.0
 
 # Development & Testing
 pytest>=6.2.0

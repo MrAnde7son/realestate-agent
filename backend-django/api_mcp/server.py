@@ -86,7 +86,6 @@ _mcp: Optional["FastMCP"] = None
 _tools_registered: bool = False
 _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
-_mcp_dependencies: List[str] = ["requests"]
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +104,6 @@ def get_mcp() -> "FastMCP":
         _mcp = FastMCP(
             "RealEstateAPI",
             instructions="Real-estate API tools.",
-            dependencies=_mcp_dependencies,
         )
 
     if not _tools_registered:

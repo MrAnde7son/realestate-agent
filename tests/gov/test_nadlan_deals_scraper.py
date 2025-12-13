@@ -121,8 +121,21 @@ class TestNadlanDealsScraper:
     
     def test_context_manager(self):
         """Test context manager functionality."""
-        with NadlanDealsScraper() as scraper:
-            assert scraper is not None
+        scraper = NadlanDealsScraper()
+
+        # Avoid spawning a real Chrome/Chromium instance during tests. Selenium's
+        # startup dominates CI time (and fails when the binary is unavailable),
+        # so we mock the driver lifecycle hooks and simply assert the context
+        # manager wiring.
+        with (
+            patch.object(scraper, "_init_driver") as mock_init_driver,
+            patch.object(scraper, "_cleanup_driver") as mock_cleanup,
+        ):
+            with scraper as managed:
+                assert managed is scraper
+
+            mock_init_driver.assert_called_once_with()
+            mock_cleanup.assert_called_once_with()
     
     @patch('gov.nadlan.scraper_selenium.NadlanDealsScraper.get_deals_by_address')
     def test_get_deals_by_address_success(self, mock_get_deals):

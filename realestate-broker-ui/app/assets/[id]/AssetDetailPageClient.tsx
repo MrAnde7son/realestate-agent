@@ -3081,7 +3081,7 @@ useDedupedEffect(() => {
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    אנחנו מפעילים את צינור הנתונים עבורך. המידע יתעדכן אוטומטית ברגע שהתהליך יסתיים.
+                    אנחנו מפעילים את איסוף הנתונים עבורך. המידע יתעדכן אוטומטית ברגע שהתהליך יסתיים.
                   </p>
                 </div>
               </CardBody>

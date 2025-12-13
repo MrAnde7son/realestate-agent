@@ -2771,8 +2771,6 @@ useDedupedEffect(() => {
       asset.price ??
       asset?.price_value ??
       asset?.priceValue ??
-      asset?.modelPrice ??
-      asset?.model_price ??
       null
   )
   const listingPriceDisplay = listingPriceValue !== null ? formatCurrency(listingPriceValue) : null

@@ -10,8 +10,14 @@ from django.utils import timezone
 from PyPDF2 import PdfReader
 
 from core import views
-from core.models import Report, Asset, Document, RealEstateTransaction
-from core.constants import DEFAULT_REPORT_SECTIONS, SECTION_TITLES_HE
+from core.models import (
+    Report,
+    Asset,
+    Document,
+    RealEstateTransaction,
+    AssetTransaction,
+)
+from core.constants import DEFAULT_REPORT_SECTIONS
 
 class HebrewPDFGenerationTest(TestCase):
     def setUp(self):
@@ -98,7 +104,7 @@ class HebrewPDFGenerationTest(TestCase):
         )
 
         # Supporting data for comparables section
-        RealEstateTransaction.objects.create(
+        tx1 = RealEstateTransaction.objects.create(
             asset=self.asset,
             deal_id="TX-1",
             date=timezone.now(),
@@ -107,7 +113,7 @@ class HebrewPDFGenerationTest(TestCase):
             area=90,
             address="הרצל 121, תל אביב",
         )
-        RealEstateTransaction.objects.create(
+        tx2 = RealEstateTransaction.objects.create(
             asset=self.asset,
             deal_id="TX-2",
             date=timezone.now(),
@@ -116,6 +122,8 @@ class HebrewPDFGenerationTest(TestCase):
             area=100,
             address="הרצל 130, תל אביב",
         )
+        AssetTransaction.objects.get_or_create(asset=self.asset, transaction=tx1)
+        AssetTransaction.objects.get_or_create(asset=self.asset, transaction=tx2)
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)

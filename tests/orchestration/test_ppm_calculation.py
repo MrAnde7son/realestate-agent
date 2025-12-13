@@ -31,9 +31,9 @@ class TestPPMModelPriceCalculation:
         
         # Mock Yad2 listings
         listings = [
-            {'price': 2000000, 'area': 80, 'address': 'Street 1'},
-            {'price': 2500000, 'area': 100, 'address': 'Street 2'},
-            {'price': 3000000, 'area': 120, 'address': 'Street 3'},
+            {'price': 2000000, 'area': 80, 'total_size': 100, 'address': 'Street 1'},
+            {'price': 2500000, 'area': 90, 'total_size': 120, 'address': 'Street 2'},
+            {'price': 3000000, 'area': 110, 'total_size': 140, 'address': 'Street 3'},
         ]
         
         # Mock gov_data (no transactions)
@@ -48,13 +48,43 @@ class TestPPMModelPriceCalculation:
         assert hasattr(asset, 'max_price_per_sqm')
         assert hasattr(asset, 'model_price')
 
-        # Expected PPM values: 2000000/80=25000, 2500000/100=25000, 3000000/120=25000
-        # Average PPM = 25000
-        # Model price = 25000 * 100 = 2,500,000
-        assert asset.avg_price_per_sqm == 25000.0
-        assert asset.min_price_per_sqm == 25000.0
-        assert asset.max_price_per_sqm == 25000.0
-        assert asset.model_price == 2500000
+        # Expected PPM values use total_size: 2000000/100=20000, 2500000/120≈20833.33, 3000000/140≈21428.57
+        # Weighted average PPM ≈ 20753.97
+        # Model price ≈ median([20000, 20833.33, 21428.57] * 100) = 2,083,333
+        assert asset.avg_price_per_sqm == pytest.approx(20753.97, rel=1e-2)
+        assert asset.min_price_per_sqm == pytest.approx(20000.0, rel=1e-2)
+        assert asset.max_price_per_sqm == pytest.approx(21428.57, rel=1e-2)
+        assert asset.model_price == 2083333
+
+    def test_ppm_prefers_total_area_metadata(self):
+        """Ensure PPM uses total/gross area from listing metadata when available."""
+        asset = Mock()
+        asset.total_area = 120
+        asset.area = 100
+        asset.price = None
+        asset.is_commercial = False
+        asset.meta = {}
+        asset.save = Mock()
+        asset.avg_price_per_sqm = None
+        asset.min_price_per_sqm = None
+        asset.max_price_per_sqm = None
+        asset.model_price = None
+
+        listings = [
+            {'price': 2400000, 'area': 90, 'meta': {'total_size': 120}},
+            {'price': 3000000, 'size': 95, 'meta': {'totalSqm': 130}},
+        ]
+
+        gov_data = {'transactions': []}
+
+        _calculate_market_metrics(asset, listings, gov_data)
+
+        expected_avg_ppm = (2400000 / 120 + 3000000 / 130) / 2
+        assert asset.avg_price_per_sqm == pytest.approx(expected_avg_ppm, rel=1e-2)
+        assert asset.min_price_per_sqm == pytest.approx(20000.0, rel=1e-2)
+        assert asset.max_price_per_sqm == pytest.approx(23076.92, rel=1e-2)
+        expected_base_value = median([(2400000 / 120) * 120, (3000000 / 130) * 120])
+        assert asset.model_price == int(expected_base_value * 0.96)
 
     def test_calculate_ppm_from_nadlan_transactions(self):
         """Test PPM calculation from Nadlan transactions."""

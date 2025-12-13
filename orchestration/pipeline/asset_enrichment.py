@@ -38,6 +38,7 @@ from orchestration.planning_legal_analyzer import (
     calculate_planning_legal_analysis,
     apply_planning_legal_analysis_to_asset,
 )
+from orchestration.pipeline.sea_distance import SeaDistanceCalculator
 
 
 logger = logging.getLogger(__name__)
@@ -398,6 +399,41 @@ def _build_feature_vector(asset: Any) -> FeatureVector:
         proximity_factor=_proximity_adjustment(asset),
         noise_factor=_noise_adjustment(asset),
         floor_factor=_floor_adjustment(asset),
+    )
+
+
+SEA_DISTANCE_CALCULATOR = SeaDistanceCalculator()
+
+
+def _update_distance_to_sea(asset: Any, gis_data: Dict[str, Any], calculator: SeaDistanceCalculator | None = None) -> None:
+    """Compute and store the distance from the asset to the sea.
+
+    The calculation uses ITM coordinates when available for higher accuracy and
+    falls back to WGS84 coordinates already stored on the asset. Results are
+    stored in both the metadata (for pricing adjustments) and as a rich
+    property for downstream consumers.
+    """
+
+    distance_calculator = calculator or SEA_DISTANCE_CALCULATOR
+    distance = distance_calculator.distance_to_sea_meters(
+        lat=getattr(asset, "lat", None),
+        lon=getattr(asset, "lon", None),
+        x_itm=gis_data.get("x"),
+        y_itm=gis_data.get("y"),
+    )
+
+    if distance is None:
+        return
+
+    if not getattr(asset, "meta", None):
+        asset.meta = {}
+
+    asset.meta["distance_to_beach_m"] = distance
+    asset.set_property(
+        "distanceToSeaM",
+        distance,
+        source="GIS (calculated)",
+        url="https://www.govmap.gov.il/",
     )
 
 
@@ -898,10 +934,13 @@ def _process_gis_data(asset, gis_data):
     # Store summary coordinates if available
     if gis_data.get('x') and gis_data.get('y'):
         asset.set_property('gisCoordinates', {'x': gis_data.get('x'), 'y': gis_data.get('y')}, source='GIS', url='https://www.govmap.gov.il/')
-    
+
     if gis_data.get('city'):
         asset.set_property('city', gis_data.get('city'), source='GIS', url='https://www.govmap.gov.il/')
-    
+
+    # Distance to sea for proximity and valuation adjustments
+    _update_distance_to_sea(asset, gis_data)
+
     # Noise levels
     if gis_data.get('noise'):
         noise_levels = gis_data.get('noise', [])

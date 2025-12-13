@@ -73,7 +73,7 @@ const translateSource = (source: string) => {
     'meta_migration': 'העברה מנתונים קיימים',
     'yad2': 'יד2',
     'nadlan': 'נדלן',
-    'pipeline': 'צינור נתונים',
+    'pipeline': 'איסוף נתונים',
     'external': 'מקור חיצוני',
     'unknown': 'מקומי',
   }

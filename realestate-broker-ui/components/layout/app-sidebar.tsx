@@ -253,7 +253,7 @@ export default function AppSidebar({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              className="w-56 bg-background border shadow-lg"
+              className="w-56 bg-background shadow-lg"
               align={isCollapsed ? "center" : "end"}
               side={isCollapsed ? "right" : "top"}
               forceMount

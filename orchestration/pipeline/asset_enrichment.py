@@ -528,9 +528,7 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
                 asset.lon = lon_wgs84_gis
                 logger.debug("Asset %s coordinates converted from GIS ITM -> WGS84", asset_id)
             except Exception:
-                logger.exception("Failed to convert GIS coordinates for asset %s; storing raw ITM", asset_id)
-                asset.lat = gis_data.get('x')
-                asset.lon = gis_data.get('y')
+                logger.exception("Failed to convert GIS coordinates for asset %s (ITM x=%.2f, y=%.2f); skipping invalid coordinate assignment", asset_id, gis_data.get('x'), gis_data.get('y'))
         # Update street/city from GovMap addresses first (broader coverage)
         if govmap_data.get('addresses') and not getattr(asset, 'street', None):
             addresses = govmap_data.get('addresses', [])

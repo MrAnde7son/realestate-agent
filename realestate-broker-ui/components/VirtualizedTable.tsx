@@ -336,7 +336,7 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
                       <span className="sm:hidden">עמודות</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100] bg-background border shadow-lg">
+                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100] bg-background shadow-lg">
                     {table.getAllColumns()
                       .filter(column => column.getCanHide())
                       .map(column => (

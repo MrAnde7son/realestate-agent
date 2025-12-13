@@ -1,18 +1,13 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import {
-  ChevronDown,
   Building,
   Handshake,
   AlertCircle,
-  Calculator,
-  FileText,
   BarChart3,
   LineChart,
   User,
-  CreditCard,
   Settings,
   LogOut,
   LogIn,
@@ -22,7 +17,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -146,15 +140,6 @@ export default function AppSidebar({
         className
       )}
     >
-      {/* Logo */}
-      <div className="flex h-14 flex-shrink-0 items-center border-b px-4">
-        <Link href="/assets" className="flex items-center gap-3">
-          <Logo variant="symbol" size={28} color="var(--brand-teal)" />
-          {!isCollapsed && (
-            <span className="text-lg font-bold text-logo-title">נדל״נר</span>
-          )}
-        </Link>
-      </div>
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-3">

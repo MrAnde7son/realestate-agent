@@ -90,6 +90,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { authAPI } from '@/lib/auth'
+import { trackEvent } from '@/lib/analytics'
 
 type TimelineEvent = {
   id: string
@@ -668,6 +669,12 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
         setEditClosingDate(closingDate ? closingDate.split('T')[0] : '')
       }
       setIsEditDealDialogOpen(false)
+      
+      // Track deal status update
+      trackEvent('update_deal_status', {
+        deal_id: dealId,
+        new_status: editStage,
+      })
     } catch (error) {
       console.error('Failed to update deal:', error)
       alert(error instanceof Error ? error.message : 'עדכון העסקה נכשל')

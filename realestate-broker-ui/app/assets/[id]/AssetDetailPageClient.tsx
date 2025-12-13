@@ -38,6 +38,7 @@ import { authAPI } from '@/lib/auth'
 import { useToast } from '@/hooks/use-toast'
 import { parseShareMessageResponse } from './shareMessage'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
+import { trackEvent } from '@/lib/analytics'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
 import PlansTable from '@/components/PlansTable'
@@ -1762,6 +1763,15 @@ useDedupedEffect(() => {
         if (controller.signal.aborted) return
         const assetData = response.data?.asset || response.data
         setAsset(assetData)
+        
+        // Track asset detail view
+        if (assetData) {
+          trackEvent('view_asset_details', {
+            asset_id: assetData.id || id,
+            asset_name: assetData.address || assetData.normalizedAddress || undefined,
+            asset_value: assetData.price || assetData.modelPrice || undefined,
+          })
+        }
       } catch (err) {
         if (isAbortError(err) || controller.signal.aborted) {
           return

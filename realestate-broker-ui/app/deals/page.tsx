@@ -33,6 +33,7 @@ import {
   isActiveStage,
 } from '@/lib/deals/types'
 import { cn } from '@/lib/utils'
+import { trackEvent } from '@/lib/analytics'
 import { Handshake, PlusCircle, RefreshCw, Search, Loader2, MapPin, Users2 } from 'lucide-react'
 
 const currencyFormatter = new Intl.NumberFormat('he-IL', {
@@ -353,6 +354,13 @@ export default function DealsPage() {
     }
     setIsSubmitting(false)
     setIsCreateOpen(false)
+    
+    // Track deal creation
+    trackEvent('start_deal', {
+      asset_id: selectedAsset.id,
+      projected_value: selectedAsset.price || undefined,
+    })
+    
     setSelectedAsset(null)
     setAssetSearch('')
     setAssetResults([])

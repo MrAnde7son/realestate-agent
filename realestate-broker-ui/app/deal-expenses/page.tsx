@@ -23,6 +23,7 @@ import { calculateServiceCosts, type ServiceInput, type BuildCostEstimate, type 
 import type { Asset } from '@/lib/normalizers/asset'
 import { useSearchParams } from 'next/navigation'
 import { StickyActionBar } from '@/components/layout/sticky-action-bar'
+import { trackEvent } from '@/lib/analytics'
 
 type PropertyType = 'residential' | 'land'
 import {
@@ -653,7 +654,16 @@ export default function DealExpensesPage() {
     }
     setResult(result)
 
-    // Tracking removed - incomplete implementation
+    // Track deal expense calculation
+    // Note: This tracks calculation, not adding to a deal. If expenses are saved to a deal elsewhere, 
+    // add tracking there with 'calculate_deal_expense' event
+    const expenseCategories = serviceBreakdown.map(s => s.label)
+    const totalExpenseAmount = serviceTotal + constructionCost
+    trackEvent('calculate_deal_expense', {
+      deal_id: selectedAsset?.id || undefined,
+      expense_category: expenseCategories.join(', ') || 'calculation',
+      amount: totalExpenseAmount,
+    })
   }
 
   function exportToCSV() {

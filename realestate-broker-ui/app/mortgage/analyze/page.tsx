@@ -26,7 +26,7 @@ import {
 } from '@/lib/mortgage'
 import { Loader2, Calculator, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Settings, ChevronLeft } from 'lucide-react'
 import { useOptionalAuth } from '@/lib/auth-context'
-import { StickyActionBar } from '@/components/layout/sticky-action-bar'
+import { trackEvent } from '@/lib/analytics'
 interface UITranche extends TrancheInput {
   id: string
 }
@@ -849,6 +849,21 @@ export default function MortgageAnalyzePage() {
       ...envConfig,
       monthlyIncome: numericMonthlyIncome,
       tranches: tranches.map(({ id, ...tranche }) => tranche)
+    })
+
+    // Track mortgage calculation
+    const totalLoanAmount = tranches.reduce((sum, tranche) => sum + tranche.amount, 0)
+    const avgInterestRate = tranches.length > 0
+      ? tranches.reduce((sum, t) => sum + (t.anchorAnnual + t.marginAnnual), 0) / tranches.length
+      : 0
+    const maxTermYears = tranches.length > 0
+      ? Math.max(...tranches.map(t => t.termMonths / 12))
+      : 0
+
+    trackEvent('calculate_mortgage', {
+      loan_amount: totalLoanAmount,
+      interest_rate: avgInterestRate,
+      term_years: maxTermYears,
     })
 
     setCalculating(false)

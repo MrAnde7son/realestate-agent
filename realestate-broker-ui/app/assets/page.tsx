@@ -63,6 +63,7 @@ import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { getUserFriendlyError } from "@/lib/error-utils";
+import { trackEvent } from "@/lib/analytics";
 
 const DEFAULT_RADIUS_METERS = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -1672,6 +1673,13 @@ export default function AssetsPage() {
 
         setAssets(rows);
 
+        // Track asset list view
+        const category = typeFilter !== "all" ? typeFilter : undefined;
+        trackEvent("view_asset_list", {
+          category: category || "all",
+          total_count: total,
+        });
+
         if (paginationInfo) {
           setPagination(prev => {
             if (prev.pageIndex === adjustedPageIndex && prev.pageSize === pageSizeFromApi) {
@@ -2347,6 +2355,13 @@ export default function AssetsPage() {
       if (response.ok) {
         const createdAsset = response.data?.asset || response.data;
         const newAssetId = createdAsset?.id ?? createdAsset?.assetId;
+
+        // Track asset creation
+        const assetType = data.locationType === "address" ? "address" : "parcel";
+        trackEvent("create_asset", {
+          asset_type: assetType,
+          city: data.city || undefined,
+        });
 
         form.reset();
         setOpen(false);

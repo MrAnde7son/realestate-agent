@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { PageLoader } from '@/components/ui/page-loader'
+import { trackEvent } from '@/lib/analytics'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react'
@@ -48,6 +49,13 @@ export default function GoogleCallbackPage() {
 
         // Refresh user profile to update auth context
         await refreshUser()
+
+        // Track Google login completion
+        // Note: We track this as 'login' with method='google' to maintain funnel consistency
+        // For new users, this will be their first login (which is effectively registration)
+        trackEvent('login', {
+          method: 'google',
+        })
 
         setStatus('success')
 

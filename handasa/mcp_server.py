@@ -19,8 +19,7 @@ if PROJECT_ROOT not in sys.path:
 from handasa.client import HandasaClient
 
 mcp = FastMCP(
-    "HandasaTelAviv",
-    dependencies=["requests"],
+    "HandasaTelAviv"
 )
 
 _client: Optional[HandasaClient] = None

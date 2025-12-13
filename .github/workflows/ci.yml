@@ -116,12 +116,6 @@ jobs:
           # Install additional test dependencies that might be missing
           pip install responses pytest-mock pytest-asyncio
 
-      - name: Install Playwright Browsers
-        if: steps.changes.outputs.python == 'true'
-        run: |
-          playwright install chromium
-          playwright install-deps chromium
-
       - name: Run Python Tests
         if: steps.changes.outputs.root_python == 'true'
         env:

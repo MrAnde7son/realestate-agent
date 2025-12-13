@@ -54,6 +54,13 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --condition=None \
     --quiet || echo "  ✓ Cloud Run Admin (may already be granted)"
 
+# Grant Cloud Run Invoker role (needed when deploying with --allow-unauthenticated)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${CLOUD_BUILD_SA}" \
+    --role="roles/run.invoker" \
+    --condition=None \
+    --quiet || echo "  ✓ Cloud Run Invoker (may already be granted)"
+
 # Grant Service Account User role
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:${CLOUD_BUILD_SA}" \

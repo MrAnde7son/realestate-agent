@@ -55,6 +55,7 @@ When you push code to GitHub, Cloud Build will:
 6. **Service Account Permissions**
    - The default Cloud Build service account needs these roles:
      - `Cloud Run Admin` (to deploy services)
+     - `Cloud Run Invoker` (needed when using `--allow-unauthenticated` so IAM policy binding succeeds)
      - `Service Account User` (to use Cloud Run service accounts)
      - `Artifact Registry Writer` (to push images)
 
@@ -67,14 +68,27 @@ When you push code to GitHub, Cloud Build will:
    gcloud projects add-iam-policy-binding $PROJECT_ID \
      --member="serviceAccount:${CLOUD_BUILD_SA}" \
      --role="roles/run.admin"
-   
+
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:${CLOUD_BUILD_SA}" \
+     --role="roles/run.invoker"
+
    gcloud projects add-iam-policy-binding $PROJECT_ID \
      --member="serviceAccount:${CLOUD_BUILD_SA}" \
      --role="roles/iam.serviceAccountUser"
-   
+
    gcloud projects add-iam-policy-binding $PROJECT_ID \
      --member="serviceAccount:${CLOUD_BUILD_SA}" \
      --role="roles/artifactregistry.writer"
+   ```
+
+   If Cloud Build still fails to mark the service public because it cannot set the IAM policy, run:
+
+   ```bash
+   gcloud run services add-iam-policy-binding nadlaner-api \
+     --region=me-west1 \
+     --member=allUsers \
+     --role=roles/run.invoker
    ```
 
 ### Option B: Using gcloud CLI

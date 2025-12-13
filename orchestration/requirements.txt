@@ -6,6 +6,7 @@ apscheduler>=3.9.0
 
 # Monitoring
 prometheus-client>=0.16.0
+opentelemetry-api>=1.17.0
 opentelemetry-sdk>=1.17.0
 opentelemetry-exporter-otlp>=1.17.0
 

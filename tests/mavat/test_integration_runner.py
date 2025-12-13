@@ -8,8 +8,26 @@ Usage:
     python tests/mavat/test_integration_runner.py
 """
 
-import sys
 import os
+import sys
+from typing import Mapping
+
+import pytest
+
+
+def playwright_tests_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Return True when Playwright integration tests should run."""
+
+    env = env or os.environ
+    return env.get("RUN_PLAYWRIGHT_TESTS", "").lower() in {"1", "true", "yes"}
+
+
+pytestmark = pytest.mark.skipif(
+    not playwright_tests_enabled(),
+    reason="Playwright integration tests are disabled by default; set RUN_PLAYWRIGHT_TESTS=1 to enable.",
+)
+
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 def test_mavat_scraper_integration():

@@ -1708,6 +1708,7 @@ export default function AssetsPage() {
     pagination.pageSize,
     sorting,
     buildFilterParams,
+    typeFilter,
   ]);
 
   // Reset to first page when sorting changes

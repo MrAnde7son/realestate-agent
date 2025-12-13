@@ -1,5 +1,5 @@
 # Mavat MCP Server Dependencies
-fastmcp>=0.1.0
+fastmcp>=2.14.0
 requests>=2.25.0
 pytest>=7.0.0
 pytest-asyncio>=0.21.0

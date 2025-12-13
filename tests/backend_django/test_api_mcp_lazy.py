@@ -23,8 +23,8 @@ def test_get_mcp_is_lazy_and_registers_once(monkeypatch):
     tool_registrations = []
 
     class DummyFastMCP:
-        def __init__(self, name, instructions=None):
-            created_instances.append((name, instructions))
+        def __init__(self, name, instructions=None, dependencies=None):
+            created_instances.append((name, instructions, dependencies))
             self._tool_manager = SimpleNamespace(_tools={})
 
         def tool(self, description=None):  # noqa: D401 - simple wrapper
@@ -50,7 +50,7 @@ def test_get_mcp_is_lazy_and_registers_once(monkeypatch):
     mcp_instance = server.get_mcp()
 
     assert isinstance(mcp_instance, DummyFastMCP)
-    assert created_instances == [("RealEstateAPI", "Real-estate API tools.")]
+    assert created_instances == [("RealEstateAPI", "Real-estate API tools.", ["requests"])]
     assert server._tools_registered is True
     first_tool_count = len(mcp_instance._tool_manager._tools)
     assert first_tool_count > 0

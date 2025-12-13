@@ -80,14 +80,30 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Create an MCP server
-mcp = FastMCP("RealEstateAPI", instructions="Real-estate API tools.", dependencies=["requests"])
-
 # Module-level state
+_mcp: Optional[FastMCP] = None
+_tools_registered: bool = False
 _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
 
 logger = logging.getLogger(__name__)
+
+
+def get_mcp() -> FastMCP:
+    """Lazily create the FastMCP server instance.
+
+    Delays FastMCP construction until the server is actually needed, so Django
+    management commands like migrations don't fail due to FastMCP import-time
+    issues.
+    """
+    global _mcp
+    if _mcp is None:
+        _mcp = FastMCP("RealEstateAPI", instructions="Real-estate API tools.")
+
+    if not _tools_registered:
+        _register_all_tools(_mcp)
+
+    return _mcp
 
 
 def _assign_to_module(**kwargs):
@@ -426,9 +442,11 @@ def _make_request(
 # ASSETS TOOLS
 # ============================================================================
 
-def register_assets_tools():
+def register_assets_tools(mcp_instance: Optional[FastMCP] = None):
     """Register asset-related tools."""
-    
+
+    mcp = mcp_instance or get_mcp()
+
     @mcp.tool(description="List assets (filters + pagination).")
     async def list_assets(
         ctx: Context,
@@ -736,9 +754,11 @@ def register_assets_tools():
 # DEAL MANAGEMENT TOOLS
 # ============================================================================
 
-def register_deals_tools():
+def register_deals_tools(mcp_instance: Optional[FastMCP] = None):
     """Register deal-related tools."""
-    
+
+    mcp = mcp_instance or get_mcp()
+
     @mcp.tool(description="List deals.")
     async def list_deals(
         ctx: Context,
@@ -863,9 +883,11 @@ def register_deals_tools():
 # EXPENSE CALCULATION TOOLS
 # ============================================================================
 
-def register_cost_tools():
+def register_cost_tools(mcp_instance: Optional[FastMCP] = None):
     """Register cost calculation tools."""
-    
+
+    mcp = mcp_instance or get_mcp()
+
     @mcp.tool(description="Estimate build cost.")
     async def estimate_build_cost(
         ctx: Context,
@@ -990,9 +1012,11 @@ def register_cost_tools():
 # MORTGAGE CALCULATION TOOLS
 # ============================================================================
 
-def register_mortgage_tools():
+def register_mortgage_tools(mcp_instance: Optional[FastMCP] = None):
     """Register mortgage calculation tools."""
-    
+
+    mcp = mcp_instance or get_mcp()
+
     @mcp.tool(description="Analyze mortgage.")
     async def analyze_mortgage(
         ctx: Context,
@@ -1027,9 +1051,11 @@ def register_mortgage_tools():
 # CRM TOOLS
 # ============================================================================
 
-def register_crm_tools():
+def register_crm_tools(mcp_instance: Optional[FastMCP] = None):
     """Register CRM-related tools."""
-    
+
+    mcp = mcp_instance or get_mcp()
+
     @mcp.tool(description="List contacts.")
     async def list_contacts(
         ctx: Context,
@@ -1351,8 +1377,11 @@ def register_crm_tools():
 # EXTERNAL MCP TOOLS REGISTRATION
 # ============================================================================
 
-def register_yad2_tools():
+def register_yad2_tools(mcp_instance: Optional[FastMCP] = None):
     """Register Yad2 real estate search tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from yad2.mcp_server import (
             fetch_listings as _yad2_fetch_listings,
@@ -1489,8 +1518,11 @@ def register_yad2_tools():
         logger.warning(f"Failed to register Yad2 tools: {e}")
 
 
-def register_mavat_tools():
+def register_mavat_tools(mcp_instance: Optional[FastMCP] = None):
     """Register Mavat planning information tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from mavat.mcp_server import (
             search_plans as _mavat_search_plans,
@@ -1530,8 +1562,11 @@ def register_mavat_tools():
         logger.warning(f"Failed to register Mavat tools: {e}")
 
 
-def register_govmap_tools():
+def register_govmap_tools(mcp_instance: Optional[FastMCP] = None):
     """Register GovMap tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from govmap.mcp_server import (
             autocomplete as _govmap_autocomplete,
@@ -1605,8 +1640,11 @@ def register_govmap_tools():
         logger.warning(f"Failed to register GovMap tools: {e}")
 
 
-def register_gov_tools():
+def register_gov_tools(mcp_instance: Optional[FastMCP] = None):
     """Register Gov (DataGovIL) tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from gov.mcp_server import (
             decisive_appraisal as _gov_decisive_appraisal,
@@ -1659,8 +1697,11 @@ def register_gov_tools():
         logger.warning(f"Failed to register Gov tools: {e}")
 
 
-def register_madlan_tools():
+def register_madlan_tools(mcp_instance: Optional[FastMCP] = None):
     """Register Madlan real estate search tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from madlan.mcp_server import (
             get_addresses as _madlan_get_addresses,
@@ -1716,8 +1757,11 @@ def register_madlan_tools():
         logger.warning(f"Failed to register Madlan tools: {e}")
 
 
-def register_gis_tools():
+def register_gis_tools(mcp_instance: Optional[FastMCP] = None):
     """Register GIS (Tel Aviv) tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from gis.mcp_server import (
             geocode_address as _gis_geocode_address,
@@ -1956,8 +2000,11 @@ def register_gis_tools():
         logger.warning(f"Failed to register GIS tools: {e}")
 
 
-def register_handasa_tools():
+def register_handasa_tools(mcp_instance: Optional[FastMCP] = None):
     """Register Handasa tools."""
+
+    mcp = mcp_instance or get_mcp()
+
     try:
         from handasa.mcp_server import (
             handasa_archive as _handasa_handasa_archive,
@@ -1992,9 +2039,11 @@ def register_handasa_tools():
 # FILE READING TOOLS
 # ============================================================================
 
-def register_file_reading_tools():
+def register_file_reading_tools(mcp_instance: Optional[FastMCP] = None):
     """Register file reading tools for permits, zchuyot, tabu, etc."""
-    
+
+    mcp = mcp_instance or get_mcp()
+
     @mcp.tool(description="Read a file (PDF, image, or text) from the filesystem. Read-only, for uploads/data pipeline only. Supports permits, zchuyot, tabu documents, etc.")
     async def read_file(
         ctx: Context,
@@ -2253,28 +2302,48 @@ def register_file_reading_tools():
 # TOOL REGISTRATION
 # ============================================================================
 
-# Register core tools by default (assets, deals, cost, mortgage, CRM, file reading)
-register_assets_tools()
-register_deals_tools()
-register_cost_tools()
-register_mortgage_tools()
-register_crm_tools()
-register_file_reading_tools()
 
-# Register external MCP tools (optional - can be enabled via environment variable)
-# Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable all external tools
-if os.getenv("ENABLE_EXTERNAL_MCP_TOOLS", "false").lower() == "true":
-    register_yad2_tools()
-    register_mavat_tools()
-    register_govmap_tools()
-    register_gov_tools()
-    register_madlan_tools()
-    register_gis_tools()
-    register_handasa_tools()
-    logger.info("All external MCP tools registered")
-else:
-    logger.info("External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable.")
+def _register_all_tools(mcp_instance: Optional[FastMCP] = None) -> None:
+    """Register core and optional MCP tools once."""
+
+    global _tools_registered
+    if _tools_registered:
+        return
+
+    mcp_instance = mcp_instance or get_mcp()
+
+    # Register core tools by default (assets, deals, cost, mortgage, CRM, file reading)
+    register_assets_tools(mcp_instance)
+    register_deals_tools(mcp_instance)
+    register_cost_tools(mcp_instance)
+    register_mortgage_tools(mcp_instance)
+    register_crm_tools(mcp_instance)
+    register_file_reading_tools(mcp_instance)
+
+    # Register external MCP tools (optional - can be enabled via environment variable)
+    # Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable all external tools
+    if os.getenv("ENABLE_EXTERNAL_MCP_TOOLS", "false").lower() == "true":
+        register_yad2_tools(mcp_instance)
+        register_mavat_tools(mcp_instance)
+        register_govmap_tools(mcp_instance)
+        register_gov_tools(mcp_instance)
+        register_madlan_tools(mcp_instance)
+        register_gis_tools(mcp_instance)
+        register_handasa_tools(mcp_instance)
+        logger.info("All external MCP tools registered")
+    else:
+        logger.info("External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable.")
+
+    _tools_registered = True
+
+
+def register_all_tools(mcp_instance: Optional[FastMCP] = None) -> FastMCP:
+    """Public helper to initialize MCP and register all tools explicitly."""
+
+    mcp_instance = mcp_instance or get_mcp()
+    _register_all_tools(mcp_instance)
+    return mcp_instance
 
 
 if __name__ == "__main__":
-    mcp.run()
+    get_mcp().run()

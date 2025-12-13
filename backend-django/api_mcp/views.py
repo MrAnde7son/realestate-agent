@@ -12,7 +12,7 @@ from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .server import mcp
+from .server import get_mcp
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,8 @@ def _get_mcp_tools_list():
     Returns a list of tools formatted according to MCP protocol specification.
     """
     try:
+        mcp = get_mcp()
+
         # Use the tool manager to get tools directly
         if hasattr(mcp, '_tool_manager'):
             tool_manager = mcp._tool_manager

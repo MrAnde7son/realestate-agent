@@ -11,9 +11,11 @@ django_asgi_app = get_asgi_application()
 
 # Try to mount FastMCP HTTP transport if available
 try:
-    from api_mcp.server import mcp
-    
+    from api_mcp.server import get_mcp
+
     # Check if FastMCP supports http_app method
+    mcp = get_mcp()
+
     if hasattr(mcp, 'http_app'):
         import logging
         logger = logging.getLogger(__name__)

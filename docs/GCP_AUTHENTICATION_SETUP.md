@@ -24,7 +24,7 @@ brew install google-cloud-sdk
 gcloud auth login
 
 # Set your project
-gcloud config set project my-project-1506156422083
+gcloud config set project nadlaner-production
 
 # Enable Application Default Credentials
 gcloud auth application-default login

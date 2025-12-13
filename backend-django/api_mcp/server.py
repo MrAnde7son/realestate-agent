@@ -73,8 +73,10 @@ import logging
 import os
 from typing import TYPE_CHECKING, Literal, Optional, Dict, Any, List
 
+from fastmcp import Context
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 # Add project root to path for imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

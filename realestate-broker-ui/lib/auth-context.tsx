@@ -1,9 +1,9 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, authAPI, LoginCredentials, RegisterCredentials, ProfileUpdateData } from './auth'
-import { validateTokens } from './token-utils'
+import { trackEvent } from './analytics'
 
 interface AuthContextType {
   user: User | null
@@ -123,6 +123,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
       
+      // Track login event
+      trackEvent('login', {
+        method: 'email',
+        user_id: response.user?.id,
+      })
+      
       // Use window.location for navigation after login to ensure cookies are sent with the request
       // This is necessary because client-side navigation (router.push) may not send cookies
       // to the middleware immediately after they're set
@@ -164,6 +170,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Refresh user profile to ensure we have complete data including onboarding_flags
       // Skip loading update since we're managing it in this function
       await refreshUser(true)
+      
+      // Track registration event
+      trackEvent('register', {
+        method: 'email',
+        user_id: response.user?.id,
+      })
       
       // Use window.location for navigation after registration to ensure cookies are sent with the request
       // This is necessary because client-side navigation (router.push) may not send cookies

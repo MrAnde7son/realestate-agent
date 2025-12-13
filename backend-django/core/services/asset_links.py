@@ -15,7 +15,7 @@ def asset_transactions_all(asset):
     from ..models import RealEstateTransaction
 
     return RealEstateTransaction.objects.filter(
-        Q(asset=asset) | Q(assets=asset)
+        assets=asset
     ).distinct()
 
 

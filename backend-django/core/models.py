@@ -1078,10 +1078,6 @@ class RealEstateTransaction(models.Model):
         return f"Transaction({self.deal_id}, {self.price})"
 
     def all_assets(self):
-        if getattr(self, "asset_id", None):
-            return Asset.objects.filter(
-                Q(pk=self.asset_id) | Q(transaction_links__transaction=self)
-            ).distinct()
         return Asset.objects.filter(transaction_links__transaction=self).distinct()
 
 
@@ -1849,7 +1845,12 @@ class AssetTransaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('transaction', 'asset')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['transaction', 'asset'],
+                name='unique_transaction_asset_link',
+            )
+        ]
         indexes = [models.Index(fields=['asset']), models.Index(fields=['transaction'])]
 
 

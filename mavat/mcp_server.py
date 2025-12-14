@@ -30,7 +30,7 @@ if project_root not in sys.path:
 from mavat.mavat_api_client import MavatAPIClient, MavatPlan, MavatSearchHit
 
 # Create an MCP server
-mcp = FastMCP("MavatPlanning")
+mcp = FastMCP("MavatPlanning", dependencies=["requests"])
 
 # Module-level state (persists across tool calls within the same server process)
 _current_client = None

@@ -20,7 +20,11 @@ from govmap.api_client import GovMapClient, DealType, itm_to_wgs84, wgs84_to_itm
 
 # Create an MCP server
 mcp = FastMCP(
-    "GovMap"
+    "GovMap",
+    dependencies=[
+        "requests",
+        "pyproj",
+    ],
 )
 
 # Persistent client for this server process

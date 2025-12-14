@@ -32,7 +32,7 @@ from madlan.api_client import MadlanAPIClient, DealType
 from yad2.core.models import RealEstateListing
 
 # Create an MCP server
-mcp = FastMCP("MadlanRealEstate")
+mcp = FastMCP("MadlanRealEstate", dependencies=["requests"])
 
 # Module-level state (persists across tool calls within the same server process)
 _current_client: Optional[MadlanAPIClient] = None

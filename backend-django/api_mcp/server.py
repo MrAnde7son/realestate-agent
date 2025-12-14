@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import annotations
-
 """
 Real Estate API FastMCP Server
 
@@ -73,63 +71,23 @@ import sys
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Literal, Optional, Dict, Any, List
+from typing import Literal, Optional, Dict, Any, List
 
-try:
-    # FastMCP API differs between versions; try common locations
-    from fastmcp import Context  # type: ignore
-except Exception:
-    try:
-        from fastmcp.server import Context  # type: ignore
-    except Exception:
-        # Keep module importable even if Context isn't available
-        Context = Any  # type: ignore
-
-if TYPE_CHECKING:
-    from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 # Add project root to path for imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Create an MCP server
+mcp = FastMCP("RealEstateAPI", instructions="Real-estate API tools.", dependencies=["requests"])
+
 # Module-level state
-_mcp: Optional["FastMCP"] = None
-_tools_registered: bool = False
 _api_base_url: Optional[str] = None
 _api_token: Optional[str] = None
 
 logger = logging.getLogger(__name__)
-
-
-def get_mcp() -> "FastMCP":
-    """Lazily create the FastMCP server instance.
-
-    Delays FastMCP construction until the server is actually needed, so Django
-    management commands like migrations don't fail due to FastMCP import-time
-    issues.
-    """
-    global _mcp
-    if _mcp is None:
-        from fastmcp import FastMCP
-
-        try:
-            _mcp = FastMCP(
-                name="RealEstateAPI",
-                instructions="Real-estate API tools.",
-                dependencies=["requests"],
-            )
-        except TypeError:
-            logger.warning("FastMCP version does not support dependency metadata; continuing without it")
-            _mcp = FastMCP(
-                name="RealEstateAPI",
-                instructions="Real-estate API tools.",
-            )
-
-    if not _tools_registered:
-        _register_all_tools(_mcp)
-
-    return _mcp
 
 
 def _assign_to_module(**kwargs):
@@ -373,7 +331,7 @@ def _get_api_token() -> Optional[str]:
     return _api_token
 
 
-def _get_user_profile(ctx: "Context") -> Optional[Dict[str, Any]]:
+def _get_user_profile(ctx: Context) -> Optional[Dict[str, Any]]:
     """Get the current user's profile from the API."""
     try:
         result = _make_request(ctx, "GET", "/auth/profile")
@@ -385,7 +343,7 @@ def _get_user_profile(ctx: "Context") -> Optional[Dict[str, Any]]:
 
 
 def _make_request(
-    ctx: "Context",
+    ctx: Context,
     method: str,
     endpoint: str,
     data: Optional[Dict[str, Any]] = None,
@@ -468,14 +426,12 @@ def _make_request(
 # ASSETS TOOLS
 # ============================================================================
 
-def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_assets_tools():
     """Register asset-related tools."""
-
-    mcp = mcp_instance or get_mcp()
-
+    
     @mcp.tool(description="List assets (filters + pagination).")
     async def list_assets(
-        ctx: "Context",
+        ctx: Context,
         city: Optional[str] = None,
         neighborhood: Optional[str] = None,
         max_price: Optional[int | str] = None,
@@ -571,7 +527,7 @@ def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get available filter options (cities, types, neighborhoods, etc.) from the API.")
     async def get_asset_filters(
-        ctx: "Context",
+        ctx: Context,
     ) -> Dict[str, Any]:
         """Get available filter options including cities, property types, neighborhoods, etc.
         
@@ -591,7 +547,7 @@ def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get asset details.")
     async def get_asset(
-        ctx: "Context",
+        ctx: Context,
         asset_id: int,
         include_documents: bool = False,
     ) -> Dict[str, Any]:
@@ -630,7 +586,7 @@ def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Create asset.")
     async def create_asset(
-        ctx: "Context",
+        ctx: Context,
         scope: Optional[Dict[str, Any]] = None,
         address: Optional[str] = None,
         city: Optional[str] = None,
@@ -662,14 +618,14 @@ def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Sync asset.")
     async def sync_asset(
-        ctx: "Context",
+        ctx: Context,
         asset_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "POST", f"/assets/{asset_id}/sync")
 
     @mcp.tool(description="Get asset subresource (transactions/permits/plans/appraisal/listings/documents).")
     async def get_asset_data(
-        ctx: "Context",
+        ctx: Context,
         asset_id: int,
         kind: str,
         fields: Optional[List[str]] = None,
@@ -732,7 +688,7 @@ def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Generate a PDF report for an asset.")
     async def generate_pdf_report(
-        ctx: "Context",
+        ctx: Context,
         asset_id: int,
         sections: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
@@ -780,14 +736,12 @@ def register_assets_tools(mcp_instance: Optional["FastMCP"] = None):
 # DEAL MANAGEMENT TOOLS
 # ============================================================================
 
-def register_deals_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_deals_tools():
     """Register deal-related tools."""
-
-    mcp = mcp_instance or get_mcp()
-
+    
     @mcp.tool(description="List deals.")
     async def list_deals(
-        ctx: "Context",
+        ctx: Context,
         stage: Optional[str] = None,
         deal_lead: Optional[int] = None,
         asset_id: Optional[int] = None,
@@ -820,14 +774,14 @@ def register_deals_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get deal.")
     async def get_deal(
-        ctx: "Context",
+        ctx: Context,
         deal_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/deal-workspace/deals/{deal_id}")
 
     @mcp.tool(description="Create deal.")
     async def create_deal(
-        ctx: "Context",
+        ctx: Context,
         asset_id: int,
         stage: Optional[str] = None,
         confidentiality_level: Optional[str] = None,
@@ -845,7 +799,7 @@ def register_deals_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="List negotiations.")
     async def list_negotiations(
-        ctx: "Context",
+        ctx: Context,
         deal_id: Optional[int] = None,
         status: Optional[str] = None,
         fields: Optional[List[str]] = None,
@@ -863,14 +817,14 @@ def register_deals_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get negotiation.")
     async def get_negotiation(
-        ctx: "Context",
+        ctx: Context,
         negotiation_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/deal-workspace/negotiations/{negotiation_id}")
 
     @mcp.tool(description="List offers.")
     async def list_offers(
-        ctx: "Context",
+        ctx: Context,
         negotiation_id: Optional[int] = None,
         status: Optional[str] = None,
         fields: Optional[List[str]] = None,
@@ -888,7 +842,7 @@ def register_deals_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get offer.")
     async def get_offer(
-        ctx: "Context",
+        ctx: Context,
         offer_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/deal-workspace/offers/{offer_id}")
@@ -909,14 +863,12 @@ def register_deals_tools(mcp_instance: Optional["FastMCP"] = None):
 # EXPENSE CALCULATION TOOLS
 # ============================================================================
 
-def register_cost_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_cost_tools():
     """Register cost calculation tools."""
-
-    mcp = mcp_instance or get_mcp()
-
+    
     @mcp.tool(description="Estimate build cost.")
     async def estimate_build_cost(
-        ctx: "Context",
+        ctx: Context,
         area_m2: float,
         scope: Optional[List[str]] = None,
         region: Optional[str] = None,
@@ -934,13 +886,13 @@ def register_cost_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get cost options for construction cost estimation only. Only relevant for land properties (מגרשים) when estimating building costs. Not needed for regular deal expense calculations.")
     async def get_cost_options(
-        ctx: "Context",
+        ctx: Context,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", "/cost/options")
 
     @mcp.tool(description="Calculate deal expenses including purchase tax, service costs, and construction costs.")
     async def calculate_deal_expenses(
-        ctx: "Context",
+        ctx: Context,
         price: float,
         buyers: Optional[List[Dict[str, Any]]] = None,
         area: Optional[float] = None,
@@ -1038,14 +990,12 @@ def register_cost_tools(mcp_instance: Optional["FastMCP"] = None):
 # MORTGAGE CALCULATION TOOLS
 # ============================================================================
 
-def register_mortgage_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_mortgage_tools():
     """Register mortgage calculation tools."""
-
-    mcp = mcp_instance or get_mcp()
-
+    
     @mcp.tool(description="Analyze mortgage.")
     async def analyze_mortgage(
-        ctx: "Context",
+        ctx: Context,
         property_price: float,
         savings_total: float,
         annual_rate_pct: Optional[float | str] = None,
@@ -1077,14 +1027,12 @@ def register_mortgage_tools(mcp_instance: Optional["FastMCP"] = None):
 # CRM TOOLS
 # ============================================================================
 
-def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_crm_tools():
     """Register CRM-related tools."""
-
-    mcp = mcp_instance or get_mcp()
-
+    
     @mcp.tool(description="List contacts.")
     async def list_contacts(
-        ctx: "Context",
+        ctx: Context,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         fields: Optional[List[str]] = None,
@@ -1110,14 +1058,14 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get contact.")
     async def get_contact(
-        ctx: "Context",
+        ctx: Context,
         contact_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/crm/contacts/{contact_id}")
 
     @mcp.tool(description="Create contact.")
     async def create_contact(
-        ctx: "Context",
+        ctx: Context,
         name: str,
         email: Optional[str] = None,
         phone: Optional[str] = None,
@@ -1141,7 +1089,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Search contacts.")
     async def search_contacts(
-        ctx: "Context",
+        ctx: Context,
         query: str,
         fields: Optional[List[str]] = None,
         limit: int = 5,
@@ -1152,7 +1100,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="List leads.")
     async def list_leads(
-        ctx: "Context",
+        ctx: Context,
         status: Optional[str] = None,
         contact_id: Optional[int] = None,
         asset_id: Optional[int] = None,
@@ -1179,14 +1127,14 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Get lead.")
     async def get_lead(
-        ctx: "Context",
+        ctx: Context,
         lead_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/crm/leads/{lead_id}")
 
     @mcp.tool(description="Create lead.")
     async def create_lead(
-        ctx: "Context",
+        ctx: Context,
         contact_id: int,
         asset_id: int,
         status: Optional[str] = None,
@@ -1205,7 +1153,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Update lead status.")
     async def update_lead_status(
-        ctx: "Context",
+        ctx: Context,
         lead_id: int,
         status: str,
     ) -> Dict[str, Any]:
@@ -1213,7 +1161,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Add lead note.")
     async def add_lead_note(
-        ctx: "Context",
+        ctx: Context,
         lead_id: int,
         text: str,
     ) -> Dict[str, Any]:
@@ -1221,7 +1169,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="List tasks. Status options: 'pending' (open tasks), 'completed', 'cancelled'.")
     async def list_tasks(
-        ctx: "Context",
+        ctx: Context,
         contact_id: Optional[int] = None,
         lead_id: Optional[int] = None,
         status: Optional[str] = None,
@@ -1248,7 +1196,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Create task.")
     async def create_task(
-        ctx: "Context",
+        ctx: Context,
         contact_id: int,
         title: str,
         description: Optional[str] = None,
@@ -1273,14 +1221,14 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Complete task.")
     async def complete_task(
-        ctx: "Context",
+        ctx: Context,
         task_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "POST", f"/crm/tasks/{task_id}/complete")
 
     @mcp.tool(description="List meetings.")
     async def list_meetings(
-        ctx: "Context",
+        ctx: Context,
         contact_id: Optional[int] = None,
         status: Optional[str] = None,
         upcoming: Optional[bool] = None,
@@ -1307,7 +1255,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Create meeting.")
     async def create_meeting(
-        ctx: "Context",
+        ctx: Context,
         contact_id: int,
         scheduled_for: str,
         title: Optional[str] = None,
@@ -1332,7 +1280,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="List interactions.")
     async def list_interactions(
-        ctx: "Context",
+        ctx: Context,
         contact_id: Optional[int] = None,
         interaction_type: Optional[str] = None,
         since: Optional[str] = None,
@@ -1359,7 +1307,7 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 
     @mcp.tool(description="Create interaction.")
     async def create_interaction(
-        ctx: "Context",
+        ctx: Context,
         contact_id: int,
         interaction_type: str,
         occurred_at: str,
@@ -1403,11 +1351,8 @@ def register_crm_tools(mcp_instance: Optional["FastMCP"] = None):
 # EXTERNAL MCP TOOLS REGISTRATION
 # ============================================================================
 
-def register_yad2_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_yad2_tools():
     """Register Yad2 real estate search tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from yad2.mcp_server import (
             fetch_listings as _yad2_fetch_listings,
@@ -1418,7 +1363,7 @@ def register_yad2_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Fetch active listings via Yad2's public map feed API. Supports all Yad2 search parameters.")
         async def yad2_fetch_listings(
-            ctx: "Context",
+            ctx: Context,
             # Price parameters
             maxPrice: Optional[int | str] = None,
             minPrice: Optional[int | str] = None,
@@ -1528,15 +1473,15 @@ def register_yad2_tools(mcp_instance: Optional["FastMCP"] = None):
             )
 
         @mcp.tool(description="Get a comprehensive reference of available Yad2 search parameters.")
-        async def yad2_get_search_parameters_reference(ctx: "Context"):
+        async def yad2_get_search_parameters_reference(ctx: Context):
             return await _yad2_get_search_parameters_reference(ctx)
         
         @mcp.tool(description="Get all available Yad2 property type codes with Hebrew and English names.")
-        async def yad2_get_all_property_types(ctx: "Context"):
+        async def yad2_get_all_property_types(ctx: Context):
             return await _yad2_get_all_property_types(ctx)
         
         @mcp.tool(description="Fetch location data from Yad2 address autocomplete API and return prepared search parameters.")
-        async def yad2_fetch_location_autocomplete(ctx: "Context", search_text: str):
+        async def yad2_fetch_location_autocomplete(ctx: Context, search_text: str):
             return await _yad2_fetch_location_autocomplete(ctx, search_text)
         
         logger.info("Yad2 tools registered successfully")
@@ -1544,11 +1489,8 @@ def register_yad2_tools(mcp_instance: Optional["FastMCP"] = None):
         logger.warning(f"Failed to register Yad2 tools: {e}")
 
 
-def register_mavat_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_mavat_tools():
     """Register Mavat planning information tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from mavat.mcp_server import (
             search_plans as _mavat_search_plans,
@@ -1558,7 +1500,7 @@ def register_mavat_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Search for plans using various criteria.")
         async def mavat_search_plans(
-            ctx: "Context",
+            ctx: Context,
             query: Optional[str] = None,
             city: Optional[str] = None,
             district: Optional[str] = None,
@@ -1576,11 +1518,11 @@ def register_mavat_tools(mcp_instance: Optional["FastMCP"] = None):
             )
         
         @mcp.tool(description="Retrieve detailed information for a specific plan.")
-        async def mavat_get_plan_details(ctx: "Context", plan_id: str):
+        async def mavat_get_plan_details(ctx: Context, plan_id: str):
             return await _mavat_get_plan_details(ctx, plan_id)
         
         @mcp.tool(description="Get documents associated with a specific plan.")
-        async def mavat_get_plan_documents(ctx: "Context", plan_id: str, entity_name: Optional[str] = None):
+        async def mavat_get_plan_documents(ctx: Context, plan_id: str, entity_name: Optional[str] = None):
             return await _mavat_get_plan_documents(ctx, plan_id, entity_name)
         
         logger.info("Mavat tools registered successfully")
@@ -1588,11 +1530,8 @@ def register_mavat_tools(mcp_instance: Optional["FastMCP"] = None):
         logger.warning(f"Failed to register Mavat tools: {e}")
 
 
-def register_govmap_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_govmap_tools():
     """Register GovMap tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from govmap.mcp_server import (
             autocomplete as _govmap_autocomplete,
@@ -1606,16 +1545,16 @@ def register_govmap_tools(mcp_instance: Optional["FastMCP"] = None):
         )
         
         @mcp.tool(description="GovMap public autocomplete (no token). Returns raw JSON buckets.")
-        async def govmap_autocomplete(ctx: "Context", query: str, language: str = "he", max_results: int = 10):
+        async def govmap_autocomplete(ctx: Context, query: str, language: str = "he", max_results: int = 10):
             return await _govmap_autocomplete(ctx, query, language, max_results)
         
         @mcp.tool(description="Extract ITM coordinates from an autocomplete result. Use this tool to extract coordinates from a result returned by the autocomplete tool. This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.")
-        async def govmap_extract_coordinates_from_shapes(ctx: "Context", result: Dict[str, Any]):
+        async def govmap_extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]):
             return await _govmap_extract_coordinates_from_shapes(ctx, result)
         
         @mcp.tool(description="Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326).")
         async def govmap_coordinate_conversion(
-            ctx: "Context",
+            ctx: Context,
             x: float,
             y: float,
             from_crs: str = "ITM",
@@ -1624,20 +1563,20 @@ def register_govmap_tools(mcp_instance: Optional["FastMCP"] = None):
             return await _govmap_coordinate_conversion(ctx, x, y, from_crs, to_crs)
         
         @mcp.tool(description="Get parcel data for specific coordinates (EPSG:2039).")
-        async def govmap_get_parcel_data(ctx: "Context", x: float, y: float):
+        async def govmap_get_parcel_data(ctx: Context, x: float, y: float):
             return await _govmap_get_parcel_data(ctx, x, y)
         
         @mcp.tool(description="Get detailed address information for a parcel using its objectid.")
-        async def govmap_get_parcel_addresses(ctx: "Context", objectid: int):
+        async def govmap_get_parcel_addresses(ctx: Context, objectid: int):
             return await _govmap_get_parcel_addresses(ctx, objectid)
         
         @mcp.tool(description="Get addresses for a given block and parcel using GovMap autocomplete API.")
-        async def govmap_get_addresses_by_block_parcel(ctx: "Context", block: str, parcel: str):
+        async def govmap_get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str):
             return await _govmap_get_addresses_by_block_parcel(ctx, block, parcel)
         
         @mcp.tool(description="Get entities by point with specified layer IDs (EPSG:2039).")
         async def govmap_entities_by_point(
-            ctx: "Context",
+            ctx: Context,
             x: float,
             y: float,
             layer_ids: List[Any],
@@ -1647,7 +1586,7 @@ def register_govmap_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Get real estate deals for a specific location and radius. Returns standardized Deal objects with address, deal_date, deal_amount, rooms, floor, asset_type, area, neighborhood, parcel information, etc.")
         async def govmap_get_deals_by_location(
-            ctx: "Context",
+            ctx: Context,
             x: float,
             y: float,
             start_date: str = "1998-01",
@@ -1666,11 +1605,8 @@ def register_govmap_tools(mcp_instance: Optional["FastMCP"] = None):
         logger.warning(f"Failed to register GovMap tools: {e}")
 
 
-def register_gov_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_gov_tools():
     """Register Gov (DataGovIL) tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from gov.mcp_server import (
             decisive_appraisal as _gov_decisive_appraisal,
@@ -1680,12 +1616,12 @@ def register_gov_tools(mcp_instance: Optional["FastMCP"] = None):
         )
         
         @mcp.tool(description="Fetch decisive appraisal decisions from gov.il.")
-        async def gov_decisive_appraisal(ctx: "Context", block: str = "", plot: str = "", max_pages: int = 1):
+        async def gov_decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_pages: int = 1):
             return await _gov_decisive_appraisal(ctx, block, plot, max_pages)
         
         @mcp.tool(description="Search for planning documents using RAMI TabaSearch API.")
         async def gov_search_rami_plans(
-            ctx: "Context",
+            ctx: Context,
             plan_number: str = "",
             city: Optional[int] = None,
             block: str = "",
@@ -1703,7 +1639,7 @@ def register_gov_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Download documents for a specific plan.")
         async def gov_download_rami_plan_documents(
-            ctx: "Context",
+            ctx: Context,
             plan_id: int,
             plan_number: str,
             base_dir: str = "rami_plans",
@@ -1715,7 +1651,7 @@ def register_gov_tools(mcp_instance: Optional["FastMCP"] = None):
             )
         
         @mcp.tool(description="Get information about available document types.")
-        async def gov_get_rami_document_types_info(ctx: "Context"):
+        async def gov_get_rami_document_types_info(ctx: Context):
             return await _gov_get_rami_document_types_info(ctx)
         
         logger.info("Gov (DataGovIL) tools registered successfully")
@@ -1723,11 +1659,8 @@ def register_gov_tools(mcp_instance: Optional["FastMCP"] = None):
         logger.warning(f"Failed to register Gov tools: {e}")
 
 
-def register_madlan_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_madlan_tools():
     """Register Madlan real estate search tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from madlan.mcp_server import (
             get_addresses as _madlan_get_addresses,
@@ -1736,7 +1669,7 @@ def register_madlan_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Autocomplete addresses and get address details from Madlan.")
         async def madlan_get_addresses(
-            ctx: "Context",
+            ctx: Context,
             text: str,
             completion_types: Optional[List[str]] = None,
         ):
@@ -1744,7 +1677,7 @@ def register_madlan_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Search for real estate listings on Madlan with optional filters.")
         async def madlan_search_real_estate(
-            ctx: "Context",
+            ctx: Context,
             location_doc_id: Optional[str] = None,
             deal_type: str = "unitBuy",
             min_price: Optional[int | str] = None,
@@ -1783,11 +1716,8 @@ def register_madlan_tools(mcp_instance: Optional["FastMCP"] = None):
         logger.warning(f"Failed to register Madlan tools: {e}")
 
 
-def register_gis_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_gis_tools():
     """Register GIS (Tel Aviv) tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from gis.mcp_server import (
             geocode_address as _gis_geocode_address,
@@ -1837,12 +1767,12 @@ def register_gis_tools(mcp_instance: Optional["FastMCP"] = None):
         
         # Register all GIS tools with wrappers
         @mcp.tool(description="Return (x,y) EPSG:2039 for a given street and house number.")
-        async def gis_geocode_address(ctx: "Context", street: str, house_number: int, like: bool = True):
+        async def gis_geocode_address(ctx: Context, street: str, house_number: int, like: bool = True):
             return await _gis_geocode_address(ctx, street, house_number, like)
         
         @mcp.tool(description="Search for building permits near a point (x,y) in meters. Optionally download PDFs.")
         async def gis_get_building_permits(
-            ctx: "Context",
+            ctx: Context,
             x: float,
             y: float,
             radius: int = 30,
@@ -1853,52 +1783,52 @@ def register_gis_tools(mcp_instance: Optional["FastMCP"] = None):
             return await _gis_get_building_permits(ctx, x, y, radius, fields, download_pdfs, save_dir)
         
         @mcp.tool(description="Get main land-use categories intersecting point (x,y).")
-        async def gis_get_land_use_main(ctx: "Context", x: float, y: float):
+        async def gis_get_land_use_main(ctx: Context, x: float, y: float):
             return await _gis_get_land_use_main(ctx, x, y)
         
         @mcp.tool(description="Get detailed land-use categories intersecting point (x,y).")
-        async def gis_get_land_use_detailed(ctx: "Context", x: float, y: float):
+        async def gis_get_land_use_detailed(ctx: Context, x: float, y: float):
             return await _gis_get_land_use_detailed(ctx, x, y)
         
         @mcp.tool(description="Get local/parcel-level plans intersecting point (x,y).")
-        async def gis_get_plans_local(ctx: "Context", x: float, y: float):
+        async def gis_get_plans_local(ctx: Context, x: float, y: float):
             return await _gis_get_plans_local(ctx, x, y)
         
         @mcp.tool(description="Get city-wide plans intersecting point (x,y).")
-        async def gis_get_plans_citywide(ctx: "Context", x: float, y: float):
+        async def gis_get_plans_citywide(ctx: Context, x: float, y: float):
             return await _gis_get_plans_citywide(ctx, x, y)
         
         @mcp.tool(description="Get parcels intersecting point (x,y).")
-        async def gis_get_parcels(ctx: "Context", x: float, y: float):
+        async def gis_get_parcels(ctx: Context, x: float, y: float):
             return await _gis_get_parcels(ctx, x, y)
         
         @mcp.tool(description="Get blocks intersecting point (x,y).")
-        async def gis_get_blocks(ctx: "Context", x: float, y: float):
+        async def gis_get_blocks(ctx: Context, x: float, y: float):
             return await _gis_get_blocks(ctx, x, y)
         
         @mcp.tool(description="Get dangerous buildings within a radius (meters) from point (x,y).")
-        async def gis_get_dangerous_buildings(ctx: "Context", x: float, y: float, radius: int = 80):
+        async def gis_get_dangerous_buildings(ctx: Context, x: float, y: float, radius: int = 80):
             return await _gis_get_dangerous_buildings(ctx, x, y, radius)
         
         @mcp.tool(description="Get noise levels intersecting point (x,y).")
-        async def gis_get_noise_levels(ctx: "Context", x: float, y: float):
+        async def gis_get_noise_levels(ctx: Context, x: float, y: float):
             return await _gis_get_noise_levels(ctx, x, y)
         
         @mcp.tool(description="Get existing and under-construction cell antennas near point (x,y).")
-        async def gis_get_cell_antennas(ctx: "Context", x: float, y: float, radius: int = 120):
+        async def gis_get_cell_antennas(ctx: Context, x: float, y: float, radius: int = 120):
             return await _gis_get_cell_antennas(ctx, x, y, radius)
         
         @mcp.tool(description="Get green areas within a radius (meters) from point (x,y).")
-        async def gis_get_green_areas(ctx: "Context", x: float, y: float, radius: int = 150):
+        async def gis_get_green_areas(ctx: Context, x: float, y: float, radius: int = 150):
             return await _gis_get_green_areas(ctx, x, y, radius)
         
         @mcp.tool(description="Get shelters within a radius (meters) from point (x,y).")
-        async def gis_get_shelters(ctx: "Context", x: float, y: float, radius: int = 200):
+        async def gis_get_shelters(ctx: Context, x: float, y: float, radius: int = 200):
             return await _gis_get_shelters(ctx, x, y, radius)
         
         @mcp.tool(description="Download the building privilege (\"zchuyot\") page for a location.")
         async def gis_get_building_privilege_page(
-            ctx: "Context",
+            ctx: Context,
             x: float,
             y: float,
             save_dir: Optional[str] = "privilege_pages"
@@ -1906,119 +1836,119 @@ def register_gis_tools(mcp_instance: Optional["FastMCP"] = None):
             return await _gis_get_building_privilege_page(ctx, x, y, save_dir)
         
         @mcp.tool(description="Get affordable housing projects within a radius (meters) from point (x,y).")
-        async def gis_get_affordable_housing_projects(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_affordable_housing_projects(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_affordable_housing_projects(ctx, x, y, radius)
         
         @mcp.tool(description="Get bicycle paths within a radius (meters) from point (x,y).")
-        async def gis_get_bike_paths(ctx: "Context", x: float, y: float, radius: int = 300):
+        async def gis_get_bike_paths(ctx: Context, x: float, y: float, radius: int = 300):
             return await _gis_get_bike_paths(ctx, x, y, radius)
         
         @mcp.tool(description="Get metro stations (all lines: Red, Green, Purple) within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations(ctx: "Context", x: float, y: float, radius: int = 1000):
+        async def gis_get_metro_stations(ctx: Context, x: float, y: float, radius: int = 1000):
             return await _gis_get_metro_stations(ctx, x, y, radius)
         
         @mcp.tool(description="Get Red Line metro stations within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations_red(ctx: "Context", x: float, y: float, radius: int = 1000):
+        async def gis_get_metro_stations_red(ctx: Context, x: float, y: float, radius: int = 1000):
             return await _gis_get_metro_stations_red(ctx, x, y, radius)
         
         @mcp.tool(description="Get Green Line metro stations within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations_green(ctx: "Context", x: float, y: float, radius: int = 1000):
+        async def gis_get_metro_stations_green(ctx: Context, x: float, y: float, radius: int = 1000):
             return await _gis_get_metro_stations_green(ctx, x, y, radius)
         
         @mcp.tool(description="Get Purple Line metro stations within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations_purple(ctx: "Context", x: float, y: float, radius: int = 1000):
+        async def gis_get_metro_stations_purple(ctx: Context, x: float, y: float, radius: int = 1000):
             return await _gis_get_metro_stations_purple(ctx, x, y, radius)
         
         @mcp.tool(description="Get public and private parking lots within a radius (meters) from point (x,y).")
-        async def gis_get_parking_lots(ctx: "Context", x: float, y: float, radius: int = 300):
+        async def gis_get_parking_lots(ctx: Context, x: float, y: float, radius: int = 300):
             return await _gis_get_parking_lots(ctx, x, y, radius)
         
         @mcp.tool(description="Get public parking lots within a radius (meters) from point (x,y).")
-        async def gis_get_parking_public(ctx: "Context", x: float, y: float, radius: int = 300):
+        async def gis_get_parking_public(ctx: Context, x: float, y: float, radius: int = 300):
             return await _gis_get_parking_public(ctx, x, y, radius)
         
         @mcp.tool(description="Get private parking lots within a radius (meters) from point (x,y).")
-        async def gis_get_parking_private(ctx: "Context", x: float, y: float, radius: int = 300):
+        async def gis_get_parking_private(ctx: Context, x: float, y: float, radius: int = 300):
             return await _gis_get_parking_private(ctx, x, y, radius)
         
         @mcp.tool(description="Get soil contamination sites within a radius (meters) from point (x,y).")
-        async def gis_get_soil_contamination(ctx: "Context", x: float, y: float, radius: int = 200):
+        async def gis_get_soil_contamination(ctx: Context, x: float, y: float, radius: int = 200):
             return await _gis_get_soil_contamination(ctx, x, y, radius)
         
         @mcp.tool(description="Get schools and kindergartens within a radius (meters) from point (x,y).")
-        async def gis_get_schools(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_schools(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_schools(ctx, x, y, radius)
         
         @mcp.tool(description="Get kindergartens within a radius (meters) from point (x,y).")
-        async def gis_get_schools_kindergartens(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_schools_kindergartens(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_schools_kindergartens(ctx, x, y, radius)
         
         @mcp.tool(description="Get schools (excluding kindergartens) within a radius (meters) from point (x,y).")
-        async def gis_get_schools_only(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_schools_only(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_schools_only(ctx, x, y, radius)
         
         @mcp.tool(description="Get green amenities (playgrounds, dog parks, public gardens) within a radius (meters) from point (x,y).")
-        async def gis_get_green_amenities(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_green_amenities(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_green_amenities(ctx, x, y, radius)
         
         @mcp.tool(description="Get playgrounds within a radius (meters) from point (x,y).")
-        async def gis_get_playgrounds(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_playgrounds(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_playgrounds(ctx, x, y, radius)
         
         @mcp.tool(description="Get dog parks within a radius (meters) from point (x,y).")
-        async def gis_get_dog_parks(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_dog_parks(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_dog_parks(ctx, x, y, radius)
         
         @mcp.tool(description="Get public gardens within a radius (meters) from point (x,y).")
-        async def gis_get_public_gardens(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_public_gardens(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_public_gardens(ctx, x, y, radius)
         
         @mcp.tool(description="Get medical facilities (medical centers, health funds, pharmacies) within a radius (meters) from point (x,y).")
-        async def gis_get_medical_facilities(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_medical_facilities(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_medical_facilities(ctx, x, y, radius)
         
         @mcp.tool(description="Get medical centers within a radius (meters) from point (x,y).")
-        async def gis_get_medical_centers(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_medical_centers(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_medical_centers(ctx, x, y, radius)
         
         @mcp.tool(description="Get health fund clinics within a radius (meters) from point (x,y).")
-        async def gis_get_health_funds(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_health_funds(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_health_funds(ctx, x, y, radius)
         
         @mcp.tool(description="Get pharmacies within a radius (meters) from point (x,y).")
-        async def gis_get_pharmacies(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_pharmacies(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_pharmacies(ctx, x, y, radius)
         
         @mcp.tool(description="Get community facilities (community centers, youth and entrepreneurship centers) within a radius (meters) from point (x,y).")
-        async def gis_get_community_facilities(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_community_facilities(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_community_facilities(ctx, x, y, radius)
         
         @mcp.tool(description="Get community centers within a radius (meters) from point (x,y).")
-        async def gis_get_community_centers(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_community_centers(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_community_centers(ctx, x, y, radius)
         
         @mcp.tool(description="Get youth and entrepreneurship centers within a radius (meters) from point (x,y).")
-        async def gis_get_youth_entrepreneurship_centers(ctx: "Context", x: float, y: float, radius: int = 400):
+        async def gis_get_youth_entrepreneurship_centers(ctx: Context, x: float, y: float, radius: int = 400):
             return await _gis_get_youth_entrepreneurship_centers(ctx, x, y, radius)
         
         @mcp.tool(description="Get construction sites within a radius (meters) from point (x,y).")
-        async def gis_get_construction_sites(ctx: "Context", x: float, y: float, radius: int = 300):
+        async def gis_get_construction_sites(ctx: Context, x: float, y: float, radius: int = 300):
             return await _gis_get_construction_sites(ctx, x, y, radius)
         
         @mcp.tool(description="Get TAMA 38 policy key areas within a radius (meters) from point (x,y).")
-        async def gis_get_tama38_key_areas(ctx: "Context", x: float, y: float, radius: int = 500):
+        async def gis_get_tama38_key_areas(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_tama38_key_areas(ctx, x, y, radius)
         
         @mcp.tool(description="Get road works and night works in public space within a radius (meters) from point (x,y).")
-        async def gis_get_road_works(ctx: "Context", x: float, y: float, radius: int = 200):
+        async def gis_get_road_works(ctx: Context, x: float, y: float, radius: int = 200):
             return await _gis_get_road_works(ctx, x, y, radius)
         
         @mcp.tool(description="Get road works within a radius (meters) from point (x,y).")
-        async def gis_get_road_works_only(ctx: "Context", x: float, y: float, radius: int = 200):
+        async def gis_get_road_works_only(ctx: Context, x: float, y: float, radius: int = 200):
             return await _gis_get_road_works_only(ctx, x, y, radius)
         
         @mcp.tool(description="Get night works in public space within a radius (meters) from point (x,y).")
-        async def gis_get_night_works_public(ctx: "Context", x: float, y: float, radius: int = 200):
+        async def gis_get_night_works_public(ctx: Context, x: float, y: float, radius: int = 200):
             return await _gis_get_night_works_public(ctx, x, y, radius)
         
         logger.info("GIS (Tel Aviv) tools registered successfully")
@@ -2026,11 +1956,8 @@ def register_gis_tools(mcp_instance: Optional["FastMCP"] = None):
         logger.warning(f"Failed to register GIS tools: {e}")
 
 
-def register_handasa_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_handasa_tools():
     """Register Handasa tools."""
-
-    mcp = mcp_instance or get_mcp()
-
     try:
         from handasa.mcp_server import (
             handasa_archive as _handasa_handasa_archive,
@@ -2039,7 +1966,7 @@ def register_handasa_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Fetch the Handasa permit archive for a given block/parcel.")
         async def handasa_archive(
-            ctx: "Context",
+            ctx: Context,
             block: str,
             parcel: Optional[str] = None,
             page_size: int = 50,
@@ -2048,7 +1975,7 @@ def register_handasa_tools(mcp_instance: Optional["FastMCP"] = None):
         
         @mcp.tool(description="Download a document from the Handasa portal.")
         async def handasa_download_document(
-            ctx: "Context",
+            ctx: Context,
             unique_id: str,
             save_to: Optional[str] = None,
             overwrite: bool = False,
@@ -2065,14 +1992,12 @@ def register_handasa_tools(mcp_instance: Optional["FastMCP"] = None):
 # FILE READING TOOLS
 # ============================================================================
 
-def register_file_reading_tools(mcp_instance: Optional["FastMCP"] = None):
+def register_file_reading_tools():
     """Register file reading tools for permits, zchuyot, tabu, etc."""
-
-    mcp = mcp_instance or get_mcp()
-
+    
     @mcp.tool(description="Read a file (PDF, image, or text) from the filesystem. Read-only, for uploads/data pipeline only. Supports permits, zchuyot, tabu documents, etc.")
     async def read_file(
-        ctx: "Context",
+        ctx: Context,
         file_path: str,
         max_size_mb: Optional[float] = 10.0,
         max_pages: Optional[int] = 10,
@@ -2328,48 +2253,28 @@ def register_file_reading_tools(mcp_instance: Optional["FastMCP"] = None):
 # TOOL REGISTRATION
 # ============================================================================
 
+# Register core tools by default (assets, deals, cost, mortgage, CRM, file reading)
+register_assets_tools()
+register_deals_tools()
+register_cost_tools()
+register_mortgage_tools()
+register_crm_tools()
+register_file_reading_tools()
 
-def _register_all_tools(mcp_instance: Optional["FastMCP"] = None) -> None:
-    """Register core and optional MCP tools once."""
-
-    global _tools_registered
-    if _tools_registered:
-        return
-
-    mcp_instance = mcp_instance or get_mcp()
-
-    # Register core tools by default (assets, deals, cost, mortgage, CRM, file reading)
-    register_assets_tools(mcp_instance)
-    register_deals_tools(mcp_instance)
-    register_cost_tools(mcp_instance)
-    register_mortgage_tools(mcp_instance)
-    register_crm_tools(mcp_instance)
-    register_file_reading_tools(mcp_instance)
-
-    # Register external MCP tools (optional - can be enabled via environment variable)
-    # Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable all external tools
-    if os.getenv("ENABLE_EXTERNAL_MCP_TOOLS", "false").lower() == "true":
-        register_yad2_tools(mcp_instance)
-        register_mavat_tools(mcp_instance)
-        register_govmap_tools(mcp_instance)
-        register_gov_tools(mcp_instance)
-        register_madlan_tools(mcp_instance)
-        register_gis_tools(mcp_instance)
-        register_handasa_tools(mcp_instance)
-        logger.info("All external MCP tools registered")
-    else:
-        logger.info("External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable.")
-
-    _tools_registered = True
-
-
-def register_all_tools(mcp_instance: Optional["FastMCP"] = None) -> "FastMCP":
-    """Public helper to initialize MCP and register all tools explicitly."""
-
-    mcp_instance = mcp_instance or get_mcp()
-    _register_all_tools(mcp_instance)
-    return mcp_instance
+# Register external MCP tools (optional - can be enabled via environment variable)
+# Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable all external tools
+if os.getenv("ENABLE_EXTERNAL_MCP_TOOLS", "false").lower() == "true":
+    register_yad2_tools()
+    register_mavat_tools()
+    register_govmap_tools()
+    register_gov_tools()
+    register_madlan_tools()
+    register_gis_tools()
+    register_handasa_tools()
+    logger.info("All external MCP tools registered")
+else:
+    logger.info("External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable.")
 
 
 if __name__ == "__main__":
-    get_mcp().run()
+    mcp.run()

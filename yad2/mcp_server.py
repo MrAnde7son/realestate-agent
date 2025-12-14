@@ -46,7 +46,7 @@ from yad2.utils.property_types import PropertyTypeUtils
 logger = logging.getLogger(__name__)
 
 # Create an MCP server
-mcp = FastMCP("Yad2RealEstate") 
+mcp = FastMCP("Yad2RealEstate", dependencies=["requests", "beautifulsoup4", "lxml", "pandas"]) 
 
 # Module-level state (persists across tool calls within the same server process)
 _api_client = Yad2APIClient()

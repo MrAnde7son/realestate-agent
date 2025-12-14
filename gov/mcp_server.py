@@ -8,7 +8,7 @@ from gov.decisive import DecisiveAppraisalClient
 from gov.rami.rami_client import RamiClient
 
 # Create an MCP server
-mcp = FastMCP("DataGovIL")
+mcp = FastMCP("DataGovIL", dependencies=["requests", "pandas"])
 
 # Persistent RAMI client for this server process
 _rami_client: Optional[RamiClient] = None

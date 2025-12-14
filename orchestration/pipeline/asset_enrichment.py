@@ -405,22 +405,53 @@ def _build_feature_vector(asset: Any) -> FeatureVector:
 SEA_DISTANCE_CALCULATOR = SeaDistanceCalculator()
 
 
-def _update_distance_to_sea(asset: Any, gis_data: Dict[str, Any], calculator: SeaDistanceCalculator | None = None) -> None:
+def _update_distance_to_sea(
+    asset: Any,
+    gis_data: Dict[str, Any],
+    calculator: SeaDistanceCalculator | None = None,
+    x_itm: Optional[float] = None,
+    y_itm: Optional[float] = None,
+) -> None:
     """Compute and store the distance from the asset to the sea.
 
     The calculation uses ITM coordinates when available for higher accuracy and
     falls back to WGS84 coordinates already stored on the asset. Results are
     stored in both the metadata (for pricing adjustments) and as a rich
     property for downstream consumers.
+    
+    Args:
+        asset: The asset object to update
+        gis_data: Dictionary containing GIS data (may include x/y coordinates)
+        calculator: Optional distance calculator instance
+        x_itm: Optional ITM X coordinate (takes priority over gis_data)
+        y_itm: Optional ITM Y coordinate (takes priority over gis_data)
     """
 
     distance_calculator = calculator or SEA_DISTANCE_CALCULATOR
+    
+    # Prioritize direct x_itm/y_itm parameters, then gis_data, then asset coordinates
+    final_x_itm = x_itm if x_itm is not None else gis_data.get("x")
+    final_y_itm = y_itm if y_itm is not None else gis_data.get("y")
+    
+    # Log coordinate sources for debugging
+    asset_id = getattr(asset, "id", "unknown")
+    logger.debug(
+        f"Asset {asset_id}: Distance calculation - "
+        f"x_itm param={x_itm}, y_itm param={y_itm}, "
+        f"gis_data x={gis_data.get('x')}, gis_data y={gis_data.get('y')}, "
+        f"final x={final_x_itm}, final y={final_y_itm}, "
+        f"asset lat={getattr(asset, 'lat', None)}, asset lon={getattr(asset, 'lon', None)}"
+    )
+    
     distance = distance_calculator.distance_to_sea_meters(
         lat=getattr(asset, "lat", None),
         lon=getattr(asset, "lon", None),
-        x_itm=gis_data.get("x"),
-        y_itm=gis_data.get("y"),
+        x_itm=final_x_itm,
+        y_itm=final_y_itm,
     )
+    
+    if distance is not None:
+        logger.debug(f"Asset {asset_id}: Calculated distance to sea = {distance:.2f} meters")
 
     if distance is None:
         return
@@ -642,7 +673,7 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
                 logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
             
             # Always process GIS data (even if empty) to store gis_collector_data
-            _process_gis_data(asset, gis_data)
+            _process_gis_data(asset, gis_data, x_itm=x_itm, y_itm=y_itm)
 
     # GovMap autocomplete --------------------------------------------------------------
     with asset_update_phase("process_govmap_autocomplete", asset_id):
@@ -869,8 +900,15 @@ def create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
         logger.error("Failed to create snapshot for asset %s: %s", asset_id, e)
 
 
-def _process_gis_data(asset, gis_data):
-    """Process GIS data and store using unified metadata structure."""
+def _process_gis_data(asset, gis_data, x_itm: Optional[float] = None, y_itm: Optional[float] = None):
+    """Process GIS data and store using unified metadata structure.
+    
+    Args:
+        asset: The asset object to update
+        gis_data: Dictionary containing GIS data
+        x_itm: Optional ITM X coordinate (takes priority over gis_data)
+        y_itm: Optional ITM Y coordinate (takes priority over gis_data)
+    """
     logger.info(f"Asset {asset.id}: _process_gis_data called with gis_data keys: {list(gis_data.keys()) if gis_data else 'None/empty'}")
     
     # Store the complete GIS collector data in metadata
@@ -937,7 +975,8 @@ def _process_gis_data(asset, gis_data):
         asset.set_property('city', gis_data.get('city'), source='GIS', url='https://www.govmap.gov.il/')
 
     # Distance to sea for proximity and valuation adjustments
-    _update_distance_to_sea(asset, gis_data)
+    # Prioritize direct x_itm/y_itm parameters over gis_data values
+    _update_distance_to_sea(asset, gis_data, x_itm=x_itm, y_itm=y_itm)
 
     # Noise levels
     if gis_data.get('noise'):

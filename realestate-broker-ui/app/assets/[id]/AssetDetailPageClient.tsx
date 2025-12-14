@@ -231,6 +231,8 @@ const normalizeDistanceScore = (distanceM: number | null, maxDistanceM: number):
   return clampScore(100 * (1 - ratio))
 }
 
+const MAX_SEA_DISTANCE_M = 10000
+
 // Normalize distance where closer is worse (e.g., soil contamination)
 // maxDistanceM: beyond this distance, no penalty (score = 100)
 // Returns score 0-100 where closer = lower score
@@ -351,6 +353,19 @@ export const calculateEnvironmentScore = (asset: Record<string, any> | null): nu
       if (normalized !== null) {
         weightedEntries.push({ value: normalized, weight: 3 })
       }
+    }
+  }
+
+  const distanceToSeaM = pickNumeric(
+    asset.distanceToSeaM,
+    asset.distance_to_sea_m,
+    asset.distanceToBeachM,
+    asset.distance_to_beach_m
+  )
+  if (distanceToSeaM !== null) {
+    const normalized = normalizeDistanceScore(distanceToSeaM, MAX_SEA_DISTANCE_M)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 2 })
     }
   }
 
@@ -1584,6 +1599,17 @@ React.useEffect(() => {
 
   const environmentScore = useMemo(
     () => calculateEnvironmentScore(asset),
+    [asset]
+  )
+
+  const distanceToSeaMeters = useMemo(
+    () =>
+      pickNumeric(
+        asset?.distanceToSeaM,
+        asset?.distance_to_sea_m,
+        asset?.distanceToBeachM,
+        asset?.distance_to_beach_m
+      ),
     [asset]
   )
 
@@ -4433,7 +4459,14 @@ useDedupedEffect(() => {
                   <span className="text-muted-foreground">מרחק ממקלט:</span>
                   {renderValue(asset.shelterDistanceM ? `${asset.shelterDistanceM} מ׳` : '—', 'shelterDistanceM')}
                 </div>
-                
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">מרחק מהים:</span>
+                  {renderValue(
+                    distanceToSeaMeters !== null ? `${distanceToSeaMeters} מ׳` : '—',
+                    'distanceToSeaM'
+                  )}
+                </div>
+
                 {/* Environmental Features */}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">שטחים ירוקים:</span>

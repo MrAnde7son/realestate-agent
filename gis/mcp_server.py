@@ -20,7 +20,14 @@ from gis.gis_client import TelAvivGS
 
 # Create an MCP server
 mcp = FastMCP(
-    "TelAvivGIS"
+    "TelAvivGIS",
+    dependencies=[
+        "requests",
+        "beautifulsoup4",
+        "lxml",
+        "pdfplumber",
+        "python-dateutil",
+    ],
 )
 
 # Persistent client for this server process

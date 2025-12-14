@@ -75,10 +75,8 @@ import logging
 import os
 from typing import TYPE_CHECKING, Literal, Optional, Dict, Any, List
 
-from fastmcp import Context
-
 if TYPE_CHECKING:
-    from fastmcp import FastMCP
+    from fastmcp import Context, FastMCP
 
 # Add project root to path for imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -105,10 +103,18 @@ def get_mcp() -> "FastMCP":
     if _mcp is None:
         from fastmcp import FastMCP
 
-        _mcp = FastMCP(
-            "RealEstateAPI",
-            instructions="Real-estate API tools.",
-        )
+        try:
+            _mcp = FastMCP(
+                name="RealEstateAPI",
+                instructions="Real-estate API tools.",
+                dependencies=["requests"],
+            )
+        except TypeError:
+            logger.warning("FastMCP version does not support dependency metadata; continuing without it")
+            _mcp = FastMCP(
+                name="RealEstateAPI",
+                instructions="Real-estate API tools.",
+            )
 
     if not _tools_registered:
         _register_all_tools(_mcp)

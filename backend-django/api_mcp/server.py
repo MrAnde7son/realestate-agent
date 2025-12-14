@@ -105,11 +105,18 @@ def get_mcp() -> "FastMCP":
     if _mcp is None:
         from fastmcp import FastMCP
 
-        _mcp = FastMCP(
-            name="RealEstateAPI",
-            instructions="Real-estate API tools.",
-            dependencies=["requests"],
-        )
+        try:
+            _mcp = FastMCP(
+                name="RealEstateAPI",
+                instructions="Real-estate API tools.",
+                dependencies=["requests"],
+            )
+        except TypeError:
+            logger.warning("FastMCP version does not support dependency metadata; continuing without it")
+            _mcp = FastMCP(
+                name="RealEstateAPI",
+                instructions="Real-estate API tools.",
+            )
 
     if not _tools_registered:
         _register_all_tools(_mcp)

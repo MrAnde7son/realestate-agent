@@ -106,8 +106,9 @@ def get_mcp() -> "FastMCP":
         from fastmcp import FastMCP
 
         _mcp = FastMCP(
-            "RealEstateAPI",
+            name="RealEstateAPI",
             instructions="Real-estate API tools.",
+            dependencies=["requests"],
         )
 
     if not _tools_registered:

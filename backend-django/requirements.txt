@@ -29,7 +29,7 @@ tiktoken>=0.7.0
 boto3>=1.28.0  # AWS SDK for Bedrock support
 
 # MCP (Model Context Protocol) Server
-fastmcp>=2.14.0
+fastmcp>=2.15.0
 
 # Database
 # PostgreSQL (optional - only needed when USE_POSTGRES=true)

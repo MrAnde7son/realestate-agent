@@ -75,8 +75,18 @@ import logging
 import os
 from typing import TYPE_CHECKING, Literal, Optional, Dict, Any, List
 
+try:
+    # FastMCP API differs between versions; try common locations
+    from fastmcp import Context  # type: ignore
+except Exception:
+    try:
+        from fastmcp.server import Context  # type: ignore
+    except Exception:
+        # Keep module importable even if Context isn't available
+        Context = Any  # type: ignore
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 # Add project root to path for imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

@@ -1519,7 +1519,7 @@ export default function DealExpensesPage() {
                   services[key].includesVat === defaultValue.includesVat
                 
                 return (
-                  <Card key={key} variant="outlined" className="p-4">
+                  <Card key={key} variant="default" className="p-4 border-0 shadow-md">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

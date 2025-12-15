@@ -1184,7 +1184,7 @@ export default function DealExpensesPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                      <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer">
                         <Switch
                           checked={constructionIncludesVat}
                           onCheckedChange={handleConstructionVatChange}
@@ -1215,7 +1215,7 @@ export default function DealExpensesPage() {
                             חישוב אומדן עלויות בנייה מבוסס על נתוני דקל
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 rtl:flex-row-reverse">
                           <Switch
                             checked={useDekelEstimate}
                             onCheckedChange={handleUseDekelToggle}
@@ -1279,7 +1279,7 @@ export default function DealExpensesPage() {
                             <Label className="text-xs">היקף עבודות</Label>
                             <div className="space-y-1">
                               {costOptions.scopes.map(scope => (
-                                <label key={scope.code} className="flex items-center space-x-2 rtl:space-x-reverse">
+                                <label key={scope.code} className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
                                   <input
                                     type="checkbox"
                                     checked={dekelScope.includes(scope.code)}
@@ -1383,7 +1383,7 @@ export default function DealExpensesPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {buyers.map((buyer, index) => (
-                <Card key={index} variant="outlined" className="p-4">
+                <Card key={index} variant="default" className="p-4 border-0 shadow-md">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Typography variant='h3' className='text-sm font-medium'>
@@ -1430,35 +1430,35 @@ export default function DealExpensesPage() {
                     <div className="space-y-3">
                       <Label className="text-xs text-muted-foreground">הטבות מיוחדות</Label>
                       <div className="grid grid-cols-2 gap-3">
-                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.isFirstHome} 
                             onCheckedChange={v => handleBuyerChange(index, 'isFirstHome', v)} 
                           />
                           <span className="text-sm">דירה יחידה</span>
                         </label>
-                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.isReplacementHome} 
                             onCheckedChange={v => handleBuyerChange(index, 'isReplacementHome', v)} 
                           />
                           <span className="text-sm">דירה חלופית</span>
                         </label>
-                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.oleh} 
                             onCheckedChange={v => handleBuyerChange(index, 'oleh', v)} 
                           />
                           <span className="text-sm">עולה חדש</span>
                         </label>
-                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.disabled} 
                             onCheckedChange={v => handleBuyerChange(index, 'disabled', v)} 
                           />
                           <span className="text-sm">נכה/עיוור</span>
                         </label>
-                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer col-span-2">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer col-span-2">
                           <Switch 
                             checked={buyer.bereavedFamily} 
                             onCheckedChange={v => handleBuyerChange(index, 'bereavedFamily', v)} 
@@ -1581,7 +1581,7 @@ export default function DealExpensesPage() {
                           </div>
                         </div>
                         
-                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse cursor-pointer">
                           <Switch
                             checked={services[key].includesVat}
                             onCheckedChange={v => handleServiceChange(key, 'includesVat', v)}

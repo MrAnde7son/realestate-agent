@@ -8,7 +8,6 @@ import re
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from statistics import median
 from datetime import datetime, date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -150,8 +149,12 @@ def _compute_recency_weight(deal_date: Any) -> float:
         return 1.0
 
     days_diff = (date.today() - parsed).days
-    # Fade weight linearly over a 24 month window (≈730 days)
-    recency_weight = max(0.2, 1 - (days_diff / 730))
+    # Exclude transactions older than 12 months (365 days)
+    if days_diff > 365:
+        return 0.0
+    
+    # Fade weight linearly over a 12 month window (365 days)
+    recency_weight = max(0.2, 1 - (days_diff / 365))
     return recency_weight
 
 
@@ -214,8 +217,15 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
 
     base_value = None
     if asset_total_area and asset_total_area > 0:
+        # Use weighted average instead of median for base value
         comparable_prices = [d['ppm'] * asset_total_area for d in ppm_data]
-        base_value = median(comparable_prices)
+        weighted_prices = [price * weight for price, weight in zip(comparable_prices, weights)]
+        base_value = sum(weighted_prices) / weight_total
+    else:
+        # Fallback: use weighted average of comparable prices if no area
+        prices = [d['price'] for d in ppm_data]
+        weighted_prices = [price * weight for price, weight in zip(prices, weights)]
+        base_value = sum(weighted_prices) / weight_total
 
     return weighted_ppm, base_value
 
@@ -2880,8 +2890,11 @@ def _calculate_market_metrics(asset, listings, gov_data):
                     base_value = base_ppm * asset_total_area
 
                 if base_value is None:
-                    # Fallback to median comparable price if no area
-                    base_value = median(prices)
+                    # Fallback to weighted average comparable price if no area
+                    weights = [_compute_ppm_weight(d) for d in ppm_data]
+                    weighted_prices = [price * weight for price, weight in zip(prices, weights)]
+                    weight_total = sum(weights) or 1
+                    base_value = sum(weighted_prices) / weight_total
 
                 adjusted_model_price = int(base_value * adjustment_multiplier)
                 metrics['baseModelPrice'] = int(base_value)

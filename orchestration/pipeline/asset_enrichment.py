@@ -9,6 +9,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, date
+from statistics import median
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.contrib.auth import get_user_model
@@ -143,19 +144,38 @@ def _parse_iso_date(date_value: Any) -> Optional[date]:
     return None
 
 
-def _compute_recency_weight(deal_date: Any) -> float:
-    parsed = _parse_iso_date(deal_date)
-    if not parsed:
-        return 1.0
-
-    days_diff = (date.today() - parsed).days
-    # Exclude transactions older than 12 months (365 days)
-    if days_diff > 365:
-        return 0.0
+def _compute_recency_weight(deal_date: Any, published_days: Any = None) -> float:
+    """Calculate recency weight based on deal date or published days.
     
-    # Fade weight linearly over a 12 month window (365 days)
-    recency_weight = max(0.2, 1 - (days_diff / 365))
-    return recency_weight
+    For transactions: uses deal_date
+    For listings: uses published_days (days since publication)
+    """
+    # First try deal_date (for transactions)
+    if deal_date:
+        parsed = _parse_iso_date(deal_date)
+        if parsed:
+            days_diff = (date.today() - parsed).days
+            # Exclude transactions older than 12 months (365 days)
+            if days_diff > 365:
+                return 0.0
+            # Fade weight linearly over a 12 month window (365 days)
+            return max(0.2, 1 - (days_diff / 365))
+    
+    # For listings, use published_days if available
+    if published_days is not None:
+        try:
+            days_old = int(published_days)
+            # Exclude listings older than 12 months (365 days)
+            if days_old > 365:
+                return 0.0
+            # Fade weight linearly over a 12 month window (365 days)
+            return max(0.2, 1 - (days_old / 365))
+        except (ValueError, TypeError):
+            pass
+    
+    # If no date info, return 1.0 (full weight) for backward compatibility
+    # but this should be rare for recent data
+    return 1.0
 
 
 def _compute_ppm_weight(entry: Dict[str, Any]) -> float:
@@ -163,7 +183,15 @@ def _compute_ppm_weight(entry: Dict[str, Any]) -> float:
     if entry.get('source') == 'nadlan':
         base_weight += 0.5  # Transactions are more reliable than listings
 
-    recency_weight = _compute_recency_weight(entry.get('deal_date'))
+    # Get published_days from entry (for listings) or meta
+    published_days = entry.get('published_days') or entry.get('publishedDays')
+    if published_days is None and isinstance(entry.get('meta'), dict):
+        published_days = entry['meta'].get('published_days') or entry['meta'].get('publishedDays')
+    
+    recency_weight = _compute_recency_weight(
+        entry.get('deal_date'),
+        published_days=published_days
+    )
     return base_weight * recency_weight
 
 
@@ -205,27 +233,129 @@ def _get_listing_area_for_ppm(listing: Dict[str, Any]) -> Optional[float]:
     return None
 
 
+def _calculate_relevance_score(entry: Dict[str, Any], asset_total_area: Optional[float]) -> float:
+    """Calculate relevance score for a comparable entry.
+    
+    Higher score = more relevant. Factors:
+    - Source reliability (transactions > listings)
+    - Recency (recent > old)
+    - Area similarity (similar area > very different area)
+    """
+    score = 1.0
+    
+    # Source reliability: transactions are more reliable
+    if entry.get('source') == 'nadlan':
+        score *= 2.0  # Transactions are 2x more reliable than listings
+    
+    # Recency: prioritize recent data
+    recency_weight = _compute_recency_weight(
+        entry.get('deal_date'),
+        entry.get('published_days')
+    )
+    score *= recency_weight
+    
+    # Area similarity: prioritize comparables with similar area
+    if asset_total_area and asset_total_area > 0:
+        entry_area = entry.get('area', 0)
+        if entry_area > 0:
+            area_ratio = min(asset_total_area, entry_area) / max(asset_total_area, entry_area)
+            # Perfect match (1.0) gets full score, 50% difference gets 0.5 score
+            # Similar area (±30%) gets high score
+            if area_ratio >= 0.7:  # Within 30% of asset area
+                score *= 1.5
+            elif area_ratio >= 0.5:  # Within 50% of asset area
+                score *= 1.0
+            else:  # More than 50% different
+                score *= 0.5
+    
+    return score
+
+
 def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
+    """Calculate base PPM and value using the most relevant comparables.
+    
+    Strategy:
+    1. Calculate relevance score for each comparable
+    2. Filter to only include entries with non-zero weight (not excluded by recency)
+    3. Sort by relevance and use top comparables
+    4. Calculate weighted average PPM from most relevant comparables
+    """
     if not ppm_data:
         return None, None
 
-    ppm_values = [d['ppm'] for d in ppm_data]
-    weights = [_compute_ppm_weight(d) for d in ppm_data]
-    weighted_sum = sum(ppm * weight for ppm, weight in zip(ppm_values, weights))
-    weight_total = sum(weights) or 1
-    weighted_ppm = weighted_sum / weight_total
+    # Calculate weights and relevance scores, filter out excluded entries
+    scored_entries = []
+    excluded_count = 0
+    for entry in ppm_data:
+        weight = _compute_ppm_weight(entry)
+        if weight > 0:  # Only include entries with non-zero weight (not excluded)
+            relevance = _calculate_relevance_score(entry, asset_total_area)
+            # Combined weight = base weight × relevance score
+            combined_weight = weight * relevance
+            scored_entries.append((entry, combined_weight, relevance))
+        else:
+            excluded_count += 1
+    
+    if not scored_entries:
+        logger.warning(f'[PRICE_MODEL] No valid comparables after filtering (excluded {excluded_count} old entries)')
+        return None, None
+    
+    # Sort by relevance (descending) to prioritize most relevant comparables
+    scored_entries.sort(key=lambda x: x[2], reverse=True)
+    
+    original_count = len(scored_entries)
+    
+    # Use only the TOP MOST relevant comparables to get accurate PPM
+    # Strategy: Use top 10-20 most relevant (not a percentage) to focus on best matches
+    # This avoids dilution from less relevant comparables that pull down the average
+    if len(scored_entries) > 20:
+        # Use top 20 most relevant comparables
+        top_count = 20
+        scored_entries = scored_entries[:top_count]
+    elif len(scored_entries) > 10:
+        # Use top 15 most relevant comparables
+        top_count = 15
+        scored_entries = scored_entries[:top_count]
+    elif len(scored_entries) > 5:
+        # Use top 10 most relevant comparables
+        top_count = 10
+        scored_entries = scored_entries[:top_count]
+    # If 5 or fewer, use all of them (they're all relevant enough)
+    
+    # Debug logging
+    if original_count != len(scored_entries):
+        logger.info(
+            f'[PRICE_MODEL] Filtered {original_count} comparables to {len(scored_entries)} most relevant '
+            f'(excluded {excluded_count} old entries, filtered {original_count - len(scored_entries)} less relevant)'
+        )
+    
+    # Use median of the most relevant comparables to avoid outliers pulling down the average
+    # Median is more robust when we have a mix of high and low PPM values
+    ppm_values = [entry['ppm'] for entry, _, _ in scored_entries]
+    if len(ppm_values) >= 3:
+        # Use median for 3+ comparables (more robust to outliers)
+        weighted_ppm = median(ppm_values)
+    else:
+        # Use average for 1-2 comparables
+        weighted_ppm = sum(ppm_values) / len(ppm_values)
+    
+    # Debug logging for PPM calculation
+    if scored_entries:
+        top_ppm_values = [entry['ppm'] for entry, _, _ in scored_entries[:5]]
+        sources = [entry.get('source', 'unknown') for entry, _, _ in scored_entries[:5]]
+        logger.info(
+            f'[PRICE_MODEL] Calculated avg_ppm={weighted_ppm:.0f} from {len(scored_entries)} most relevant comparables. '
+            f'Top 5: PPM={[f"{v:.0f}" for v in top_ppm_values]}, sources={sources}'
+        )
 
     base_value = None
     if asset_total_area and asset_total_area > 0:
-        # Use weighted average instead of median for base value
-        comparable_prices = [d['ppm'] * asset_total_area for d in ppm_data]
-        weighted_prices = [price * weight for price, weight in zip(comparable_prices, weights)]
-        base_value = sum(weighted_prices) / weight_total
+        # Calculate base value using average PPM × asset area
+        base_value = weighted_ppm * asset_total_area
     else:
-        # Fallback: use weighted average of comparable prices if no area
-        prices = [d['price'] for d in ppm_data]
-        weighted_prices = [price * weight for price, weight in zip(prices, weights)]
-        base_value = sum(weighted_prices) / weight_total
+        # Fallback: use simple average of comparable prices if no area
+        prices = [entry['price'] for entry, _, _ in scored_entries]
+        base_value = sum(prices) / len(prices)
 
     return weighted_ppm, base_value
 
@@ -359,9 +489,10 @@ def _proximity_adjustment(asset: Any) -> float:
         elif transit_distance < 600:
             adjustment += 0.05
 
-    beach_distance = _safe_numeric(meta.get('distance_to_beach_m'))
-    if isinstance(beach_distance, (int, float)) and beach_distance < 600:
-        adjustment += 0.12
+    # TODO: Beach distance calculation not implemented properly yet
+    # beach_distance = _safe_numeric(meta.get('distance_to_beach_m'))
+    # if isinstance(beach_distance, (int, float)) and beach_distance < 600:
+    #     adjustment += 0.12
 
     return adjustment
 
@@ -2827,6 +2958,11 @@ def _calculate_market_metrics(asset, listings, gov_data):
                         if meta_source in ('yad2', 'madlan'):
                             source = meta_source
                     
+                    # Extract published_days for recency weighting
+                    published_days = listing.get('published_days') or listing.get('publishedDays')
+                    if published_days is None and isinstance(listing.get('meta'), dict):
+                        published_days = listing['meta'].get('published_days') or listing['meta'].get('publishedDays')
+                    
                     ppm_data.append({
                         'ppm': ppm,
                         'price': price,
@@ -2834,7 +2970,8 @@ def _calculate_market_metrics(asset, listings, gov_data):
                         'source': source,
                         'address': listing.get('address', ''),
                         'rooms': listing.get('rooms'),
-                        'floor': listing.get('floor')
+                        'floor': listing.get('floor'),
+                        'published_days': published_days
                     })
 
         # From Nadlan transactions
@@ -2881,6 +3018,13 @@ def _calculate_market_metrics(asset, listings, gov_data):
             asset_total_area = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
             base_ppm, base_value = _calculate_base_ppm_and_value(ppm_data, asset_total_area)
 
+            # Debug logging for price model calculation
+            asset_id = getattr(asset, 'id', '?')
+            logger.info(
+                f'[PRICE_MODEL] asset={asset_id} total_comparables={len(ppm_data)} '
+                f'asset_area={asset_total_area} base_ppm={base_ppm} base_value={base_value}'
+            )
+
             feature_vector = _build_feature_vector(asset)
             adjustment_multiplier = 1 + feature_vector.total_adjustment
 
@@ -2899,6 +3043,18 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 adjusted_model_price = int(base_value * adjustment_multiplier)
                 metrics['baseModelPrice'] = int(base_value)
                 metrics['modelPrice'] = adjusted_model_price
+                
+                # Debug logging for final calculation
+                adjustments_dict = feature_vector.to_dict()
+                logger.info(
+                    f'[PRICE_MODEL] asset={asset_id} base_value={int(base_value)} '
+                    f'adjustment_multiplier={adjustment_multiplier:.3f} '
+                    f'total_adjustment_pct={feature_vector.total_adjustment*100:.1f}% '
+                    f'final_model_price={adjusted_model_price}'
+                )
+                logger.info(
+                    f'[PRICE_MODEL] asset={asset_id} adjustments breakdown: {adjustments_dict}'
+                )
                 metrics['adjustments'] = {
                     'multiplier': adjustment_multiplier,
                     'totalPct': round(feature_vector.total_adjustment * 100, 2),

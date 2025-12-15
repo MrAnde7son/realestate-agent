@@ -4459,13 +4459,14 @@ useDedupedEffect(() => {
                   <span className="text-muted-foreground">מרחק ממקלט:</span>
                   {renderValue(asset.shelterDistanceM ? `${asset.shelterDistanceM} מ׳` : '—', 'shelterDistanceM')}
                 </div>
-                <div className="flex justify-between text-start">
+                {/* TODO: fix distance to sea */}
+                {/* <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מרחק מהים:</span>
                   {renderValue(
                     distanceToSeaMeters !== null ? `${distanceToSeaMeters} מ׳` : '—',
                     'distanceToSeaM'
                   )}
-                </div>
+                </div> */}
 
                 {/* Environmental Features */}
                 <div className="flex justify-between text-start">

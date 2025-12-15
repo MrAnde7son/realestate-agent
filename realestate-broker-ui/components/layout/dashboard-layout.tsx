@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="flex h-[100dvh] supports-[height:100dvh]:h-[100dvh] bg-background overflow-hidden">
+    <div className="fixed inset-0 flex bg-background overflow-hidden">
       {/* Sidebar - hidden on mobile, visible on medium screens and larger */}
       <div className="hidden md:flex-shrink-0 md:block h-full">
         <AppSidebar isCollapsed={!sidebarOpen} />

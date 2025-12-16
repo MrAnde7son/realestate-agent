@@ -47,21 +47,21 @@ export const baseNavigation = [
     href: "/deals",
     icon: Handshake,
   },
-  {
-    name: "לקוחות",
-    href: "/crm",
-    icon: Users,
-  },
-  {
-    name: "התראות",
-    href: "/alerts",
-    icon: AlertCircle,
-  },
-  {
-    name: "דוחות",
-    href: "/reports",
-    icon: BarChart3,
-  },
+  // {
+  //   name: "לקוחות",
+  //   href: "/crm",
+  //   icon: Users,
+  // },
+  // {
+  //   name: "התראות",
+  //   href: "/alerts",
+  //   icon: AlertCircle,
+  // },
+  // {
+  //   name: "דוחות",
+  //   href: "/reports",
+  //   icon: BarChart3,
+  // },
   {
     name: "הוצאות",
     href: "/deal-expenses",
@@ -100,7 +100,7 @@ export default function AppSidebar({
     .map((item) => ({ ...item }));
 
   if (user?.role === "admin") {
-    navigation.push({ name: "מעקב", href: "/admin/analytics", icon: LineChart });
+    // navigation.push({ name: "מעקב", href: "/admin/analytics", icon: LineChart });
     navigation.push({ name: "משתמשים", href: "/admin/users", icon: Users });
   }
 

@@ -89,12 +89,17 @@ describe('calculateEnvironmentScore', () => {
       schoolsCount: 3,
       greenAmenitiesCount: 4,
       publicParkingLotsCount: 1,
+      distanceToSeaM: 2500,
     }
-    expect(calculateEnvironmentScore(asset)).toBe(58)
+    expect(calculateEnvironmentScore(asset)).toBe(62)
   })
 
   it('returns null when there are no environmental indicators', () => {
     expect(calculateEnvironmentScore(null)).toBeNull()
     expect(calculateEnvironmentScore({})).toBeNull()
+  })
+
+  it('rewards proximity to the sea when available', () => {
+    expect(calculateEnvironmentScore({ distanceToSeaM: 5000 })).toBe(50)
   })
 })

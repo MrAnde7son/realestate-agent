@@ -1264,7 +1264,7 @@ export default function MortgageAnalyzePage() {
                       ref={registerTrancheRef(tranche.id)}
                       data-testid="tranche-editor"
                       className={cn(
-                        'rounded-lg border bg-card p-4 transition-shadow',
+                        'rounded-lg border-0 shadow-md bg-card p-4 transition-shadow',
                         highlightedTrancheId === tranche.id && 'ring-2 ring-primary/50'
                       )}
                     >
@@ -1597,7 +1597,7 @@ export default function MortgageAnalyzePage() {
                         </CardHeader>
                         <CardContent className="space-y-4 text-sm">
                           {result.tranches.map((tranche, index) => (
-                            <div key={`${tranche.input.name}-${index}`} className="rounded-md border p-3">
+                            <div key={`${tranche.input.name}-${index}`} className="rounded-md border-0 shadow-md p-3">
                               <div className="flex items-center justify-between">
                                 <div className="font-medium">{tranche.input.name}</div>
                                 <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.input.track)?.label}</Badge>
@@ -1720,7 +1720,7 @@ export default function MortgageAnalyzePage() {
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm">
                       {portfolioResult.tranches.map((tranche, index) => (
-                        <div key={`${tranche.input.name}-${index}`} className="rounded-md border p-3">
+                        <div key={`${tranche.input.name}-${index}`} className="rounded-md border-0 shadow-md p-3">
                           <div className="flex items-center justify-between">
                             <div className="font-medium">{tranche.input.name}</div>
                             <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.input.track)?.label}</Badge>

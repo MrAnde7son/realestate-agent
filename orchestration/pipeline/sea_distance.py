@@ -68,7 +68,6 @@ class SeaDistanceCalculator:
 
     def distance_to_sea_meters(
         self,
-        *,
         lat: Optional[float] = None,
         lon: Optional[float] = None,
         x_itm: Optional[float] = None,

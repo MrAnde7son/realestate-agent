@@ -3084,9 +3084,22 @@ def _calculate_market_metrics(asset, listings, gov_data):
             madlan_listing_count = len([d for d in ppm_data if d['source'] == 'madlan'])
             listing_count = yad2_listing_count + madlan_listing_count
 
-            # Base confidence: 15% per transaction, 10% per listing, max 100%
-            confidence = min(100, (transaction_count * 15) + (listing_count * 10))
-            metrics['confidencePct'] = confidence
+            # Normalize confidence: transactions and listings are normalized separately
+            # then weighted and combined to ensure result is always 0-100
+            # Reasonable maximums: 10 transactions = 100%, 20 listings = 100%
+            MAX_TRANSACTIONS = 10.0
+            MAX_LISTINGS = 20.0
+            TRANSACTION_WEIGHT = 0.7  # Transactions are more reliable
+            LISTING_WEIGHT = 0.3      # Listings are less reliable
+            
+            # Normalize each component to 0-1 range
+            normalized_transactions = min(1.0, transaction_count / MAX_TRANSACTIONS)
+            normalized_listings = min(1.0, listing_count / MAX_LISTINGS)
+            
+            # Weight and combine, then scale to 0-100
+            confidence = (normalized_transactions * TRANSACTION_WEIGHT + 
+                        normalized_listings * LISTING_WEIGHT) * 100
+            metrics['confidencePct'] = round(confidence, 1)
 
             # Store source breakdown
             metrics['ppmSources'] = {

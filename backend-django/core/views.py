@@ -3652,17 +3652,35 @@ def asset_transactions(request, asset_id):
         
         # Build database-agnostic SQL that safely handles string values in raw field
         if db_vendor == 'postgresql':
-            # PostgreSQL: Check jsonb_typeof before using ->>
+            # PostgreSQL: Defensively check type before each extraction
+            # This handles cases where raw might still be a string (if migration hasn't run)
             source_sql = """
                 CASE 
                     WHEN core_realestatetransaction.raw IS NULL 
-                         OR jsonb_typeof(core_realestatetransaction.raw) != 'object'
+                    THEN 'government'
+                    WHEN jsonb_typeof(core_realestatetransaction.raw) != 'object'
                     THEN 'government'
                     ELSE COALESCE(
-                        core_realestatetransaction.raw->>'source',
-                        core_realestatetransaction.raw->>'sourceType',
-                        core_realestatetransaction.raw->>'source_type',
-                        core_realestatetransaction.raw->>'data_source',
+                        CASE 
+                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
+                            THEN core_realestatetransaction.raw->>'source'
+                            ELSE NULL
+                        END,
+                        CASE 
+                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
+                            THEN core_realestatetransaction.raw->>'sourceType'
+                            ELSE NULL
+                        END,
+                        CASE 
+                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
+                            THEN core_realestatetransaction.raw->>'source_type'
+                            ELSE NULL
+                        END,
+                        CASE 
+                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
+                            THEN core_realestatetransaction.raw->>'data_source'
+                            ELSE NULL
+                        END,
                         'government'
                     )
                 END

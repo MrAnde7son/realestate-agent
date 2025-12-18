@@ -228,12 +228,6 @@ class AssetRightsView(APIView):
             else:
                 logger.info(f"Asset {asset_id}: No GIS collector data found in metadata. Available meta keys: {list(asset.meta.keys()) if asset.meta else 'no meta'}")
             
-            # Process land use rights data - DISABLED (legacy data)
-            # All GIS data processing has been removed as it's redundant with other tabs
-            
-            # Process additional GIS data sources - DISABLED (legacy data)
-            # self._process_gis_data_sources(gis_data, rights_data, query)
-
             # 3. Get building rights information
             if asset.meta:
                 building_rights = {

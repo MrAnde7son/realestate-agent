@@ -6,7 +6,7 @@ import os
 import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
-from typing import Optional, Any, Iterable, List
+from typing import Optional, Any, List
 from pathlib import Path
 
 from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse, HttpResponse
@@ -35,11 +35,10 @@ from django.db.models import (
     F,
     CharField,
     Count,
-    Exists,
-    OuterRef,
     Subquery,
+    Func,
 )
-from datetime import datetime
+from django.db.models.expressions import RawSQL
 from asgiref.sync import async_to_sync
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -3661,12 +3660,37 @@ def asset_transactions(request, asset_id):
                 default=Value(None),
                 output_field=FloatField(),
             ),
-            source_value=Case(
-                When(raw__source__isnull=False, then=F("raw__source")),
-                When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
-                When(raw__source_type__isnull=False, then=F("raw__source_type")),
-                When(raw__data_source__isnull=False, then=F("raw__data_source")),
-                default=Value("government"),
+            source_value=RawSQL(
+                """
+                COALESCE(
+                    CASE 
+                        WHEN core_realestatetransaction.raw IS NOT NULL 
+                             AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                        THEN core_realestatetransaction.raw ->> 'source'
+                        ELSE NULL
+                    END,
+                    CASE 
+                        WHEN core_realestatetransaction.raw IS NOT NULL 
+                             AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                        THEN core_realestatetransaction.raw ->> 'sourceType'
+                        ELSE NULL
+                    END,
+                    CASE 
+                        WHEN core_realestatetransaction.raw IS NOT NULL 
+                             AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                        THEN core_realestatetransaction.raw ->> 'source_type'
+                        ELSE NULL
+                    END,
+                    CASE 
+                        WHEN core_realestatetransaction.raw IS NOT NULL 
+                             AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                        THEN core_realestatetransaction.raw ->> 'data_source'
+                        ELSE NULL
+                    END,
+                    'government'
+                )
+                """,
+                [],
                 output_field=CharField(),
             ),
         )

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Any, List
 from pathlib import Path
 
+from django.db.models.fields.json import KeyTextTransform
 from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
@@ -3659,13 +3660,17 @@ def asset_transactions(request, asset_id):
                 output_field=FloatField(),
             ),
             source_value=Case(
-                # When(raw__source__isnull=False, then=F("raw__source")),
-                # When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
-                # When(raw__source_type__isnull=False, then=F("raw__source_type")),
-                # When(raw__data_source__isnull=False, then=F("raw__data_source")),
-                default=Value("government"),
-                output_field=CharField(),
-            )
+                    When(raw__source__isnull=False, 
+                        then=KeyTextTransform('source', 'raw')),
+                    When(raw__sourceType__isnull=False, 
+                        then=KeyTextTransform('sourceType', 'raw')),
+                    When(raw__source_type__isnull=False, 
+                        then=KeyTextTransform('source_type', 'raw')),
+                    When(raw__data_source__isnull=False, 
+                        then=KeyTextTransform('data_source', 'raw')),
+                    default=Value("government"),
+                    output_field=CharField(),
+                )
         )
 
         if source_filter and source_filter.lower() != "all":

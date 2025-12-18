@@ -33,12 +33,9 @@ from django.db.models import (
     Exists,
     OuterRef,
     F,
-    CharField,
     Count,
     Subquery,
-    Func,
 )
-from django.db.models.expressions import RawSQL
 from asgiref.sync import async_to_sync
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated

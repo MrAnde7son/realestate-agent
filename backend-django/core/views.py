@@ -23,6 +23,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import (
     Q,
     Avg,
+    CharField,
     Min,
     Max,
     Case,
@@ -3663,6 +3664,7 @@ def asset_transactions(request, asset_id):
                 # When(raw__source_type__isnull=False, then=F("raw__source_type")),
                 # When(raw__data_source__isnull=False, then=F("raw__data_source")),
                 default=Value("government"),
+                output_field=CharField(),
             )
         )
 

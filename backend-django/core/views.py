@@ -3646,52 +3646,6 @@ def asset_transactions(request, asset_id):
         
         transactions = RealEstateTransaction.objects.filter(transaction_filters).distinct()
 
-        # Get database vendor to use appropriate SQL syntax
-        from django.db import connection
-        db_vendor = connection.vendor
-        
-        # Build database-agnostic SQL that safely handles string values in raw field
-        if db_vendor == 'postgresql':
-            # PostgreSQL: Use subquery to isolate value and prevent premature evaluation
-            # This handles cases where raw might still be a string (if migration 0072 hasn't run)
-            # IMPORTANT: Migration 0072_fix_transaction_raw_field must run to fix string values
-            # The subquery prevents PostgreSQL from evaluating ->>
-            source_sql = """
-                (
-                    SELECT 
-                        CASE 
-                            WHEN raw_val IS NULL 
-                            THEN 'government'
-                            WHEN jsonb_typeof(raw_val) != 'object'
-                            THEN 'government'
-                            ELSE COALESCE(
-                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'source' ELSE NULL END,
-                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'sourceType' ELSE NULL END,
-                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'source_type' ELSE NULL END,
-                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'data_source' ELSE NULL END,
-                                'government'
-                            )
-                        END
-                    FROM (SELECT core_realestatetransaction.raw AS raw_val) AS subq
-                )
-            """
-        else:
-            # SQLite: Check json_type before using json_extract
-            source_sql = """
-                CASE 
-                    WHEN core_realestatetransaction.raw IS NULL 
-                         OR json_type(core_realestatetransaction.raw) != 'object'
-                    THEN 'government'
-                    ELSE COALESCE(
-                        json_extract(core_realestatetransaction.raw, '$.source'),
-                        json_extract(core_realestatetransaction.raw, '$.sourceType'),
-                        json_extract(core_realestatetransaction.raw, '$.source_type'),
-                        json_extract(core_realestatetransaction.raw, '$.data_source'),
-                        'government'
-                    )
-                END
-            """
-
         transactions = transactions.annotate(
             price_per_sqm=Case(
                 When(
@@ -3706,11 +3660,13 @@ def asset_transactions(request, asset_id):
                 default=Value(None),
                 output_field=FloatField(),
             ),
-            source_value=RawSQL(
-                source_sql,
-                [],
-                output_field=CharField(),
-            ),
+            source_value=Case(
+                When(raw__source__isnull=False, then=F("raw__source")),
+                When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
+                When(raw__source_type__isnull=False, then=F("raw__source_type")),
+                When(raw__data_source__isnull=False, then=F("raw__data_source")),
+                default=Value("government"),
+            )
         )
 
         if source_filter and source_filter.lower() != "all":

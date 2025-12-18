@@ -81,11 +81,9 @@ def build_listing(
             parts.append(asset.city)
         address = " ".join(parts) if parts else None
 
-    # Calculate price per sqm based on appropriate price field
-    price_for_ppsqm = rent_price if listing_type_normalized == "rent" else price
     ppsqm = _first_nonempty(
         asset.price_per_sqm,
-        round(price_for_ppsqm / net_sqm) if price_for_ppsqm and net_sqm else None,
+        round(price / net_sqm) if price and net_sqm else None,
         meta.get("pricePerSqm")
     )
 

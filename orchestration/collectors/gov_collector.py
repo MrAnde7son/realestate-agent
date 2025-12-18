@@ -79,9 +79,15 @@ class GovCollector(BaseCollector):
 
     def _collect_decisive(self, block: str, parcel: str) -> List[Dict[str, Any]]:
         """Collect decisive appraisals for a given block/parcel."""
+        # Only collect if block is provided and not empty
+        if not block or not str(block).strip():
+            logger.debug(f"Skipping decisive appraisals collection: block is empty or None (block={block}, parcel={parcel})")
+            return []
+        
         try:
             # Block search is enough for decisive appraisals to cover larger area
             appraisals = self.decisive_client.fetch_appraisals(block=block)
+            logger.info(f"Collected {len(appraisals)} decisive appraisals for block {block}")
             return [appraisal.to_dict() for appraisal in appraisals]
         except Exception as e:
             logger.error(f"Error collecting decisive appraisals: {e}")

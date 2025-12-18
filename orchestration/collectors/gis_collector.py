@@ -246,8 +246,37 @@ class GISCollector(BaseCollector):
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""
-        block = data.get("blocks", [{}])[0].get("ms_gush", "")
-        parcel = data.get("parcels", [{}])[0].get("ms_chelka", "")
+        # Try to extract from blocks array
+        block = ""
+        blocks = data.get("blocks", [])
+        if blocks and isinstance(blocks, list) and len(blocks) > 0:
+            block_data = blocks[0]
+            if isinstance(block_data, dict):
+                block = block_data.get("ms_gush", "")
+                # Convert to string if it's a number
+                if block and not isinstance(block, str):
+                    block = str(block)
+        
+        # Try to extract from parcels array
+        parcel = ""
+        parcels = data.get("parcels", [])
+        if parcels and isinstance(parcels, list) and len(parcels) > 0:
+            parcel_data = parcels[0]
+            if isinstance(parcel_data, dict):
+                parcel = parcel_data.get("ms_chelka", "")
+                # Convert to string if it's a number
+                if parcel and not isinstance(parcel, str):
+                    parcel = str(parcel)
+        
+        # Strip whitespace and return
+        block = block.strip() if block else ""
+        parcel = parcel.strip() if parcel else ""
+        
+        if block or parcel:
+            logger.info(f"Extracted block/parcel from GIS data: block={block}, parcel={parcel}")
+        else:
+            logger.warning(f"Could not extract block/parcel from GIS data. Blocks: {len(blocks)}, Parcels: {len(parcels)}")
+        
         return block, parcel
 
 

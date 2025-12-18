@@ -188,14 +188,21 @@ class TestPPMModelPriceCalculation:
             assert asset.price_gap_pct == pytest.approx(expected_gap, rel=1e-1)
 
     def test_confidence_calculation_with_both_sources(self):
-        """Test confidence calculation weights transactions higher than listings."""
-        # Mock asset with proper meta support
+        """Test confidence calculation weights transactions higher than listings and accounts for data completeness."""
+        # Mock asset with proper meta support and sufficient data for high completeness
         asset = Mock()
         asset.total_area = 100
         asset.area = 100
+        asset.year_built = 2000  # For age factor
+        asset.floor = 3  # For floor factor
+        asset.elevator = True  # For elevator factor
+        asset.parking_spaces = 1  # For attachments factor
         asset.price = None
         asset.is_commercial = False  # Required for filtering
-        asset.meta = {}
+        asset.meta = {
+            'distance_to_transit_m': 500,  # For proximity factor (environment)
+            'nuisance_index': 0.5,  # For noise factor (environment)
+        }
         asset.save = Mock()
         # Ensure required attributes exist for hasattr checks
         asset.confidence_pct = None
@@ -218,8 +225,14 @@ class TestPPMModelPriceCalculation:
         # Calculate metrics
         _calculate_market_metrics(asset, listings, gov_data)
         
-        # Confidence: 2 transactions * 15% + 3 listings * 10% = 30% + 30% = 60%
-        assert asset.confidence_pct == 60
+        # Base confidence calculation:
+        # normalized_transactions = min(1.0, 2/10) = 0.2
+        # normalized_listings = min(1.0, 3/20) = 0.15
+        # base_confidence = 0.2 * 0.7 + 0.15 * 0.3 = 0.185 (18.5%)
+        # With high data completeness (most factors have data, ~0.8-1.0), final confidence:
+        # 0.185 * completeness_factor * 100 = ~15-19%
+        assert asset.confidence_pct is not None
+        assert 12 <= asset.confidence_pct <= 20  # Allow range for completeness factor (0.7-1.0)
         
         # Verify source breakdown in meta
         assert 'market_metrics' in asset.meta

@@ -527,6 +527,126 @@ def _floor_adjustment(asset: Any) -> float:
     return 0.0
 
 
+def _calculate_adjustment_data_completeness(asset: Any, feature_vector: FeatureVector) -> float:
+    """Calculate data completeness factor for adjustment factors.
+    
+    Returns a value between 0.0 and 1.0 indicating how complete the data is
+    for all adjustment factors that affect the model price calculation.
+    This includes environment factors (proximity, noise), potential factors,
+    and attractiveness factors (attachments, finish level, etc.).
+    
+    Args:
+        asset: The asset object
+        feature_vector: The calculated feature vector with all adjustments
+        
+    Returns:
+        Completeness factor (0.0-1.0) where 1.0 means all factors have data
+    """
+    # Check data availability for each adjustment factor
+    # Each factor gets a weight based on its importance to price accuracy
+    
+    checks = []
+    
+    # Size factor - critical, always calculated if area exists
+    area = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
+    checks.append(('size', area is not None and area > 0, 1.0))
+    
+    # Age factor - important for price accuracy
+    year_built = _safe_numeric(getattr(asset, 'year_built', None))
+    checks.append(('age', year_built is not None, 0.9))
+    
+    # Potential factor - important for investment properties
+    potential = getattr(asset, 'urban_renewal_potential', None)
+    meta = getattr(asset, 'meta', {}) or {}
+    has_potential_data = (
+        potential is not None or
+        (isinstance(meta, dict) and meta.get('planning_potential')) or
+        _safe_bool(getattr(asset, 'permit_urban_renewal', False))
+    )
+    checks.append(('potential', has_potential_data, 0.8))
+    
+    # New build factor - important for price
+    has_new_build_data = (
+        year_built is not None or
+        (isinstance(meta, dict) and (meta.get('new_project') or meta.get('tama38_completed')))
+    )
+    checks.append(('new_build', has_new_build_data, 0.7))
+    
+    # Attachments factor - affects attractiveness
+    has_attachments_data = (
+        _safe_numeric(getattr(asset, 'parking_spaces', None)) is not None or
+        _safe_bool(getattr(asset, 'storage_room', False)) or
+        _safe_numeric(getattr(asset, 'balcony_area', None)) is not None or
+        (isinstance(meta, dict) and (
+            _safe_numeric(meta.get('garden_area')) is not None or
+            _safe_numeric(meta.get('roof_space')) is not None
+        ))
+    )
+    checks.append(('attachments', has_attachments_data, 0.7))
+    
+    # Finish level factor - affects attractiveness
+    has_finish_data = (
+        _safe_bool(getattr(asset, 'renovated', False)) or
+        (isinstance(meta, dict) and (
+            meta.get('finish_level') or meta.get('renovation_state')
+        ))
+    )
+    checks.append(('finish_level', has_finish_data, 0.6))
+    
+    # Elevator factor - affects attractiveness
+    has_elevator_data = (
+        _safe_bool(getattr(asset, 'elevator', False)) or
+        _safe_numeric(getattr(asset, 'floor', None)) is not None
+    )
+    checks.append(('elevator', has_elevator_data, 0.6))
+    
+    # Proximity factor - environment score component
+    has_proximity_data = (
+        isinstance(meta, dict) and (
+            _safe_numeric(meta.get('distance_to_transit_m')) is not None or
+            _safe_numeric(meta.get('distance_to_beach_m')) is not None or
+            _safe_numeric(meta.get('distance_to_sea_m')) is not None
+        )
+    )
+    checks.append(('proximity', has_proximity_data, 0.8))
+    
+    # Noise factor - environment score component
+    has_noise_data = (
+        isinstance(meta, dict) and (
+            _safe_numeric(meta.get('nuisance_index')) is not None or
+            _safe_numeric(meta.get('distance_to_main_road_m')) is not None
+        )
+    )
+    checks.append(('noise', has_noise_data, 0.7))
+    
+    # Floor factor - affects attractiveness
+    has_floor_data = _safe_numeric(getattr(asset, 'floor', None)) is not None
+    checks.append(('floor', has_floor_data, 0.5))
+    
+    # Calculate weighted completeness
+    total_weight = sum(weight for _, _, weight in checks)
+    available_weight = sum(weight for _, has_data, weight in checks if has_data)
+    
+    if total_weight == 0:
+        return 1.0  # No factors to check, assume complete
+    
+    completeness = available_weight / total_weight
+    
+    # If total adjustment is significant (large positive or negative), 
+    # we need higher data completeness for confidence
+    total_adj = abs(feature_vector.total_adjustment)
+    if total_adj > 0.15:  # Large adjustments (>15%)
+        # Require at least 80% data completeness for large adjustments
+        if completeness < 0.8:
+            completeness = completeness * 0.85  # Penalize more
+    elif total_adj > 0.10:  # Medium adjustments (10-15%)
+        # Require at least 70% data completeness
+        if completeness < 0.7:
+            completeness = completeness * 0.9  # Slight penalty
+    
+    return min(1.0, max(0.0, completeness))
+
+
 def _build_feature_vector(asset: Any) -> FeatureVector:
     size = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
     return FeatureVector(
@@ -3096,9 +3216,17 @@ def _calculate_market_metrics(asset, listings, gov_data):
             normalized_transactions = min(1.0, transaction_count / MAX_TRANSACTIONS)
             normalized_listings = min(1.0, listing_count / MAX_LISTINGS)
             
-            # Weight and combine, then scale to 0-100
-            confidence = (normalized_transactions * TRANSACTION_WEIGHT + 
-                        normalized_listings * LISTING_WEIGHT) * 100
+            # Base confidence from data sources (transactions and listings)
+            base_confidence = (normalized_transactions * TRANSACTION_WEIGHT + 
+                             normalized_listings * LISTING_WEIGHT)
+            
+            # Calculate data completeness factor based on adjustment factors
+            # This ensures confidence reflects how well we can account for all price-affecting parameters
+            data_completeness = _calculate_adjustment_data_completeness(asset, feature_vector)
+            
+            # Final confidence = base confidence × data completeness factor
+            # This penalizes cases where we're missing data for important adjustments
+            confidence = base_confidence * data_completeness * 100
             metrics['confidencePct'] = round(confidence, 1)
 
             # Store source breakdown

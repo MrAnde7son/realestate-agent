@@ -3652,38 +3652,28 @@ def asset_transactions(request, asset_id):
         
         # Build database-agnostic SQL that safely handles string values in raw field
         if db_vendor == 'postgresql':
-            # PostgreSQL: Defensively check type before each extraction
-            # This handles cases where raw might still be a string (if migration hasn't run)
+            # PostgreSQL: Use subquery to isolate value and prevent premature evaluation
+            # This handles cases where raw might still be a string (if migration 0072 hasn't run)
+            # IMPORTANT: Migration 0072_fix_transaction_raw_field must run to fix string values
+            # The subquery prevents PostgreSQL from evaluating ->>
             source_sql = """
-                CASE 
-                    WHEN core_realestatetransaction.raw IS NULL 
-                    THEN 'government'
-                    WHEN jsonb_typeof(core_realestatetransaction.raw) != 'object'
-                    THEN 'government'
-                    ELSE COALESCE(
+                (
+                    SELECT 
                         CASE 
-                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
-                            THEN core_realestatetransaction.raw->>'source'
-                            ELSE NULL
-                        END,
-                        CASE 
-                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
-                            THEN core_realestatetransaction.raw->>'sourceType'
-                            ELSE NULL
-                        END,
-                        CASE 
-                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
-                            THEN core_realestatetransaction.raw->>'source_type'
-                            ELSE NULL
-                        END,
-                        CASE 
-                            WHEN jsonb_typeof(core_realestatetransaction.raw) = 'object'
-                            THEN core_realestatetransaction.raw->>'data_source'
-                            ELSE NULL
-                        END,
-                        'government'
-                    )
-                END
+                            WHEN raw_val IS NULL 
+                            THEN 'government'
+                            WHEN jsonb_typeof(raw_val) != 'object'
+                            THEN 'government'
+                            ELSE COALESCE(
+                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'source' ELSE NULL END,
+                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'sourceType' ELSE NULL END,
+                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'source_type' ELSE NULL END,
+                                CASE WHEN jsonb_typeof(raw_val) = 'object' THEN raw_val->>'data_source' ELSE NULL END,
+                                'government'
+                            )
+                        END
+                    FROM (SELECT core_realestatetransaction.raw AS raw_val) AS subq
+                )
             """
         else:
             # SQLite: Check json_type before using json_extract

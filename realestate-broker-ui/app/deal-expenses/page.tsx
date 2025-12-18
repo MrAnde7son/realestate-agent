@@ -1513,9 +1513,13 @@ export default function DealExpensesPage() {
             <div className="grid gap-6 md:grid-cols-2">
               {(Object.keys(services) as ServiceKey[]).map((key) => {
                 const defaultValue = defaultValues[key]
+                // For renovation, compare against calculated amount (per sqm * area)
+                const expectedAmount = key === 'renovation' && area > 0
+                  ? defaultValue.amount! * area
+                  : defaultValue.amount
                 const isUsingDefault = 
                   services[key].percent === defaultValue.percent && 
-                  services[key].amount === defaultValue.amount && 
+                  services[key].amount === expectedAmount && 
                   services[key].includesVat === defaultValue.includesVat
                 
                 return (

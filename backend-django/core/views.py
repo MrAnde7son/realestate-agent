@@ -3646,6 +3646,44 @@ def asset_transactions(request, asset_id):
         
         transactions = RealEstateTransaction.objects.filter(transaction_filters).distinct()
 
+        # Get database vendor to use appropriate SQL syntax
+        from django.db import connection
+        db_vendor = connection.vendor
+        
+        # Build database-agnostic SQL that safely handles string values in raw field
+        if db_vendor == 'postgresql':
+            # PostgreSQL: Check jsonb_typeof before using ->>
+            source_sql = """
+                CASE 
+                    WHEN core_realestatetransaction.raw IS NULL 
+                         OR jsonb_typeof(core_realestatetransaction.raw) != 'object'
+                    THEN 'government'
+                    ELSE COALESCE(
+                        core_realestatetransaction.raw->>'source',
+                        core_realestatetransaction.raw->>'sourceType',
+                        core_realestatetransaction.raw->>'source_type',
+                        core_realestatetransaction.raw->>'data_source',
+                        'government'
+                    )
+                END
+            """
+        else:
+            # SQLite: Check json_type before using json_extract
+            source_sql = """
+                CASE 
+                    WHEN core_realestatetransaction.raw IS NULL 
+                         OR json_type(core_realestatetransaction.raw) != 'object'
+                    THEN 'government'
+                    ELSE COALESCE(
+                        json_extract(core_realestatetransaction.raw, '$.source'),
+                        json_extract(core_realestatetransaction.raw, '$.sourceType'),
+                        json_extract(core_realestatetransaction.raw, '$.source_type'),
+                        json_extract(core_realestatetransaction.raw, '$.data_source'),
+                        'government'
+                    )
+                END
+            """
+
         transactions = transactions.annotate(
             price_per_sqm=Case(
                 When(
@@ -3660,12 +3698,9 @@ def asset_transactions(request, asset_id):
                 default=Value(None),
                 output_field=FloatField(),
             ),
-            source_value=Case(
-                When(raw__source__isnull=False, then=F("raw__source")),
-                When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
-                When(raw__source_type__isnull=False, then=F("raw__source_type")),
-                When(raw__data_source__isnull=False, then=F("raw__data_source")),
-                default=Value("government"),
+            source_value=RawSQL(
+                source_sql,
+                [],
                 output_field=CharField(),
             ),
         )

@@ -3612,18 +3612,16 @@ def asset_transactions(request, asset_id):
         city_name = asset.city.strip() if asset.city else None
         
         # Match by block and parcel (most precise)
-        # NOTE: raw__ lookups are temporarily disabled until migration 0072 runs
-        # They will fail if raw field contains string values instead of JSON objects
         if asset.block and asset.parcel and city_name:
             transaction_filters |= (
                 Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__city=city_name)
-                # Temporarily disabled: Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
+                | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
             )
             # If subparcel is available, make it even more precise
             if asset.subparcel:
                 transaction_filters |= (
                     Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__subparcel=asset.subparcel, assets__city=city_name)
-                    # Temporarily disabled: Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel, raw__parcel_sub_parcel=asset.subparcel)
+                    | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel, raw__parcel_sub_parcel=asset.subparcel)
                 )
         
         # Match by neighborhood (requires city match)
@@ -3631,7 +3629,7 @@ def asset_transactions(request, asset_id):
             neighborhood_name = asset.neighborhood.strip()
             transaction_filters |= (
                 Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
-                # Temporarily disabled: Q(raw__neighborhood=neighborhood_name)
+                | Q(raw__neighborhood=neighborhood_name)
             )
         
         # Match by street name (requires city match)
@@ -3640,7 +3638,7 @@ def asset_transactions(request, asset_id):
             transaction_filters |= (
                 Q(address__icontains=street_name, assets__city=city_name) |
                 Q(assets__street=street_name, assets__city=city_name)
-                # Temporarily disabled: Q(raw__streetNameHeb__icontains=street_name)
+                | Q(raw__streetNameHeb__icontains=street_name)
             )
         
         transactions = RealEstateTransaction.objects.filter(transaction_filters).distinct()
@@ -3659,30 +3657,25 @@ def asset_transactions(request, asset_id):
                 default=Value(None),
                 output_field=FloatField(),
             ),
-            # source_value annotation temporarily removed until migration 0072 runs
-            # Will be restored after migration fixes string values in raw field
-            # source_value=Case(
-            #     When(raw__source__isnull=False, then=F("raw__source")),
-            #     When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
-            #     When(raw__source_type__isnull=False, then=F("raw__source_type")),
-            #     When(raw__data_source__isnull=False, then=F("raw__data_source")),
-            #     default=Value("government"),
-            #     output_field=CharField(),
-            # )
+            source_value=Case(
+                # When(raw__source__isnull=False, then=F("raw__source")),
+                # When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
+                # When(raw__source_type__isnull=False, then=F("raw__source_type")),
+                # When(raw__data_source__isnull=False, then=F("raw__data_source")),
+                default=Value("government"),
+            )
         )
 
-        # Source filter temporarily disabled until migration 0072 runs and source_value annotation is restored
-        # if source_filter and source_filter.lower() != "all":
-        #     transactions = transactions.filter(source_value=source_filter)
+        if source_filter and source_filter.lower() != "all":
+            transactions = transactions.filter(source_value=source_filter)
 
         if search_query:
             transactions = transactions.filter(
                 Q(address__icontains=search_query)
                 | Q(deal_id__icontains=search_query)
-                # Temporarily disabled until migration 0072 runs:
-                # | Q(raw__parcel_block__icontains=search_query)
-                # | Q(raw__parcel_parcel__icontains=search_query)
-                # | Q(raw__parcel_sub_parcel__icontains=search_query)
+                | Q(raw__parcel_block__icontains=search_query)
+                | Q(raw__parcel_parcel__icontains=search_query)
+                | Q(raw__parcel_sub_parcel__icontains=search_query)
             )
 
         if area_filter and area_filter.lower() != "all":
@@ -3764,8 +3757,7 @@ def asset_transactions(request, asset_id):
             "area": "area",
             "rooms": "rooms",
             "address": "address",
-            # Source ordering temporarily disabled until migration 0072 runs
-            # "source": "source_value",
+            "source": "source_value",
         }
         resolved_field = ordering_map.get(ordering_field, "date")
         ordering_prefix = "-" if ordering_param.startswith("-") else ""
@@ -3857,17 +3849,15 @@ def asset_transactions(request, asset_id):
                     "address": trans.address,
                     "price_per_sqm": price_per_sqm,
                     "deal_id": trans.deal_id,
-                    "source": "government",  # Temporarily hardcoded until migration 0072 runs
+                    "source": trans.source_value or "government",
                 }
             )
 
-        # Available sources temporarily disabled until migration 0072 runs
-        # available_sources = (
-        #     transactions.values_list("source_value", flat=True)
-        #     .order_by("source_value")
-        #     .distinct()
-        # )
-        available_sources = ["government"]  # Default until migration runs
+        available_sources = (
+            transactions.values_list("source_value", flat=True)
+            .order_by("source_value")
+            .distinct()
+        )
 
         area_stats = transactions.aggregate(
             min_area=Min("area"),

@@ -51,6 +51,17 @@ def build_listing(
         asset.building_type, meta.get("type"), raw.get("property_type")
     )
 
+    # Determine listing type from asset or source records
+    listing_type = _first_nonempty(
+        getattr(asset, "listing_type", None),
+        meta.get("listing_type"),
+        meta.get("listingType"),
+        raw.get("listing_type"),
+        raw.get("listingType"),
+    )
+    # Normalize listing_type to lowercase for comparison
+    listing_type_normalized = listing_type.lower() if listing_type else None
+
     if asset.normalized_address:
         address = asset.normalized_address
     else:
@@ -70,13 +81,16 @@ def build_listing(
             parts.append(asset.city)
         address = " ".join(parts) if parts else None
 
+    # Calculate price per sqm based on appropriate price field
+    price_for_ppsqm = rent_price if listing_type_normalized == "rent" else price
     ppsqm = _first_nonempty(
         asset.price_per_sqm,
-        round(price / net_sqm) if price and net_sqm else None,
+        round(price_for_ppsqm / net_sqm) if price_for_ppsqm and net_sqm else None,
         meta.get("pricePerSqm")
     )
 
     # Build the base listing data
+    # For rent listings from assets, only set rent_price; for sale listings, only set price
     listing_data = {
         "id": asset.id,
         "address": address,
@@ -92,15 +106,21 @@ def build_listing(
         "bedrooms": bedrooms,
         "netSqm": net_sqm,
         "totalSqm": total_sqm,
-        "price": price,
-        "rentPrice": rent_price,
-        "rent_price": rent_price,
         "pricePerSqm": ppsqm,
         "asset_status": asset.status,
         "lat": asset.lat,
         "lon": asset.lon,
         "normalizedAddress": asset.normalized_address,
     }
+    
+    # Conditionally set price fields based on listing type for assets
+    if listing_type_normalized == "rent":
+        # For rent listings from assets, only set rent_price
+        listing_data["rentPrice"] = rent_price
+        listing_data["rent_price"] = rent_price
+    else:
+        # For sale listings (or when listing_type is not specified), only set price
+        listing_data["price"] = price
     
     # Process unified metadata structure
     _meta = {}

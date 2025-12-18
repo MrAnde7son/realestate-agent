@@ -28,11 +28,24 @@ class MunicipalGisAdapter(ABC):
         self._aliases = {self._normalize(city) for city in (aliases or [])}
 
     def supports(self, city: str) -> bool:
-        """Return True if the adapter supports the provided city name."""
-
+        """Return True if the adapter supports the provided city name.
+        
+        Checks exact matches first, then checks if city name contains any
+        of the supported city names for broader support of variations.
+        """
         normalized = self._normalize(city)
         supported = {self._normalize(name) for name in self.supported_cities}
-        return normalized in supported or normalized in self._aliases
+        
+        # First check exact match
+        if normalized in supported or normalized in self._aliases:
+            return True
+        
+        # Then check if city name contains any of the supported city names
+        for supported_city in supported:
+            if supported_city in normalized:
+                return True
+        
+        return False
 
     @staticmethod
     def _normalize(city: str) -> str:

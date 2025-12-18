@@ -3658,10 +3658,10 @@ def asset_transactions(request, asset_id):
                 output_field=FloatField(),
             ),
             source_value=Case(
-                When(raw__source__isnull=False, then=F("raw__source")),
-                When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
-                When(raw__source_type__isnull=False, then=F("raw__source_type")),
-                When(raw__data_source__isnull=False, then=F("raw__data_source")),
+                # When(raw__source__isnull=False, then=F("raw__source")),
+                # When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
+                # When(raw__source_type__isnull=False, then=F("raw__source_type")),
+                # When(raw__data_source__isnull=False, then=F("raw__data_source")),
                 default=Value("government"),
             )
         )

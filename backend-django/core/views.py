@@ -3666,24 +3666,28 @@ def asset_transactions(request, asset_id):
                     CASE 
                         WHEN core_realestatetransaction.raw IS NOT NULL 
                              AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                             AND jsonb_typeof(core_realestatetransaction.raw) = 'object'
                         THEN core_realestatetransaction.raw ->> 'source'
                         ELSE NULL
                     END,
                     CASE 
                         WHEN core_realestatetransaction.raw IS NOT NULL 
                              AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                             AND jsonb_typeof(core_realestatetransaction.raw) = 'object'
                         THEN core_realestatetransaction.raw ->> 'sourceType'
                         ELSE NULL
                     END,
                     CASE 
                         WHEN core_realestatetransaction.raw IS NOT NULL 
                              AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                             AND jsonb_typeof(core_realestatetransaction.raw) = 'object'
                         THEN core_realestatetransaction.raw ->> 'source_type'
                         ELSE NULL
                     END,
                     CASE 
                         WHEN core_realestatetransaction.raw IS NOT NULL 
                              AND pg_typeof(core_realestatetransaction.raw) = 'jsonb'::regtype
+                             AND jsonb_typeof(core_realestatetransaction.raw) = 'object'
                         THEN core_realestatetransaction.raw ->> 'data_source'
                         ELSE NULL
                     END,

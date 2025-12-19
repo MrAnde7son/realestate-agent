@@ -110,3 +110,5 @@ class RamatGanGISCollector(BaseCollector):
         location = ensure_location_query(kwargs.get("location"))
         return bool(location.x_itm and location.y_itm)
 
+
+

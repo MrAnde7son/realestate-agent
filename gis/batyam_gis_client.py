@@ -51,3 +51,5 @@ class BatYamGIS(ProxyGISClient):
         # For now, returning a placeholder
         return 18  # This should be verified
 
+
+

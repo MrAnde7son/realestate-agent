@@ -53,3 +53,5 @@ class RamatGanGIS(ProxyGISClient):
         # For now, returning a placeholder
         return 213  # This should be verified
 
+
+

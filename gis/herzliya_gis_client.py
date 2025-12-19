@@ -49,3 +49,5 @@ class HerzliyaGIS(ProxyGISClient):
         # For now, returning a placeholder
         return 25  # This should be verified
 
+
+

@@ -271,6 +271,40 @@ def _calculate_relevance_score(entry: Dict[str, Any], asset_total_area: Optional
     return score
 
 
+def _apply_low_pass_filter(ppm_values: List[float], alpha: float = 0.3) -> float:
+    """Apply exponential moving average (EMA) low-pass filter to reduce noise in PPM values.
+    
+    The low-pass filter smooths out rapid fluctuations while preserving the overall trend.
+    Uses exponential moving average where more recent/higher-weighted values have more influence.
+    
+    Args:
+        ppm_values: List of PPM values sorted by relevance (most relevant first)
+        alpha: Smoothing factor (0 < alpha <= 1). Lower values = more smoothing, higher = less smoothing.
+               Default 0.3 provides good balance between noise reduction and responsiveness.
+    
+    Returns:
+        Filtered PPM value
+    """
+    if not ppm_values:
+        return 0.0
+    
+    if len(ppm_values) == 1:
+        return ppm_values[0]
+    
+    # Clamp alpha to valid range
+    alpha = max(0.1, min(1.0, alpha))
+    
+    # Start with the first (most relevant) value
+    filtered_ppm = ppm_values[0]
+    
+    # Apply exponential moving average to smooth the values
+    # This reduces noise while preserving the trend
+    for ppm in ppm_values[1:]:
+        filtered_ppm = alpha * ppm + (1 - alpha) * filtered_ppm
+    
+    return filtered_ppm
+
+
 def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
     """Calculate base PPM and value using the most relevant comparables.
     
@@ -329,22 +363,45 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
             f'(excluded {excluded_count} old entries, filtered {original_count - len(scored_entries)} less relevant)'
         )
     
-    # Use median of the most relevant comparables to avoid outliers pulling down the average
-    # Median is more robust when we have a mix of high and low PPM values
+    # Extract PPM values sorted by relevance (most relevant first)
     ppm_values = [entry['ppm'] for entry, _, _ in scored_entries]
+    
+    # Apply low-pass filter to reduce noise in PPM calculation
+    # The filter smooths out rapid fluctuations while preserving the overall trend
     if len(ppm_values) >= 3:
-        # Use median for 3+ comparables (more robust to outliers)
-        weighted_ppm = median(ppm_values)
+        # For 3+ comparables: apply low-pass filter to smooth noise
+        # Use a moderate smoothing factor (0.3) to balance noise reduction with responsiveness
+        filtered_ppm = _apply_low_pass_filter(ppm_values, alpha=0.3)
+        
+        # Combine filtered value with median for robustness
+        # This gives us both noise reduction and outlier protection
+        median_ppm = median(ppm_values)
+        # Weighted combination: 70% filtered (smooth), 30% median (robust to outliers)
+        weighted_ppm = 0.7 * filtered_ppm + 0.3 * median_ppm
+    elif len(ppm_values) == 2:
+        # For 2 comparables: apply light filtering
+        filtered_ppm = _apply_low_pass_filter(ppm_values, alpha=0.5)
+        # Combine with simple average
+        avg_ppm = sum(ppm_values) / len(ppm_values)
+        weighted_ppm = 0.6 * filtered_ppm + 0.4 * avg_ppm
     else:
-        # Use average for 1-2 comparables
-        weighted_ppm = sum(ppm_values) / len(ppm_values)
+        # For 1 comparable: use as-is (no filtering needed)
+        weighted_ppm = ppm_values[0]
     
     # Debug logging for PPM calculation
     if scored_entries:
         top_ppm_values = [entry['ppm'] for entry, _, _ in scored_entries[:5]]
         sources = [entry.get('source', 'unknown') for entry, _, _ in scored_entries[:5]]
+        # Calculate raw median for comparison (before filtering)
+        if len(ppm_values) >= 3:
+            raw_median = median(ppm_values)
+        elif len(ppm_values) > 0:
+            raw_median = sum(ppm_values) / len(ppm_values)
+        else:
+            raw_median = 0.0
         logger.info(
-            f'[PRICE_MODEL] Calculated avg_ppm={weighted_ppm:.0f} from {len(scored_entries)} most relevant comparables. '
+            f'[PRICE_MODEL] Calculated filtered_ppm={weighted_ppm:.0f} (raw_median={raw_median:.0f}) '
+            f'from {len(scored_entries)} most relevant comparables. '
             f'Top 5: PPM={[f"{v:.0f}" for v in top_ppm_values]}, sources={sources}'
         )
 

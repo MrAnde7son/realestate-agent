@@ -410,6 +410,61 @@ class DocumentAPITest(APITestCase):
         self.assertIn('file', response.data)
 
 
+class DocumentTableAccessTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='table-tester',
+            email='table@example.com',
+            password='testpass123'
+        )
+        self.asset = Asset.objects.create(
+            scope_type='address',
+            city='Tel Aviv',
+            street='Herzl',
+            number=42,
+            created_by=self.user
+        )
+        self.other_asset = Asset.objects.create(
+            scope_type='address',
+            city='Haifa',
+            street='Herzl',
+            number=99,
+            created_by=self.user
+        )
+        self.document = Document.objects.create(
+            asset=self.asset,
+            user=self.user,
+            title='Permit',
+            document_type='permit',
+            filename='permit.pdf',
+            file_path='documents/permit.pdf',
+            file_size=1234,
+            mime_type='application/pdf'
+        )
+        Document.objects.create(
+            asset=self.other_asset,
+            user=self.user,
+            title='Other Asset Doc',
+            document_type='permit',
+            filename='other.pdf',
+            file_path='documents/other.pdf',
+            file_size=1234,
+            mime_type='application/pdf'
+        )
+
+    def test_document_table_allows_anonymous_access(self):
+        self.client.logout()
+
+        response = self.client.get(f"/api/documents/table?asset_id={self.asset.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.json()
+        self.assertEqual(payload['count'], 1)
+        self.assertEqual(len(payload['results']), 1)
+        self.assertEqual(payload['results'][0]['id'], self.document.id)
+        self.assertEqual(payload['results'][0]['asset'], self.asset.id)
+
+
 class DocumentSerializerTest(TestCase):
     """Test document serializers."""
     

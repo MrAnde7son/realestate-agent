@@ -153,10 +153,17 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter documents by user permissions."""
         base_qs = Document.objects.select_related('asset', 'user').prefetch_related('assets')
-        if self.request.user.is_staff:
+
+        # Allow anonymous users to access public document data (e.g., asset details page)
+        user = getattr(self.request, "user", None)
+        if not user or not user.is_authenticated:
             return base_qs
+
+        if user.is_staff:
+            return base_qs
+
         return base_qs.filter(
-            Q(asset__created_by=self.request.user) | Q(assets__created_by=self.request.user)
+            Q(asset__created_by=user) | Q(assets__created_by=user)
         ).distinct()
     
     @extend_schema(
@@ -305,7 +312,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         description="Retrieve paginated documents for table view",
         tags=["Documents"],
     )
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def table(self, request):
         try:
             queryset = self.get_queryset()

@@ -271,15 +271,18 @@ def _calculate_relevance_score(entry: Dict[str, Any], asset_total_area: Optional
     return score
 
 
-def _filter_outliers_iqr(ppm_values: List[float], multiplier: float = 1.5) -> List[float]:
+def _filter_outliers_iqr(ppm_values: List[float], multiplier: float = 1.5, one_sided: bool = True) -> List[float]:
     """Filter outliers from PPM values using Interquartile Range (IQR) method.
     
     This is a robust statistical method that removes values outside the range:
-    [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
+    - Two-sided: [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
+    - One-sided: [Q1 - 1.5*IQR, ∞] (only filters low outliers, keeps high values)
     
     Args:
         ppm_values: List of PPM values
         multiplier: IQR multiplier (default 1.5 is standard for outlier detection)
+        one_sided: If True, only filter low outliers (below Q1 - 1.5*IQR). 
+                   If False, filter both low and high outliers.
     
     Returns:
         Filtered list of PPM values with outliers removed
@@ -299,12 +302,15 @@ def _filter_outliers_iqr(ppm_values: List[float], multiplier: float = 1.5) -> Li
     q3 = sorted_values[q3_idx]
     iqr = q3 - q1
     
-    # Calculate bounds
+    # Calculate lower bound (always filter very low values)
     lower_bound = q1 - multiplier * iqr
-    upper_bound = q3 + multiplier * iqr
     
-    # Filter values within bounds
-    filtered = [v for v in ppm_values if lower_bound <= v <= upper_bound]
+    if one_sided:
+        filtered = [v for v in ppm_values if v >= lower_bound]
+    else:
+        # Filter both low and high outliers (standard IQR)
+        upper_bound = q3 + multiplier * iqr
+        filtered = [v for v in ppm_values if lower_bound <= v <= upper_bound]
     
     return filtered if filtered else ppm_values  # Return original if all filtered out
 
@@ -362,26 +368,33 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
         logger.warning('[PRICE_MODEL] No PPM values found in comparables')
         return None, None
     
-    # Filter outliers using IQR method for robust average
-    # This removes extreme values that skew the average (e.g., very low PPM from data errors)
+    # Use trimmed mean approach: remove bottom outliers but keep all high values
+    # This is better for real estate where high PPM values are valid (luxury properties)
+    # and low values are more likely to be data errors
     original_count = len(ppm_values)
-    filtered_ppm_values = _filter_outliers_iqr(ppm_values, multiplier=1.5)
-    outlier_count = original_count - len(filtered_ppm_values)
+    sorted_ppm = sorted(ppm_values)
     
-    # Use filtered values for average calculation
-    # If we filtered out too many (more than 50%), fall back to median which is more robust
-    if len(filtered_ppm_values) < original_count * 0.5:
-        # Too many outliers - use median instead
+    # Remove bottom 10% (likely data errors) but keep all high values
+    # This gives us a robust average that isn't pulled down by outliers
+    trim_percent = 0.10  # Remove bottom 10%
+    trim_count = max(1, int(len(sorted_ppm) * trim_percent))
+    
+    # Keep all values except the bottom trim_count
+    trimmed_ppm_values = sorted_ppm[trim_count:]
+    outlier_count = trim_count
+    
+    # Use trimmed mean (average of values after removing bottom outliers)
+    if len(trimmed_ppm_values) > 0:
+        weighted_ppm = sum(trimmed_ppm_values) / len(trimmed_ppm_values)
+        if outlier_count > 0:
+            logger.info(f'[PRICE_MODEL] Trimmed bottom {outlier_count} outliers ({original_count} -> {len(trimmed_ppm_values)} values) using trimmed mean')
+    else:
+        # Fallback: use median if trimming removed everything
         if len(ppm_values) >= 3:
             weighted_ppm = median(ppm_values)
-            logger.info(f'[PRICE_MODEL] Too many outliers ({outlier_count}/{original_count}), using median instead of filtered average')
+            logger.info('[PRICE_MODEL] Trimmed too many values, using median instead')
         else:
             weighted_ppm = sum(ppm_values) / len(ppm_values)
-    else:
-        # Use average of filtered values (outliers removed)
-        weighted_ppm = sum(filtered_ppm_values) / len(filtered_ppm_values)
-        if outlier_count > 0:
-            logger.info(f'[PRICE_MODEL] Filtered out {outlier_count} outliers using IQR method ({original_count} -> {len(filtered_ppm_values)} values)')
     
     scored_entries = []
     excluded_count = 0
@@ -401,15 +414,15 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
         else:
             raw_median = sum(ppm_values) / len(ppm_values)
         
-        # Calculate statistics for filtered values
-        if filtered_ppm_values:
-            filtered_avg = sum(filtered_ppm_values) / len(filtered_ppm_values)
-            filtered_min = min(filtered_ppm_values)
-            filtered_max = max(filtered_ppm_values)
+        # Calculate statistics for trimmed values
+        if trimmed_ppm_values:
+            trimmed_avg = sum(trimmed_ppm_values) / len(trimmed_ppm_values)
+            trimmed_min = min(trimmed_ppm_values)
+            trimmed_max = max(trimmed_ppm_values)
         else:
-            filtered_avg = weighted_ppm
-            filtered_min = min(ppm_values) if ppm_values else 0
-            filtered_max = max(ppm_values) if ppm_values else 0
+            trimmed_avg = weighted_ppm
+            trimmed_min = min(ppm_values) if ppm_values else 0
+            trimmed_max = max(ppm_values) if ppm_values else 0
         
         # Show top comparables for debugging
         sorted_entries = sorted(ppm_data, key=lambda x: x.get('ppm', 0), reverse=True)
@@ -417,9 +430,9 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
         sources = [entry.get('source', 'unknown') for entry in sorted_entries[:5]]
         
         logger.info(
-            f'[PRICE_MODEL] Calculated base_ppm={weighted_ppm:.0f} (median={raw_median:.0f}, filtered_avg={filtered_avg:.0f}) '
-            f'from {len(ppm_values)} total comparables ({len(scored_entries)} recent, {excluded_count} old excluded, {outlier_count} outliers removed). '
-            f'Filtered range: {filtered_min:.0f}-{filtered_max:.0f}. '
+            f'[PRICE_MODEL] Calculated base_ppm={weighted_ppm:.0f} (median={raw_median:.0f}, trimmed_avg={trimmed_avg:.0f}) '
+            f'from {len(ppm_values)} total comparables ({len(scored_entries)} recent, {excluded_count} old excluded, {outlier_count} bottom outliers trimmed). '
+            f'Trimmed range: {trimmed_min:.0f}-{trimmed_max:.0f}. '
             f'Top 5: PPM={[f"{v:.0f}" for v in top_ppm_values]}, sources={sources}'
         )
 

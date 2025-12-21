@@ -271,6 +271,84 @@ def _calculate_relevance_score(entry: Dict[str, Any], asset_total_area: Optional
     return score
 
 
+def _filter_outliers_iqr(ppm_values: List[float], multiplier: float = 1.5, one_sided: bool = True) -> List[float]:
+    """Filter outliers from PPM values using Interquartile Range (IQR) method.
+    
+    This is a robust statistical method that removes values outside the range:
+    - Two-sided: [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
+    - One-sided: [Q1 - 1.5*IQR, ∞] (only filters low outliers, keeps high values)
+    
+    Args:
+        ppm_values: List of PPM values
+        multiplier: IQR multiplier (default 1.5 is standard for outlier detection)
+        one_sided: If True, only filter low outliers (below Q1 - 1.5*IQR). 
+                   If False, filter both low and high outliers.
+    
+    Returns:
+        Filtered list of PPM values with outliers removed
+    """
+    if len(ppm_values) < 4:
+        # Need at least 4 values for meaningful quartile calculation
+        return ppm_values
+    
+    sorted_values = sorted(ppm_values)
+    n = len(sorted_values)
+    
+    # Calculate quartiles
+    q1_idx = n // 4
+    q3_idx = (3 * n) // 4
+    
+    q1 = sorted_values[q1_idx]
+    q3 = sorted_values[q3_idx]
+    iqr = q3 - q1
+    
+    # Calculate lower bound (always filter very low values)
+    lower_bound = q1 - multiplier * iqr
+    
+    if one_sided:
+        filtered = [v for v in ppm_values if v >= lower_bound]
+    else:
+        # Filter both low and high outliers (standard IQR)
+        upper_bound = q3 + multiplier * iqr
+        filtered = [v for v in ppm_values if lower_bound <= v <= upper_bound]
+    
+    return filtered if filtered else ppm_values  # Return original if all filtered out
+
+
+def _apply_low_pass_filter(ppm_values: List[float], alpha: float = 0.3) -> float:
+    """Apply exponential moving average (EMA) low-pass filter to reduce noise in PPM values.
+    
+    The low-pass filter smooths out rapid fluctuations while preserving the overall trend.
+    Uses exponential moving average where more recent/higher-weighted values have more influence.
+    
+    Args:
+        ppm_values: List of PPM values sorted by relevance (most relevant first)
+        alpha: Smoothing factor (0 < alpha <= 1). Lower values = more smoothing, higher = less smoothing.
+               Default 0.3 provides good balance between noise reduction and responsiveness.
+    
+    Returns:
+        Filtered PPM value
+    """
+    if not ppm_values:
+        return 0.0
+    
+    if len(ppm_values) == 1:
+        return ppm_values[0]
+    
+    # Clamp alpha to valid range
+    alpha = max(0.1, min(1.0, alpha))
+    
+    # Start with the first (most relevant) value
+    filtered_ppm = ppm_values[0]
+    
+    # Apply exponential moving average to smooth the values
+    # This reduces noise while preserving the trend
+    for ppm in ppm_values[1:]:
+        filtered_ppm = alpha * ppm + (1 - alpha) * filtered_ppm
+    
+    return filtered_ppm
+
+
 def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
     """Calculate base PPM and value using the most relevant comparables.
     
@@ -283,68 +361,78 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
     if not ppm_data:
         return None, None
 
-    # Calculate weights and relevance scores, filter out excluded entries
+    # Use ALL comparables (including old ones)
+    ppm_values = [entry['ppm'] for entry in ppm_data if entry.get('ppm') is not None]
+    
+    if not ppm_values:
+        logger.warning('[PRICE_MODEL] No PPM values found in comparables')
+        return None, None
+    
+    # Use trimmed mean approach: remove bottom outliers but keep all high values
+    # This is better for real estate where high PPM values are valid (luxury properties)
+    # and low values are more likely to be data errors
+    original_count = len(ppm_values)
+    sorted_ppm = sorted(ppm_values)
+    
+    # Remove bottom 10% (likely data errors) but keep all high values
+    # This gives us a robust average that isn't pulled down by outliers
+    trim_percent = 0.10  # Remove bottom 10%
+    trim_count = max(1, int(len(sorted_ppm) * trim_percent))
+    
+    # Keep all values except the bottom trim_count
+    trimmed_ppm_values = sorted_ppm[trim_count:]
+    outlier_count = trim_count
+    
+    # Use trimmed mean (average of values after removing bottom outliers)
+    if len(trimmed_ppm_values) > 0:
+        weighted_ppm = sum(trimmed_ppm_values) / len(trimmed_ppm_values)
+        if outlier_count > 0:
+            logger.info(f'[PRICE_MODEL] Trimmed bottom {outlier_count} outliers ({original_count} -> {len(trimmed_ppm_values)} values) using trimmed mean')
+    else:
+        # Fallback: use median if trimming removed everything
+        if len(ppm_values) >= 3:
+            weighted_ppm = median(ppm_values)
+            logger.info('[PRICE_MODEL] Trimmed too many values, using median instead')
+        else:
+            weighted_ppm = sum(ppm_values) / len(ppm_values)
+    
     scored_entries = []
     excluded_count = 0
     for entry in ppm_data:
         weight = _compute_ppm_weight(entry)
-        if weight > 0:  # Only include entries with non-zero weight (not excluded)
+        if weight > 0:
             relevance = _calculate_relevance_score(entry, asset_total_area)
-            # Combined weight = base weight × relevance score
-            combined_weight = weight * relevance
-            scored_entries.append((entry, combined_weight, relevance))
+            scored_entries.append((entry, weight * relevance, relevance))
         else:
             excluded_count += 1
     
-    if not scored_entries:
-        logger.warning(f'[PRICE_MODEL] No valid comparables after filtering (excluded {excluded_count} old entries)')
-        return None, None
-    
-    # Sort by relevance (descending) to prioritize most relevant comparables
-    scored_entries.sort(key=lambda x: x[2], reverse=True)
-    
-    original_count = len(scored_entries)
-    
-    # Use only the TOP MOST relevant comparables to get accurate PPM
-    # Strategy: Use top 10-20 most relevant (not a percentage) to focus on best matches
-    # This avoids dilution from less relevant comparables that pull down the average
-    if len(scored_entries) > 20:
-        # Use top 20 most relevant comparables
-        top_count = 20
-        scored_entries = scored_entries[:top_count]
-    elif len(scored_entries) > 10:
-        # Use top 15 most relevant comparables
-        top_count = 15
-        scored_entries = scored_entries[:top_count]
-    elif len(scored_entries) > 5:
-        # Use top 10 most relevant comparables
-        top_count = 10
-        scored_entries = scored_entries[:top_count]
-    # If 5 or fewer, use all of them (they're all relevant enough)
-    
-    # Debug logging
-    if original_count != len(scored_entries):
-        logger.info(
-            f'[PRICE_MODEL] Filtered {original_count} comparables to {len(scored_entries)} most relevant '
-            f'(excluded {excluded_count} old entries, filtered {original_count - len(scored_entries)} less relevant)'
-        )
-    
-    # Use median of the most relevant comparables to avoid outliers pulling down the average
-    # Median is more robust when we have a mix of high and low PPM values
-    ppm_values = [entry['ppm'] for entry, _, _ in scored_entries]
-    if len(ppm_values) >= 3:
-        # Use median for 3+ comparables (more robust to outliers)
-        weighted_ppm = median(ppm_values)
-    else:
-        # Use average for 1-2 comparables
-        weighted_ppm = sum(ppm_values) / len(ppm_values)
-    
     # Debug logging for PPM calculation
-    if scored_entries:
-        top_ppm_values = [entry['ppm'] for entry, _, _ in scored_entries[:5]]
-        sources = [entry.get('source', 'unknown') for entry, _, _ in scored_entries[:5]]
+    if ppm_values:
+        # Calculate median for comparison
+        if len(ppm_values) >= 3:
+            raw_median = median(ppm_values)
+        else:
+            raw_median = sum(ppm_values) / len(ppm_values)
+        
+        # Calculate statistics for trimmed values
+        if trimmed_ppm_values:
+            trimmed_avg = sum(trimmed_ppm_values) / len(trimmed_ppm_values)
+            trimmed_min = min(trimmed_ppm_values)
+            trimmed_max = max(trimmed_ppm_values)
+        else:
+            trimmed_avg = weighted_ppm
+            trimmed_min = min(ppm_values) if ppm_values else 0
+            trimmed_max = max(ppm_values) if ppm_values else 0
+        
+        # Show top comparables for debugging
+        sorted_entries = sorted(ppm_data, key=lambda x: x.get('ppm', 0), reverse=True)
+        top_ppm_values = [entry['ppm'] for entry in sorted_entries[:5] if entry.get('ppm') is not None]
+        sources = [entry.get('source', 'unknown') for entry in sorted_entries[:5]]
+        
         logger.info(
-            f'[PRICE_MODEL] Calculated avg_ppm={weighted_ppm:.0f} from {len(scored_entries)} most relevant comparables. '
+            f'[PRICE_MODEL] Calculated base_ppm={weighted_ppm:.0f} (median={raw_median:.0f}, trimmed_avg={trimmed_avg:.0f}) '
+            f'from {len(ppm_values)} total comparables ({len(scored_entries)} recent, {excluded_count} old excluded, {outlier_count} bottom outliers trimmed). '
+            f'Trimmed range: {trimmed_min:.0f}-{trimmed_max:.0f}. '
             f'Top 5: PPM={[f"{v:.0f}" for v in top_ppm_values]}, sources={sources}'
         )
 
@@ -354,8 +442,9 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
         base_value = weighted_ppm * asset_total_area
     else:
         # Fallback: use simple average of comparable prices if no area
-        prices = [entry['price'] for entry, _, _ in scored_entries]
-        base_value = sum(prices) / len(prices)
+        prices = [entry['price'] for entry in ppm_data if entry.get('price') is not None]
+        if prices:
+            base_value = sum(prices) / len(prices)
 
     return weighted_ppm, base_value
 
@@ -3166,11 +3255,22 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 
                 # Debug logging for final calculation
                 adjustments_dict = feature_vector.to_dict()
+                # Calculate what the price would be with simple average PPM for comparison
+                # Use all ppm_data (including excluded entries) for comparison
+                simple_avg_ppm_all = sum([d['ppm'] for d in ppm_data]) / len(ppm_data) if ppm_data else None
+                simple_avg_base_value_all = simple_avg_ppm_all * asset_total_area if (simple_avg_ppm_all and asset_total_area) else None
+                simple_avg_model_price_all = int(simple_avg_base_value_all * adjustment_multiplier) if simple_avg_base_value_all else None
+                
                 logger.info(
-                    f'[PRICE_MODEL] asset={asset_id} base_value={int(base_value)} '
+                    f'[PRICE_MODEL] asset={asset_id} base_ppm={base_ppm:.0f} base_value={int(base_value)} '
+                    f'(all_data_avg_ppm={simple_avg_ppm_all:.0f} would give base={int(simple_avg_base_value_all) if simple_avg_base_value_all else "N/A"}) '
                     f'adjustment_multiplier={adjustment_multiplier:.3f} '
                     f'total_adjustment_pct={feature_vector.total_adjustment*100:.1f}% '
-                    f'final_model_price={adjusted_model_price}'
+                    f'final_model_price={adjusted_model_price} '
+                    f'(all_data_model={simple_avg_model_price_all if simple_avg_model_price_all else "N/A"})'
+                )
+                logger.info(
+                    f'[PRICE_MODEL] asset={asset_id} calculation: {base_ppm:.0f} PPM × {asset_total_area} sqm = {int(base_value)} base × {adjustment_multiplier:.3f} = {adjusted_model_price} final'
                 )
                 logger.info(
                     f'[PRICE_MODEL] asset={asset_id} adjustments breakdown: {adjustments_dict}'
@@ -3238,8 +3338,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 'total': len(ppm_data)
             }
 
-            # Area comparison
-            asset_area_value = _safe_numeric(getattr(asset, 'area', None))
+            asset_area_value = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
             if areas and asset_area_value:
                 avg_area = sum(areas) / len(areas)
                 if avg_area > 0:
@@ -4385,9 +4484,176 @@ def asset_update_phase(phase: str, asset_id: int | None = None):
             raise
 
 
+def find_outdated_price_per_sqm_assets(threshold_pct: float = 0.01) -> List[Dict[str, Any]]:
+    """Find assets where price_per_sqm doesn't match price/total_area.
+    
+    This function identifies assets where the stored price_per_sqm field is
+    outdated compared to the current price and area values.
+    
+    Args:
+        threshold_pct: Percentage threshold for considering an asset outdated.
+                       Default 0.01 (1%). Assets with difference > threshold are considered outdated.
+    
+    Returns:
+        List of dictionaries with asset information:
+        - id: Asset ID
+        - address: Asset address
+        - price: Current price
+        - total_area: Total area
+        - stored_ppm: Currently stored price_per_sqm
+        - expected_ppm: Expected price_per_sqm (price / total_area)
+    """
+    from core.models import Asset
+    
+    outdated = []
+    
+    assets = Asset.objects.filter(
+        price__isnull=False,
+        price__gt=0
+    ).exclude(
+        total_area__isnull=True
+    ).exclude(
+        total_area=0
+    )
+    
+    for asset in assets:
+        price = _safe_numeric(asset.price)
+        total_area = _safe_numeric(asset.total_area) or _safe_numeric(asset.area)
+        stored_ppm = _safe_numeric(asset.price_per_sqm)
+        
+        if price and total_area and total_area > 0:
+            expected_ppm = int(price / total_area)
+            
+            # Consider outdated if difference is more than threshold
+            if stored_ppm is None or abs(stored_ppm - expected_ppm) > (expected_ppm * threshold_pct):
+                outdated.append({
+                    'id': asset.id,
+                    'address': asset.address or 'N/A',
+                    'price': price,
+                    'total_area': total_area,
+                    'stored_ppm': stored_ppm,
+                    'expected_ppm': expected_ppm,
+                })
+    
+    return outdated
+
+
+def recalculate_price_model(asset_id: int) -> Dict[str, Any]:
+    """
+    Recalculate PPM and price model for an asset using existing listings and transactions.
+    
+    This function allows recalculating the price model without running the entire
+    enrichment pipeline. It uses existing data from the database.
+    
+    Args:
+        asset_id: The ID of the asset to recalculate
+        
+    Returns:
+        Dictionary with:
+        - success: bool
+        - message: str
+        - metrics: dict with calculated metrics (if successful)
+        - error: str (if failed)
+    """
+    try:
+        # Import Django models here to avoid circular imports
+        from core.models import Asset
+        from core.services.asset_links import asset_listings_all, asset_transactions_all
+        from orchestration.pipeline.listings import _normalize_listings
+        
+        # Get asset
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return {
+                'success': False,
+                'error': f'Asset {asset_id} not found'
+            }
+        
+        logger.info(f'[RECALCULATE_PRICE] Starting price model recalculation for asset {asset_id}')
+        
+        # Get existing listings and convert to dict format
+        listings = asset_listings_all(asset)
+        normalized_listings = _normalize_listings(listings)
+        logger.info(f'[RECALCULATE_PRICE] Found {len(normalized_listings)} listings')
+        
+        # Get existing transactions and convert to format expected by _calculate_market_metrics
+        transactions = asset_transactions_all(asset)
+        transaction_dicts = []
+        for trans in transactions:
+            transaction_dicts.append({
+                'deal_id': trans.deal_id,
+                'date': trans.date.isoformat() if trans.date else None,
+                'price': trans.price,
+                'rooms': trans.rooms,
+                'area': trans.area,
+                'floor': trans.floor,
+                'address': trans.address,
+                'raw': trans.raw or {},
+            })
+        logger.info(f'[RECALCULATE_PRICE] Found {len(transaction_dicts)} transactions')
+        
+        # Format gov_data structure expected by _calculate_market_metrics
+        gov_data = {
+            'transactions': transaction_dicts
+        }
+        
+        # Ensure asset.meta is initialized
+        if not hasattr(asset, 'meta') or asset.meta is None:
+            asset.meta = {}
+        
+        # Calculate market metrics (this updates asset.meta['market_metrics'])
+        _calculate_market_metrics(asset, normalized_listings, gov_data)
+        
+        # Get market metrics from meta (access directly since it's stored as a dict)
+        # _calculate_market_metrics always sets this, but handle None case just in case
+        market_metrics = asset.meta.get('market_metrics') if asset.meta else None
+        if market_metrics is None:
+            market_metrics = {}
+            logger.warning(f'[RECALCULATE_PRICE] No market_metrics found after calculation for asset {asset_id}')
+        
+        adjusted_ppm = market_metrics.get('adjustedPricePerSqm') if isinstance(market_metrics, dict) else None
+        base_ppm = market_metrics.get('avgPricePerSqm') if isinstance(market_metrics, dict) else None
+        
+        # Recalculate price_per_sqm from price and total_area
+        if asset.price and (asset.total_area or asset.area):
+            area_to_use = asset.total_area or asset.area
+            if area_to_use > 0:
+                asset.price_per_sqm = int(asset.price / area_to_use)
+                logger.info(f'[RECALCULATE_PRICE] Updated price_per_sqm to {asset.price_per_sqm} (price={asset.price}, area={area_to_use})')
+        
+        # Save asset with updated metrics
+        asset.save(update_fields=['meta', 'price_per_sqm'])
+        
+        logger.info(f'[RECALCULATE_PRICE] Successfully recalculated price model for asset {asset_id}')
+        
+        return {
+            'success': True,
+            'message': f'Price model recalculated for asset {asset_id}',
+            'metrics': {
+                'model_price': market_metrics.get('modelPrice') if market_metrics else None,
+                'base_model_price': market_metrics.get('baseModelPrice') if market_metrics else None,
+                'avg_price_per_sqm': base_ppm,
+                'adjusted_price_per_sqm': adjusted_ppm,
+                'price_per_sqm': asset.price_per_sqm,
+                'confidence_pct': market_metrics.get('confidencePct') if market_metrics else None,
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f'[RECALCULATE_PRICE] Error recalculating price model for asset {asset_id}: {e}', exc_info=True)
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
 __all__ = [
     "update_asset_with_collected_data",
     "create_asset_snapshot",
     "_populate_asset_fields_from_listings",
     "_calculate_market_metrics",
+    "recalculate_price_model",
+    "find_outdated_price_per_sqm_assets",
+    "_safe_numeric",  # Export for use in scripts
 ]

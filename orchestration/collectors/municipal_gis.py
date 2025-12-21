@@ -13,6 +13,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Iterable, List, Optional
 
 from orchestration.collectors.gis_collector import GISCollector
+from orchestration.collectors.herzliya_gis_collector import HerzliyaGISCollector
+from orchestration.collectors.batyam_gis_collector import BatYamGISCollector
+from orchestration.collectors.ramat_gan_gis_collector import RamatGanGISCollector
 from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query
 
@@ -70,6 +73,48 @@ class TelAvivMunicipalGisAdapter(MunicipalGisAdapter):
         return collector.collect(location)
 
 
+class HerzliyaMunicipalGisAdapter(MunicipalGisAdapter):
+    """Adapter that delegates to the Herzliya municipal GIS collector."""
+
+    supported_cities = ["הרצליה", "herzliya", "hertzeliya", "hertzliya"]
+
+    def __init__(self, collector: Optional[HerzliyaGISCollector] = None) -> None:
+        super().__init__()
+        self.collector = collector
+
+    def collect(self, location: LocationQuery) -> Dict:
+        collector = self.collector or HerzliyaGISCollector()
+        return collector.collect(location)
+
+
+class BatYamMunicipalGisAdapter(MunicipalGisAdapter):
+    """Adapter that delegates to the Bat Yam municipal GIS collector."""
+
+    supported_cities = ["בת ים", "bat yam", "batyam"]
+
+    def __init__(self, collector: Optional[BatYamGISCollector] = None) -> None:
+        super().__init__()
+        self.collector = collector
+
+    def collect(self, location: LocationQuery) -> Dict:
+        collector = self.collector or BatYamGISCollector()
+        return collector.collect(location)
+
+
+class RamatGanMunicipalGisAdapter(MunicipalGisAdapter):
+    """Adapter that delegates to the Ramat Gan municipal GIS collector."""
+
+    supported_cities = ["רמת גן", "ramat gan", "ramatgan"]
+
+    def __init__(self, collector: Optional[RamatGanGISCollector] = None) -> None:
+        super().__init__()
+        self.collector = collector
+
+    def collect(self, location: LocationQuery) -> Dict:
+        collector = self.collector or RamatGanGISCollector()
+        return collector.collect(location)
+
+
 class MultiCityGISCollector(BaseCollector):
     """Routes GIS collection to the best adapter for the given city."""
 
@@ -77,10 +122,16 @@ class MultiCityGISCollector(BaseCollector):
         self,
         adapters: Optional[List[MunicipalGisAdapter]] = None,
     ) -> None:
-        # Default to Tel Aviv-only support to preserve existing behavior until
-        # more city-specific adapters are implemented. The default city can be
-        # overridden to keep this logic flexible as additional adapters arrive.
-        self.adapters = adapters or [TelAvivMunicipalGisAdapter()]
+        # Default adapters for all supported cities
+        if adapters is None:
+            self.adapters = [
+                TelAvivMunicipalGisAdapter(),
+                HerzliyaMunicipalGisAdapter(),
+                BatYamMunicipalGisAdapter(),
+                RamatGanMunicipalGisAdapter(),
+            ]
+        else:
+            self.adapters = adapters
 
     def collect(self, location: Optional[LocationQuery] = None, **kwargs) -> Dict:
         query = ensure_location_query(location)

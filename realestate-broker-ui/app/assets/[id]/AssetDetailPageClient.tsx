@@ -619,10 +619,10 @@ export const computeHeaderPricePerSqmValue = (
   }
 
   const areaCandidates = [
-    listingSizeValue,
-    asset?.area,
     asset?.totalArea,
     asset?.total_area,
+    listingSizeValue,
+    asset?.area,
     asset?.netSqm,
     asset?.net_sqm,
   ]
@@ -2822,14 +2822,15 @@ useDedupedEffect(() => {
         null
     ) ?? null
   const listingRoomsDisplay = formatListingRooms(listingRoomsValue ?? null, primaryListing?.roomsDisplay ?? null)
+  // Prioritize total_area (gross area) over area (net area) for PPM calculations
   const listingSizeValue =
     toNumericOrNull(
-      primaryListing?.size ??
+      asset.totalArea ??
+        asset?.total_area ??
+        primaryListing?.size ??
         asset.area ??
         asset?.netSqm ??
         asset?.net_sqm ??
-        asset.totalArea ??
-        asset?.total_area ??
         null
     ) ?? null
   const listingSizeFormatted = listingSizeValue !== null && listingSizeValue !== undefined ? formatNumber(listingSizeValue) : null

@@ -3820,6 +3820,8 @@ def asset_transactions(request, asset_id):
                 except (TypeError, ValueError):
                     return None
 
+            filtered_avg_ppsqm = _coerce(price_stats.get("avg_ppsqm"))
+
             market_analysis = {
                 "avg_price": _coerce(price_stats.get("avg_price")),
                 "min_price": _coerce(price_stats.get("min_price")),
@@ -3830,7 +3832,7 @@ def asset_transactions(request, asset_id):
 
             market_analysis.update(
                 {
-                    "avg_price_per_sqm": _coerce(price_stats.get("avg_ppsqm")),
+                    "avg_price_per_sqm": _coerce(filtered_avg_ppsqm) if filtered_avg_ppsqm is not None else _coerce(price_stats.get("avg_ppsqm")),
                     "min_price_per_sqm": _coerce(price_stats.get("min_ppsqm")),
                     "max_price_per_sqm": _coerce(price_stats.get("max_ppsqm")),
                 }

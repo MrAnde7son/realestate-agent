@@ -3295,8 +3295,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 'total': len(ppm_data)
             }
 
-            # Area comparison
-            asset_area_value = _safe_numeric(getattr(asset, 'area', None))
+            asset_area_value = _safe_numeric(getattr(asset, 'total_area', None)) or _safe_numeric(getattr(asset, 'area', None))
             if areas and asset_area_value:
                 avg_area = sum(areas) / len(areas)
                 if avg_area > 0:
@@ -4442,9 +4441,120 @@ def asset_update_phase(phase: str, asset_id: int | None = None):
             raise
 
 
+def recalculate_price_model(asset_id: int) -> Dict[str, Any]:
+    """
+    Recalculate PPM and price model for an asset using existing listings and transactions.
+    
+    This function allows recalculating the price model without running the entire
+    enrichment pipeline. It uses existing data from the database.
+    
+    Args:
+        asset_id: The ID of the asset to recalculate
+        
+    Returns:
+        Dictionary with:
+        - success: bool
+        - message: str
+        - metrics: dict with calculated metrics (if successful)
+        - error: str (if failed)
+    """
+    try:
+        # Import Django models here to avoid circular imports
+        from core.models import Asset
+        from core.services.asset_links import asset_listings_all, asset_transactions_all
+        from orchestration.pipeline.listings import _normalize_listings
+        
+        # Get asset
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return {
+                'success': False,
+                'error': f'Asset {asset_id} not found'
+            }
+        
+        logger.info(f'[RECALCULATE_PRICE] Starting price model recalculation for asset {asset_id}')
+        
+        # Get existing listings and convert to dict format
+        listings = asset_listings_all(asset)
+        normalized_listings = _normalize_listings(listings)
+        logger.info(f'[RECALCULATE_PRICE] Found {len(normalized_listings)} listings')
+        
+        # Get existing transactions and convert to format expected by _calculate_market_metrics
+        transactions = asset_transactions_all(asset)
+        transaction_dicts = []
+        for trans in transactions:
+            transaction_dicts.append({
+                'deal_id': trans.deal_id,
+                'date': trans.date.isoformat() if trans.date else None,
+                'price': trans.price,
+                'rooms': trans.rooms,
+                'area': trans.area,
+                'floor': trans.floor,
+                'address': trans.address,
+                'raw': trans.raw or {},
+            })
+        logger.info(f'[RECALCULATE_PRICE] Found {len(transaction_dicts)} transactions')
+        
+        # Format gov_data structure expected by _calculate_market_metrics
+        gov_data = {
+            'transactions': transaction_dicts
+        }
+        
+        # Ensure asset.meta is initialized
+        if not hasattr(asset, 'meta') or asset.meta is None:
+            asset.meta = {}
+        
+        # Calculate market metrics (this updates asset.meta['market_metrics'])
+        _calculate_market_metrics(asset, normalized_listings, gov_data)
+        
+        # Get market metrics from meta (access directly since it's stored as a dict)
+        # _calculate_market_metrics always sets this, but handle None case just in case
+        market_metrics = asset.meta.get('market_metrics') if asset.meta else None
+        if market_metrics is None:
+            market_metrics = {}
+            logger.warning(f'[RECALCULATE_PRICE] No market_metrics found after calculation for asset {asset_id}')
+        
+        adjusted_ppm = market_metrics.get('adjustedPricePerSqm') if isinstance(market_metrics, dict) else None
+        base_ppm = market_metrics.get('avgPricePerSqm') if isinstance(market_metrics, dict) else None
+        
+        # Recalculate price_per_sqm from price and total_area
+        if asset.price and (asset.total_area or asset.area):
+            area_to_use = asset.total_area or asset.area
+            if area_to_use > 0:
+                asset.price_per_sqm = int(asset.price / area_to_use)
+                logger.info(f'[RECALCULATE_PRICE] Updated price_per_sqm to {asset.price_per_sqm} (price={asset.price}, area={area_to_use})')
+        
+        # Save asset with updated metrics
+        asset.save(update_fields=['meta', 'price_per_sqm'])
+        
+        logger.info(f'[RECALCULATE_PRICE] Successfully recalculated price model for asset {asset_id}')
+        
+        return {
+            'success': True,
+            'message': f'Price model recalculated for asset {asset_id}',
+            'metrics': {
+                'model_price': market_metrics.get('modelPrice') if market_metrics else None,
+                'base_model_price': market_metrics.get('baseModelPrice') if market_metrics else None,
+                'avg_price_per_sqm': base_ppm,
+                'adjusted_price_per_sqm': adjusted_ppm,
+                'price_per_sqm': asset.price_per_sqm,
+                'confidence_pct': market_metrics.get('confidencePct') if market_metrics else None,
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f'[RECALCULATE_PRICE] Error recalculating price model for asset {asset_id}: {e}', exc_info=True)
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
 __all__ = [
     "update_asset_with_collected_data",
     "create_asset_snapshot",
     "_populate_asset_fields_from_listings",
     "_calculate_market_metrics",
+    "recalculate_price_model",
 ]

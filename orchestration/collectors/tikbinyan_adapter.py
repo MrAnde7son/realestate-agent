@@ -73,7 +73,6 @@ class BatYamTikbinyanAdapter(TikbinyanAdapter):
 
     def collect(self, location: LocationQuery, **kwargs) -> List[Dict]:
         """Collect tikbinyan data for Bat Yam."""
-        building_id = kwargs.get("building_id")
         block = str(location.block) if location.block else None
         parcel = str(location.parcel) if location.parcel else None
         
@@ -85,7 +84,6 @@ class BatYamTikbinyanAdapter(TikbinyanAdapter):
             address = " ".join(address_parts)
         
         return self.client.get_building_info(
-            building_id=building_id,
             block=block,
             parcel=parcel,
             address=address,
@@ -103,7 +101,6 @@ class HerzliyaTikbinyanAdapter(TikbinyanAdapter):
 
     def collect(self, location: LocationQuery, **kwargs) -> List[Dict]:
         """Collect tikbinyan data for Herzliya."""
-        building_id = kwargs.get("building_id")
         block = str(location.block) if location.block else None
         parcel = str(location.parcel) if location.parcel else None
         
@@ -115,7 +112,6 @@ class HerzliyaTikbinyanAdapter(TikbinyanAdapter):
             address = " ".join(address_parts)
         
         return self.client.get_building_info(
-            building_id=building_id,
             block=block,
             parcel=parcel,
             address=address,
@@ -133,7 +129,6 @@ class RamatGanTikbinyanAdapter(TikbinyanAdapter):
 
     def collect(self, location: LocationQuery, **kwargs) -> List[Dict]:
         """Collect tikbinyan data for Ramat Gan."""
-        building_id = kwargs.get("building_id")
         block = str(location.block) if location.block else None
         parcel = str(location.parcel) if location.parcel else None
         
@@ -145,7 +140,6 @@ class RamatGanTikbinyanAdapter(TikbinyanAdapter):
             address = " ".join(address_parts)
         
         return self.client.get_building_info(
-            building_id=building_id,
             block=block,
             parcel=parcel,
             address=address,
@@ -200,11 +194,10 @@ class MultiCityTikbinyanCollector(BaseCollector):
     def validate_parameters(self, **kwargs) -> bool:
         """Validate parameters for collection."""
         location = ensure_location_query(kwargs.get("location"))
-        building_id = kwargs.get("building_id")
         block = location.block
         address = kwargs.get("address") or location.street
         
-        return bool(building_id or block or address)
+        return bool(block or address)
 
 
 __all__ = [

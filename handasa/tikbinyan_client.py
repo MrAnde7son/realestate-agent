@@ -249,10 +249,326 @@ class TikbinyanClient(ABC):
         logger.debug(f"Parsed {len(buildings)} buildings from HTML: {buildings}")
         return buildings
 
+    def _get_gush_file(self, block: str, parcel: Optional[str] = None) -> Optional[requests.Response]:
+        """Get gush (block) file information using GetGushFile endpoint.
+        
+        Args:
+            block: Block number (גוש)
+            parcel: Parcel number (חלקה), optional
+            
+        Returns:
+            Response object if successful, None otherwise
+        """
+        site_id = self.get_site_id()
+        endpoint = "https://handasi.complot.co.il/magicscripts/mgrqispi.dll"
+        params = {
+            "appname": "cixpa",
+            "prgname": "GetGushFile",
+            "siteid": site_id,
+            "g": block,
+            "arguments": "siteid,g",
+        }
+        
+        if parcel:
+            params["h"] = parcel
+            params["arguments"] = "siteid,g,h"
+        
+        try:
+            logger.info(f"Calling GetGushFile with params: {params}")
+            response = self.session.get(
+                endpoint,
+                params=params,
+                headers={
+                    "Origin": self.base_url,
+                    "Referer": f"{self.base_url}/gush2/",
+                },
+                timeout=self.timeout,
+            )
+            
+            if response.status_code == 200:
+                self._fix_response_encoding(response)
+                logger.debug(f"Successfully fetched gush file for block={block}, parcel={parcel}")
+                return response
+            else:
+                logger.warning(f"Failed to fetch gush file: HTTP {response.status_code}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch gush file: {e}", exc_info=True)
+        
+        return None
+
+    def _parse_gush_file_response(self, html: str, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Parse GetGushFile HTML response to extract building information.
+        
+        Args:
+            html: HTML response from GetGushFile
+            block: Block number (גוש)
+            parcel: Parcel number (חלקה), optional
+            
+        Returns:
+            List of building info and permit documents
+        """
+        import re
+        
+        documents = []
+        
+        # Extract building IDs from the HTML
+        # Look for javascript:getBuilding(ID) patterns
+        building_ids = set()
+        building_patterns = [
+            r'javascript:getBuilding\((\d+)\)',
+            r'href=["\']javascript:getBuilding\((\d+)\)["\']',
+            r'#building/(\d+)',
+            r'building/(\d+)',
+            r't=(\d+)',
+        ]
+        
+        for pattern in building_patterns:
+            matches = re.findall(pattern, html, re.IGNORECASE)
+            for match in matches:
+                building_id = str(match).strip()
+                if building_id:
+                    building_ids.add(building_id)
+        
+        logger.debug(f"Found {len(building_ids)} building IDs in gush file: {building_ids}")
+        
+        # For each building ID found, get full building info
+        for building_id in building_ids:
+            try:
+                building_docs = self._get_by_building_id(building_id)
+                documents.extend(building_docs)
+            except Exception as e:
+                logger.warning(f"Failed to get building info for {building_id}: {e}")
+        
+        # Also try to extract any request/permit information directly from the HTML
+        # Look for request IDs: javascript:getRequest(ID)
+        request_pattern = r'javascript:getRequest\((\d+)\)'
+        request_ids = re.findall(request_pattern, html)
+        
+        if request_ids:
+            logger.debug(f"Found {len(request_ids)} request IDs in gush file")
+            # Extract request information from HTML tables
+            for req_id in set(request_ids):
+                # Try to find the row containing this request
+                row_pattern = rf'<tr[^>]*>.*?<a[^>]*href=["\']javascript:getRequest\({req_id}\)["\'][^>]*>.*?</tr>'
+                row_match = re.search(row_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                if row_match:
+                    row_html = row_match.group(0)
+                    cell_pattern = r'<td[^>]*>(.*?)</td>'
+                    cells = re.findall(cell_pattern, row_html, re.DOTALL | re.IGNORECASE)
+                    
+                    if len(cells) >= 3:
+                        import html as html_module
+                        cell_texts = []
+                        for cell in cells:
+                            text = re.sub(r'<[^>]+>', '', cell)
+                            text = html_module.unescape(text)
+                            text = re.sub(r'\s+', ' ', text).strip()
+                            if isinstance(text, bytes):
+                                text = text.decode('utf-8', errors='ignore')
+                            cell_texts.append(text)
+                        
+                        date = None
+                        description = None
+                        category = None
+                        
+                        if len(cell_texts) >= 3:
+                            date_match = re.search(r'(\d{2}/\d{2}/\d{4})', cell_texts[2])
+                            if date_match:
+                                date = date_match.group(1)
+                        
+                        if len(cell_texts) >= 4:
+                            description = cell_texts[3] if cell_texts[3] else None
+                        
+                        if len(cell_texts) >= 5:
+                            category = cell_texts[4] if cell_texts[4] else None
+                        
+                        document = {
+                            "request_num": req_id,
+                            "external_id": req_id,
+                            "document_date": date,
+                            "title": description or f"Request {req_id}",
+                            "document_type": description or f"Request {req_id}",
+                            "status": category or "",
+                            "meta": {
+                                "block": block,
+                                "parcel": parcel,
+                                "category": category,
+                            },
+                        }
+                        # Get source name by removing "Client" suffix if present
+                        source_name = self.__class__.__name__.replace("Client", "")
+                        documents.append(self._normalize_document(document, source_name))
+        
+        if documents:
+            logger.info(f"Successfully parsed {len(documents)} documents from gush file for block={block}, parcel={parcel}")
+        else:
+            logger.warning(f"No documents found in gush file for block={block}, parcel={parcel}")
+        
+        return documents
+
+    def _get_unified_file(self, block: str, parcel: Optional[str] = None) -> Optional[requests.Response]:
+        """Get unified file information using GetUnifiedFile endpoint.
+        
+        Args:
+            block: Block number (גוש)
+            parcel: Parcel number (חלקה), optional
+            
+        Returns:
+            Response object if successful, None otherwise
+        """
+        site_id = self.get_site_id()
+        endpoint = "https://handasi.complot.co.il/magicscripts/mgrqispi.dll"
+        params = {
+            "appname": "cixpa",
+            "prgname": "GetUnifiedFile",
+            "siteid": site_id,
+            "g": block,
+            "arguments": "siteid,g",
+        }
+        
+        if parcel:
+            params["h"] = parcel
+            params["arguments"] = "siteid,g,h"
+        
+        try:
+            logger.info(f"Calling GetUnifiedFile with params: {params}")
+            response = self.session.get(
+                endpoint,
+                params=params,
+                headers={
+                    "Origin": self.base_url,
+                    "Referer": f"{self.base_url}/gush2/",
+                },
+                timeout=self.timeout,
+            )
+            
+            if response.status_code == 200:
+                self._fix_response_encoding(response)
+                logger.debug(f"Successfully fetched unified file for block={block}, parcel={parcel}")
+                return response
+            else:
+                logger.warning(f"Failed to fetch unified file: HTTP {response.status_code}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch unified file: {e}", exc_info=True)
+        
+        return None
+
+    def _parse_unified_file_response(self, html: str, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Parse GetUnifiedFile HTML response to extract building information.
+        
+        Args:
+            html: HTML response from GetUnifiedFile
+            block: Block number (גוש)
+            parcel: Parcel number (חלקה), optional
+            
+        Returns:
+            List of building info and permit documents
+        """
+        import re
+        
+        documents = []
+        
+        # Extract building IDs from the HTML
+        # Look for javascript:getBuilding(ID) patterns
+        building_ids = set()
+        building_patterns = [
+            r'javascript:getBuilding\((\d+)\)',
+            r'href=["\']javascript:getBuilding\((\d+)\)["\']',
+            r'#building/(\d+)',
+            r'building/(\d+)',
+            r't=(\d+)',
+        ]
+        
+        for pattern in building_patterns:
+            matches = re.findall(pattern, html, re.IGNORECASE)
+            for match in matches:
+                building_id = str(match).strip()
+                if building_id:
+                    building_ids.add(building_id)
+        
+        logger.debug(f"Found {len(building_ids)} building IDs in unified file: {building_ids}")
+        
+        # For each building ID found, get full building info
+        for building_id in building_ids:
+            try:
+                building_docs = self._get_by_building_id(building_id)
+                documents.extend(building_docs)
+            except Exception as e:
+                logger.warning(f"Failed to get building info for {building_id}: {e}")
+        
+        # Also try to extract any request/permit information directly from the HTML
+        # Look for request IDs: javascript:getRequest(ID)
+        request_pattern = r'javascript:getRequest\((\d+)\)'
+        request_ids = re.findall(request_pattern, html)
+        
+        if request_ids:
+            logger.debug(f"Found {len(request_ids)} request IDs in unified file")
+            # Extract request information from HTML tables
+            for req_id in set(request_ids):
+                # Try to find the row containing this request
+                row_pattern = rf'<tr[^>]*>.*?<a[^>]*href=["\']javascript:getRequest\({req_id}\)["\'][^>]*>.*?</tr>'
+                row_match = re.search(row_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                if row_match:
+                    row_html = row_match.group(0)
+                    cell_pattern = r'<td[^>]*>(.*?)</td>'
+                    cells = re.findall(cell_pattern, row_html, re.DOTALL | re.IGNORECASE)
+                    
+                    if len(cells) >= 3:
+                        import html as html_module
+                        cell_texts = []
+                        for cell in cells:
+                            text = re.sub(r'<[^>]+>', '', cell)
+                            text = html_module.unescape(text)
+                            text = re.sub(r'\s+', ' ', text).strip()
+                            if isinstance(text, bytes):
+                                text = text.decode('utf-8', errors='ignore')
+                            cell_texts.append(text)
+                        
+                        date = None
+                        description = None
+                        category = None
+                        
+                        if len(cell_texts) >= 3:
+                            date_match = re.search(r'(\d{2}/\d{2}/\d{4})', cell_texts[2])
+                            if date_match:
+                                date = date_match.group(1)
+                        
+                        if len(cell_texts) >= 4:
+                            description = cell_texts[3] if cell_texts[3] else None
+                        
+                        if len(cell_texts) >= 5:
+                            category = cell_texts[4] if cell_texts[4] else None
+                        
+                        document = {
+                            "request_num": req_id,
+                            "external_id": req_id,
+                            "document_date": date,
+                            "title": description or f"Request {req_id}",
+                            "document_type": description or f"Request {req_id}",
+                            "status": category or "",
+                            "meta": {
+                                "block": block,
+                                "parcel": parcel,
+                                "category": category,
+                                "source_type": "unified_file",
+                            },
+                        }
+                        # Get source name by removing "Client" suffix if present
+                        source_name = self.__class__.__name__.replace("Client", "")
+                        documents.append(self._normalize_document(document, source_name))
+        
+        if documents:
+            logger.info(f"Successfully parsed {len(documents)} documents from unified file for block={block}, parcel={parcel}")
+        else:
+            logger.warning(f"No documents found in unified file for block={block}, parcel={parcel}")
+        
+        return documents
+
     @abstractmethod
     def get_building_info(
         self,
-        building_id: Optional[str] = None,
         block: Optional[str] = None,
         parcel: Optional[str] = None,
         address: Optional[str] = None,
@@ -260,7 +576,6 @@ class TikbinyanClient(ABC):
         """Get building information and permits.
         
         Args:
-            building_id: Building ID (מספר תיק בניין)
             block: Block number (גוש)
             parcel: Parcel number (חלקה)
             address: Street address
@@ -387,15 +702,11 @@ class BatYamTikbinyanClient(TikbinyanClient):
 
     def get_building_info(
         self,
-        building_id: Optional[str] = None,
         block: Optional[str] = None,
         parcel: Optional[str] = None,
         address: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Get building information from Bat Yam tikbinyan portal."""
-        # Try building ID first
-        if building_id:
-            return self._get_by_building_id(building_id)
         
         # Try block/parcel
         if block:
@@ -447,10 +758,34 @@ class BatYamTikbinyanClient(TikbinyanClient):
 
     def _get_by_block_parcel(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get building info by block and parcel."""
-        # Implementation depends on actual API structure
-        # This is a placeholder that needs to be adapted
-        logger.warning("Block/parcel search not yet fully implemented for Bat Yam")
-        return []
+        if not parcel:
+            logger.warning("Parcel number is required for block/parcel search in Bat Yam")
+            return []
+        
+        all_documents = []
+        seen_ids = set()
+        
+        # Try GetGushFile endpoint
+        gush_response = self._get_gush_file(block, parcel)
+        if gush_response:
+            gush_docs = self._parse_gush_file_response(gush_response.text, block, parcel)
+            for doc in gush_docs:
+                doc_id = doc.get("external_id") or doc.get("request_num") or doc.get("permission_num")
+                if doc_id and doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_documents.append(doc)
+        
+        # Try GetUnifiedFile endpoint
+        unified_response = self._get_unified_file(block, parcel)
+        if unified_response:
+            unified_docs = self._parse_unified_file_response(unified_response.text, block, parcel)
+            for doc in unified_docs:
+                doc_id = doc.get("external_id") or doc.get("request_num") or doc.get("permission_num")
+                if doc_id and doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_documents.append(doc)
+        
+        return all_documents
 
     def _get_by_address(self, address: str) -> List[Dict[str, Any]]:
         """Get building info by address."""
@@ -818,8 +1153,34 @@ class HerzliyaTikbinyanClient(TikbinyanClient):
 
     def _get_by_block_parcel(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get building info by block and parcel."""
-        logger.warning("Block/parcel search not yet fully implemented for Herzliya")
-        return []
+        if not parcel:
+            logger.warning("Parcel number is required for block/parcel search in Herzliya")
+            return []
+        
+        all_documents = []
+        seen_ids = set()
+        
+        # Try GetGushFile endpoint
+        gush_response = self._get_gush_file(block, parcel)
+        if gush_response:
+            gush_docs = self._parse_gush_file_response(gush_response.text, block, parcel)
+            for doc in gush_docs:
+                doc_id = doc.get("external_id") or doc.get("request_num") or doc.get("permission_num")
+                if doc_id and doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_documents.append(doc)
+        
+        # Try GetUnifiedFile endpoint
+        unified_response = self._get_unified_file(block, parcel)
+        if unified_response:
+            unified_docs = self._parse_unified_file_response(unified_response.text, block, parcel)
+            for doc in unified_docs:
+                doc_id = doc.get("external_id") or doc.get("request_num") or doc.get("permission_num")
+                if doc_id and doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_documents.append(doc)
+        
+        return all_documents
 
     def _get_by_address(self, address: str) -> List[Dict[str, Any]]:
         """Get building info by address."""
@@ -1044,8 +1405,34 @@ class RamatGanTikbinyanClient(TikbinyanClient):
 
     def _get_by_block_parcel(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get building info by block and parcel."""
-        logger.warning("Block/parcel search not yet fully implemented for Ramat Gan")
-        return []
+        if not parcel:
+            logger.warning("Parcel number is required for block/parcel search in Ramat Gan")
+            return []
+        
+        all_documents = []
+        seen_ids = set()
+        
+        # Try GetGushFile endpoint
+        gush_response = self._get_gush_file(block, parcel)
+        if gush_response:
+            gush_docs = self._parse_gush_file_response(gush_response.text, block, parcel)
+            for doc in gush_docs:
+                doc_id = doc.get("external_id") or doc.get("request_num") or doc.get("permission_num")
+                if doc_id and doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_documents.append(doc)
+        
+        # Try GetUnifiedFile endpoint
+        unified_response = self._get_unified_file(block, parcel)
+        if unified_response:
+            unified_docs = self._parse_unified_file_response(unified_response.text, block, parcel)
+            for doc in unified_docs:
+                doc_id = doc.get("external_id") or doc.get("request_num") or doc.get("permission_num")
+                if doc_id and doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_documents.append(doc)
+        
+        return all_documents
 
     def _get_by_address(self, address: str) -> List[Dict[str, Any]]:
         """Get building info by address."""

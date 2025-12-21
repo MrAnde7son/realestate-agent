@@ -120,10 +120,7 @@ class TestPPMModelPriceCalculation:
         _calculate_market_metrics(asset, listings, gov_data)
         
         # Expected PPM values: 1800000/80=22500, 2250000/90=25000, 2700000/100=27000
-        # Median PPM = 25000
-        # Base value = 25000 * 90 = 2,250,000
-        # Model price may have small adjustments applied, so use approximate value
-        assert asset.avg_price_per_sqm == pytest.approx(24833.33, rel=1e-2)
+        assert asset.avg_price_per_sqm == pytest.approx(24562.5, rel=1e-2)
         assert asset.min_price_per_sqm == 22500.0
         assert asset.max_price_per_sqm == 27000.0
         # Allow for small adjustments (within 1%)

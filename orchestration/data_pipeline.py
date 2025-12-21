@@ -17,7 +17,6 @@ from yad2.scrapers.yad2_scraper import RealEstateListing
 from orchestration.collectors import (
     Yad2Collector,
     MadlanCollector,
-    GISCollector,
     MultiCityGISCollector,
     GovCollector,
     GovMapCollector,
@@ -25,6 +24,7 @@ from orchestration.collectors import (
     MavatCollector,
     RamiCollector,
     HandasaCollector,
+    MultiCityTikbinyanCollector,
 )
 from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query
@@ -129,6 +129,7 @@ class DataPipeline:
         "michrazim": float(os.getenv("MICHRAZIM_TIMEOUT", "240")),
         "mavat": float(os.getenv("MAVAT_TIMEOUT", "240")),
         "handasa": float(os.getenv("HANDASA_TIMEOUT", "240")),
+        "tikbinyan": float(os.getenv("TIKBINYAN_TIMEOUT", "240")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
@@ -140,6 +141,7 @@ class DataPipeline:
         "michrazim": int(os.getenv("MICHRAZIM_RETRIES", "0")),
         "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
         "handasa": int(os.getenv("HANDASA_RETRIES", "0")),
+        "tikbinyan": int(os.getenv("TIKBINYAN_RETRIES", "0")),
     }
 
     def __init__(
@@ -155,6 +157,7 @@ class DataPipeline:
         rami: Optional[RamiCollector] = None,
         mavat: Optional[MavatCollector] = None,
         handasa: Optional[HandasaCollector] = None,
+        tikbinyan: Optional[MultiCityTikbinyanCollector] = None,
     ) -> None:
         """Create a new :class:`DataPipeline` instance.
 
@@ -185,6 +188,7 @@ class DataPipeline:
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
         self.handasa = handasa or HandasaCollector()
+        self.tikbinyan = tikbinyan or MultiCityTikbinyanCollector()
         
         # Note: GovMap client is now accessed through the collector
 
@@ -578,10 +582,36 @@ class DataPipeline:
             # Check if city is Tel Aviv (GIS and Handasa only support Tel Aviv)
             city = location.city or ""
             is_tel_aviv = "תל אביב" in city
+            
+            # Initialize tikbinyan archive
+            tikbinyan_archive: List[Dict[str, Any]] = []
+            
             if not is_tel_aviv:
-                logger.info(f"📍 City '{city}' is not Tel Aviv - skipping GIS and Handasa collection (only supported for Tel Aviv)")
+                logger.info(f"📍 City '{city}' is not Tel Aviv - using tikbinyan collectors for municipal building info")
                 gis_data = {}
                 handasa_archive = []
+                
+                # Use multi-city tikbinyan collector (automatically routes to correct city adapter)
+                try:
+                    logger.info(f"🏗️ Collecting tikbinyan building info for {city}...")
+                    tikbinyan_archive = self._collect_with_observability(
+                        "tikbinyan",
+                        self.tikbinyan.collect,
+                        location=location,
+                        timeout=self.TIMEOUTS.get("tikbinyan"),
+                        retries=self.RETRIES.get("tikbinyan", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="tikbinyan")
+                    logger.info(f"🏗️ Tikbinyan documents collected for {city}: {len(tikbinyan_archive)}")
+                except ValueError as e:
+                    # City not supported by any tikbinyan adapter
+                    tikbinyan_archive = []
+                    logger.info(f"📍 {e}")
+                except Exception as e:
+                    tikbinyan_archive = []
+                    track("collector_fail", source="tikbinyan", error_code=str(e))
+                    logger.warning(f"⚠️ Tikbinyan collection failed for {city}: {e}")
             else:
                 # Get GIS data (supplementary or fallback for coordinates)
                 gis_data = {}
@@ -816,6 +846,10 @@ class DataPipeline:
                     if handasa_archive:
                         self._add_source_record(session, db_listing.id, "handasa", handasa_archive)
                         results.append({"source": "handasa", "data": handasa_archive})
+                    
+                    if tikbinyan_archive:
+                        self._add_source_record(session, db_listing.id, "tikbinyan", tikbinyan_archive)
+                        results.append({"source": "tikbinyan", "data": tikbinyan_archive})
 
                     # ---------------- Gov data (collected once above) ----------------
                     self._add_source_record(session, db_listing.id, "gov", gov_data)
@@ -868,6 +902,9 @@ class DataPipeline:
 
                     if handasa_archive:
                         results.append({"source": "handasa", "data": handasa_archive})
+                    
+                    if tikbinyan_archive:
+                        results.append({"source": "tikbinyan", "data": tikbinyan_archive})
                     
                     # Add government data to results
                     if gov_data.get("decisive"):

@@ -79,10 +79,11 @@ class ProxyGISClient(ABC):
     
     def _identify(self, x: float, y: float, layer_id: int, tolerance: int = 9) -> Dict[str, Any]:
         """Perform an identify operation at the given coordinates."""
+        import uuid
         service_url = self.get_service_url()
         identify_path = f"{service_url}/identify"
         
-        # Build query parameters
+        # Build query parameters - matching the format from actual network requests
         from urllib.parse import urlencode
         params_dict = {
             "f": "json",
@@ -95,6 +96,7 @@ class ProxyGISClient(ABC):
             "geometryType": "esriGeometryPoint",
             "sr": "2039",
             "layers": f"all:{layer_id}",
+            "guid": str(uuid.uuid4()),  # Add GUID like successful requests
         }
         
         # Construct URL: PROXY_BASE?SERVICE_URL/identify?PARAMS
@@ -130,52 +132,92 @@ class ProxyGISClient(ABC):
             self._logger.error(f"Request failed: {e}")
             raise ArcGISError(f"Request failed: {e}")
     
-    def _query(self, layer_id: int, where: str, return_geometry: bool = True, out_fields: str = "*") -> Dict[str, Any]:
-        """Perform a query operation on a specific layer."""
+    def _query(self, layer_id: int, where: str, return_geometry: bool = True, out_fields: str = "*", method: str = "GET") -> Dict[str, Any]:
+        """Perform a query operation on a specific layer.
+        
+        Args:
+            layer_id: Layer ID to query
+            where: WHERE clause for the query
+            return_geometry: Whether to return geometry
+            out_fields: Fields to return
+            method: HTTP method to use ("GET" or "POST")
+        """
+        import uuid
         service_url = self.get_service_url()
         query_path = f"{service_url}/{layer_id}/query"
         
-        # Build query parameters
-        from urllib.parse import urlencode
+        # Build query parameters - matching the format from actual network requests
         params_dict = {
             "f": "json",
-            "text": "%",  # Required parameter, seems to be a wildcard
             "where": where,
             "returnGeometry": "true" if return_geometry else "false",
-            "spatialRel": "esriSpatialRelIntersects",
+            "spatialRel": "esriSpatialRelIntersects",  # Required even for non-spatial queries
             "outFields": out_fields,
+            "guid": str(uuid.uuid4()),  # Generate a GUID like the actual requests
         }
-        
-        # Construct URL: PROXY_BASE?SERVICE_URL/layer_id/query?PARAMS
-        params_string = urlencode(params_dict)
-        proxy_url = f"{self.PROXY_BASE}?{query_path}?{params_string}"
         
         headers = {
             "referer": self.get_referer(),
         }
         cookies = self.get_cookies()
         
-        self._logger.debug(f"Query request: {proxy_url[:150]}...")
+        if method.upper() == "POST":
+            # For POST, use the proxy URL without params, send data in body
+            proxy_url = f"{self.PROXY_BASE}?{query_path}"
+            self._logger.debug(f"Query POST request: {proxy_url[:150]}...")
+            
+            try:
+                response = request_with_retry(
+                    self._session.post,
+                    proxy_url,
+                    data=params_dict,
+                    headers=headers,
+                    cookies=cookies,
+                    timeout=60,
+                    max_retries=3,
+                )
+            except requests.RequestException as e:
+                self._logger.error(f"POST request failed: {e}")
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        error_text = e.response.text[:500]
+                        self._logger.error(f"Response body: {error_text}")
+                    except Exception:
+                        pass
+                raise ArcGISError(f"Request failed: {e}")
+        else:
+            # For GET, construct URL with params
+            from urllib.parse import urlencode
+            params_string = urlencode(params_dict)
+            proxy_url = f"{self.PROXY_BASE}?{query_path}?{params_string}"
+            self._logger.debug(f"Query GET request: {proxy_url[:150]}...")
+            
+            try:
+                response = request_with_retry(
+                    self._session.get,
+                    proxy_url,
+                    headers=headers,
+                    cookies=cookies,
+                    timeout=60,
+                    max_retries=3,
+                )
+            except requests.RequestException as e:
+                self._logger.error(f"GET request failed: {e}")
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        error_text = e.response.text[:500]
+                        self._logger.error(f"Response body: {error_text}")
+                    except Exception:
+                        pass
+                raise ArcGISError(f"Request failed: {e}")
         
-        try:
-            response = request_with_retry(
-                self._session.get,
-                proxy_url,
-                headers=headers,
-                cookies=cookies,
-                timeout=60,
-                max_retries=3,
-            )
-            data = self._safe_json(response)
-            
-            if "error" in data:
-                self._logger.error("ArcGIS error in response", extra={"error": data.get("error")})
-                raise ArcGISError(str(data.get("error")))
-            
-            return data
-        except requests.RequestException as e:
-            self._logger.error(f"Request failed: {e}")
-            raise ArcGISError(f"Request failed: {e}")
+        data = self._safe_json(response)
+        
+        if "error" in data:
+            self._logger.error("ArcGIS error in response", extra={"error": data.get("error")})
+            raise ArcGISError(str(data.get("error")))
+        
+        return data
     
     def get_blocks(self, x: float, y: float) -> List[Dict[str, Any]]:
         """Get blocks (גושים) at the given coordinates."""

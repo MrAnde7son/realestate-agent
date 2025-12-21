@@ -62,27 +62,31 @@ class BatYamGIS(ProxyGISClient):
         Args:
             street: Street name (Hebrew)
             house_number: House number
-            like: Whether to use LIKE matching (not used in this implementation)
+            like: Whether to use LIKE matching
         
         Returns:
             Tuple of (x, y) coordinates in ITM (EPSG:2039)
         """
-        # Clean and format the street name and house number
-        # The API expects spaces around the values based on the working example
-        street_clean = f"  {street.strip()}"
-        house_number_clean = f"  {house_number}"
+        # Clean the street name and house number
+        street_clean = street.strip()
+        house_number_str = str(house_number).strip()
         
         # Escape single quotes in street name to prevent SQL injection
-        # Replace single quote with two single quotes (SQL standard escaping)
         street_escaped = street_clean.replace("'", "''")
         
-        # Build the WHERE clause
-        # Format: Stname='  הצפירה' and BLDNUMBER='  8'
-        where_clause = f"Stname='{street_escaped}' and BLDNUMBER='{house_number_clean}'"
+        # Build the WHERE clause - try multiple formats
+        # Format 1: Exact match with trimmed values
+        where_clause = f"Stname='{street_escaped}' AND BLDNUMBER='{house_number_str}'"
         
         try:
             layer_id = self.get_layer_id_for_addresses()
-            data = self._query(layer_id, where_clause, return_geometry=True)
+            # Try POST first (better for complex WHERE clauses), fallback to GET
+            try:
+                data = self._query(layer_id, where_clause, return_geometry=True, method="POST")
+            except ArcGISError:
+                # If POST fails, try GET
+                self._logger.debug("POST query failed, trying GET")
+                data = self._query(layer_id, where_clause, return_geometry=True, method="GET")
             
             features = data.get("features", [])
             if not features:

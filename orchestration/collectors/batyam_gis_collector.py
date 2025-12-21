@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from gis.batyam_gis_client import BatYamGIS
-from govmap.api_client import GovMapClient
 from orchestration.location import LocationQuery, ensure_location_query
 from .base_collector import BaseCollector
 
@@ -14,9 +13,8 @@ logger = logging.getLogger(__name__)
 class BatYamGISCollector(BaseCollector):
     """Collector for Bat Yam GIS data."""
 
-    def __init__(self, client: Optional[BatYamGIS] = None, govmap_client: Optional[GovMapClient] = None) -> None:
+    def __init__(self, client: Optional[BatYamGIS] = None) -> None:
         self.client = client or BatYamGIS()
-        self.govmap_client = govmap_client or GovMapClient()
 
     def collect(
         self,
@@ -32,20 +30,14 @@ class BatYamGISCollector(BaseCollector):
         search_street = (street or query.formatted or "").strip()
         number = query.house_number if query.house_number is not None else 0
         
-        # Handle block/parcel-only queries
-        if block and parcel and not search_street:
-            logger.info(f"Processing block/parcel-only query: {block}/{parcel}")
-            # For block/parcel queries, we still need coordinates - use GovMap
-            x, y = self._geocode_by_block_parcel(block, parcel)
-        else:
-            # Use coordinates if already available, otherwise geocode
-            x = query.x_itm
-            y = query.y_itm
-            
-            if not x or not y:
-                if not search_street:
-                    raise ValueError("BatYamGISCollector requires at least a street name or block/parcel")
-                x, y = self._geocode(search_street, number, city)
+        # Use coordinates if already available, otherwise geocode
+        x = query.x_itm
+        y = query.y_itm
+        
+        if not x or not y:
+            if not search_street:
+                raise ValueError("BatYamGISCollector requires coordinates (x_itm, y_itm) or a street name")
+            x, y = self._geocode(search_street, number, city)
         
         data = {
             "blocks": self.client.get_blocks(x, y),
@@ -118,56 +110,21 @@ class BatYamGISCollector(BaseCollector):
         return block, parcel
 
     def _geocode(self, street: str, house_number: int, city: str = "") -> Tuple[float, float]:
-        """Geocode an address to coordinates, trying Bat Yam GIS first, then GovMap as fallback."""
-        # Try Bat Yam GIS geocoding first (layer 82 query endpoint)
+        """Geocode an address to coordinates using Bat Yam GIS."""
+        logger.info(f"Geocoding address via Bat Yam GIS: {street} {house_number}, {city}")
         try:
-            logger.info(f"Geocoding address via Bat Yam GIS: {street} {house_number}, {city}")
-            x, y = self.client.get_address_coordinates(street, house_number)
+            x, y = self.client.get_address_coordinates(street, house_number, like=True)
             logger.info(f"Geocoded to coordinates via Bat Yam GIS: {x}, {y}")
             return x, y
         except Exception as e:
-            logger.warning(f"Bat Yam GIS geocoding failed: {e}, falling back to GovMap")
+            logger.error(f"Bat Yam GIS geocoding failed: {e}")
             raise ValueError(f"Failed to geocode address '{street} {house_number}': {e}")
-    
-    def _geocode_by_block_parcel(self, block: str, parcel: str) -> Tuple[float, float]:
-        """Geocode block/parcel to coordinates using GovMap."""
-        logger.info(f"Geocoding block/parcel via GovMap: {block}/{parcel}")
-        
-        try:
-            search_query = f"גוש {block} חלקה {parcel}"
-            autocomplete_result = self.govmap_client.autocomplete(search_query, max_results=10)
-            results = autocomplete_result.get("results", [])
-            
-            if not results:
-                raise ValueError(f"No results found for block/parcel: {block}/{parcel}")
-            
-            # Find parcel result
-            best_match = None
-            for result in results:
-                if result.get("type") == "parcel":
-                    best_match = result
-                    break
-            
-            if not best_match:
-                best_match = results[0]
-            
-            coords = self.govmap_client.extract_coordinates_from_shapes(best_match)
-            if not coords:
-                raise ValueError("Could not extract coordinates from GovMap result")
-            
-            x, y = coords
-            logger.info(f"Geocoded block/parcel to coordinates: {x}, {y}")
-            return x, y
-            
-        except Exception as e:
-            logger.error(f"Block/parcel geocoding failed for {block}/{parcel}: {e}")
-            raise ValueError(f"Failed to geocode block/parcel '{block}/{parcel}': {e}")
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for GIS collection."""
         location = ensure_location_query(kwargs.get("location"))
-        # Valid if we have street or block/parcel
-        return bool(location.street) or (bool(location.block) and bool(location.parcel))
+        # Valid if we have coordinates or street name
+        return bool(location.x_itm and location.y_itm) or bool(location.street)
 
 
 

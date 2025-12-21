@@ -181,6 +181,17 @@ class TikbinyanClient(ABC):
             return cities[0].get("v")
         return None
     
+    def _fix_response_encoding(self, response: requests.Response) -> None:
+        """Fix response encoding to handle UTF-8-SIG (UTF-8 with BOM) correctly.
+        
+        The server sends UTF-8-SIG but requests may detect it as ISO-8859-1,
+        causing Hebrew text to appear as gibberish.
+        """
+        if response.apparent_encoding:
+            response.encoding = response.apparent_encoding
+        else:
+            response.encoding = 'utf-8-sig'  # UTF-8 with BOM
+    
     def _parse_buildings_table(self, html: str) -> List[Dict[str, Any]]:
         """Parse HTML table response to extract building information.
         
@@ -423,6 +434,8 @@ class BatYamTikbinyanClient(TikbinyanClient):
             
             if response.status_code == 200:
                 logger.debug(f"Successfully fetched building {building_id} page")
+                # Fix encoding to handle Hebrew text correctly
+                self._fix_response_encoding(response)
                 # The response is HTML, parse it
                 return self._parse_building_page(response.text, building_id)
             else:
@@ -506,9 +519,13 @@ class BatYamTikbinyanClient(TikbinyanClient):
             logger.info(f"Response status: {response.status_code}, URL: {response.url}")
             
             if response.status_code == 200:
+                # Fix encoding to handle Hebrew text correctly
+                self._fix_response_encoding(response)
+                
                 # Log response details for debugging
                 content_type = response.headers.get('Content-Type', 'unknown')
                 logger.debug(f"Response Content-Type: {content_type}")
+                logger.debug(f"Response encoding: {response.encoding}")
                 logger.debug(f"Response length: {len(response.text)} chars")
                 logger.debug(f"Response preview (first 1000 chars):\n{response.text[:1000]}")
                 
@@ -620,42 +637,73 @@ class BatYamTikbinyanClient(TikbinyanClient):
             logger.info(f"Found {len(request_ids)} requests/permits in HTML for building {building_id}")
             
             # Extract full row data for each request ID
+            # Find the tbody section that contains getRequest (there may be multiple tbody sections)
+            tbody_html = html
+            all_tbodies = re.findall(r'<tbody[^>]*>(.*?)</tbody>', html, re.DOTALL | re.IGNORECASE)
+            for tbody in all_tbodies:
+                if 'getRequest' in tbody:
+                    tbody_html = tbody
+                    logger.debug(f"Found requests tbody with {len(tbody)} chars")
+                    break
+            
             for req_id in set(request_ids):  # Use set to avoid duplicates
-                # Find the row containing this request ID
-                row_pattern = rf'<tr[^>]*>(.*?<a[^>]*href=["\']javascript:getRequest\({req_id}\)["\'][^>]*>.*?)</tr>'
-                row_match = re.search(row_pattern, html, re.DOTALL | re.IGNORECASE)
+                # Find the row containing this request ID - must be in tbody and have request ID as link text
+                # Pattern: <tr> ... <a href="javascript:getRequest(ID)">ID</a> ... </tr>
+                row_pattern = rf'<tr[^>]*>.*?<a[^>]*href=["\']javascript:getRequest\({req_id}\)["\'][^>]*>{req_id}</a>.*?</tr>'
+                row_match = re.search(row_pattern, tbody_html, re.DOTALL | re.IGNORECASE)
+                
+                if not row_match:
+                    # Fallback: try without requiring ID as link text
+                    row_pattern = rf'<tr[^>]*>(.*?<a[^>]*href=["\']javascript:getRequest\({req_id}\)["\'][^>]*>.*?)</tr>'
+                    row_match = re.search(row_pattern, tbody_html, re.DOTALL | re.IGNORECASE)
                 
                 if not row_match:
                     continue
                 
-                row_html = row_match.group(1)
+                row_html = row_match.group(0)  # Get the full row including <tr> tags
                 
-                # Extract all table cells in order
+                # Extract all table cells in order (only <td> tags, not <th>)
                 cell_pattern = r'<td[^>]*>(.*?)</td>'
                 cells = re.findall(cell_pattern, row_html, re.DOTALL | re.IGNORECASE)
                 
+                if len(cells) < 3:
+                    # Skip rows that don't have enough cells (likely not a data row)
+                    continue
+                
                 # Clean HTML tags from each cell
+                import html as html_module
                 cell_texts = []
                 for cell in cells:
                     # Remove HTML tags and clean whitespace
                     text = re.sub(r'<[^>]+>', '', cell)
+                    # Decode HTML entities (like &nbsp;, &amp;, etc.)
+                    text = html_module.unescape(text)
+                    # Clean whitespace
                     text = re.sub(r'\s+', ' ', text).strip()
+                    # Ensure it's a proper string (not bytes)
+                    if isinstance(text, bytes):
+                        text = text.decode('utf-8', errors='ignore')
                     cell_texts.append(text)
                 
-                # Based on the HTML structure:
-                # Cell 0: icon link (empty)
-                # Cell 1: request ID link
-                # Cell 2: date (DD/MM/YYYY)
-                # Cell 3: description (hidden-on-mobile)
-                # Cell 4: category (hidden-on-mobile)
-                # Cell 5+: other fields
+                # Based on the HTML structure from the actual page:
+                # Cell 0: icon link (empty or whitespace)
+                # Cell 1: request ID link (should contain the request ID)
+                # Cell 2: date (DD/MM/YYYY format)
+                # Cell 3: description (with class "hidden-on-mobile")
+                # Cell 4: category (with class "hidden-on-mobile")
+                # Cell 5+: other fields (may be empty)
                 
                 date = None
                 description = None
                 category = None
                 
+                # Verify this is a request row by checking cell 1 contains the request ID
+                if req_id not in cell_texts[1]:
+                    # This might be the wrong row, skip it
+                    continue
+                
                 if len(cell_texts) >= 3:
-                    # Date is typically in cell 2 (index 2)
+                    # Date is in cell 2 (index 2) - format DD/MM/YYYY
                     date_match = re.search(r'(\d{2}/\d{2}/\d{4})', cell_texts[2])
                     if date_match:
                         date = date_match.group(1)
@@ -826,9 +874,13 @@ class HerzliyaTikbinyanClient(TikbinyanClient):
             logger.info(f"Response status: {response.status_code}, URL: {response.url}")
             
             if response.status_code == 200:
+                # Fix encoding to handle Hebrew text correctly
+                self._fix_response_encoding(response)
+                
                 # Log response details for debugging
                 content_type = response.headers.get('Content-Type', 'unknown')
                 logger.debug(f"Response Content-Type: {content_type}")
+                logger.debug(f"Response encoding: {response.encoding}")
                 logger.debug(f"Response length: {len(response.text)} chars")
                 logger.debug(f"Response preview (first 1000 chars):\n{response.text[:1000]}")
                 
@@ -1048,9 +1100,13 @@ class RamatGanTikbinyanClient(TikbinyanClient):
             logger.info(f"Response status: {response.status_code}, URL: {response.url}")
             
             if response.status_code == 200:
+                # Fix encoding to handle Hebrew text correctly
+                self._fix_response_encoding(response)
+                
                 # Log response details for debugging
                 content_type = response.headers.get('Content-Type', 'unknown')
                 logger.debug(f"Response Content-Type: {content_type}")
+                logger.debug(f"Response encoding: {response.encoding}")
                 logger.debug(f"Response length: {len(response.text)} chars")
                 logger.debug(f"Response preview (first 1000 chars):\n{response.text[:1000]}")
                 

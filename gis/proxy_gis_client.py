@@ -8,7 +8,7 @@ from __future__ import annotations
 import requests
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 from abc import ABC, abstractmethod
 
 from utils.retry import request_with_retry
@@ -130,33 +130,92 @@ class ProxyGISClient(ABC):
             self._logger.error(f"Request failed: {e}")
             raise ArcGISError(f"Request failed: {e}")
     
+    def _query(self, layer_id: int, where: str, return_geometry: bool = True, out_fields: str = "*") -> Dict[str, Any]:
+        """Perform a query operation on a specific layer."""
+        service_url = self.get_service_url()
+        query_path = f"{service_url}/{layer_id}/query"
+        
+        # Build query parameters
+        from urllib.parse import urlencode
+        params_dict = {
+            "f": "json",
+            "text": "%",  # Required parameter, seems to be a wildcard
+            "where": where,
+            "returnGeometry": "true" if return_geometry else "false",
+            "spatialRel": "esriSpatialRelIntersects",
+            "outFields": out_fields,
+        }
+        
+        # Construct URL: PROXY_BASE?SERVICE_URL/layer_id/query?PARAMS
+        params_string = urlencode(params_dict)
+        proxy_url = f"{self.PROXY_BASE}?{query_path}?{params_string}"
+        
+        headers = {
+            "referer": self.get_referer(),
+        }
+        cookies = self.get_cookies()
+        
+        self._logger.debug(f"Query request: {proxy_url[:150]}...")
+        
+        try:
+            response = request_with_retry(
+                self._session.get,
+                proxy_url,
+                headers=headers,
+                cookies=cookies,
+                timeout=60,
+                max_retries=3,
+            )
+            data = self._safe_json(response)
+            
+            if "error" in data:
+                self._logger.error("ArcGIS error in response", extra={"error": data.get("error")})
+                raise ArcGISError(str(data.get("error")))
+            
+            return data
+        except requests.RequestException as e:
+            self._logger.error(f"Request failed: {e}")
+            raise ArcGISError(f"Request failed: {e}")
+    
     def get_blocks(self, x: float, y: float) -> List[Dict[str, Any]]:
         """Get blocks (גושים) at the given coordinates."""
         layer_id = self.get_layer_id_for_blocks()
-        data = self._identify(x, y, layer_id)
-        results = data.get("results", [])
-        
-        blocks = []
-        for result in results:
-            attrs = result.get("attributes", {})
-            if attrs:
-                blocks.append(attrs)
-        
-        return blocks
+        try:
+            data = self._identify(x, y, layer_id)
+            results = data.get("results", [])
+            
+            blocks = []
+            for result in results:
+                attrs = result.get("attributes", {})
+                if attrs:
+                    blocks.append(attrs)
+            
+            return blocks
+        except ArcGISError as e:
+            # If identify fails, log warning and return empty list
+            # This allows the collector to continue with other data
+            self._logger.warning(f"Failed to get blocks via identify: {e}")
+            return []
     
     def get_parcels(self, x: float, y: float) -> List[Dict[str, Any]]:
         """Get parcels (חלקות) at the given coordinates."""
         layer_id = self.get_layer_id_for_parcels()
-        data = self._identify(x, y, layer_id)
-        results = data.get("results", [])
-        
-        parcels = []
-        for result in results:
-            attrs = result.get("attributes", {})
-            if attrs:
-                parcels.append(attrs)
-        
-        return parcels
+        try:
+            data = self._identify(x, y, layer_id)
+            results = data.get("results", [])
+            
+            parcels = []
+            for result in results:
+                attrs = result.get("attributes", {})
+                if attrs:
+                    parcels.append(attrs)
+            
+            return parcels
+        except ArcGISError as e:
+            # If identify fails, log warning and return empty list
+            # This allows the collector to continue with other data
+            self._logger.warning(f"Failed to get parcels via identify: {e}")
+            return []
     
     def get_address_coordinates(self, street: str, house_number: int, like: bool = True) -> Tuple[float, float]:
         """

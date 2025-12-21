@@ -118,45 +118,16 @@ class BatYamGISCollector(BaseCollector):
         return block, parcel
 
     def _geocode(self, street: str, house_number: int, city: str = "") -> Tuple[float, float]:
-        """Geocode an address to coordinates using GovMap."""
-        logger.info(f"Geocoding address via GovMap: {street} {house_number}, {city}")
-        
-        # Build search query
-        search_query = f"{street} {house_number}".strip()
-        if city:
-            search_query = f"{search_query} {city}".strip()
-        
+        """Geocode an address to coordinates, trying Bat Yam GIS first, then GovMap as fallback."""
+        # Try Bat Yam GIS geocoding first (layer 82 query endpoint)
         try:
-            # Use GovMap autocomplete to find the address
-            autocomplete_result = self.govmap_client.autocomplete(search_query, max_results=10)
-            results = autocomplete_result.get("results", [])
-            
-            if not results:
-                raise ValueError(f"No results found for address: {search_query}")
-            
-            # Find the best match (prefer address type results)
-            best_match = None
-            for result in results:
-                if result.get("type") == "address":
-                    best_match = result
-                    break
-            
-            # If no address type found, use the first result
-            if not best_match:
-                best_match = results[0]
-            
-            # Extract coordinates
-            coords = self.govmap_client.extract_coordinates_from_shapes(best_match)
-            if not coords:
-                raise ValueError("Could not extract coordinates from GovMap result")
-            
-            x, y = coords
-            logger.info(f"Geocoded to coordinates: {x}, {y}")
+            logger.info(f"Geocoding address via Bat Yam GIS: {street} {house_number}, {city}")
+            x, y = self.client.get_address_coordinates(street, house_number)
+            logger.info(f"Geocoded to coordinates via Bat Yam GIS: {x}, {y}")
             return x, y
-            
         except Exception as e:
-            logger.error(f"Geocoding failed for {search_query}: {e}")
-            raise ValueError(f"Failed to geocode address '{search_query}': {e}")
+            logger.warning(f"Bat Yam GIS geocoding failed: {e}, falling back to GovMap")
+            raise ValueError(f"Failed to geocode address '{street} {house_number}': {e}")
     
     def _geocode_by_block_parcel(self, block: str, parcel: str) -> Tuple[float, float]:
         """Geocode block/parcel to coordinates using GovMap."""

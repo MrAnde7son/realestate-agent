@@ -90,9 +90,10 @@ class TestPPMModelPriceCalculation:
         assert asset.min_price_per_sqm == pytest.approx(20000.0, rel=1e-2)
         assert asset.max_price_per_sqm == pytest.approx(23076.92, rel=1e-2)
         # Base value = 23076.92 * 120 = 2,769,230.4
-        # Model price may have small adjustments applied
-        expected_base_value = 23076.92 * 120
-        assert asset.model_price == pytest.approx(expected_base_value, rel=1e-2)
+        # Size adjustment: 120 sqm is in range 100-150, so -4% adjustment
+        # Model price = 2,769,230.4 * 0.96 = 2,658,461.184
+        expected_model_price = 23076.92 * 120 * 0.96
+        assert asset.model_price == pytest.approx(expected_model_price, rel=1e-2)
 
     def test_calculate_ppm_from_nadlan_transactions(self):
         """Test PPM calculation from Nadlan transactions."""
@@ -183,12 +184,14 @@ class TestPPMModelPriceCalculation:
         assert asset.max_price_per_sqm == 25000.0
 
         # Base value = 24074.07 * 110 = 2,648,147.7
-        # Model price may have small adjustments applied, so use approximate value
-        assert asset.model_price == pytest.approx(2648147, rel=1e-2)
+        # Size adjustment: 110 sqm is in range 100-150, so -4% adjustment
+        # Model price = 2,648,147.7 * 0.96 = 2,542,221.792
+        expected_model_price = 24074.07 * 110 * 0.96
+        assert asset.model_price == pytest.approx(expected_model_price, rel=1e-2)
 
         # Verify price gap calculation
         if hasattr(asset, 'price_gap_pct'):
-            expected_model_price = 2648147  # From the assertion above
+            expected_model_price = 24074.07 * 110 * 0.96  # From the assertion above
             expected_gap = ((asset.price - expected_model_price) / expected_model_price) * 100
             assert asset.price_gap_pct == pytest.approx(expected_gap, rel=1e-1)
 

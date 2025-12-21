@@ -839,7 +839,7 @@ export default function MapView({
           />
           {/* Asset search results count */}
           {localSearchValue && (
-            <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-md shadow-lg border z-30">
+            <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-md shadow-lg border-0 z-30">
               <div className="px-4 py-2 text-sm text-muted-foreground border-b">
                 נמצאו {filteredAssets.length} נכסים מתוך {assets.length}
               </div>

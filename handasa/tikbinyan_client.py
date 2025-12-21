@@ -168,6 +168,75 @@ class TikbinyanClient(ABC):
         
         street_name = " ".join(street_parts) if street_parts else address
         return street_name.strip() if street_name else None, house_number
+    
+    def _get_city_code(self) -> Optional[str]:
+        """Get the city code (c parameter) from GetYeshuvim.
+        
+        Returns:
+            City code string (the "v" field from GetYeshuvim response) or None
+        """
+        cities = self.get_cities()
+        if cities:
+            # Return the first city's value (v field) which is the city code
+            return cities[0].get("v")
+        return None
+    
+    def _parse_buildings_table(self, html: str) -> List[Dict[str, Any]]:
+        """Parse HTML table response to extract building information.
+        
+        Args:
+            html: HTML response from GetTikimByAddress
+            
+        Returns:
+            List of building dictionaries
+        """
+        import re
+        
+        buildings = []
+        seen_ids = set()
+        
+        # The actual format from the API: javascript:getBuilding(3802)
+        # Also look for building IDs in table rows
+        building_id_patterns = [
+            r'javascript:getBuilding\((\d+)\)',  # javascript:getBuilding(3802)
+            r'href=["\']javascript:getBuilding\((\d+)\)["\']',  # In href attribute
+            r'<td>\s*<a[^>]*>(\d+)</a>\s*</td>',  # Building ID in table cell
+            r'building[_-]?id["\']?\s*[:=]\s*["\']?(\d+)',
+            r'tik[_-]?id["\']?\s*[:=]\s*["\']?(\d+)',
+            r'#building/(\d+)',
+            r'building/(\d+)',
+            r't=(\d+)',
+        ]
+        
+        for pattern in building_id_patterns:
+            matches = re.findall(pattern, html, re.IGNORECASE)
+            for match in matches:
+                building_id = str(match).strip()
+                if building_id and building_id not in seen_ids:
+                    seen_ids.add(building_id)
+                    buildings.append({
+                        "id": building_id,
+                        "v": building_id,
+                        "building_id": building_id,
+                        "t": building_id,  # 't' is also used for building ID
+                    })
+        
+        # Also try to parse as JSON if it's embedded
+        json_pattern = r'\{[^{}]*"building[_-]?id"[^{}]*\}'
+        json_matches = re.findall(json_pattern, html, re.IGNORECASE)
+        for match in json_matches:
+            try:
+                import json
+                data = json.loads(match)
+                bid = data.get("building_id") or data.get("id") or data.get("v") or data.get("t")
+                if bid and str(bid) not in seen_ids:
+                    seen_ids.add(str(bid))
+                    buildings.append(data)
+            except (json.JSONDecodeError, ValueError):
+                continue
+        
+        logger.debug(f"Parsed {len(buildings)} buildings from HTML: {buildings}")
+        return buildings
 
     @abstractmethod
     def get_building_info(
@@ -329,44 +398,39 @@ class BatYamTikbinyanClient(TikbinyanClient):
 
     def _get_by_building_id(self, building_id: str) -> List[Dict[str, Any]]:
         """Get building info by building ID."""
-        # The portal uses handasi.complot.co.il as shared backend
-        # Try to call the API endpoint directly
-        api_base = "https://handasi.complot.co.il/handasi2016"
+        site_id = self.get_site_id()
         
-        # Try different possible API endpoints
-        endpoints = [
-            f"{api_base}/building/getBuilding",
-            f"{api_base}/api/building/{building_id}",
-            f"{api_base}/building/building-data",
-        ]
+        # Use the actual endpoint that the website uses: GetTikFile
+        endpoint = "https://handasi.complot.co.il/magicscripts/mgrqispi.dll"
+        params = {
+            "appname": "cixpa",
+            "prgname": "GetTikFile",
+            "siteid": site_id,
+            "t": building_id,
+            "arguments": "siteid,t",
+        }
         
-        for endpoint in endpoints:
-            try:
-                # Try GET first
-                response = self.session.get(
-                    endpoint,
-                    params={"id": building_id, "buildingId": building_id},
-                    timeout=self.timeout,
-                )
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        return self._parse_api_response(data, building_id)
-                    except ValueError:
-                        # Not JSON, try parsing HTML
-                        return self._parse_building_page(response.text, building_id)
-            except requests.RequestException:
-                continue
-        
-        # Fallback: fetch the page and parse
-        url = f"{self.tikbinyan_url}/#building/{building_id}"
         try:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
-            return self._parse_building_page(response.text, building_id)
+            response = self.session.get(
+                endpoint,
+                params=params,
+                headers={
+                    "Origin": self.base_url,
+                    "Referer": self.tikbinyan_url + "/",
+                },
+                timeout=self.timeout,
+            )
+            
+            if response.status_code == 200:
+                logger.debug(f"Successfully fetched building {building_id} page")
+                # The response is HTML, parse it
+                return self._parse_building_page(response.text, building_id)
+            else:
+                logger.warning(f"Failed to fetch building {building_id}: HTTP {response.status_code}")
         except requests.RequestException as e:
-            logger.error(f"Failed to fetch building {building_id} from Bat Yam: {e}")
-            raise
+            logger.error(f"Failed to fetch building {building_id} from Bat Yam: {e}", exc_info=True)
+        
+        return []
 
     def _get_by_block_parcel(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get building info by block and parcel."""
@@ -406,57 +470,95 @@ class BatYamTikbinyanClient(TikbinyanClient):
         Returns:
             List of building info and permit documents
         """
-        # Try different possible endpoints for building search
-        endpoints = [
-            f"{self.api_base}/GetBuildings",
-            f"{self.api_base}/SearchBuildings",
-            f"{self.api_base}/GetBuildingsByStreet",
-        ]
-        
         site_id = self.get_site_id()
+        city_code = self._get_city_code()
         
-        for endpoint in endpoints:
-            try:
-                # Try with street_id and house_number
-                payload = {
-                    "site_id": site_id,
-                    "street_id": street_id,
-                }
-                if house_number:
-                    payload["house_number"] = house_number
-                
-                response = self.session.post(
-                    endpoint,
-                    json=payload,
-                    headers={
-                        "Content-Type": "application/json; charset=UTF-8",
-                        "Origin": self.base_url,
-                        "Referer": self.tikbinyan_url + "/",
-                    },
-                    timeout=self.timeout,
-                )
-                
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        buildings = data.get("d", []) if isinstance(data, dict) else []
-                        if buildings:
-                            logger.info(f"Found {len(buildings)} buildings for street {street_id}")
-                            # Process each building
-                            all_documents = []
-                            for building in buildings:
-                                building_id = building.get("v") or building.get("id") or building.get("building_id")
-                                if building_id:
-                                    # Get full building info
-                                    building_docs = self._get_by_building_id(str(building_id))
-                                    all_documents.extend(building_docs)
-                            return all_documents
-                    except (ValueError, KeyError):
-                        continue
-            except requests.RequestException:
-                continue
+        if not city_code:
+            logger.warning("Could not determine city code for building search")
+            return []
         
-        # If no API endpoint works, return empty list
+        # Use the actual endpoint that the website uses
+        endpoint = "https://handasi.complot.co.il/magicscripts/mgrqispi.dll"
+        params = {
+            "appname": "cixpa",
+            "prgname": "GetTikimByAddress",
+            "siteid": site_id,
+            "c": city_code,
+            "s": street_id,
+            "l": "true",
+            "arguments": "siteid,c,s,h,l",
+        }
+        if house_number:
+            params["h"] = str(house_number)
+        
+        try:
+            logger.info(f"Calling GetTikimByAddress with params: {params}")
+            response = self.session.get(
+                endpoint,
+                params=params,
+                headers={
+                    "Origin": self.base_url,
+                    "Referer": self.tikbinyan_url + "/",
+                },
+                timeout=self.timeout,
+            )
+            
+            logger.info(f"Response status: {response.status_code}, URL: {response.url}")
+            
+            if response.status_code == 200:
+                # Log response details for debugging
+                content_type = response.headers.get('Content-Type', 'unknown')
+                logger.debug(f"Response Content-Type: {content_type}")
+                logger.debug(f"Response length: {len(response.text)} chars")
+                logger.debug(f"Response preview (first 1000 chars):\n{response.text[:1000]}")
+                
+                # The response might be HTML or JSON, try to parse it
+                try:
+                    # Try JSON first
+                    data = response.json()
+                    logger.debug(f"Parsed as JSON, type: {type(data)}")
+                    if isinstance(data, dict):
+                        logger.debug(f"JSON keys: {list(data.keys())}")
+                        buildings = data.get("d", [])
+                    elif isinstance(data, list):
+                        buildings = data
+                    else:
+                        buildings = []
+                    logger.debug(f"Extracted {len(buildings)} buildings from JSON")
+                except ValueError as e:
+                    # Not JSON, try parsing HTML table
+                    logger.debug(f"Not JSON (error: {e}), trying HTML parsing")
+                    buildings = self._parse_buildings_table(response.text)
+                    logger.debug(f"Extracted {len(buildings)} buildings from HTML")
+                
+                if buildings:
+                    logger.info(f"Found {len(buildings)} buildings for street {street_id}, house {house_number}")
+                    logger.debug(f"Buildings data: {buildings}")
+                    # Process each building
+                    all_documents = []
+                    for building in buildings:
+                        # Extract building ID from various possible formats
+                        building_id = None
+                        if isinstance(building, dict):
+                            building_id = building.get("v") or building.get("id") or building.get("building_id") or building.get("t")
+                            logger.debug(f"Building dict: {building}, extracted ID: {building_id}")
+                        elif isinstance(building, str):
+                            # Might be just the building ID as a string
+                            building_id = building
+                            logger.debug(f"Building string: {building}")
+                        
+                        if building_id:
+                            # Get full building info
+                            building_docs = self._get_by_building_id(str(building_id))
+                            all_documents.extend(building_docs)
+                    
+                    return all_documents
+                else:
+                    logger.warning(f"No buildings found in response for street_id={street_id}, house_number={house_number}")
+                    logger.debug(f"Full response text:\n{response.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to search buildings: {e}", exc_info=True)
+        
         logger.warning(f"Could not find buildings for street_id={street_id}, house_number={house_number}")
         return []
 
@@ -509,8 +611,87 @@ class BatYamTikbinyanClient(TikbinyanClient):
                 except (json.JSONDecodeError, ValueError):
                     continue
         
-        # If no JSON found, return empty list (will need HTML parsing if needed)
-        logger.warning(f"Could not extract JSON data from building page for {building_id}")
+        # If no JSON found, parse HTML tables for request/permit data
+        # Look for table rows with request IDs: javascript:getRequest(19001550)
+        request_pattern = r'javascript:getRequest\((\d+)\)'
+        request_ids = re.findall(request_pattern, html)
+        
+        if request_ids:
+            logger.info(f"Found {len(request_ids)} requests/permits in HTML for building {building_id}")
+            
+            # Extract full row data for each request ID
+            for req_id in set(request_ids):  # Use set to avoid duplicates
+                # Find the row containing this request ID
+                row_pattern = rf'<tr[^>]*>(.*?<a[^>]*href=["\']javascript:getRequest\({req_id}\)["\'][^>]*>.*?)</tr>'
+                row_match = re.search(row_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                if not row_match:
+                    continue
+                
+                row_html = row_match.group(1)
+                
+                # Extract all table cells in order
+                cell_pattern = r'<td[^>]*>(.*?)</td>'
+                cells = re.findall(cell_pattern, row_html, re.DOTALL | re.IGNORECASE)
+                
+                # Clean HTML tags from each cell
+                cell_texts = []
+                for cell in cells:
+                    # Remove HTML tags and clean whitespace
+                    text = re.sub(r'<[^>]+>', '', cell)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    cell_texts.append(text)
+                
+                # Based on the HTML structure:
+                # Cell 0: icon link (empty)
+                # Cell 1: request ID link
+                # Cell 2: date (DD/MM/YYYY)
+                # Cell 3: description (hidden-on-mobile)
+                # Cell 4: category (hidden-on-mobile)
+                # Cell 5+: other fields
+                
+                date = None
+                description = None
+                category = None
+                
+                if len(cell_texts) >= 3:
+                    # Date is typically in cell 2 (index 2)
+                    date_match = re.search(r'(\d{2}/\d{2}/\d{4})', cell_texts[2])
+                    if date_match:
+                        date = date_match.group(1)
+                
+                if len(cell_texts) >= 4:
+                    # Description is in cell 3 (index 3)
+                    description = cell_texts[3] if cell_texts[3] else None
+                
+                if len(cell_texts) >= 5:
+                    # Category is in cell 4 (index 4)
+                    category = cell_texts[4] if cell_texts[4] else None
+                
+                # Create document entry - pass raw data, let _normalize_document classify it
+                document = {
+                    "request_num": req_id,
+                    "external_id": req_id,
+                    "document_date": date,
+                    "title": description or f"Request {req_id}",
+                    "document_type": description or f"Request {req_id}",  # Raw description for classification
+                    "building_id": building_id,
+                    "status": category or "",  # Store category as status
+                    "meta": {
+                        "category": category,
+                        "all_cells": cell_texts[:6],  # Store first 6 cells for debugging
+                    },
+                }
+                documents.append(self._normalize_document(document, "BatYamTikbinyan"))
+            
+            if documents:
+                logger.info(f"Successfully parsed {len(documents)} documents from HTML for building {building_id}")
+                return documents
+        
+        # If no requests found, log warning
+        if not documents:
+            logger.warning(f"Could not extract JSON data or parse HTML tables for building page {building_id}")
+        
         return documents
 
 
@@ -609,47 +790,94 @@ class HerzliyaTikbinyanClient(TikbinyanClient):
     
     def _search_buildings_by_street(self, street_id: str, house_number: Optional[int] = None) -> List[Dict[str, Any]]:
         """Search for buildings by street ID and optional house number."""
-        endpoints = [
-            f"{self.api_base}/GetBuildings",
-            f"{self.api_base}/SearchBuildings",
-            f"{self.api_base}/GetBuildingsByStreet",
-        ]
-        
         site_id = self.get_site_id()
+        city_code = self._get_city_code()
         
-        for endpoint in endpoints:
-            try:
-                payload = {"site_id": site_id, "street_id": street_id}
-                if house_number:
-                    payload["house_number"] = house_number
+        if not city_code:
+            logger.warning("Could not determine city code for building search")
+            return []
+        
+        # Use the actual endpoint that the website uses
+        endpoint = "https://handasi.complot.co.il/magicscripts/mgrqispi.dll"
+        params = {
+            "appname": "cixpa",
+            "prgname": "GetTikimByAddress",
+            "siteid": site_id,
+            "c": city_code,
+            "s": street_id,
+            "l": "true",
+            "arguments": "siteid,c,s,h,l",
+        }
+        if house_number:
+            params["h"] = str(house_number)
+        
+        try:
+            logger.info(f"Calling GetTikimByAddress with params: {params}")
+            response = self.session.get(
+                endpoint,
+                params=params,
+                headers={
+                    "Origin": self.base_url,
+                    "Referer": self.tikbinyan_url + "/",
+                },
+                timeout=self.timeout,
+            )
+            
+            logger.info(f"Response status: {response.status_code}, URL: {response.url}")
+            
+            if response.status_code == 200:
+                # Log response details for debugging
+                content_type = response.headers.get('Content-Type', 'unknown')
+                logger.debug(f"Response Content-Type: {content_type}")
+                logger.debug(f"Response length: {len(response.text)} chars")
+                logger.debug(f"Response preview (first 1000 chars):\n{response.text[:1000]}")
                 
-                response = self.session.post(
-                    endpoint,
-                    json=payload,
-                    headers={
-                        "Content-Type": "application/json; charset=UTF-8",
-                        "Origin": self.base_url,
-                        "Referer": self.tikbinyan_url + "/",
-                    },
-                    timeout=self.timeout,
-                )
+                # The response might be HTML or JSON, try to parse it
+                try:
+                    # Try JSON first
+                    data = response.json()
+                    logger.debug(f"Parsed as JSON, type: {type(data)}")
+                    if isinstance(data, dict):
+                        logger.debug(f"JSON keys: {list(data.keys())}")
+                        buildings = data.get("d", [])
+                    elif isinstance(data, list):
+                        buildings = data
+                    else:
+                        buildings = []
+                    logger.debug(f"Extracted {len(buildings)} buildings from JSON")
+                except ValueError as e:
+                    # Not JSON, try parsing HTML table
+                    logger.debug(f"Not JSON (error: {e}), trying HTML parsing")
+                    buildings = self._parse_buildings_table(response.text)
+                    logger.debug(f"Extracted {len(buildings)} buildings from HTML")
                 
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        buildings = data.get("d", []) if isinstance(data, dict) else []
-                        if buildings:
-                            all_documents = []
-                            for building in buildings:
-                                building_id = building.get("v") or building.get("id") or building.get("building_id")
-                                if building_id:
-                                    building_docs = self._get_by_building_id(str(building_id))
-                                    all_documents.extend(building_docs)
-                            return all_documents
-                    except (ValueError, KeyError):
-                        continue
-            except requests.RequestException:
-                continue
+                if buildings:
+                    logger.info(f"Found {len(buildings)} buildings for street {street_id}, house {house_number}")
+                    logger.debug(f"Buildings data: {buildings}")
+                    # Process each building
+                    all_documents = []
+                    for building in buildings:
+                        # Extract building ID from various possible formats
+                        building_id = None
+                        if isinstance(building, dict):
+                            building_id = building.get("v") or building.get("id") or building.get("building_id") or building.get("t")
+                            logger.debug(f"Building dict: {building}, extracted ID: {building_id}")
+                        elif isinstance(building, str):
+                            # Might be just the building ID as a string
+                            building_id = building
+                            logger.debug(f"Building string: {building}")
+                        
+                        if building_id:
+                            # Get full building info
+                            building_docs = self._get_by_building_id(str(building_id))
+                            all_documents.extend(building_docs)
+                    
+                    return all_documents
+                else:
+                    logger.warning(f"No buildings found in response for street_id={street_id}, house_number={house_number}")
+                    logger.debug(f"Full response text:\n{response.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to search buildings: {e}", exc_info=True)
         
         logger.warning(f"Could not find buildings for street_id={street_id}, house_number={house_number}")
         return []
@@ -784,47 +1012,94 @@ class RamatGanTikbinyanClient(TikbinyanClient):
     
     def _search_buildings_by_street(self, street_id: str, house_number: Optional[int] = None) -> List[Dict[str, Any]]:
         """Search for buildings by street ID and optional house number."""
-        endpoints = [
-            f"{self.api_base}/GetBuildings",
-            f"{self.api_base}/SearchBuildings",
-            f"{self.api_base}/GetBuildingsByStreet",
-        ]
-        
         site_id = self.get_site_id()
+        city_code = self._get_city_code()
         
-        for endpoint in endpoints:
-            try:
-                payload = {"site_id": site_id, "street_id": street_id}
-                if house_number:
-                    payload["house_number"] = house_number
+        if not city_code:
+            logger.warning("Could not determine city code for building search")
+            return []
+        
+        # Use the actual endpoint that the website uses
+        endpoint = "https://handasi.complot.co.il/magicscripts/mgrqispi.dll"
+        params = {
+            "appname": "cixpa",
+            "prgname": "GetTikimByAddress",
+            "siteid": site_id,
+            "c": city_code,
+            "s": street_id,
+            "l": "true",
+            "arguments": "siteid,c,s,h,l",
+        }
+        if house_number:
+            params["h"] = str(house_number)
+        
+        try:
+            logger.info(f"Calling GetTikimByAddress with params: {params}")
+            response = self.session.get(
+                endpoint,
+                params=params,
+                headers={
+                    "Origin": self.base_url,
+                    "Referer": self.tikbinyan_url + "/",
+                },
+                timeout=self.timeout,
+            )
+            
+            logger.info(f"Response status: {response.status_code}, URL: {response.url}")
+            
+            if response.status_code == 200:
+                # Log response details for debugging
+                content_type = response.headers.get('Content-Type', 'unknown')
+                logger.debug(f"Response Content-Type: {content_type}")
+                logger.debug(f"Response length: {len(response.text)} chars")
+                logger.debug(f"Response preview (first 1000 chars):\n{response.text[:1000]}")
                 
-                response = self.session.post(
-                    endpoint,
-                    json=payload,
-                    headers={
-                        "Content-Type": "application/json; charset=UTF-8",
-                        "Origin": self.base_url,
-                        "Referer": self.tikbinyan_url + "/",
-                    },
-                    timeout=self.timeout,
-                )
+                # The response might be HTML or JSON, try to parse it
+                try:
+                    # Try JSON first
+                    data = response.json()
+                    logger.debug(f"Parsed as JSON, type: {type(data)}")
+                    if isinstance(data, dict):
+                        logger.debug(f"JSON keys: {list(data.keys())}")
+                        buildings = data.get("d", [])
+                    elif isinstance(data, list):
+                        buildings = data
+                    else:
+                        buildings = []
+                    logger.debug(f"Extracted {len(buildings)} buildings from JSON")
+                except ValueError as e:
+                    # Not JSON, try parsing HTML table
+                    logger.debug(f"Not JSON (error: {e}), trying HTML parsing")
+                    buildings = self._parse_buildings_table(response.text)
+                    logger.debug(f"Extracted {len(buildings)} buildings from HTML")
                 
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        buildings = data.get("d", []) if isinstance(data, dict) else []
-                        if buildings:
-                            all_documents = []
-                            for building in buildings:
-                                building_id = building.get("v") or building.get("id") or building.get("building_id")
-                                if building_id:
-                                    building_docs = self._get_by_building_id(str(building_id))
-                                    all_documents.extend(building_docs)
-                            return all_documents
-                    except (ValueError, KeyError):
-                        continue
-            except requests.RequestException:
-                continue
+                if buildings:
+                    logger.info(f"Found {len(buildings)} buildings for street {street_id}, house {house_number}")
+                    logger.debug(f"Buildings data: {buildings}")
+                    # Process each building
+                    all_documents = []
+                    for building in buildings:
+                        # Extract building ID from various possible formats
+                        building_id = None
+                        if isinstance(building, dict):
+                            building_id = building.get("v") or building.get("id") or building.get("building_id") or building.get("t")
+                            logger.debug(f"Building dict: {building}, extracted ID: {building_id}")
+                        elif isinstance(building, str):
+                            # Might be just the building ID as a string
+                            building_id = building
+                            logger.debug(f"Building string: {building}")
+                        
+                        if building_id:
+                            # Get full building info
+                            building_docs = self._get_by_building_id(str(building_id))
+                            all_documents.extend(building_docs)
+                    
+                    return all_documents
+                else:
+                    logger.warning(f"No buildings found in response for street_id={street_id}, house_number={house_number}")
+                    logger.debug(f"Full response text:\n{response.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to search buildings: {e}", exc_info=True)
         
         logger.warning(f"Could not find buildings for street_id={street_id}, house_number={house_number}")
         return []

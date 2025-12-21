@@ -56,16 +56,11 @@ except Exception as e:
     sys.exit(1)
 
 from core.models import Asset
-from orchestration.pipeline.asset_enrichment import recalculate_price_model
-
-
-def _safe_numeric(value):
-    """Helper to safely convert value to float."""
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    return None
+from orchestration.pipeline.asset_enrichment import (
+    recalculate_price_model,
+    find_outdated_price_per_sqm_assets,
+    _safe_numeric,
+)
 
 
 def recalculate_single_asset(asset_id: int, verbose: bool = False) -> bool:
@@ -77,14 +72,29 @@ def recalculate_single_asset(asset_id: int, verbose: bool = False) -> bool:
         result = recalculate_price_model(asset_id)
         
         if result.get('success'):
+            metrics = result.get('metrics', {})
+            print(f"✓ Asset {asset_id}: Success")
+            print(f"  Model Price: {metrics.get('model_price', 'N/A'):,}" if isinstance(metrics.get('model_price'), (int, float)) else f"  Model Price: {metrics.get('model_price', 'N/A')}")
+            print(f"  Base Model Price: {metrics.get('base_model_price', 'N/A'):,}" if isinstance(metrics.get('base_model_price'), (int, float)) else f"  Base Model Price: {metrics.get('base_model_price', 'N/A')}")
+            print(f"  Base PPM: {metrics.get('avg_price_per_sqm', 'N/A'):,.0f}" if isinstance(metrics.get('avg_price_per_sqm'), (int, float)) else f"  Base PPM: {metrics.get('avg_price_per_sqm', 'N/A')}")
+            print(f"  Adjusted PPM: {metrics.get('adjusted_price_per_sqm', 'N/A'):,.0f}" if isinstance(metrics.get('adjusted_price_per_sqm'), (int, float)) else f"  Adjusted PPM: {metrics.get('adjusted_price_per_sqm', 'N/A')}")
             if verbose:
-                metrics = result.get('metrics', {})
-                print(f"✓ Asset {asset_id}: Success")
-                print(f"  Model Price: {metrics.get('model_price', 'N/A')}")
-                print(f"  Base PPM: {metrics.get('avg_price_per_sqm', 'N/A')}")
-                print(f"  Adjusted PPM: {metrics.get('adjusted_price_per_sqm', 'N/A')}")
                 print(f"  Price per sqm: {metrics.get('price_per_sqm', 'N/A')}")
                 print(f"  Confidence: {metrics.get('confidence_pct', 'N/A')}%")
+                # Get adjustment details
+                from core.models import Asset
+                asset = Asset.objects.get(id=asset_id)
+                meta = asset.meta or {}
+                market_metrics = meta.get('market_metrics', {})
+                adjustments = market_metrics.get('adjustments', {})
+                if adjustments:
+                    print(f"  Adjustment Multiplier: {adjustments.get('multiplier', 1.0):.3f}")
+                    print(f"  Total Adjustment: {adjustments.get('totalPct', 0):.1f}%")
+                    feature_vector = adjustments.get('featureVector', {})
+                    if feature_vector:
+                        print(f"    Size: {feature_vector.get('size_factor', 0)*100:.1f}%")
+                        print(f"    Age: {feature_vector.get('age_factor', 0)*100:.1f}%")
+                        print(f"    Floor: {feature_vector.get('floor_factor', 0)*100:.1f}%")
             return True
         else:
             error = result.get('error', 'Unknown error')
@@ -96,39 +106,6 @@ def recalculate_single_asset(asset_id: int, verbose: bool = False) -> bool:
         return False
 
 
-def find_outdated_assets() -> list:
-    """Find assets where price_per_sqm doesn't match price/total_area."""
-    outdated = []
-    
-    assets = Asset.objects.filter(
-        price__isnull=False,
-        price__gt=0
-    ).exclude(
-        total_area__isnull=True
-    ).exclude(
-        total_area=0
-    )
-    
-    for asset in assets:
-        price = _safe_numeric(asset.price)
-        total_area = _safe_numeric(asset.total_area) or _safe_numeric(asset.area)
-        stored_ppm = _safe_numeric(asset.price_per_sqm)
-        
-        if price and total_area and total_area > 0:
-            expected_ppm = int(price / total_area)
-            
-            # Consider outdated if difference is more than 1%
-            if stored_ppm is None or abs(stored_ppm - expected_ppm) > (expected_ppm * 0.01):
-                outdated.append({
-                    'id': asset.id,
-                    'address': asset.address or 'N/A',
-                    'price': price,
-                    'total_area': total_area,
-                    'stored_ppm': stored_ppm,
-                    'expected_ppm': expected_ppm,
-                })
-    
-    return outdated
 
 
 def main():
@@ -187,7 +164,7 @@ def main():
     elif args.fix_outdated:
         # Find and fix outdated assets
         print("Finding assets with outdated price_per_sqm...")
-        outdated = find_outdated_assets()
+        outdated = find_outdated_price_per_sqm_assets()
         
         if not outdated:
             print("No outdated assets found.")

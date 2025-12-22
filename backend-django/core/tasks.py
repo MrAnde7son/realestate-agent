@@ -110,7 +110,6 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     from .models import Asset
     from orchestration.data_pipeline import DataPipeline
     from orchestration.location import LocationQuery
-    from govmap.api_client import itm_to_wgs84
     from orchestration.pipeline.listings import _object_to_payload
 
 
@@ -129,231 +128,66 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     asset.save(update_fields=["status", "last_enrich_error"])
 
     pipeline = DataPipeline()
-    block = asset.block
-    parcel = asset.parcel
-    subparcel = asset.subparcel
     location = LocationQuery(
         city=asset.city,
         street=asset.street,
         house_number=asset.number,
-        block=block,
-        parcel=parcel,
-        subparcel=subparcel,
+        block=asset.block,
+        parcel=asset.parcel,
+        subparcel=asset.subparcel,
     )
 
     collect_summary: Dict[str, Any] = {}
-    govmap_data: Dict[str, Any] = {}
-    gis_data: Dict[str, Any] = {}
-    handasa_archive: List[Dict[str, Any]] = []
-    gov_data: Dict[str, Any] = {"decisive": [], "transactions": []}
-    plans: List[Dict[str, Any]] = []
-    mavat_plans: List[Dict[str, Any]] = []
     listings_payload: List[Dict[str, Any]] = []
     michrazim_listings_payload: List[Dict[str, Any]] = []
-    x_itm = y_itm = lon_wgs84 = lat_wgs84 = None
 
     try:
-        try:
-            govmap_data = pipeline._collect_with_observability(
-                "govmap",
-                pipeline.govmap.collect,
-                location=location,
-                timeout=pipeline.TIMEOUTS.get("govmap"),
-                retries=pipeline.RETRIES.get("govmap", 0),
-                asset_id=asset_id,
-            )
-            collect_summary["govmap"] = True
-            if "x" in govmap_data and "y" in govmap_data:
-                x_itm = govmap_data.get("x")
-                y_itm = govmap_data.get("y")
-                # Update location with coordinates
-                location = location.with_coordinates(x_itm, y_itm)
-                try:
-                    lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                except Exception:
-                    lon_wgs84 = lat_wgs84 = None
-            parcel_api = govmap_data.get("api_data", {}).get("parcel", {})
-            if parcel_api:
-                # Unwrap Feature and prefer gushnumber/parcelnumber
-                if isinstance(parcel_api, dict) and parcel_api.get("properties"):
-                    parcel_props = parcel_api.get("properties", {})
-                else:
-                    parcel_props = parcel_api or {}
-                block = parcel_props.get("gushnumber", "")
-                parcel = parcel_props.get("parcelnumber", "")
-                # Update location with block/parcel, preserving coordinates
-                location = LocationQuery(
-                    city=location.city,
-                    street=location.street,
-                    house_number=location.house_number,
-                    block=block,
-                    parcel=parcel,
-                    subparcel=subparcel,
-                    x_itm=location.x_itm,
-                    y_itm=location.y_itm,
-                )
-        except Exception as exc:  # noqa: BLE001
-            collect_summary["govmap"] = False
-            govmap_data = {}
-            logger.warning("GovMap collection failed for asset %s: %s", asset_id, exc)
-
-        # Check if city is Tel Aviv (GIS and Handasa only support Tel Aviv)
-        city = asset.city or location.city or ""
-        is_tel_aviv = "תל אביב" in city
-        if not is_tel_aviv:
-            logger.info("Asset %s: City '%s' is not Tel Aviv - skipping GIS and Handasa collection (only supported for Tel Aviv)", asset_id, city)
-            collect_summary["gis"] = False
-            collect_summary["handasa"] = 0
-        else:
-            try:
-                gis_data = pipeline._collect_with_observability(
-                    "gis",
-                    pipeline.gis.collect,
-                    location=location,
-                    timeout=pipeline.TIMEOUTS.get("gis"),
-                    retries=pipeline.RETRIES.get("gis", 0),
-                    asset_id=asset_id,
-                )
-                collect_summary["gis"] = True
-                if gis_data.get("block") and gis_data.get("parcel"):
-                    block = gis_data.get("block", block)
-                    parcel = gis_data.get("parcel", parcel)
-                    location = LocationQuery(
-                        city=location.city,
-                        street=location.street,
-                        house_number=location.house_number,
-                        block=block,
-                        parcel=parcel,
-                        subparcel=subparcel,
-                        x_itm=location.x_itm,
-                        y_itm=location.y_itm,
-                    )
-            except Exception as exc:  # noqa: BLE001
-                collect_summary["gis"] = False
-                gis_data = {}
-                logger.warning("GIS collection failed for asset %s: %s", asset_id, exc)
-
-            if block:
-                try:
-                    handasa_archive = pipeline._collect_with_observability(
-                        "handasa",
-                        pipeline.handasa.collect,
-                        location=location,
-                        timeout=pipeline.TIMEOUTS.get("handasa"),
-                        retries=pipeline.RETRIES.get("handasa", 0),
-                        asset_id=asset_id,
-                    )
-                    collect_summary["handasa"] = len(handasa_archive)
-                except Exception as exc:  # noqa: BLE001
-                    collect_summary["handasa"] = 0
-                    handasa_archive = []
-                    logger.warning("Handasa collection failed for asset %s: %s", asset_id, exc)
-
-        if block and parcel:
-            try:
-                # GovCollector will use coordinates from LocationQuery if available
-                gov_data = pipeline._collect_with_observability(
-                    "gov",
-                    pipeline.gov.collect,
-                    location=location,
-                    timeout=pipeline.TIMEOUTS.get("gov"),
-                    retries=pipeline.RETRIES.get("gov", 0),
-                    asset_id=asset_id,
-                )
-                collect_summary["gov"] = True
-                logger.info(
-                    "Government data collected for asset %s: %d decisives, %d transactions",
-                    asset_id,
-                    len(gov_data.get("decisive", [])),
-                    len(gov_data.get("transactions", [])),
-                )
-            except Exception as exc:  # noqa: BLE001
-                collect_summary["gov"] = False
-                gov_data = {"decisive": [], "transactions": []}
-                logger.warning("Government collection failed for asset %s: %s", asset_id, exc)
-
-            try:
-                plans = pipeline._collect_with_observability(
-                    "gov_rami",
-                    pipeline.rami.collect,
-                    location=location,
-                    timeout=pipeline.TIMEOUTS.get("gov_rami"),
-                    retries=pipeline.RETRIES.get("gov_rami", 0),
-                    asset_id=asset_id,
-                )
-                collect_summary["gov_rami"] = len(plans)
-            except Exception as exc:  # noqa: BLE001
-                collect_summary["gov_rami"] = 0
-                plans = []
-                logger.warning("RAMI collection failed for asset %s: %s", asset_id, exc)
-
-            try:
-                mavat_plans = pipeline._collect_with_observability(
-                    "mavat",
-                    pipeline.mavat.collect,
-                    location=location,
-                    timeout=pipeline.TIMEOUTS.get("mavat"),
-                    retries=pipeline.RETRIES.get("mavat", 0),
-                    asset_id=asset_id,
-                )
-                collect_summary["mavat"] = len(mavat_plans)
-            except Exception as exc:  # noqa: BLE001
-                collect_summary["mavat"] = 0
-                mavat_plans = []
-                logger.warning("Mavat collection failed for asset %s: %s", asset_id, exc)
-
-        try:
-            michrazim_listings = pipeline._collect_with_observability(
-                "michrazim",
-                pipeline.michrazim.collect,
-                location=location,
-                govmap_data=govmap_data,
-                timeout=pipeline.TIMEOUTS.get("michrazim"),
-                retries=pipeline.RETRIES.get("michrazim", 0),
-                asset_id=asset_id,
-            )
-            michrazim_listings_payload = [_object_to_payload(item) for item in michrazim_listings or []]
-            collect_summary["michrazim"] = len(michrazim_listings_payload)
-        except Exception as exc:  # noqa: BLE001
-            collect_summary["michrazim"] = 0
-            michrazim_listings_payload = []
-            logger.warning("Michrazim collection failed for asset %s: %s", asset_id, exc)
-
-        try:
-            listings = pipeline._collect_with_observability(
-                "yad2",
-                pipeline.yad2.collect,
-                location,
-                timeout=pipeline.TIMEOUTS.get("yad2"),
-                retries=pipeline.RETRIES.get("yad2", 0),
-                asset_id=asset_id,
-            )
-            listings_payload = [_object_to_payload(item) for item in listings or []]
-            collect_summary["yad2"] = len(listings_payload)
-        except Exception as exc:  # noqa: BLE001
-            collect_summary["yad2"] = 0
-            listings_payload = []
-            logger.warning("Yad2 collection failed for asset %s: %s", asset_id, exc)
-
+        # Use shared collection logic from DataPipeline
+        collected = pipeline._collect_all_data(location, asset_id=asset_id)
+        
+        # Extract collected data
+        location = collected["location"]
+        govmap_data = collected["govmap_data"]
+        gis_data = collected["gis_data"]
+        handasa_archive = collected["handasa_archive"]
+        tikbinyan_archive = collected["tikbinyan_archive"]
+        gov_data = collected["gov_data"]
+        plans = collected["plans"]
+        mavat_plans = collected["mavat_plans"]
+        listings = collected["listings"]
+        madlan_listings = collected["madlan_listings"]
+        michrazim_listings = collected["michrazim_listings"]
+        x_itm = collected["x_itm"]
+        y_itm = collected["y_itm"]
+        lon_wgs84 = collected["lon_wgs84"]
+        lat_wgs84 = collected["lat_wgs84"]
+        block = collected["block"]
+        parcel = collected["parcel"]
+        subparcel = collected["subparcel"]
+        
+        # Build collect summary
+        collect_summary["govmap"] = bool(govmap_data)
+        collect_summary["gis"] = bool(gis_data)
+        collect_summary["handasa"] = len(handasa_archive)
+        collect_summary["tikbinyan"] = len(tikbinyan_archive)
+        collect_summary["gov"] = bool(gov_data.get("decisive") or gov_data.get("transactions"))
+        collect_summary["gov_rami"] = len(plans)
+        collect_summary["mavat"] = len(mavat_plans)
+        
+        # Convert listings to payloads
+        listings_payload = [_object_to_payload(item) for item in listings or []]
+        collect_summary["yad2"] = len(listings_payload)
+        
+        michrazim_listings_payload = [_object_to_payload(item) for item in michrazim_listings or []]
+        collect_summary["michrazim"] = len(michrazim_listings_payload)
+        
         # Always merge michrazim tenders into the listings payload
         listings_payload.extend(michrazim_listings_payload)
-
-        try:
-            madlan_listings = pipeline._collect_with_observability(
-                "madlan",
-                pipeline.madlan.collect,
-                location,
-                timeout=pipeline.TIMEOUTS.get("madlan"),
-                retries=pipeline.RETRIES.get("madlan", 0),
-                asset_id=asset_id,
-            )
-            madlan_listings_payload = [_object_to_payload(item) for item in madlan_listings or []]
-            collect_summary["madlan"] = len(madlan_listings_payload)
-            # Combine with yad2 listings
-            listings_payload.extend(madlan_listings_payload)
-        except Exception as exc:  # noqa: BLE001
-            collect_summary["madlan"] = 0
-            logger.warning("Madlan collection failed for asset %s: %s", asset_id, exc)
+        
+        madlan_listings_payload = [_object_to_payload(item) for item in madlan_listings or []]
+        collect_summary["madlan"] = len(madlan_listings_payload)
+        # Combine with yad2 listings
+        listings_payload.extend(madlan_listings_payload)
 
         state: Dict[str, Any] = {
             "asset_id": asset_id,
@@ -367,6 +201,7 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
             "plans": plans,
             "mavat_plans": mavat_plans,
             "handasa_archive": handasa_archive,
+            "tikbinyan_archive": tikbinyan_archive,
             "listings_raw": listings_payload,
             "x_itm": x_itm,
             "y_itm": y_itm,
@@ -540,6 +375,7 @@ def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
             state.get("lon_wgs84"),
             state.get("lat_wgs84"),
             subparcel=str(state.get("subparcel")) if state.get("subparcel") else None,
+            tikbinyan_archive=state.get("tikbinyan_archive"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("Asset update failed for asset %s", asset_id)
@@ -601,6 +437,7 @@ def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
             plans=state.get("plans"),
             mavat_plans=state.get("mavat_plans"),
             handasa_archive=state.get("handasa_archive"),
+            tikbinyan_archive=state.get("tikbinyan_archive"),
         )
 
         from .models import Asset

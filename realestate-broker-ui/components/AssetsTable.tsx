@@ -29,66 +29,13 @@ import { useAuth } from '@/lib/auth-context'
 // Set to a very high number to effectively disable it, or enable for specific use cases
 const VIRTUAL_SCROLLING_THRESHOLD = 1000
 
-function RiskCell({ flags }: { flags?: string[] }){
-  if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
-  return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
-}
+// Import extracted components and utilities
+import { RiskCell } from './AssetsTable/risk-cell'
+import { exportAssetsCsv, COLUMN_PREFERENCES_KEY, COLUMN_SIZING_KEY, DEFAULT_COLUMN_VISIBILITY, ALL_COLUMN_IDS, DEFAULT_VISIBLE_COLUMNS } from './AssetsTable/table-utils'
+import { formatListingTypeLabel, formatAdTypeLabel } from './AssetsTable/table-columns'
 
-function exportAssetsCsv(assets: Asset[], visibleColumns?: any[]) {
-  if (assets.length === 0) return
-  
-  // If visibleColumns is provided, use them; otherwise fall back to default columns
-  const headers = visibleColumns ? 
-    visibleColumns
-      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
-      .map(col => col.columnDef.header as string)
-    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
-  
-  const accessorKeys = visibleColumns ?
-    visibleColumns
-      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
-      .map(col => col.columnDef.accessorKey || col.id)
-    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
-
-  const csv = [
-    headers.join(','),
-    ...assets.map(a =>
-      accessorKeys
-        .map(key => {
-          const value = key === 'docsCount' ? (a.documents?.length ?? 0) : (a as any)[key]
-          return JSON.stringify(value ?? '')
-        })
-        .join(',')
-    )
-  ].join('\n')
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', 'assets.csv')
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
-
-const formatListingTypeLabel = (value?: string | null) => {
-  if (!value) return '—'
-  const normalized = value.toLowerCase()
-  if (normalized === 'rent') return 'השכרה'
-  if (normalized === 'sale') return 'מכירה'
-  if (normalized === 'commercial') return 'מסחרי'
-  if (normalized === 'auction') return 'מכרז'
-  return value
-}
-
-const formatAdTypeLabel = (value?: string | null) => {
-  if (!value) return '—'
-  const normalized = value.toLowerCase()
-  if (normalized === 'private') return 'פרטי'
-  if (normalized === 'broker' || normalized === 'agency' || normalized === 'agent') return 'מתווך'
-  return value
-}
+// Re-export for backward compatibility
+export { formatListingTypeLabel, formatAdTypeLabel }
 
 function createColumns({
   onDelete,
@@ -940,86 +887,7 @@ interface AssetsTableProps {
   }) => void
 }
 
-const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
-const COLUMN_SIZING_KEY = 'assets-table-column-sizing'
-
-const DEFAULT_VISIBLE_COLUMNS = new Set([
-  'select',
-  'address',
-  'price',
-  'area',
-  'rentPrice',
-  'modelPrice',
-  'rentEstimate',
-  'actions'
-])
-
-const ALL_COLUMN_IDS = [
-  'select',
-  'address',
-  'city',
-  'street',
-  'number',
-  'apartment',
-  'block',
-  'parcel',
-  'subparcel',
-  'area',
-  'totalArea',
-  'subparcelArea',
-  'builtArea',
-  'floor',
-  'totalFloors',
-  'assetStatus',
-  'recentDeal',
-  'sellerType',
-  'contact',
-  'price',
-  'rentPrice',
-  'pricePerSqm',
-  'riskFlags',
-  'deltaVsAreaPct',
-  'domPercentile',
-  'competition1km',
-  'zoning',
-  'remainingRightsSqm',
-  'program',
-  'lastPermitQ',
-  'docsCount',
-  'noiseLevel',
-  'antennaDistanceM',
-  'greenWithin300m',
-  'shelterDistanceM',
-  'riskFlags',
-  'assetStatus',
-  'priceGapPct',
-  'confidencePct',
-  'capRatePct',
-  'priceDropped',
-  'previousPrice',
-  'shelter',
-  'accessibility',
-  'buildingClass',
-  'generalCondition',
-  'investmentYield',
-  'approximateRent',
-  'commuteTime',
-  'publishedDays',
-  'tagBestSchool',
-  'tagSafety',
-  'tagFamilyFriendly',
-  'tagLightRail',
-  'exclusive',
-  'actions',
-  'videoUrl'
-] as const
-
-const DEFAULT_COLUMN_VISIBILITY = ALL_COLUMN_IDS.reduce<Record<string, boolean>>((acc, columnId) => {
-  if (!DEFAULT_VISIBLE_COLUMNS.has(columnId)) {
-    acc[columnId] = false
-  }
-  return acc
-}, {})
+// Constants and utilities are now imported from ./AssetsTable/table-utils
 
 export default function AssetsTable({
   data = [],

@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, memo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ interface ImageGalleryProps {
   size?: 'sm' | 'md' | 'lg'
 }
 
-export default function ImageGallery({ 
+const ImageGallery = React.memo(function ImageGallery({ 
   images, 
   className = '', 
   maxDisplay = 3,
@@ -233,4 +233,8 @@ export default function ImageGallery({
       </Dialog>
     </>
   )
-}
+})
+
+ImageGallery.displayName = 'ImageGallery'
+
+export default ImageGallery

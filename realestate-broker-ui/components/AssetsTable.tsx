@@ -1,6 +1,7 @@
 'use client'
 import * as React from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, getSortedRowModel, useReactTable, ColumnResizeMode, PaginationState, Updater, SortingState } from '@tanstack/react-table'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
@@ -22,6 +23,11 @@ import TablePagination from '@/components/TablePagination'
 import ImageGallery from './ImageGallery'
 import { Building } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+
+// Threshold for enabling virtual scrolling (rows)
+// Note: Virtual scrolling is disabled by default due to complexity with sticky columns and horizontal scrolling
+// Set to a very high number to effectively disable it, or enable for specific use cases
+const VIRTUAL_SCROLLING_THRESHOLD = 1000
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -1329,6 +1335,20 @@ export default function AssetsTable({
         }),
   })
 
+  // Virtual scrolling setup - only for large tables
+  // Currently disabled due to complexity with sticky columns and horizontal scrolling
+  const tableRows = table.getRowModel().rows
+  const shouldUseVirtualization = false // Disabled: tableRows.length > VIRTUAL_SCROLLING_THRESHOLD && !loading
+  const tableScrollRef = React.useRef<HTMLDivElement>(null)
+  
+  const virtualizer = useVirtualizer({
+    count: tableRows.length,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => 60, // Estimated row height
+    overscan: 5, // Render 5 extra rows above/below viewport
+    enabled: shouldUseVirtualization,
+  })
+
   const clearSelection = React.useCallback(() => {
     setRowSelection({})
     table.resetRowSelection()
@@ -2339,14 +2359,19 @@ export default function AssetsTable({
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (
             <div className="max-w-full" role="region" aria-label="טבלת נכסים" aria-live="polite">
-              <div className="min-w-fit">
-                <Table 
-                  style={{ minWidth: table.getCenterTotalSize() }}
-                  role="grid"
-                  aria-label="נכסים"
-                  aria-rowcount={data.length}
-                  aria-colcount={table.getFlatHeaders().length}
+              <div className="overflow-x-auto">
+                <div 
+                  ref={tableScrollRef}
+                  className={`min-w-fit ${shouldUseVirtualization ? 'overflow-y-auto' : ''}`}
+                  style={shouldUseVirtualization ? { height: '600px', position: 'relative' } : undefined}
                 >
+                  <Table 
+                    style={{ minWidth: table.getCenterTotalSize() }}
+                    role="grid"
+                    aria-label="נכסים"
+                    aria-rowcount={data.length}
+                    aria-colcount={table.getFlatHeaders().length}
+                  >
                 <THead>
                   <TR className="group" role="row">
                     {table.getFlatHeaders().map(h=>{
@@ -2424,6 +2449,7 @@ export default function AssetsTable({
                 <TBody
                   data-testid={loading ? 'assets-table-loading-body' : undefined}
                   aria-busy={loading ? 'true' : undefined}
+                  style={shouldUseVirtualization ? { position: 'relative' } : undefined}
                 >
                   {loading ? (
                     // Improved loading skeletons
@@ -2494,8 +2520,77 @@ export default function AssetsTable({
                         })()}
                       </TD>
                     </TR>
+                  ) : shouldUseVirtualization ? (
+                    // Virtualized rows for large tables
+                    <>
+                      <TR style={{ height: `${virtualizer.getTotalSize()}px`, visibility: 'hidden' }}>
+                        <TD colSpan={table.getFlatHeaders().length} style={{ padding: 0, border: 0 }} />
+                      </TR>
+                      {virtualizer.getVirtualItems().map((virtualRow) => {
+                        const row = tableRows[virtualRow.index]
+                        if (!row) return null
+                        
+                        return (
+                          <TR
+                            key={row.id}
+                            role="row"
+                            aria-rowindex={virtualRow.index + 1}
+                            className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                            onClick={() => handleRowClick(row.original)}
+                            tabIndex={0}
+                            aria-label={`נכס ${row.original.address || row.original.id} - לחץ Enter או רווח לפרטים`}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                handleRowClick(row.original)
+                              }
+                              // Arrow key navigation
+                              if (e.key === 'ArrowDown' && virtualRow.index < tableRows.length - 1) {
+                                e.preventDefault()
+                                const nextRow = tableRows[virtualRow.index + 1]
+                                if (nextRow) {
+                                  const nextElement = document.querySelector(`[aria-rowindex="${virtualRow.index + 2}"]`) as HTMLElement
+                                  nextElement?.focus()
+                                }
+                              }
+                              if (e.key === 'ArrowUp' && virtualRow.index > 0) {
+                                e.preventDefault()
+                                const prevRow = tableRows[virtualRow.index - 1]
+                                if (prevRow) {
+                                  const prevElement = document.querySelector(`[aria-rowindex="${virtualRow.index}"]`) as HTMLElement
+                                  prevElement?.focus()
+                                }
+                              }
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: `${virtualRow.size}px`,
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }}
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TD 
+                                key={cell.id}
+                                role="gridcell"
+                                className={`whitespace-nowrap ${cell.column.id==='address'?'sticky end-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
+                                style={{ 
+                                  width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
+                                  minWidth: cell.column.id === 'address' ? '200px' : cell.column.id === 'select' ? '48px' : '80px'
+                                }}
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TD>
+                            ))}
+                          </TR>
+                        )
+                      })}
+                    </>
                   ) : (
-                    table.getRowModel().rows.map((row, rowIndex) => (
+                    // Regular rows for smaller tables
+                    tableRows.map((row, rowIndex) => (
                       <TR
                         key={row.id}
                         role="row"
@@ -2510,9 +2605,9 @@ export default function AssetsTable({
                             handleRowClick(row.original)
                           }
                           // Arrow key navigation
-                          if (e.key === 'ArrowDown' && rowIndex < table.getRowModel().rows.length - 1) {
+                          if (e.key === 'ArrowDown' && rowIndex < tableRows.length - 1) {
                             e.preventDefault()
-                            const nextRow = table.getRowModel().rows[rowIndex + 1]
+                            const nextRow = tableRows[rowIndex + 1]
                             if (nextRow) {
                               const nextElement = document.querySelector(`[aria-rowindex="${rowIndex + 2}"]`) as HTMLElement
                               nextElement?.focus()
@@ -2520,7 +2615,7 @@ export default function AssetsTable({
                           }
                           if (e.key === 'ArrowUp' && rowIndex > 0) {
                             e.preventDefault()
-                            const prevRow = table.getRowModel().rows[rowIndex - 1]
+                            const prevRow = tableRows[rowIndex - 1]
                             if (prevRow) {
                               const prevElement = document.querySelector(`[aria-rowindex="${rowIndex}"]`) as HTMLElement
                               prevElement?.focus()
@@ -2546,6 +2641,7 @@ export default function AssetsTable({
                   )}
                 </TBody>
                 </Table>
+                </div>
               </div>
             </div>
           )}

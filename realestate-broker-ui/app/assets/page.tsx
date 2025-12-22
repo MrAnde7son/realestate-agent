@@ -33,7 +33,11 @@ import { useAuth } from "@/lib/auth-context";
 import { selectOnboardingState, isOnboardingComplete } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
-import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
+
+// Code splitting for heavy components
+const ImportDialogNadlanOne = dynamic(() => import("@/components/import/ImportDialogNadlanOne"), {
+  ssr: false,
+});
 
 import dynamic from "next/dynamic";
 import DashboardLayout from "@/components/layout/dashboard-layout";
@@ -42,7 +46,7 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
   loading: () => (
     <div className="flex flex-col items-center justify-center py-12 space-y-4">
-      <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+      <RefreshCw className="h-8 w-8 animate-spin text-primary" />
       <div className="text-center">
         <p className="text-sm sm:text-base text-muted-foreground">טוען מפה...</p>
       </div>
@@ -2986,7 +2990,7 @@ export default function AssetsPage() {
             {viewMode === 'map' ? (
             loading ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+                <RefreshCw className="h-8 w-8 animate-spin text-primary" />
                 <div className="text-center">
                   <p className="text-sm sm:text-base text-muted-foreground">טוען נכסים...</p>
                   <p className="text-xs sm:text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>

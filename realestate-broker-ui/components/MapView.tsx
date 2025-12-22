@@ -781,7 +781,7 @@ export default function MapView({
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted">
           <div className="flex flex-col items-center space-y-2">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-teal" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <span className="text-sm text-muted-foreground">טוען מפה...</span>
           </div>
         </div>

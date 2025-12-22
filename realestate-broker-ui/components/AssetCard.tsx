@@ -73,7 +73,7 @@ interface AssetCardProps {
   watchLoading?: boolean
 }
 
-export default function AssetCard({ asset, onToggleWatch, watchLoading = false }: AssetCardProps) {
+const AssetCard = React.memo(function AssetCard({ asset, onToggleWatch, watchLoading = false }: AssetCardProps) {
   const isWatched = asset.isWatched === true
   const watchTitle = isWatched ? 'הסר מרשימת המעקב' : 'הוסף לרשימת המעקב'
   const listingTypeLabel = formatListingTypeLabel(
@@ -213,4 +213,8 @@ export default function AssetCard({ asset, onToggleWatch, watchLoading = false }
       </div>
     </Card>
   )
-}
+})
+
+AssetCard.displayName = 'AssetCard'
+
+export default AssetCard

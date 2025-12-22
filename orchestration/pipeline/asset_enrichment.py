@@ -3494,12 +3494,12 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
             _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
 
         if handasa_archive:
-            # Determine source from first document if available, default to 'Handasa'
-            source = 'Handasa'
+            # Determine source from first document if available, default to 'handasa'
+            source = 'handasa'
             if handasa_archive:
                 first_doc_source = handasa_archive[0].get('source', '').lower()
                 if 'tikbinyan' in first_doc_source:
-                    source = 'Tikbinyan'
+                    source = 'tikbinyan'
             
             municipal_permits = [
                 doc for doc in handasa_archive if (doc.get('document_type') or '').startswith('permit')
@@ -4045,7 +4045,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
 
         meta.setdefault('tochen_bakasha', description or title)
 
-        source_name = 'Tikbinyan' if source_key == 'tikbinyan' else 'Handasa'
+        source_name = 'tikbinyan' if source_key == 'tikbinyan' else 'handasa'
         return {
             'external_id': external_id,
             'title': title,

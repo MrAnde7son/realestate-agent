@@ -134,6 +134,7 @@ const sourceLabel = (source?: string) => {
     'gis_permit': 'מערכת מידע גיאוגרפית',
     'gis_rights': 'מערכת מידע גיאוגרפית',
     'handasa': 'תיק בניין',
+    'tikbinyan': 'תיק בניין',
     'rami': 'רמ״י',
     'rami_plan': 'רמ״י',
     'michrazim': 'מכרז רמ\"י',

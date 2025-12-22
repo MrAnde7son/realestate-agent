@@ -9,7 +9,7 @@ type Props = {
   title?: string;
 };
 
-export default function Logo({ variant='symbol', size=48, color=colorVar('brandTeal'), title='נדל״נר' }: Props) {
+export default function Logo({ variant='symbol', size=48, color='hsl(var(--primary))', title='נדל״נר' }: Props) {
   if (variant === 'horizontal') {
     const width = size * (1200/320);
     return (

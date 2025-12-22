@@ -124,7 +124,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               {/* Mobile Header */}
               <div className="flex h-16 items-center justify-between px-6">
                 <div className="flex items-center gap-3">
-                  <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+                  <Logo variant="symbol" size={28} color="hsl(var(--primary))" />
                   <span className="text-lg font-bold">נדל״נר</span>
                 </div>
               </div>
@@ -147,12 +147,12 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                           "group relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors mobile-nav-item",
                           "min-h-[44px]", // Ensure 44px touch target
                           isSelf || isDescendant
-                            ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
-                            : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
+                            ? "bg-primary/8 text-primary"
+                            : "text-muted-foreground hover:text-primary hover:bg-primary/8",
                           isSelf
                             ? "font-semibold"
                             : isDescendant
-                            ? "font-medium text-[var(--brand-teal)]/80"
+                            ? "font-medium text-primary/80"
                             : undefined
                         )}
                         onClick={() => setMobileSidebarOpen(false)}
@@ -165,7 +165,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                           aria-hidden="true"
                           data-active-indicator
                           className={cn(
-                            "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                            "absolute inset-y-1 rounded-full bg-primary transition-opacity duration-200",
                             "ltr:right-1 rtl:left-1",
                             "w-1",
                             isSelf
@@ -215,7 +215,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                     <Button 
                       asChild 
                       variant="default" 
-                      className="w-full min-h-[44px] bg-[var(--brand-teal)] text-white hover:bg-[var(--brand-teal)]/90 shadow-sm"
+                      className="w-full min-h-[44px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                     >
                       <Link href="/auth" className="flex items-center justify-center gap-2 w-full">
                         <LogIn className="h-4 w-4" />
@@ -248,10 +248,10 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             className="flex items-center gap-2 min-h-[44px]"
           >
             <div className="sm:hidden">
-              <Logo variant="symbol" size={24} color="var(--brand-teal)" />
+              <Logo variant="symbol" size={24} color="hsl(var(--primary))" />
             </div>
             <div className="hidden sm:block">
-              <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+              <Logo variant="symbol" size={28} color="hsl(var(--primary))" />
             </div>
             <span className="text-sm font-semibold text-foreground whitespace-nowrap sm:text-base md:text-lg">
               נדל״נר

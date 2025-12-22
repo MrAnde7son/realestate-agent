@@ -167,7 +167,7 @@ export default function AuthPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="text-center">
-          <Logo variant="horizontal" size={48} color="var(--brand-teal)" />
+          <Logo variant="horizontal" size={48} color="hsl(var(--primary))" />
           <h1 className="text-2xl font-bold text-foreground mt-4">נדל״נר</h1>
           <p className="text-muted-foreground">נדל״ן חכם לאנשים פרטיים ומתווכים</p>
         </div>

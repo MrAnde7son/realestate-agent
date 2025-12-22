@@ -169,15 +169,15 @@ export default function AppSidebar({
                           : "gap-2 px-2.5 py-2",
                         isCollapsed
                           ? isSelf || isDescendant
-                            ? "bg-[var(--brand-teal)]/12 text-[var(--brand-teal)]"
-                            : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
+                            ? "bg-primary/12 text-primary"
+                            : "text-muted-foreground hover:text-primary hover:bg-primary/8"
                           : isSelf || isDescendant
-                          ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
-                          : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
+                          ? "bg-primary/8 text-primary"
+                          : "text-muted-foreground hover:text-primary hover:bg-primary/8",
                         !isCollapsed && isSelf
                           ? "font-semibold"
                           : !isCollapsed && isDescendant
-                          ? "font-medium text-[var(--brand-teal)]/80"
+                          ? "font-medium text-primary/80"
                           : undefined
                       )}
                     >
@@ -186,7 +186,7 @@ export default function AppSidebar({
                           aria-hidden="true"
                           data-active-indicator
                           className={cn(
-                            "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                            "absolute inset-y-1 rounded-full bg-primary transition-opacity duration-200",
                             "ltr:right-1 rtl:left-1",
                             "w-1",
                             isSelf
@@ -200,7 +200,7 @@ export default function AppSidebar({
                       <Icon
                         className={cn(
                           isCollapsed ? "h-8 w-8" : "h-4 w-4",
-                          (isSelf || isDescendant) && "text-[var(--brand-teal)]"
+                          (isSelf || isDescendant) && "text-primary"
                         )}
                       />
                       {!isCollapsed && <span>{item.name}</span>}
@@ -314,7 +314,7 @@ export default function AppSidebar({
             asChild
             variant="default"
             className={cn(
-              "w-full bg-[var(--brand-teal)] text-white hover:bg-[var(--brand-teal)]/90 shadow-sm",
+              "w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
               isCollapsed ? "px-2 py-2 h-10 rounded-full" : "px-2.5 py-2 justify-center gap-2"
             )}
           >

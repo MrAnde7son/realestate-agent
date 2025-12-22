@@ -945,6 +945,7 @@ class DataPipeline:
                         lon_wgs84,
                         lat_wgs84,
                         subparcel=str(subparcel) if subparcel else None,
+                        tikbinyan_archive=tikbinyan_archive,
                     )
 
                     # Create snapshot for alert evaluation
@@ -961,6 +962,7 @@ class DataPipeline:
                             plans=plans,
                             mavat_plans=mavat_plans,
                             handasa_archive=handasa_archive,
+                            tikbinyan_archive=tikbinyan_archive,
                         )
                         if auto_created_assets:
                             logger.info(

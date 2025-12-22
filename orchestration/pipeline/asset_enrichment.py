@@ -818,7 +818,7 @@ def _update_distance_to_sea(
     )
 
 
-def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None) -> None:
+def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None, tikbinyan_archive: Optional[List[Dict[str, Any]]] = None) -> None:
     """Update the Asset with collected enrichment data.
 
     Improvements:
@@ -834,6 +834,7 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
     plans = plans or []
     mavat_plans = mavat_plans or []
     handasa_archive = handasa_archive or []
+    tikbinyan_archive = tikbinyan_archive or []
     listings = listings or []
 
     # Lazy Django setup (kept inside function so unit tests without Django still work)
@@ -979,6 +980,8 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
                 logger.info(f"Asset {asset_id}: No GIS data available for processing")
             if handasa_archive:
                 asset.meta['handasa_archive'] = handasa_archive
+            if tikbinyan_archive:
+                asset.meta['tikbinyan_archive'] = tikbinyan_archive
             existing_privilege_data = asset.meta.get('privilege_page_data')
 
             try:
@@ -1139,7 +1142,9 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
         handasa_to_process = handasa_archive if is_tel_aviv else []
         if not is_tel_aviv and handasa_archive:
             logger.info(f"Asset {asset_id}: Skipping Handasa processing (not Tel Aviv)")
-        _create_documents_and_plans(asset, gis_data if is_tel_aviv else {}, gov_data, plans, mavat_plans, handasa_to_process)
+        # Use tikbinyan_archive for non-Tel Aviv cities, handasa_archive for Tel Aviv
+        municipal_archive = tikbinyan_archive if not is_tel_aviv else handasa_to_process
+        _create_documents_and_plans(asset, gis_data if is_tel_aviv else {}, gov_data, plans, mavat_plans, municipal_archive)
 
     # Market metrics ------------------------------------------------------------------
     with asset_update_phase("calculate_market_metrics", asset_id):
@@ -3489,11 +3494,18 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
             _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
 
         if handasa_archive:
-            handasa_permits = [
+            # Determine source from first document if available, default to 'Handasa'
+            source = 'Handasa'
+            if handasa_archive:
+                first_doc_source = handasa_archive[0].get('source', '').lower()
+                if 'tikbinyan' in first_doc_source:
+                    source = 'Tikbinyan'
+            
+            municipal_permits = [
                 doc for doc in handasa_archive if (doc.get('document_type') or '').startswith('permit')
             ]
-            if handasa_permits:
-                _create_documents_from_permits(asset, handasa_permits, source='Handasa')
+            if municipal_permits:
+                _create_documents_from_permits(asset, municipal_permits, source=source)
 
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):
@@ -3951,7 +3963,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         return None
 
     source_key = source.lower()
-    if source_key == 'handasa':
+    if source_key in ('handasa', 'tikbinyan'):
         meta = permit.get('meta') if isinstance(permit.get('meta'), dict) else dict(permit)
         external_id_raw = (
             permit.get('external_id')
@@ -3964,7 +3976,8 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
             if external_id.startswith("{") and external_id.endswith("}"):
                 external_id = external_id[1:-1]
         else:
-            external_id = f"handasa_{fallback_index}"
+            prefix = 'tikbinyan' if source_key == 'tikbinyan' else 'handasa'
+            external_id = f"{prefix}_{fallback_index}"
 
         document_date = permit.get('document_date')
         if isinstance(document_date, str):
@@ -3977,22 +3990,27 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         else:
             parsed_date = document_date
 
-        if not parsed_date:
+        if not parsed_date and source_key == 'handasa':
             handasa_doc_date = meta.get('TlvMPEngDocDate')
             if handasa_doc_date:
                 parsed_date = _extract_permit_date(handasa_doc_date)
 
         title = permit.get('title') or f"היתר {external_id}" if external_id else "היתר בנייה"
-        description = permit.get('description') or meta.get('TlvMPEngDocumentType', '')
+        description = permit.get('description') or meta.get('TlvMPEngDocumentType', '') or permit.get('title', '')
         status = permit.get('status', '')
         external_url = permit.get('external_url') or meta.get('Path', '')
 
         document_type = permit.get('document_type') or 'permit'
         document_category = permit.get('document_category')
         meta = dict(meta or {})
-        meta['handasa_document_type'] = document_type
-        if document_category is not None:
-            meta['handasa_document_category'] = document_category
+        if source_key == 'handasa':
+            meta['handasa_document_type'] = document_type
+            if document_category is not None:
+                meta['handasa_document_category'] = document_category
+        else:  # tikbinyan
+            meta['tikbinyan_document_type'] = document_type
+            if document_category is not None:
+                meta['tikbinyan_document_category'] = document_category
 
         permit_number = (
             permit.get('permission_num')
@@ -4027,6 +4045,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
 
         meta.setdefault('tochen_bakasha', description or title)
 
+        source_name = 'Tikbinyan' if source_key == 'tikbinyan' else 'Handasa'
         return {
             'external_id': external_id,
             'title': title,
@@ -4037,7 +4056,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
             'file_size': 0,
             'mime_type': 'application/pdf',
             'external_url': external_url,
-            'source': 'Handasa',
+            'source': source_name,
             'document_date': parsed_date,
             'meta': meta,
             'document_type': document_type,

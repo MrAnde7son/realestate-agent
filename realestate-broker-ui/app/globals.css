@@ -96,7 +96,7 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 175 82% 39%;
+    --primary: 175 82% 28%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
@@ -104,18 +104,18 @@
     --muted-foreground: 0 0% 45.1%;
     --accent: 0 0% 96.1%;
     --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84.2% 48%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
+    --border: 0 0% 55%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
     
     /* Semantic Colors - Light Mode */
-    --success: 142 76% 36%;
+    --success: 142 76% 28%;
     --success-foreground: 0 0% 100%;
-    --warning: 25 95% 53%;
+    --warning: 25 95% 38%;
     --warning-foreground: 0 0% 100%;
-    --error: 0 84% 60%;
+    --error: 0 84% 50%;
     --error-foreground: 0 0% 100%;
     --info: 213 94% 68%;
     --info-foreground: 0 0% 100%;
@@ -144,7 +144,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 175 82% 39%;
+    --primary: 175 82% 28%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
@@ -154,16 +154,16 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
+    --border: 0 0% 45%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;
     
     /* Semantic Colors - Dark Mode */
-    --success: 142 76% 36%;
+    --success: 142 76% 28%;
     --success-foreground: 0 0% 100%;
-    --warning: 25 95% 53%;
+    --warning: 25 95% 38%;
     --warning-foreground: 0 0% 100%;
-    --error: 0 84% 60%;
+    --error: 0 84% 50%;
     --error-foreground: 0 0% 100%;
     --info: 213 94% 68%;
     --info-foreground: 0 0% 100%;

@@ -264,7 +264,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
       </div>
 
       {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}
-      <div className="flex items-center gap-2 sm:gap-3 md:gap-4" dir="ltr">
+      <div id="search" className="flex items-center gap-2 sm:gap-3 md:gap-4" dir="ltr">
         <div className="hidden sm:block">
           <GlobalSearch />
         </div>

@@ -144,7 +144,7 @@ export default function AppSidebar({
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-3 pt-16">
         <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
-          <nav className="space-y-2">
+          <nav id="navigation" className="space-y-2" aria-label="ניווט ראשי">
             {navigation.map((item) => {
               const Icon = item.icon;
 

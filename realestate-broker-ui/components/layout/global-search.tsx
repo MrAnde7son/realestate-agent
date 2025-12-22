@@ -26,24 +26,24 @@ const searchItems = [
     icon: "🏢",
     description: "ניהול נכסים ועסקאות"
   },
-  {
-    title: "לקוחות",
-    href: "/crm",
-    icon: "👥",
-    description: "ניהול לקוחות"
-  },
-  {
-    title: "התראות",
-    href: "/alerts",
-    icon: "🔔",
-    description: "התראות ועדכונים"
-  },
-  {
-    title: "דוחות",
-    href: "/reports",
-    icon: "📊",
-    description: "דוחות שוק וניתוחים"
-  },
+  // {
+  //   title: "לקוחות",
+  //   href: "/crm",
+  //   icon: "👥",
+  //   description: "ניהול לקוחות"
+  // },
+  // {
+  //   title: "התראות",
+  //   href: "/alerts",
+  //   icon: "🔔",
+  //   description: "התראות ועדכונים"
+  // },
+  // {
+  //   title: "דוחות",
+  //   href: "/reports",
+  //   icon: "📊",
+  //   description: "דוחות שוק וניתוחים"
+  // },
   {
     title: "הוצאות",
     href: "/deal-expenses",

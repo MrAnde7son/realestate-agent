@@ -124,6 +124,7 @@ const sourceDisplay = (source?: string) => {
     gis: 'עירייה',
     user_upload: 'העלאה ידנית',
     handasa: 'תיק בניין',
+    tikbinyan: 'תיק בניין',
   };
   return source && translations[source.toLowerCase()] || source;
 };

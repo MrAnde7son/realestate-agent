@@ -818,7 +818,7 @@ def _update_distance_to_sea(
     )
 
 
-def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None) -> None:
+def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None, subparcel: Optional[str] = None, tikbinyan_archive: Optional[List[Dict[str, Any]]] = None) -> None:
     """Update the Asset with collected enrichment data.
 
     Improvements:
@@ -834,6 +834,7 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
     plans = plans or []
     mavat_plans = mavat_plans or []
     handasa_archive = handasa_archive or []
+    tikbinyan_archive = tikbinyan_archive or []
     listings = listings or []
 
     # Lazy Django setup (kept inside function so unit tests without Django still work)
@@ -959,26 +960,29 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # GIS processing ------------------------------------------------------------------
     with asset_update_phase("process_gis", asset_id):
-        if not is_tel_aviv:
-            logger.info(f"Asset {asset_id}: Skipping GIS processing (not Tel Aviv)")
-        else:
+        if gis_data:
             logger.info(f"Asset {asset_id}: GIS processing - gis_data exists: {bool(gis_data)}, keys: {list(gis_data.keys()) if gis_data else 'None'}")
-            if gis_data:
-                asset.meta['gis_data'] = {
-                    'permits': gis_data.get('permits', []),
-                    'rights': gis_data.get('rights', []),
-                    'shelters': gis_data.get('shelters', []),
-                    'green_areas': gis_data.get('green', []),
-                    'noise_levels': gis_data.get('noise', []),
-                    'cell_antennas': gis_data.get('antennas', []),
-                    'blocks': gis_data.get('blocks', []),
-                    'parcels': gis_data.get('parcels', []),
-                    'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
-                }
-            else:
-                logger.info(f"Asset {asset_id}: No GIS data available for processing")
+            asset.meta['gis_data'] = {
+                'permits': gis_data.get('permits', []),
+                'rights': gis_data.get('rights', []),
+                'shelters': gis_data.get('shelters', []),
+                'green_areas': gis_data.get('green', []),
+                'noise_levels': gis_data.get('noise', []),
+                'cell_antennas': gis_data.get('antennas', []),
+                'blocks': gis_data.get('blocks', []),
+                'parcels': gis_data.get('parcels', []),
+                'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
+            }
+        else:
+            logger.info(f"Asset {asset_id}: No GIS data available for processing")
+        
+        if not is_tel_aviv:
+            logger.info(f"Asset {asset_id}: Non-Tel Aviv city - using multi-city GIS data")
+        else:
             if handasa_archive:
                 asset.meta['handasa_archive'] = handasa_archive
+            if tikbinyan_archive:
+                asset.meta['tikbinyan_archive'] = tikbinyan_archive
             existing_privilege_data = asset.meta.get('privilege_page_data')
 
             try:
@@ -1109,10 +1113,11 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Building rights calculation (after Yad2 to ensure area data is available)
     with asset_update_phase("calculate_building_rights", asset_id):
-        if is_tel_aviv:
+        # Use GIS data for rights calculation (works for both Tel Aviv and multi-city)
+        if gis_data:
             _calculate_building_rights(asset, gis_data)
         else:
-            logger.info(f"Asset {asset_id}: Skipping building rights calculation (not Tel Aviv)")
+            logger.info(f"Asset {asset_id}: Skipping building rights calculation (no GIS data)")
             _calculate_building_rights(asset, {})
 
     # Timestamp -----------------------------------------------------------------------
@@ -1139,7 +1144,12 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
         handasa_to_process = handasa_archive if is_tel_aviv else []
         if not is_tel_aviv and handasa_archive:
             logger.info(f"Asset {asset_id}: Skipping Handasa processing (not Tel Aviv)")
-        _create_documents_and_plans(asset, gis_data if is_tel_aviv else {}, gov_data, plans, mavat_plans, handasa_to_process)
+        # Use tikbinyan_archive for non-Tel Aviv cities, handasa_archive for Tel Aviv
+        municipal_archive = tikbinyan_archive if not is_tel_aviv else handasa_to_process
+        logger.info(f"Asset {asset_id}: Processing municipal archive - is_tel_aviv={is_tel_aviv}, archive_size={len(municipal_archive)}")
+        if municipal_archive:
+            logger.info(f"Asset {asset_id}: First 3 documents in archive: {[{k: v for k, v in list(doc.items())[:5]} for doc in municipal_archive[:3]]}")
+        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, municipal_archive)
 
     # Market metrics ------------------------------------------------------------------
     with asset_update_phase("calculate_market_metrics", asset_id):
@@ -1147,11 +1157,8 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Planning and Legal Analysis -----------------------------------------------------
     with asset_update_phase("calculate_planning_legal_analysis", asset_id):
-        if is_tel_aviv:
-            _calculate_planning_legal_analysis(asset, gis_data, gov_data)
-        else:
-            logger.info(f"Asset {asset_id}: Skipping planning and legal analysis (not Tel Aviv)")
-            _calculate_planning_legal_analysis(asset, {}, gov_data)
+        # Use GIS data for planning analysis (works for both Tel Aviv and multi-city)
+        _calculate_planning_legal_analysis(asset, gis_data or {}, gov_data)
 
     logger.info("Updated asset %s with block=%s, parcel=%s, subparcel=%s", asset_id, block, parcel, subparcel)
 
@@ -3486,14 +3493,38 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
         
         
         if gis_data and gis_data.get('permits'):
+            logger.info(f"Asset {asset.id}: Creating {len(gis_data.get('permits', []))} documents from GIS permits")
             _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
 
         if handasa_archive:
-            handasa_permits = [
-                doc for doc in handasa_archive if (doc.get('document_type') or '').startswith('permit')
+            # Determine source from first document if available, default to 'handasa'
+            source = 'handasa'
+            if handasa_archive:
+                first_doc_source = handasa_archive[0].get('source', '').lower()
+                logger.info(f"Asset {asset.id}: Checking source from first document: '{first_doc_source}'")
+                if 'tikbinyan' in first_doc_source:
+                    source = 'tikbinyan'
+                    logger.info(f"Asset {asset.id}: Detected tikbinyan source")
+            
+            # Log all document types for debugging
+            all_doc_types = [doc.get('document_type', 'MISSING') for doc in handasa_archive]
+            logger.info(f"Asset {asset.id}: All document types in archive ({len(handasa_archive)} docs): {all_doc_types}")
+            
+            # Filter for permit documents - check both document_type and document_category
+            municipal_permits = [
+                doc for doc in handasa_archive 
+                if (doc.get('document_type') or '').startswith('permit')
+                or doc.get('document_category') == 'permit'
+                or (doc.get('request_num') or doc.get('permission_num'))  # If it has request/permit num, treat as permit
             ]
-            if handasa_permits:
-                _create_documents_from_permits(asset, handasa_permits, source='Handasa')
+            logger.info(f"Asset {asset.id}: Found {len(municipal_permits)} permit documents from {len(handasa_archive)} total documents (source: {source})")
+            if municipal_permits:
+                logger.info(f"Asset {asset.id}: Permit document details: {[{k: v for k, v in doc.items() if k in ['document_type', 'document_category', 'title', 'permission_num', 'request_num', 'source']} for doc in municipal_permits[:3]]}")
+                _create_documents_from_permits(asset, municipal_permits, source=source)
+            else:
+                logger.warning(f"Asset {asset.id}: No permit documents found. All document types: {all_doc_types}")
+                logger.warning(f"Asset {asset.id}: Document categories: {[doc.get('document_category', 'MISSING') for doc in handasa_archive]}")
+                logger.warning(f"Asset {asset.id}: Request/permit nums: {[doc.get('request_num') or doc.get('permission_num') for doc in handasa_archive]}")
 
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):
@@ -3951,7 +3982,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         return None
 
     source_key = source.lower()
-    if source_key == 'handasa':
+    if source_key in ('handasa', 'tikbinyan'):
         meta = permit.get('meta') if isinstance(permit.get('meta'), dict) else dict(permit)
         external_id_raw = (
             permit.get('external_id')
@@ -3964,7 +3995,8 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
             if external_id.startswith("{") and external_id.endswith("}"):
                 external_id = external_id[1:-1]
         else:
-            external_id = f"handasa_{fallback_index}"
+            prefix = 'tikbinyan' if source_key == 'tikbinyan' else 'handasa'
+            external_id = f"{prefix}_{fallback_index}"
 
         document_date = permit.get('document_date')
         if isinstance(document_date, str):
@@ -3977,22 +4009,27 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         else:
             parsed_date = document_date
 
-        if not parsed_date:
+        if not parsed_date and source_key == 'handasa':
             handasa_doc_date = meta.get('TlvMPEngDocDate')
             if handasa_doc_date:
                 parsed_date = _extract_permit_date(handasa_doc_date)
 
         title = permit.get('title') or f"היתר {external_id}" if external_id else "היתר בנייה"
-        description = permit.get('description') or meta.get('TlvMPEngDocumentType', '')
+        description = permit.get('description') or meta.get('TlvMPEngDocumentType', '') or permit.get('title', '')
         status = permit.get('status', '')
         external_url = permit.get('external_url') or meta.get('Path', '')
 
         document_type = permit.get('document_type') or 'permit'
         document_category = permit.get('document_category')
         meta = dict(meta or {})
-        meta['handasa_document_type'] = document_type
-        if document_category is not None:
-            meta['handasa_document_category'] = document_category
+        if source_key == 'handasa':
+            meta['handasa_document_type'] = document_type
+            if document_category is not None:
+                meta['handasa_document_category'] = document_category
+        else:  # tikbinyan
+            meta['tikbinyan_document_type'] = document_type
+            if document_category is not None:
+                meta['tikbinyan_document_category'] = document_category
 
         permit_number = (
             permit.get('permission_num')
@@ -4027,6 +4064,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
 
         meta.setdefault('tochen_bakasha', description or title)
 
+        source_name = 'tikbinyan' if source_key == 'tikbinyan' else 'handasa'
         return {
             'external_id': external_id,
             'title': title,
@@ -4037,7 +4075,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
             'file_size': 0,
             'mime_type': 'application/pdf',
             'external_url': external_url,
-            'source': 'Handasa',
+            'source': source_name,
             'document_date': parsed_date,
             'meta': meta,
             'document_type': document_type,

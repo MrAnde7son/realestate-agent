@@ -71,6 +71,7 @@ def auto_expand_related_assets(
     plans: Sequence[Dict[str, Any]] | None = None,
     mavat_plans: Sequence[Dict[str, Any]] | None = None,
     handasa_archive: Sequence[Dict[str, Any]] | None = None,
+    tikbinyan_archive: Sequence[Dict[str, Any]] | None = None,
     max_new_assets: Optional[int] = None,
 ) -> List[int]:
     """Create additional assets discovered in collected datasets.
@@ -233,6 +234,7 @@ def auto_expand_related_assets(
                 plans,
                 mavat_plans,
                 handasa_archive,
+                tikbinyan_archive,
             )
         except Exception:  # pragma: no cover - defensive fail safe
             logger.exception(
@@ -600,6 +602,7 @@ def _link_existing_data_to_asset(
     plans: Sequence[Dict[str, Any]] | None,
     mavat_plans: Sequence[Dict[str, Any]] | None,
     handasa_archive: Sequence[Dict[str, Any]] | None,
+    tikbinyan_archive: Sequence[Dict[str, Any]] | None = None,
 ) -> None:
     try:
         from django.utils import timezone
@@ -664,6 +667,7 @@ def _link_existing_data_to_asset(
         lon_wgs84=lon_wgs84,
         lat_wgs84=lat_wgs84,
         subparcel=subparcel if subparcel else None,
+        tikbinyan_archive=tikbinyan_archive or [],
     )
 
     asset.__class__.objects.filter(id=asset.id).update(

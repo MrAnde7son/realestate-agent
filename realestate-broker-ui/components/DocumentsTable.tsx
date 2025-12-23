@@ -134,6 +134,7 @@ const sourceLabel = (source?: string) => {
     'gis_permit': 'מערכת מידע גיאוגרפית',
     'gis_rights': 'מערכת מידע גיאוגרפית',
     'handasa': 'תיק בניין',
+    'tikbinyan': 'תיק בניין',
     'rami': 'רמ״י',
     'rami_plan': 'רמ״י',
     'michrazim': 'מכרז רמ\"י',
@@ -415,13 +416,25 @@ export default function DocumentsTable({
       availableFilters?.category ??
       (Array.from(new Set(data.map((row) => row.category).filter(Boolean))) as string[]);
     if (categories.length > 0) {
+      // Deduplicate categories to avoid duplicate keys
+      // Preserve first occurrence of each unique category
+      const seen = new Set<string>();
+      const uniqueCategories: string[] = [];
+      categories.forEach(category => {
+        const normalized = category?.toLowerCase()?.trim();
+        if (normalized && !seen.has(normalized)) {
+          seen.add(normalized);
+          uniqueCategories.push(category);
+        }
+      });
+      
       filtersList.push({
         key: 'category',
         label: 'קטגוריה',
         value: filters?.category?.value ?? 'all',
         options: [
           { value: 'all', label: 'כל הקטגוריות' },
-          ...categories.map((category) => ({ value: category, label: category })),
+          ...uniqueCategories.map((category) => ({ value: category, label: category })),
         ],
       });
     }
@@ -430,13 +443,25 @@ export default function DocumentsTable({
       availableFilters?.type ??
       (Array.from(new Set(data.map((row) => row.type).filter(Boolean))) as string[]);
     if (types.length > 0) {
+      // Deduplicate types to avoid duplicate keys
+      // Preserve first occurrence of each unique type
+      const seen = new Set<string>();
+      const uniqueTypes: string[] = [];
+      types.forEach(type => {
+        const normalized = type?.toLowerCase()?.trim();
+        if (normalized && !seen.has(normalized)) {
+          seen.add(normalized);
+          uniqueTypes.push(type);
+        }
+      });
+      
       filtersList.push({
         key: 'type',
         label: 'סוג מסמך',
         value: filters?.type?.value ?? 'all',
         options: [
           { value: 'all', label: 'כל הסוגים' },
-          ...types.map((type) => ({ value: type, label: translateType(type) })),
+          ...uniqueTypes.map((type) => ({ value: type, label: translateType(type) })),
         ],
       });
     }
@@ -472,13 +497,25 @@ export default function DocumentsTable({
       availableFilters?.status ??
       (Array.from(new Set(data.map((row) => row.status).filter(Boolean))) as string[]);
     if (statuses.length > 0) {
+      // Deduplicate statuses to avoid duplicate keys
+      // Preserve first occurrence of each unique status
+      const seen = new Set<string>();
+      const uniqueStatuses: string[] = [];
+      statuses.forEach(status => {
+        const normalized = status?.toLowerCase()?.trim();
+        if (normalized && !seen.has(normalized)) {
+          seen.add(normalized);
+          uniqueStatuses.push(status);
+        }
+      });
+      
       filtersList.push({
         key: 'status',
         label: 'סטטוס',
         value: filters?.status?.value ?? 'all',
         options: [
           { value: 'all', label: 'כל הסטטוסים' },
-          ...statuses.map((status) => ({ value: status, label: statusLabel(status) })),
+          ...uniqueStatuses.map((status) => ({ value: status, label: statusLabel(status) })),
         ],
       });
     }

@@ -619,6 +619,9 @@ class TikbinyanClient(ABC):
         if not external_url and external_id:
             external_url = f"{self.tikbinyan_url}/#building/{external_id}"
         
+        # Classify document type - pass the full row so we can check for request_num/permission_num
+        classified_type = self._classify_document_type(document_type, row)
+        
         normalized = {
             "title": document_type,
             "status": status,
@@ -629,16 +632,31 @@ class TikbinyanClient(ABC):
             "document_date": document_date,
             "building_id": building_id,
             "source": source_name,
-            "document_type": self._classify_document_type(document_type),
-            "document_category": self._classify_document_category(document_type),
+            "document_type": classified_type,
+            "document_category": self._classify_document_category(classified_type),
             "meta": row,
         }
         
         return normalized
 
     @staticmethod
-    def _classify_document_type(descriptor: Optional[str]) -> str:
-        """Classify document type from descriptor."""
+    def _classify_document_type(descriptor: Optional[str], row: Optional[Dict[str, Any]] = None) -> str:
+        """Classify document type from descriptor and optional row data."""
+        # If we have a request_num or permission_num, it's likely a permit
+        if row:
+            if row.get("request_num") or row.get("permission_num") or row.get("permit_num"):
+                # Check if it's a specific permit type
+                descriptor_to_check = descriptor or ""
+                normalized = _normalize_label(descriptor_to_check)
+                normalized_lower = normalized.lower()
+                
+                if "מילולי" in normalized_lower or "verbal" in normalized_lower:
+                    return "permit_verbal"
+                if "תכנית" in normalized_lower or "plan" in normalized_lower:
+                    return "permit_plan"
+                # Default to permit if we have request/permit number
+                return "permit"
+        
         if not descriptor:
             return "other"
         
@@ -646,7 +664,7 @@ class TikbinyanClient(ABC):
         normalized_lower = normalized.lower()
         
         # Permit keywords
-        if any(keyword in normalized_lower for keyword in ["היתר", "permit"]):
+        if any(keyword in normalized_lower for keyword in ["היתר", "permit", "בקשה", "request"]):
             if "מילולי" in normalized_lower or "verbal" in normalized_lower:
                 return "permit_verbal"
             if "תכנית" in normalized_lower or "plan" in normalized_lower:

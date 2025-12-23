@@ -960,24 +960,25 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # GIS processing ------------------------------------------------------------------
     with asset_update_phase("process_gis", asset_id):
-        if not is_tel_aviv:
-            logger.info(f"Asset {asset_id}: Skipping GIS processing (not Tel Aviv)")
-        else:
+        if gis_data:
             logger.info(f"Asset {asset_id}: GIS processing - gis_data exists: {bool(gis_data)}, keys: {list(gis_data.keys()) if gis_data else 'None'}")
-            if gis_data:
-                asset.meta['gis_data'] = {
-                    'permits': gis_data.get('permits', []),
-                    'rights': gis_data.get('rights', []),
-                    'shelters': gis_data.get('shelters', []),
-                    'green_areas': gis_data.get('green', []),
-                    'noise_levels': gis_data.get('noise', []),
-                    'cell_antennas': gis_data.get('antennas', []),
-                    'blocks': gis_data.get('blocks', []),
-                    'parcels': gis_data.get('parcels', []),
-                    'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
-                }
-            else:
-                logger.info(f"Asset {asset_id}: No GIS data available for processing")
+            asset.meta['gis_data'] = {
+                'permits': gis_data.get('permits', []),
+                'rights': gis_data.get('rights', []),
+                'shelters': gis_data.get('shelters', []),
+                'green_areas': gis_data.get('green', []),
+                'noise_levels': gis_data.get('noise', []),
+                'cell_antennas': gis_data.get('antennas', []),
+                'blocks': gis_data.get('blocks', []),
+                'parcels': gis_data.get('parcels', []),
+                'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
+            }
+        else:
+            logger.info(f"Asset {asset_id}: No GIS data available for processing")
+        
+        if not is_tel_aviv:
+            logger.info(f"Asset {asset_id}: Non-Tel Aviv city - using multi-city GIS data")
+        else:
             if handasa_archive:
                 asset.meta['handasa_archive'] = handasa_archive
             if tikbinyan_archive:
@@ -1112,10 +1113,11 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Building rights calculation (after Yad2 to ensure area data is available)
     with asset_update_phase("calculate_building_rights", asset_id):
-        if is_tel_aviv:
+        # Use GIS data for rights calculation (works for both Tel Aviv and multi-city)
+        if gis_data:
             _calculate_building_rights(asset, gis_data)
         else:
-            logger.info(f"Asset {asset_id}: Skipping building rights calculation (not Tel Aviv)")
+            logger.info(f"Asset {asset_id}: Skipping building rights calculation (no GIS data)")
             _calculate_building_rights(asset, {})
 
     # Timestamp -----------------------------------------------------------------------
@@ -1144,7 +1146,10 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             logger.info(f"Asset {asset_id}: Skipping Handasa processing (not Tel Aviv)")
         # Use tikbinyan_archive for non-Tel Aviv cities, handasa_archive for Tel Aviv
         municipal_archive = tikbinyan_archive if not is_tel_aviv else handasa_to_process
-        _create_documents_and_plans(asset, gis_data if is_tel_aviv else {}, gov_data, plans, mavat_plans, municipal_archive)
+        logger.info(f"Asset {asset_id}: Processing municipal archive - is_tel_aviv={is_tel_aviv}, archive_size={len(municipal_archive)}")
+        if municipal_archive:
+            logger.info(f"Asset {asset_id}: First 3 documents in archive: {[{k: v for k, v in list(doc.items())[:5]} for doc in municipal_archive[:3]]}")
+        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, municipal_archive)
 
     # Market metrics ------------------------------------------------------------------
     with asset_update_phase("calculate_market_metrics", asset_id):
@@ -1152,11 +1157,8 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
 
     # Planning and Legal Analysis -----------------------------------------------------
     with asset_update_phase("calculate_planning_legal_analysis", asset_id):
-        if is_tel_aviv:
-            _calculate_planning_legal_analysis(asset, gis_data, gov_data)
-        else:
-            logger.info(f"Asset {asset_id}: Skipping planning and legal analysis (not Tel Aviv)")
-            _calculate_planning_legal_analysis(asset, {}, gov_data)
+        # Use GIS data for planning analysis (works for both Tel Aviv and multi-city)
+        _calculate_planning_legal_analysis(asset, gis_data or {}, gov_data)
 
     logger.info("Updated asset %s with block=%s, parcel=%s, subparcel=%s", asset_id, block, parcel, subparcel)
 
@@ -3491,6 +3493,7 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
         
         
         if gis_data and gis_data.get('permits'):
+            logger.info(f"Asset {asset.id}: Creating {len(gis_data.get('permits', []))} documents from GIS permits")
             _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
 
         if handasa_archive:
@@ -3498,14 +3501,30 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
             source = 'handasa'
             if handasa_archive:
                 first_doc_source = handasa_archive[0].get('source', '').lower()
+                logger.info(f"Asset {asset.id}: Checking source from first document: '{first_doc_source}'")
                 if 'tikbinyan' in first_doc_source:
                     source = 'tikbinyan'
+                    logger.info(f"Asset {asset.id}: Detected tikbinyan source")
             
+            # Log all document types for debugging
+            all_doc_types = [doc.get('document_type', 'MISSING') for doc in handasa_archive]
+            logger.info(f"Asset {asset.id}: All document types in archive ({len(handasa_archive)} docs): {all_doc_types}")
+            
+            # Filter for permit documents - check both document_type and document_category
             municipal_permits = [
-                doc for doc in handasa_archive if (doc.get('document_type') or '').startswith('permit')
+                doc for doc in handasa_archive 
+                if (doc.get('document_type') or '').startswith('permit')
+                or doc.get('document_category') == 'permit'
+                or (doc.get('request_num') or doc.get('permission_num'))  # If it has request/permit num, treat as permit
             ]
+            logger.info(f"Asset {asset.id}: Found {len(municipal_permits)} permit documents from {len(handasa_archive)} total documents (source: {source})")
             if municipal_permits:
+                logger.info(f"Asset {asset.id}: Permit document details: {[{k: v for k, v in doc.items() if k in ['document_type', 'document_category', 'title', 'permission_num', 'request_num', 'source']} for doc in municipal_permits[:3]]}")
                 _create_documents_from_permits(asset, municipal_permits, source=source)
+            else:
+                logger.warning(f"Asset {asset.id}: No permit documents found. All document types: {all_doc_types}")
+                logger.warning(f"Asset {asset.id}: Document categories: {[doc.get('document_category', 'MISSING') for doc in handasa_archive]}")
+                logger.warning(f"Asset {asset.id}: Request/permit nums: {[doc.get('request_num') or doc.get('permission_num') for doc in handasa_archive]}")
 
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):

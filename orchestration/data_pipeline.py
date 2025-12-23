@@ -443,7 +443,7 @@ class DataPipeline:
         tikbinyan_archive: List[Dict[str, Any]] = []
         
         if not is_tel_aviv:
-            logger.info(f"📍 City '{city}' is not Tel Aviv - using tikbinyan collectors for municipal building info")
+            logger.info(f"📍 City '{city}' - using tikbinyan collectors for municipal building info")
             gis_data = {}
             handasa_archive = []
             
@@ -468,6 +468,25 @@ class DataPipeline:
                 tikbinyan_archive = []
                 track("collector_fail", source="tikbinyan", error_code=str(e))
                 logger.warning(f"⚠️ Tikbinyan collection failed for {city}: {e}")
+            
+            # Also collect multi-city GIS data for rights and other data
+            gis_data = {}
+            try:
+                logger.info(f"🗺️ Collecting multi-city GIS data for {city}...")
+                gis_data = self._collect_with_observability(
+                    "gis",
+                    self.gis.collect,
+                    location=location,
+                    timeout=self.TIMEOUTS.get("gis"),
+                    retries=self.RETRIES.get("gis", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="gis")
+                logger.info(f"🗺️ Multi-city GIS data collected for {city}: keys={list(gis_data.keys())}")
+            except Exception as e:
+                gis_data = {}
+                track("collector_fail", source="gis", error_code=str(e))
+                logger.warning(f"⚠️ Multi-city GIS collection failed for {city}: {e}")
         else:
             # Get GIS data (supplementary or fallback for coordinates)
             gis_data = {}

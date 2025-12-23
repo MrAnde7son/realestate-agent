@@ -10,6 +10,7 @@ import { AgentChat } from '@/components/AgentChat'
 import { Analytics } from '@vercel/analytics/react'   
 import { SpeedInsights } from '@vercel/speed-insights/next' 
 import { ConfirmProvider } from '@/hooks/use-confirm'
+import { SkipLinks } from '@/components/ui/skip-links'
 import './globals.css'
 
 export const metadata: Metadata = { 
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         `}
       </Script>
       <body className="min-h-[100dvh] bg-background font-sans antialiased">
+        <SkipLinks />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

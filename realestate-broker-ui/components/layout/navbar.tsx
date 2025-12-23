@@ -45,12 +45,12 @@ export function Navbar() {
                 className={cn(
                   "group relative text-sm font-medium transition-colors px-3 py-2 rounded-md",
                   isSelf || isDescendant
-                    ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
-                    : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
+                    ? "bg-primary/8 text-primary"
+                    : "text-muted-foreground hover:text-primary hover:bg-primary/8",
                   isSelf
                     ? "font-semibold"
                     : isDescendant
-                    ? "font-medium text-[var(--brand-teal)]/80"
+                    ? "font-medium text-primary/80"
                     : undefined
                 )}
               >
@@ -58,7 +58,7 @@ export function Navbar() {
                   aria-hidden="true"
                   data-active-indicator
                   className={cn(
-                    "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                              "absolute inset-y-1 rounded-full bg-primary transition-opacity duration-200",
                     "ltr:right-1 rtl:left-1",
                     "w-1",
                     isSelf
@@ -122,12 +122,12 @@ export function Navbar() {
                             "group relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                             "min-h-[44px]",
                             isSelf || isDescendant
-                              ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)]"
-                              : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8",
+                              ? "bg-primary/8 text-primary"
+                              : "text-muted-foreground hover:text-primary hover:bg-primary/8",
                             isSelf
                               ? "font-semibold"
                               : isDescendant
-                              ? "font-medium text-[var(--brand-teal)]/80"
+                              ? "font-medium text-primary/80"
                               : undefined
                           )}
                           onClick={() => setMobileMenuOpen(false)}
@@ -140,7 +140,7 @@ export function Navbar() {
                             aria-hidden="true"
                             data-active-indicator
                             className={cn(
-                              "absolute inset-y-1 rounded-full bg-[var(--brand-teal)] transition-opacity duration-200",
+                              "absolute inset-y-1 rounded-full bg-primary transition-opacity duration-200",
                               "ltr:right-1 rtl:left-1",
                               "w-1",
                               isSelf

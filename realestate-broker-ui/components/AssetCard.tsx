@@ -147,12 +147,12 @@ const AssetCard = React.memo(function AssetCard({ asset, onToggleWatch, watchLoa
                 type="button"
                 variant="ghost"
                 size="icon"
+                aria-label={watchTitle}
+                title={watchTitle}
+                aria-pressed={isWatched}
                 className={`h-8 w-8 text-muted-foreground hover:text-amber-600 ${
                   isWatched ? 'text-amber-500' : ''
                 } ${watchLoading ? 'pointer-events-none opacity-60' : ''}`}
-                aria-label={watchTitle}
-                aria-pressed={isWatched}
-                title={watchTitle}
                 disabled={watchLoading}
                 onClick={handleWatchClick}
               >

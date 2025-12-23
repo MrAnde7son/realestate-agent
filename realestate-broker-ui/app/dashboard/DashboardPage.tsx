@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Building,
   AlertCircle,
@@ -132,9 +133,7 @@ export default function HomePage() {
             heading="ברוכים הבאים לנדל״נר"
             text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור אנשים פרטיים ומתווכים"
           />
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          </div>
+          <LoadingState message="טוען..." />
         </DashboardShell>
       </DashboardLayout>
     );

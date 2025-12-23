@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
         <Header onToggleSidebar={handleToggleSidebar} />
 
-        <main className="pt-16 flex-1 overflow-y-auto min-h-0">
+        <main id="main-content" className="pt-16 flex-1 overflow-y-auto min-h-0" role="main">
           {children}
         </main>
       </div>

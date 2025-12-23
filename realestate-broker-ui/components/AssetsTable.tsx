@@ -29,66 +29,14 @@ import { useAuth } from '@/lib/auth-context'
 // Set to a very high number to effectively disable it, or enable for specific use cases
 const VIRTUAL_SCROLLING_THRESHOLD = 1000
 
-function RiskCell({ flags }: { flags?: string[] }){
-  if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
-  return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
-}
+// Import extracted components and utilities
+import { RiskCell } from './AssetsTable/risk-cell'
+import { exportAssetsCsv, COLUMN_PREFERENCES_KEY, COLUMN_SIZING_KEY, DEFAULT_COLUMN_VISIBILITY, ALL_COLUMN_IDS, DEFAULT_VISIBLE_COLUMNS } from './AssetsTable/table-utils'
+import { formatListingTypeLabel, formatAdTypeLabel } from './AssetsTable/table-columns'
+import { TableBody } from './AssetsTable/table-body'
 
-function exportAssetsCsv(assets: Asset[], visibleColumns?: any[]) {
-  if (assets.length === 0) return
-  
-  // If visibleColumns is provided, use them; otherwise fall back to default columns
-  const headers = visibleColumns ? 
-    visibleColumns
-      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
-      .map(col => col.columnDef.header as string)
-    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
-  
-  const accessorKeys = visibleColumns ?
-    visibleColumns
-      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
-      .map(col => col.columnDef.accessorKey || col.id)
-    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
-
-  const csv = [
-    headers.join(','),
-    ...assets.map(a =>
-      accessorKeys
-        .map(key => {
-          const value = key === 'docsCount' ? (a.documents?.length ?? 0) : (a as any)[key]
-          return JSON.stringify(value ?? '')
-        })
-        .join(',')
-    )
-  ].join('\n')
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', 'assets.csv')
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
-
-const formatListingTypeLabel = (value?: string | null) => {
-  if (!value) return '—'
-  const normalized = value.toLowerCase()
-  if (normalized === 'rent') return 'השכרה'
-  if (normalized === 'sale') return 'מכירה'
-  if (normalized === 'commercial') return 'מסחרי'
-  if (normalized === 'auction') return 'מכרז'
-  return value
-}
-
-const formatAdTypeLabel = (value?: string | null) => {
-  if (!value) return '—'
-  const normalized = value.toLowerCase()
-  if (normalized === 'private') return 'פרטי'
-  if (normalized === 'broker' || normalized === 'agency' || normalized === 'agent') return 'מתווך'
-  return value
-}
+// Re-export for backward compatibility
+export { formatListingTypeLabel, formatAdTypeLabel }
 
 function createColumns({
   onDelete,
@@ -940,86 +888,7 @@ interface AssetsTableProps {
   }) => void
 }
 
-const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
-const COLUMN_SIZING_KEY = 'assets-table-column-sizing'
-
-const DEFAULT_VISIBLE_COLUMNS = new Set([
-  'select',
-  'address',
-  'price',
-  'area',
-  'rentPrice',
-  'modelPrice',
-  'rentEstimate',
-  'actions'
-])
-
-const ALL_COLUMN_IDS = [
-  'select',
-  'address',
-  'city',
-  'street',
-  'number',
-  'apartment',
-  'block',
-  'parcel',
-  'subparcel',
-  'area',
-  'totalArea',
-  'subparcelArea',
-  'builtArea',
-  'floor',
-  'totalFloors',
-  'assetStatus',
-  'recentDeal',
-  'sellerType',
-  'contact',
-  'price',
-  'rentPrice',
-  'pricePerSqm',
-  'riskFlags',
-  'deltaVsAreaPct',
-  'domPercentile',
-  'competition1km',
-  'zoning',
-  'remainingRightsSqm',
-  'program',
-  'lastPermitQ',
-  'docsCount',
-  'noiseLevel',
-  'antennaDistanceM',
-  'greenWithin300m',
-  'shelterDistanceM',
-  'riskFlags',
-  'assetStatus',
-  'priceGapPct',
-  'confidencePct',
-  'capRatePct',
-  'priceDropped',
-  'previousPrice',
-  'shelter',
-  'accessibility',
-  'buildingClass',
-  'generalCondition',
-  'investmentYield',
-  'approximateRent',
-  'commuteTime',
-  'publishedDays',
-  'tagBestSchool',
-  'tagSafety',
-  'tagFamilyFriendly',
-  'tagLightRail',
-  'exclusive',
-  'actions',
-  'videoUrl'
-] as const
-
-const DEFAULT_COLUMN_VISIBILITY = ALL_COLUMN_IDS.reduce<Record<string, boolean>>((acc, columnId) => {
-  if (!DEFAULT_VISIBLE_COLUMNS.has(columnId)) {
-    acc[columnId] = false
-  }
-  return acc
-}, {})
+// Constants and utilities are now imported from ./AssetsTable/table-utils
 
 export default function AssetsTable({
   data = [],
@@ -1336,9 +1205,11 @@ export default function AssetsTable({
   })
 
   // Virtual scrolling setup - only for large tables
-  // Currently disabled due to complexity with sticky columns and horizontal scrolling
+  // Enabled for tables with more than threshold rows
+  // Note: Virtual scrolling works best with simple table layouts
+  // For complex tables with sticky columns, consider disabling or using a simpler approach
   const tableRows = table.getRowModel().rows
-  const shouldUseVirtualization = false // Disabled: tableRows.length > VIRTUAL_SCROLLING_THRESHOLD && !loading
+  const shouldUseVirtualization = tableRows.length > VIRTUAL_SCROLLING_THRESHOLD && !loading && mounted
   const tableScrollRef = React.useRef<HTMLDivElement>(null)
   
   const virtualizer = useVirtualizer({
@@ -2526,118 +2397,25 @@ export default function AssetsTable({
                       <TR style={{ height: `${virtualizer.getTotalSize()}px`, visibility: 'hidden' }}>
                         <TD colSpan={table.getFlatHeaders().length} style={{ padding: 0, border: 0 }} />
                       </TR>
-                      {virtualizer.getVirtualItems().map((virtualRow) => {
-                        const row = tableRows[virtualRow.index]
-                        if (!row) return null
-                        
-                        return (
-                          <TR
-                            key={row.id}
-                            role="row"
-                            aria-rowindex={virtualRow.index + 1}
-                            className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-                            onClick={() => handleRowClick(row.original)}
-                            tabIndex={0}
-                            aria-label={`נכס ${row.original.address || row.original.id} - לחץ Enter או רווח לפרטים`}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                handleRowClick(row.original)
-                              }
-                              // Arrow key navigation
-                              if (e.key === 'ArrowDown' && virtualRow.index < tableRows.length - 1) {
-                                e.preventDefault()
-                                const nextRow = tableRows[virtualRow.index + 1]
-                                if (nextRow) {
-                                  const nextElement = document.querySelector(`[aria-rowindex="${virtualRow.index + 2}"]`) as HTMLElement
-                                  nextElement?.focus()
-                                }
-                              }
-                              if (e.key === 'ArrowUp' && virtualRow.index > 0) {
-                                e.preventDefault()
-                                const prevRow = tableRows[virtualRow.index - 1]
-                                if (prevRow) {
-                                  const prevElement = document.querySelector(`[aria-rowindex="${virtualRow.index}"]`) as HTMLElement
-                                  prevElement?.focus()
-                                }
-                              }
-                            }}
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: `${virtualRow.size}px`,
-                              transform: `translateY(${virtualRow.start}px)`,
-                            }}
-                          >
-                            {row.getVisibleCells().map((cell) => (
-                              <TD 
-                                key={cell.id}
-                                role="gridcell"
-                                className={`whitespace-nowrap ${cell.column.id==='address'?'sticky end-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
-                                style={{ 
-                                  width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
-                                  minWidth: cell.column.id === 'address' ? '200px' : cell.column.id === 'select' ? '48px' : '80px'
-                                }}
-                              >
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </TD>
-                            ))}
-                          </TR>
-                        )
-                      })}
+                      <TableBody
+                        table={table}
+                        tableRows={tableRows}
+                        loading={false}
+                        shouldUseVirtualization={shouldUseVirtualization}
+                        virtualizer={virtualizer}
+                        onRowClick={handleRowClick}
+                      />
                     </>
                   ) : (
                     // Regular rows for smaller tables
-                    tableRows.map((row, rowIndex) => (
-                      <TR
-                        key={row.id}
-                        role="row"
-                        aria-rowindex={rowIndex + 1}
-                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-                        onClick={() => handleRowClick(row.original)}
-                        tabIndex={0}
-                        aria-label={`נכס ${row.original.address || row.original.id} - לחץ Enter או רווח לפרטים`}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            handleRowClick(row.original)
-                          }
-                          // Arrow key navigation
-                          if (e.key === 'ArrowDown' && rowIndex < tableRows.length - 1) {
-                            e.preventDefault()
-                            const nextRow = tableRows[rowIndex + 1]
-                            if (nextRow) {
-                              const nextElement = document.querySelector(`[aria-rowindex="${rowIndex + 2}"]`) as HTMLElement
-                              nextElement?.focus()
-                            }
-                          }
-                          if (e.key === 'ArrowUp' && rowIndex > 0) {
-                            e.preventDefault()
-                            const prevRow = tableRows[rowIndex - 1]
-                            if (prevRow) {
-                              const prevElement = document.querySelector(`[aria-rowindex="${rowIndex}"]`) as HTMLElement
-                              prevElement?.focus()
-                            }
-                          }
-                        }}
-                      >
-                        {row.getVisibleCells().map((cell, cellIndex) => (
-                          <TD 
-                            key={cell.id}
-                            role="gridcell"
-                            className={`whitespace-nowrap ${cell.column.id==='address'?'sticky end-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
-                            style={{ 
-                              width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
-                              minWidth: cell.column.id === 'address' ? '200px' : cell.column.id === 'select' ? '48px' : '80px'
-                            }}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TD>
-                        ))}
-                      </TR>
-                    ))
+                    <TableBody
+                      table={table}
+                      tableRows={tableRows}
+                      loading={false}
+                      shouldUseVirtualization={false}
+                      virtualizer={null}
+                      onRowClick={handleRowClick}
+                    />
                   )}
                 </TBody>
                 </Table>

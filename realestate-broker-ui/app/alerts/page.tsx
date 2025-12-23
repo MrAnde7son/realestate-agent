@@ -12,6 +12,7 @@ import { ALERT_TYPE_LABELS } from '@/lib/alert-constants'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import { api } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
+import { ErrorState } from '@/components/ui/error-state'
 
 interface AlertEvent {
   id: number
@@ -243,25 +244,15 @@ export default function AlertsPage() {
         <DashboardShell>
           <DashboardHeader 
             heading="התראות" 
-            text="שגיאה בטעינת ההתראות"
+            text="שגיאה בטעינת התראות"
           />
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="space-y-4">
-                <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto">
-                  <Bell className="h-8 w-8 text-error" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">שגיאה בטעינת ההתראות</h3>
-                  <p className="text-muted-foreground">{error}</p>
-                </div>
-                <Button onClick={() => window.location.reload()} variant="outline">
-                  <RefreshCw className="h-4 w-4 ms-2" />
-                  נסה שוב
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ErrorState
+            title="שגיאה בטעינת התראות"
+            message="לא ניתן לטעון את ההתראות. אנא נסה שוב."
+            error={typeof error === 'string' ? error : (error as Error)?.message || 'Unknown error'}
+            onRetry={() => window.location.reload()}
+            showHomeButton
+          />
         </DashboardShell>
       </DashboardLayout>
     )

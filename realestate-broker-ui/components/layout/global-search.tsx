@@ -26,24 +26,24 @@ const searchItems = [
     icon: "🏢",
     description: "ניהול נכסים ועסקאות"
   },
-  {
-    title: "לקוחות",
-    href: "/crm",
-    icon: "👥",
-    description: "ניהול לקוחות"
-  },
-  {
-    title: "התראות",
-    href: "/alerts",
-    icon: "🔔",
-    description: "התראות ועדכונים"
-  },
-  {
-    title: "דוחות",
-    href: "/reports",
-    icon: "📊",
-    description: "דוחות שוק וניתוחים"
-  },
+  // {
+  //   title: "לקוחות",
+  //   href: "/crm",
+  //   icon: "👥",
+  //   description: "ניהול לקוחות"
+  // },
+  // {
+  //   title: "התראות",
+  //   href: "/alerts",
+  //   icon: "🔔",
+  //   description: "התראות ועדכונים"
+  // },
+  // {
+  //   title: "דוחות",
+  //   href: "/reports",
+  //   icon: "📊",
+  //   description: "דוחות שוק וניתוחים"
+  // },
   {
     title: "הוצאות",
     href: "/deal-expenses",
@@ -219,7 +219,7 @@ export function GlobalSearch() {
                 >
                 <span className="ms-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
                 <div className="flex-1 text-start">
-                  <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">{item.title}</div>
+                  <div className="font-semibold group-hover:text-primary transition-colors duration-200">{item.title}</div>
                   <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">
                     {item.description}
                   </div>
@@ -245,7 +245,7 @@ export function GlobalSearch() {
                     >
                       <Users className="ms-3 h-4 w-4 text-blue-500" />
                       <div className="flex-1 text-start">
-                        <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">
+                        <div className="font-semibold group-hover:text-primary transition-colors duration-200">
                           {contact.name}
                         </div>
                         <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">
@@ -288,7 +288,7 @@ export function GlobalSearch() {
                     >
                       <UserCheck className="ms-3 h-4 w-4 text-green-500" />
                       <div className="flex-1 text-start">
-                        <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">
+                        <div className="font-semibold group-hover:text-primary transition-colors duration-200">
                           {lead.contact.name} - {lead.asset_address}
                         </div>
                         <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -112,6 +113,25 @@ class MichrazimClient:
         self.logger.debug("Unexpected yishuvim response format: %s", type(data))
         return []
 
+    @staticmethod
+    def _normalize_duplicate_letters(text: str) -> str:
+        """Normalize Hebrew text by removing consecutive duplicate letters.
+        
+        This handles spelling variations like הרצלייה vs הרצליה (double yod),
+        and other cases where duplicate letters may appear.
+        
+        Args:
+            text: Hebrew text to normalize
+            
+        Returns:
+            Normalized text with consecutive duplicate letters removed
+        """
+        if not text:
+            return text
+        # Remove consecutive duplicate characters using regex
+        # This matches any character followed by one or more of the same character
+        return re.sub(r'(.)\1+', r'\1', text)
+    
     def find_yishuv_code(self, yishuv_name: str, timeout: Optional[float] = None) -> Optional[int]:
         """Find settlement code (mtysvSemelYishuv) by settlement name.
         
@@ -124,9 +144,21 @@ class MichrazimClient:
         """
         yishuvim = self.get_yishuvim(timeout=timeout)
         yishuv_name_normalized = yishuv_name.strip()
+        yishuv_name_normalized_no_dups = self._normalize_duplicate_letters(yishuv_name_normalized)
+        
         for yishuv in yishuvim:
             name = yishuv.get("mtysvShemYishuv", "").strip()
+            # Try exact match first
             if name == yishuv_name_normalized:
+                code = yishuv.get("mtysvSemelYishuv")
+                if code:
+                    try:
+                        return int(code)
+                    except (ValueError, TypeError):
+                        self.logger.debug("Invalid mtysvSemelYishuv value: %s", code)
+            # Try normalized match (handles duplicate letters like double yod)
+            name_normalized = self._normalize_duplicate_letters(name)
+            if name_normalized == yishuv_name_normalized_no_dups:
                 code = yishuv.get("mtysvSemelYishuv")
                 if code:
                     try:

@@ -76,7 +76,7 @@ class TelAvivMunicipalGisAdapter(MunicipalGisAdapter):
 class HerzliyaMunicipalGisAdapter(MunicipalGisAdapter):
     """Adapter that delegates to the Herzliya municipal GIS collector."""
 
-    supported_cities = ["הרצליה", "herzliya", "hertzeliya", "hertzliya"]
+    supported_cities = ["הרצליה", "הרצלייה", "herzliya", "hertzeliya", "hertzliya"]
 
     def __init__(self, collector: Optional[HerzliyaGISCollector] = None) -> None:
         super().__init__()

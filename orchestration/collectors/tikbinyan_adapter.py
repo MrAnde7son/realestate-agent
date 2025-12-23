@@ -93,7 +93,7 @@ class BatYamTikbinyanAdapter(TikbinyanAdapter):
 class HerzliyaTikbinyanAdapter(TikbinyanAdapter):
     """Adapter that delegates to the Herzliya tikbinyan collector."""
 
-    supported_cities = ["הרצליה", "herzliya", "hertzeliya", "hertzliya"]
+    supported_cities = ["הרצליה", "הרצלייה", "herzliya", "hertzeliya", "hertzliya"]
 
     def __init__(self, client: Optional[HerzliyaTikbinyanClient] = None) -> None:
         super().__init__()

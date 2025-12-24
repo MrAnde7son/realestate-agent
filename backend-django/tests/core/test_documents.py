@@ -115,7 +115,7 @@ class PermitDocumentCreationTest(TestCase):
 
         document = Document.objects.get(asset=self.asset, external_id="HANDASA-123")
         self.assertEqual(document.title, "Handasa Permit")
-        self.assertEqual(document.source, "Handasa")
+        self.assertEqual(document.source, "handasa")
         self.assertEqual(document.document_type, "permit")
         self.assertEqual(document.document_date.isoformat(), "2024-01-01")
         self.assertEqual(document.external_url, permits[0]["external_url"])

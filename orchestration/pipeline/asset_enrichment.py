@@ -441,10 +441,11 @@ def _calculate_base_ppm_and_value(ppm_data: List[Dict[str, Any]], asset_total_ar
         # Calculate base value using average PPM × asset area
         base_value = weighted_ppm * asset_total_area
     else:
-        # Fallback: use simple average of comparable prices if no area
-        prices = [entry['price'] for entry in ppm_data if entry.get('price') is not None]
-        if prices:
-            base_value = sum(prices) / len(prices)
+        # Cannot calculate reliable base value without total area
+        logger.warning(
+            f'[PRICE_MODEL] Cannot calculate base_value without total_area. '
+            f'Asset area is {asset_total_area}. Skipping base_value calculation to avoid unreliable results.'
+        )
 
     return weighted_ppm, base_value
 
@@ -3245,20 +3246,22 @@ def _calculate_market_metrics(asset, listings, gov_data):
             adjustment_multiplier = 1 + feature_vector.total_adjustment
 
             # Calculate model price as BaseValue × (1 + Σ adjustments)
+            # IMPORTANT: Only calculate model price if we have total_area, otherwise results are unreliable
             if base_ppm is not None:
                 if base_value is None and asset_total_area and asset_total_area > 0:
                     base_value = base_ppm * asset_total_area
 
                 if base_value is None:
-                    # Fallback to weighted average comparable price if no area
-                    weights = [_compute_ppm_weight(d) for d in ppm_data]
-                    weighted_prices = [price * weight for price, weight in zip(prices, weights)]
-                    weight_total = sum(weights) or 1
-                    base_value = sum(weighted_prices) / weight_total
-
-                adjusted_model_price = int(base_value * adjustment_multiplier)
-                metrics['baseModelPrice'] = int(base_value)
-                metrics['modelPrice'] = adjusted_model_price
+                    # Cannot calculate reliable model price without total area
+                    logger.warning(
+                        f'[PRICE_MODEL] asset={asset_id} Cannot calculate model price without total_area. '
+                        f'Asset area is {asset_total_area}. Skipping model price calculation to avoid unreliable results. '
+                        f'PPM={base_ppm:.0f} is still available for reference.'
+                    )
+                else:
+                    adjusted_model_price = int(base_value * adjustment_multiplier)
+                    metrics['baseModelPrice'] = int(base_value)
+                    metrics['modelPrice'] = adjusted_model_price
                 
                 # Debug logging for final calculation
                 adjustments_dict = feature_vector.to_dict()
@@ -3268,34 +3271,36 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 simple_avg_base_value_all = simple_avg_ppm_all * asset_total_area if (simple_avg_ppm_all and asset_total_area) else None
                 simple_avg_model_price_all = int(simple_avg_base_value_all * adjustment_multiplier) if simple_avg_base_value_all else None
                 
-                logger.info(
-                    f'[PRICE_MODEL] asset={asset_id} base_ppm={base_ppm:.0f} base_value={int(base_value)} '
-                    f'(all_data_avg_ppm={simple_avg_ppm_all:.0f} would give base={int(simple_avg_base_value_all) if simple_avg_base_value_all else "N/A"}) '
-                    f'adjustment_multiplier={adjustment_multiplier:.3f} '
-                    f'total_adjustment_pct={feature_vector.total_adjustment*100:.1f}% '
-                    f'final_model_price={adjusted_model_price} '
-                    f'(all_data_model={simple_avg_model_price_all if simple_avg_model_price_all else "N/A"})'
-                )
-                logger.info(
-                    f'[PRICE_MODEL] asset={asset_id} calculation: {base_ppm:.0f} PPM × {asset_total_area} sqm = {int(base_value)} base × {adjustment_multiplier:.3f} = {adjusted_model_price} final'
-                )
-                logger.info(
-                    f'[PRICE_MODEL] asset={asset_id} adjustments breakdown: {adjustments_dict}'
-                )
-                metrics['adjustments'] = {
-                    'multiplier': adjustment_multiplier,
-                    'totalPct': round(feature_vector.total_adjustment * 100, 2),
-                    'featureVector': feature_vector.to_dict(),
-                }
+                if base_value is not None:
+                    adjusted_model_price = metrics.get('modelPrice')
+                    logger.info(
+                        f'[PRICE_MODEL] asset={asset_id} base_ppm={base_ppm:.0f} base_value={int(base_value)} '
+                        f'(all_data_avg_ppm={simple_avg_ppm_all:.0f} would give base={int(simple_avg_base_value_all) if simple_avg_base_value_all else "N/A"}) '
+                        f'adjustment_multiplier={adjustment_multiplier:.3f} '
+                        f'total_adjustment_pct={feature_vector.total_adjustment*100:.1f}% '
+                        f'final_model_price={adjusted_model_price} '
+                        f'(all_data_model={simple_avg_model_price_all if simple_avg_model_price_all else "N/A"})'
+                    )
+                    logger.info(
+                        f'[PRICE_MODEL] asset={asset_id} calculation: {base_ppm:.0f} PPM × {asset_total_area} sqm = {int(base_value)} base × {adjustment_multiplier:.3f} = {adjusted_model_price} final'
+                    )
+                    logger.info(
+                        f'[PRICE_MODEL] asset={asset_id} adjustments breakdown: {adjustments_dict}'
+                    )
+                    metrics['adjustments'] = {
+                        'multiplier': adjustment_multiplier,
+                        'totalPct': round(feature_vector.total_adjustment * 100, 2),
+                        'featureVector': feature_vector.to_dict(),
+                    }
 
-                if asset_total_area and asset_total_area > 0:
-                    adjusted_ppm = base_ppm * adjustment_multiplier
-                    metrics['adjustedPricePerSqm'] = round(adjusted_ppm, 2)
+                    if asset_total_area and asset_total_area > 0:
+                        adjusted_ppm = base_ppm * adjustment_multiplier
+                        metrics['adjustedPricePerSqm'] = round(adjusted_ppm, 2)
 
-                # Calculate price gap if asset has a price
-                price_value = _safe_numeric(getattr(asset, 'price', None))
-                if price_value and adjusted_model_price > 0:
-                    metrics['priceGapPct'] = round(((price_value - adjusted_model_price) / adjusted_model_price) * 100, 2)
+                    # Calculate price gap if asset has a price
+                    price_value = _safe_numeric(getattr(asset, 'price', None))
+                    if price_value and adjusted_model_price > 0:
+                        metrics['priceGapPct'] = round(((price_value - adjusted_model_price) / adjusted_model_price) * 100, 2)
 
             # Store PPM statistics
             if base_ppm is not None:

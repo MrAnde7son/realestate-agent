@@ -93,7 +93,12 @@ def _fuzzy_ratio(a: str, b: str) -> float:
 
 
 def _contact_identifier(row: Dict[str, str]) -> str:
-    return row.get("CustomerID") or row.get("DisplayName") or row.get("PrimaryPhone") or "unknown"
+    return (
+        row.get("CustomerID")
+        or row.get("DisplayName")
+        or row.get("PrimaryPhone")
+        or "unknown"
+    )
 
 
 def _asset_identifier(row: Dict[str, str]) -> str:
@@ -101,7 +106,9 @@ def _asset_identifier(row: Dict[str, str]) -> str:
 
 
 @transaction.atomic
-def _create_or_update_contact(batch: ImportBatch, row: Dict[str, str], dry_run: bool, conflict_policy: str) -> Tuple[str, ImportResult, Optional[Contact]]:
+def _create_or_update_contact(
+    batch: ImportBatch, row: Dict[str, str], dry_run: bool, conflict_policy: str
+) -> Tuple[str, ImportResult, Optional[Contact]]:
     identifier = _contact_identifier(row)
     customer_id = row.get("CustomerID")
     name = row.get("DisplayName") or ""
@@ -112,7 +119,11 @@ def _create_or_update_contact(batch: ImportBatch, row: Dict[str, str], dry_run: 
     ]
     phones = [p for p in phones if p]
     if not customer_id or (not name and not phones):
-        return identifier, ImportResult(identifier, "customer", "error", "Missing required fields"), None
+        return (
+            identifier,
+            ImportResult(identifier, "customer", "error", "Missing required fields"),
+            None,
+        )
 
     email = row.get("Email") or ""
     tags = _split_tags(row.get("Tags"))
@@ -178,14 +189,20 @@ def _create_or_update_contact(batch: ImportBatch, row: Dict[str, str], dry_run: 
         contact.import_batch_id = batch.id
         contact.save()
     elif not created and existing_contact:
-        return identifier, ImportResult(identifier, "customer", "skipped", "Existing record"), contact
+        return (
+            identifier,
+            ImportResult(identifier, "customer", "skipped", "Existing record"),
+            contact,
+        )
 
     status = "inserted" if created else "updated"
     return identifier, ImportResult(identifier, "customer", status), contact
 
 
 @transaction.atomic
-def _create_or_update_asset(batch: ImportBatch, row: Dict[str, str], dry_run: bool, conflict_policy: str) -> Tuple[str, ImportResult, Optional[Asset]]:
+def _create_or_update_asset(
+    batch: ImportBatch, row: Dict[str, str], dry_run: bool, conflict_policy: str
+) -> Tuple[str, ImportResult, Optional[Asset]]:
     identifier = _asset_identifier(row)
     property_id = row.get("PropertyID")
     phones = [
@@ -194,9 +211,15 @@ def _create_or_update_asset(batch: ImportBatch, row: Dict[str, str], dry_run: bo
         row.get("Phone3"),
     ]
     phones = [p for p in phones if p]
-    has_address = any(row.get(key) for key in ["City", "Street", "Neighborhood", "NumHouse"])
+    has_address = any(
+        row.get(key) for key in ["City", "Street", "Neighborhood", "NumHouse"]
+    )
     if not property_id or (not has_address and not phones):
-        return identifier, ImportResult(identifier, "property", "error", "Missing required fields"), None
+        return (
+            identifier,
+            ImportResult(identifier, "property", "error", "Missing required fields"),
+            None,
+        )
 
     price = parse_price(row.get("Price"))
     normalized_type = row.get("Type")
@@ -210,13 +233,21 @@ def _create_or_update_asset(batch: ImportBatch, row: Dict[str, str], dry_run: bo
         "city": row.get("City") or "",
         "neighborhood": row.get("Neighborhood") or "",
         "street": row.get("Street") or "",
-        "number": int(row["NumHouse"]) if row.get("NumHouse") and row.get("NumHouse").isdigit() else None,
+        "number": int(row["NumHouse"])
+        if row.get("NumHouse") and row.get("NumHouse").isdigit()
+        else None,
         "block": row.get("Gush") or "",
         "price": price,
         "building_type": normalized_type,
-        "rooms": int(row["Room"]) if row.get("Room") and row.get("Room").isdigit() else None,
-        "floor": int(row["Floor"]) if row.get("Floor") and row.get("Floor").isdigit() else None,
-        "total_floors": int(row["Floors"]) if row.get("Floors") and row.get("Floors").isdigit() else None,
+        "rooms": int(row["Room"])
+        if row.get("Room") and row.get("Room").isdigit()
+        else None,
+        "floor": int(row["Floor"])
+        if row.get("Floor") and row.get("Floor").isdigit()
+        else None,
+        "total_floors": int(row["Floors"])
+        if row.get("Floors") and row.get("Floors").isdigit()
+        else None,
         "normalized_address": normalized_address or None,
         "meta": {},
         "created_by": batch.user,
@@ -289,13 +320,19 @@ def _create_or_update_asset(batch: ImportBatch, row: Dict[str, str], dry_run: bo
         asset.import_batch_id = batch.id
         asset.save()
     elif not created and existing_asset:
-        return identifier, ImportResult(identifier, "property", "skipped", "Existing record"), asset
+        return (
+            identifier,
+            ImportResult(identifier, "property", "skipped", "Existing record"),
+            asset,
+        )
 
     status = "inserted" if created else "updated"
     return identifier, ImportResult(identifier, "property", status), asset
 
 
-def _link_assets_to_contacts(batch: ImportBatch, contacts: List[Contact], assets: List[Asset], dry_run: bool) -> List[ImportResult]:
+def _link_assets_to_contacts(
+    batch: ImportBatch, contacts: List[Contact], assets: List[Asset], dry_run: bool
+) -> List[ImportResult]:
     results: List[ImportResult] = []
     if not contacts or not assets:
         return results
@@ -322,23 +359,46 @@ def _link_assets_to_contacts(batch: ImportBatch, contacts: List[Contact], assets
                 matched_contact = phone_to_contact[phone]
                 break
         if not matched_contact:
-            owner_name = " ".join(part for part in [
-                asset.meta.get("FirstName"),
-                asset.meta.get("LastName"),
-            ] if part) if asset.meta else None
+            owner_name = (
+                " ".join(
+                    part
+                    for part in [
+                        asset.meta.get("FirstName"),
+                        asset.meta.get("LastName"),
+                    ]
+                    if part
+                )
+                if asset.meta
+                else None
+            )
             for contact in contacts:
                 ratio = _fuzzy_ratio(contact.name or "", owner_name or "")
                 if ratio >= 0.9:
                     matched_contact = contact
                     break
         if matched_contact and not dry_run:
-            lead, created = Lead.objects.get_or_create(contact=matched_contact, asset=asset)
+            lead, created = Lead.objects.get_or_create(
+                contact=matched_contact, asset=asset
+            )
             if created:
-                results.append(ImportResult(str(asset.external_id or asset.pk), "link", "inserted", f"Linked to contact {matched_contact.id}"))
+                results.append(
+                    ImportResult(
+                        str(asset.external_id or asset.pk),
+                        "link",
+                        "inserted",
+                        f"Linked to contact {matched_contact.id}",
+                    )
+                )
     return results
 
 
-def process_csvs(batch: ImportBatch, mode: str, dry_run: bool, conflict_policy: str, enable_linking: bool):
+def process_csvs(
+    batch: ImportBatch,
+    mode: str,
+    dry_run: bool,
+    conflict_policy: str,
+    enable_linking: bool,
+):
     customer_rows = _read_csv(batch.customers_csv)
     property_rows = _read_csv(batch.properties_csv)
 
@@ -350,7 +410,9 @@ def process_csvs(batch: ImportBatch, mode: str, dry_run: bool, conflict_policy: 
     if mode == ImportBatch.MODE_CUSTOMERS or customer_rows:
         for row in customer_rows:
             summary["processed"] += 1
-            identifier, result, contact = _create_or_update_contact(batch, row, dry_run, conflict_policy)
+            identifier, result, contact = _create_or_update_contact(
+                batch, row, dry_run, conflict_policy
+            )
             row_results.append(result)
             if result.status == "error":
                 summary["errors"] += 1
@@ -366,7 +428,9 @@ def process_csvs(batch: ImportBatch, mode: str, dry_run: bool, conflict_policy: 
     if mode == ImportBatch.MODE_PROPERTIES or property_rows:
         for row in property_rows:
             summary["processed"] += 1
-            identifier, result, asset = _create_or_update_asset(batch, row, dry_run, conflict_policy)
+            identifier, result, asset = _create_or_update_asset(
+                batch, row, dry_run, conflict_policy
+            )
             row_results.append(result)
             if result.status == "error":
                 summary["errors"] += 1
@@ -380,7 +444,9 @@ def process_csvs(batch: ImportBatch, mode: str, dry_run: bool, conflict_policy: 
                 processed_assets.append(asset)
 
     if enable_linking and processed_contacts and processed_assets:
-        linking_results = _link_assets_to_contacts(batch, processed_contacts, processed_assets, dry_run)
+        linking_results = _link_assets_to_contacts(
+            batch, processed_contacts, processed_assets, dry_run
+        )
         row_results.extend(linking_results)
         summary["linked"] += len(linking_results)
 
@@ -389,22 +455,28 @@ def process_csvs(batch: ImportBatch, mode: str, dry_run: bool, conflict_policy: 
     writer = csv.DictWriter(csv_output, fieldnames=fieldnames)
     writer.writeheader()
     for item in row_results:
-        writer.writerow({
-            "mode": item.mode,
-            "identifier": item.identifier,
-            "status": item.status,
-            "message": item.message,
-        })
+        writer.writerow(
+            {
+                "mode": item.mode,
+                "identifier": item.identifier,
+                "status": item.status,
+                "message": item.message,
+            }
+        )
 
-    json_report = json.dumps([
-        {
-            "mode": item.mode,
-            "identifier": item.identifier,
-            "status": item.status,
-            "message": item.message,
-        }
-        for item in row_results
-    ], ensure_ascii=False, indent=2)
+    json_report = json.dumps(
+        [
+            {
+                "mode": item.mode,
+                "identifier": item.identifier,
+                "status": item.status,
+                "message": item.message,
+            }
+            for item in row_results
+        ],
+        ensure_ascii=False,
+        indent=2,
+    )
 
     return {
         "summary": dict(summary),

@@ -237,3 +237,25 @@ realestate-broker-ui/.env
 terraform.tfvars
 *.tfvars
 !terraform.tfvars.example
+
+# Redis dumps
+*.rdb
+dump.rdb
+
+# Cache directories
+deal_cache/
+**/deal_cache/
+
+# Temporary files
+tmp/
+**/tmp/
+
+# Cookie files
+cookies.txt
+*.cookies
+
+# Media files (user uploads) - exclude contents but keep structure
+media/*
+!media/.gitkeep
+**/media/*
+!**/media/.gitkeep

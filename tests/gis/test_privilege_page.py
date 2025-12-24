@@ -7,7 +7,9 @@ import requests
 from gis.gis_client import TelAvivGS
 
 
-def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):
+def _make_response(
+    status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None
+):
     r = requests.Response()
     r.status_code = status
     r._content = text.encode("utf-8")
@@ -32,7 +34,9 @@ def test_privilege_page(tmp_path):
             return _make_response(json_payload=parcels_payload)
         raise AssertionError(f"Unexpected POST URL: {url}")
 
-    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True, **kwargs):
+    def fake_get(
+        url, params=None, headers=None, timeout=30, allow_redirects=True, **kwargs
+    ):
         if "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
@@ -42,7 +46,10 @@ def test_privilege_page(tmp_path):
         raise AssertionError(f"Unexpected GET URL: {url}")
 
     save_dir = tmp_path / "privilege_pages"
-    with mock.patch("requests.post", side_effect=fake_post), mock.patch("requests.get", side_effect=fake_get):
+    with (
+        mock.patch("requests.post", side_effect=fake_post),
+        mock.patch("requests.get", side_effect=fake_get),
+    ):
         blocks = gs.get_blocks(x, y)
         parcels = gs.get_parcels(x, y)
         result = gs.get_building_privilege_page(x, y, save_dir=str(save_dir))

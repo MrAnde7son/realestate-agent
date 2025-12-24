@@ -1,4 +1,5 @@
 """Madlan data collector implementation."""
+
 import logging
 
 from typing import List, Optional
@@ -20,9 +21,7 @@ class MadlanCollector(BaseCollector):
         self.client = client or MadlanAPIClient()
 
     def collect(
-        self,
-        location: Optional[LocationQuery] = None,
-        **kwargs
+        self, location: Optional[LocationQuery] = None, **kwargs
     ) -> List[RealEstateListing]:
         """Collect Madlan listings for a given location.
 
@@ -39,7 +38,7 @@ class MadlanCollector(BaseCollector):
             - limit: Maximum number of results per deal type (default: 50)
         """
         query = ensure_location_query(location)
-        
+
         # Build address string from location query
         address_parts = []
         if query.street:
@@ -48,9 +47,9 @@ class MadlanCollector(BaseCollector):
             address_parts.append(str(query.house_number))
         if query.city:
             address_parts.append(query.city)
-        
+
         address = " ".join(address_parts)
-        
+
         if not address:
             return []
 
@@ -58,7 +57,7 @@ class MadlanCollector(BaseCollector):
         try:
             # Get deal_type from kwargs - default to "both" to fetch both types
             deal_type_str = kwargs.get("deal_type", "both")
-            
+
             # Determine which deal types to fetch
             if deal_type_str == "both":
                 deal_types = [DealType.UNIT_BUY, DealType.UNIT_RENT]
@@ -66,36 +65,36 @@ class MadlanCollector(BaseCollector):
                 deal_types = [DealType.UNIT_RENT]
             else:  # default to unitBuy
                 deal_types = [DealType.UNIT_BUY]
-            
+
             # Search for addresses matching the location
             addresses = self.client.get_addresses(address)
-            
+
             if not addresses:
                 logger.warning(f"No addresses found for: {address}")
                 return []
-            
+
             # Use the first matching address's docId
             first_address = addresses[0]
             location_doc_id = first_address.get("docId")
-            
+
             if not location_doc_id:
                 logger.warning(f"No docId found for address: {address}")
                 return []
-            
+
             # Extract search parameters from kwargs
             price_range = kwargs.get("price_range")
             rooms_range = kwargs.get("rooms_range")
             area_range = kwargs.get("area_range")
             floor_range = kwargs.get("floor_range")
             limit = kwargs.get("limit", 50)
-            
+
             # Fetch all listings for each deal type with pagination
             for deal_type in deal_types:
                 try:
                     all_fetched_listings = []
                     offset = 0
                     page = 0
-                    
+
                     fetched_listings = self.client.fetch_listings(
                         location_doc_id=location_doc_id,
                         deal_type=deal_type,
@@ -106,14 +105,15 @@ class MadlanCollector(BaseCollector):
                         limit=limit,
                         offset=offset,
                     )
-                        
-                                            
+
                     listings.extend(fetched_listings)
-                    logger.info(f"Fetched {len(fetched_listings)} total {deal_type.value} listings across {page} page(s)")
+                    logger.info(
+                        f"Fetched {len(fetched_listings)} total {deal_type.value} listings across {page} page(s)"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to fetch {deal_type.value} listings: {e}")
                     # Continue with other deal types even if one fails
-            
+
         except Exception as e:
             logger.error(f"Madlan collection failed: {e}")
 
@@ -123,4 +123,3 @@ class MadlanCollector(BaseCollector):
         """Validate the parameters for Madlan collection."""
         location = kwargs.get("location")
         return isinstance(location, LocationQuery) and not location.is_empty()
-

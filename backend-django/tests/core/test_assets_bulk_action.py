@@ -22,7 +22,9 @@ class DummyTask:
 @pytest.mark.django_db
 def test_bulk_action_requires_authentication():
     factory = APIRequestFactory()
-    asset = Asset.objects.create(scope_type="address", city="City", street="Main", number=1)
+    asset = Asset.objects.create(
+        scope_type="address", city="City", street="Main", number=1
+    )
 
     request = factory.post(
         "/api/assets/bulk-action",
@@ -38,7 +40,9 @@ def test_bulk_action_requires_authentication():
 @pytest.mark.django_db
 def test_bulk_delete_requires_admin():
     factory = APIRequestFactory()
-    asset = Asset.objects.create(scope_type="address", city="City", street="Main", number=2)
+    asset = Asset.objects.create(
+        scope_type="address", city="City", street="Main", number=2
+    )
 
     user = get_user_model().objects.create_user(
         email="user@example.com",
@@ -64,7 +68,9 @@ def test_bulk_delete_requires_admin():
 def test_bulk_delete_removes_assets_for_admin():
     factory = APIRequestFactory()
     assets = [
-        Asset.objects.create(scope_type="address", city="City", street="Main", number=idx)
+        Asset.objects.create(
+            scope_type="address", city="City", street="Main", number=idx
+        )
         for idx in (10, 11)
     ]
 
@@ -79,10 +85,12 @@ def test_bulk_delete_removes_assets_for_admin():
 
     request = factory.post(
         "/api/assets/bulk-action",
-        data=json.dumps({
-            "action": "delete",
-            "assetIds": [asset.id for asset in assets],
-        }),
+        data=json.dumps(
+            {
+                "action": "delete",
+                "assetIds": [asset.id for asset in assets],
+            }
+        ),
         content_type="application/json",
     )
     force_authenticate(request, user=admin_user)
@@ -121,10 +129,12 @@ def test_bulk_sync_triggers_pipeline(monkeypatch, settings):
 
     request = factory.post(
         "/api/assets/bulk-action",
-        data=json.dumps({
-            "action": "sync",
-            "assetIds": [asset.id for asset in assets],
-        }),
+        data=json.dumps(
+            {
+                "action": "sync",
+                "assetIds": [asset.id for asset in assets],
+            }
+        ),
         content_type="application/json",
     )
     force_authenticate(request, user=user)
@@ -143,7 +153,9 @@ def test_bulk_sync_triggers_pipeline(monkeypatch, settings):
 def test_bulk_report_generation(monkeypatch):
     factory = APIRequestFactory()
     assets = [
-        Asset.objects.create(scope_type="address", city="City", street="Report", number=idx)
+        Asset.objects.create(
+            scope_type="address", city="City", street="Report", number=idx
+        )
         for idx in (30, 31)
     ]
 
@@ -174,10 +186,12 @@ def test_bulk_report_generation(monkeypatch):
 
     request = factory.post(
         "/api/assets/bulk-action",
-        data=json.dumps({
-            "action": "create_report",
-            "assetIds": [asset.id for asset in assets],
-        }),
+        data=json.dumps(
+            {
+                "action": "create_report",
+                "assetIds": [asset.id for asset in assets],
+            }
+        ),
         content_type="application/json",
     )
     force_authenticate(request, user=user)
@@ -204,10 +218,12 @@ def test_bulk_watch_adds_entries():
 
     request = factory.post(
         "/api/assets/bulk-action",
-        data=json.dumps({
-            "action": "watch",
-            "assetIds": [asset.id for asset in assets],
-        }),
+        data=json.dumps(
+            {
+                "action": "watch",
+                "assetIds": [asset.id for asset in assets],
+            }
+        ),
         content_type="application/json",
     )
     force_authenticate(request, user=user)
@@ -236,10 +252,12 @@ def test_bulk_unwatch_removes_entries():
 
     request = factory.post(
         "/api/assets/bulk-action",
-        data=json.dumps({
-            "action": "unwatch",
-            "assetIds": [asset.id for asset in assets],
-        }),
+        data=json.dumps(
+            {
+                "action": "unwatch",
+                "assetIds": [asset.id for asset in assets],
+            }
+        ),
         content_type="application/json",
     )
     force_authenticate(request, user=user)
@@ -249,4 +267,3 @@ def test_bulk_unwatch_removes_entries():
     assert response.status_code == status.HTTP_200_OK
     assert AssetWatchlistEntry.objects.filter(user=user).count() == 0
     assert all(not result["watched"] for result in response.data["results"])
-

@@ -9,7 +9,8 @@ def add_lead_task_columns(apps, schema_editor):
 
     with connection.cursor() as cursor:
         existing_columns = {
-            column.name for column in introspection.get_table_description(cursor, "crm_lead")
+            column.name
+            for column in introspection.get_table_description(cursor, "crm_lead")
         }
 
         if "completed_tasks_count" not in existing_columns:
@@ -32,10 +33,15 @@ def remove_lead_task_columns(apps, schema_editor):
 
     with connection.cursor() as cursor:
         existing_columns = {
-            column.name for column in introspection.get_table_description(cursor, "crm_lead")
+            column.name
+            for column in introspection.get_table_description(cursor, "crm_lead")
         }
 
-        for column in ("completed_tasks_count", "pending_tasks_count", "total_tasks_count"):
+        for column in (
+            "completed_tasks_count",
+            "pending_tasks_count",
+            "total_tasks_count",
+        ):
             if column in existing_columns:
                 cursor.execute(f"ALTER TABLE crm_lead DROP COLUMN {column}")
 
@@ -43,12 +49,12 @@ def remove_lead_task_columns(apps, schema_editor):
 def recompute_total_tasks(apps, schema_editor):
     Lead = apps.get_model("crm", "Lead")
     Lead.objects.all().update(
-        total_tasks_count=models.F("completed_tasks_count") + models.F("pending_tasks_count")
+        total_tasks_count=models.F("completed_tasks_count")
+        + models.F("pending_tasks_count")
     )
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("crm", "0007_contact_external_id_contact_external_source_and_more"),
     ]

@@ -12,7 +12,7 @@ from .exceptions import APIException, AuthenticationError, ValidationError
 
 __all__ = [
     "RealEstateAPIClient",
-    "APIException", 
+    "APIException",
     "AuthenticationError",
-    "ValidationError"
+    "ValidationError",
 ]

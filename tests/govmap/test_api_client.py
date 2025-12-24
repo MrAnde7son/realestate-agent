@@ -5,7 +5,6 @@ from unittest import mock
 
 import requests
 
-import pytest
 
 from govmap.api_client import (
     GovMapClient,
@@ -15,7 +14,9 @@ from govmap.api_client import (
 )
 
 
-def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):
+def _make_response(
+    status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None
+):
     r = requests.Response()
     r.status_code = status
     r._content = text.encode("utf-8")
@@ -36,11 +37,11 @@ def test_autocomplete_success():
                 "originalText": "test query",
                 "score": 100.0,
                 "data": {},
-                "shape": "POINT(3877998.167083787 3778264.858683848)"
+                "shape": "POINT(3877998.167083787 3778264.858683848)",
             }
         ],
         "resultsCount": 1,
-        "aggregations": []
+        "aggregations": [],
     }
 
     def fake_post(url, json=None, headers=None, timeout=30, verify=False):
@@ -48,7 +49,7 @@ def test_autocomplete_success():
         assert json["searchText"] == "test query"
         return _make_response(json_payload=payload)
 
-    with mock.patch('requests.Session.post', side_effect=fake_post):
+    with mock.patch("requests.Session.post", side_effect=fake_post):
         result = client.autocomplete("test query")
         assert result == payload
 
@@ -60,7 +61,7 @@ def test_autocomplete_error():
     def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         return _make_response(status=500, text="Server Error")
 
-    with mock.patch('requests.Session.post', side_effect=fake_post):
+    with mock.patch("requests.Session.post", side_effect=fake_post):
         try:
             client.autocomplete("test query")
             assert False, "Expected GovMapError"
@@ -93,7 +94,7 @@ def test_coordinate_conversion_roundtrip():
     x_original, y_original = 184391.15, 668715.93
     lon, lat = itm_to_wgs84(x_original, y_original)
     x_back, y_back = wgs84_to_itm(lon, lat)
-    
+
     # Should be within 1 meter
     assert abs(x_back - x_original) < 1.0
     assert abs(y_back - y_original) < 1.0
@@ -102,7 +103,10 @@ def test_coordinate_conversion_roundtrip():
 def test_client_initialization():
     """Test client initialization with default parameters"""
     client = GovMapClient()
-    assert client.autocomplete_url == "https://www.govmap.gov.il/api/search-service/autocomplete"
+    assert (
+        client.autocomplete_url
+        == "https://www.govmap.gov.il/api/search-service/autocomplete"
+    )
     assert client.timeout == 30
 
 
@@ -124,4 +128,3 @@ def test_extract_block_parcel_invalid():
     assert GovMapClient.extract_block_parcel({}) is None
     assert GovMapClient.extract_block_parcel({"data": []}) is None
     assert GovMapClient.extract_block_parcel({"data": [{"Values": ["abc"]}]}) is None
-

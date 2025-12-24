@@ -170,6 +170,7 @@ def isolate_pipeline(monkeypatch):
 
 class FakeQuery:
     """Mock query object that supports filter_by().first() pattern."""
+
     def __init__(self, session: "FakeSession", model_class: Any):
         self._session = session
         self._model_class = model_class
@@ -223,17 +224,21 @@ class FakeSession:
     def query(self, model_class: Any):
         """Return a mock query object for the given model class."""
         return FakeQuery(self, model_class)
+
+
 class StubGISCollector:
     def __init__(self, payload: Dict[str, Any]):
         self.payload = payload
         self.calls: List[Dict[str, Any]] = []
 
     def collect(self, location=None, **kwargs):
-        self.calls.append({
-            "block": getattr(location, "block", None),
-            "parcel": getattr(location, "parcel", None),
-            "street": getattr(location, "street", None),
-        })
+        self.calls.append(
+            {
+                "block": getattr(location, "block", None),
+                "parcel": getattr(location, "parcel", None),
+                "street": getattr(location, "street", None),
+            }
+        )
         return dict(self.payload)
 
 
@@ -243,11 +248,13 @@ class StubGovMapCollector:
         self.calls: List[Dict[str, Any]] = []
 
     def collect(self, location=None, block=None, parcel=None, **kwargs):
-        self.calls.append({
-            "block": block,
-            "parcel": parcel,
-            "street": getattr(location, "street", None),
-        })
+        self.calls.append(
+            {
+                "block": block,
+                "parcel": parcel,
+                "street": getattr(location, "street", None),
+            }
+        )
         return dict(self.payload)
 
 
@@ -297,11 +304,13 @@ class StubMadlanCollector:
 
     def collect(self, location: Optional[LocationQuery] = None, **kwargs):
         location = location or LocationQuery()
-        self.calls.append({
-            "street": getattr(location, "street", None),
-            "house_number": getattr(location, "house_number", None),
-            "city": getattr(location, "city", None),
-        })
+        self.calls.append(
+            {
+                "street": getattr(location, "street", None),
+                "house_number": getattr(location, "house_number", None),
+                "city": getattr(location, "city", None),
+            }
+        )
         return list(self.listings)
 
 
@@ -314,18 +323,14 @@ def _build_pipeline(session: FakeSession, listings: List[FakeListing]):
             "autocomplete": {"results": [{"id": 1}]},
             "parcel": {"properties": {"gushnumber": "6336", "parcelnumber": "7"}},
         },
-        "addresses": [
-            {"street": "רוזוב", "house_number": 14, "city": "תל אביב"}
-        ],
+        "addresses": [{"street": "רוזוב", "house_number": 14, "city": "תל אביב"}],
     }
     gis_payload = {
         "x": 180010,
         "y": 665005,
         "block": "6336",
         "parcel": "7",
-        "addresses": [
-            {"street": "רוזוב", "house_number": 14, "city": "תל אביב"}
-        ],
+        "addresses": [{"street": "רוזוב", "house_number": 14, "city": "תל אביב"}],
     }
     gov_payload = {
         "decisive": [{"plan": "תכנית"}],
@@ -350,19 +355,22 @@ def _build_pipeline(session: FakeSession, listings: List[FakeListing]):
 
 def test_pipeline_combines_collector_results_with_stubs():
     session = FakeSession()
-    listings = [FakeListing(title="Sunny flat", address="רוזוב 14 תל אביב", listing_id="TLV-1")]
+    listings = [
+        FakeListing(title="Sunny flat", address="רוזוב 14 תל אביב", listing_id="TLV-1")
+    ]
     pipeline = _build_pipeline(session, listings)
 
-    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block=6336, parcel=7)
+    location = LocationQuery(
+        city="תל אביב", street="רוזוב", house_number=14, block=6336, parcel=7
+    )
     results = pipeline.run(location=location)
 
     # Listing plus enrichment payloads from the collectors
-    sources = [
-        r["source"] if isinstance(r, dict) else "yad2"
-        for r in results
-    ]
+    sources = [r["source"] if isinstance(r, dict) else "yad2" for r in results]
     assert "yad2" in sources
-    assert {"govmap", "gis", "decisive", "transactions", "gov_rami", "mavat"}.issubset(set(sources))
+    assert {"govmap", "gis", "decisive", "transactions", "gov_rami", "mavat"}.issubset(
+        set(sources)
+    )
     assert session.committed is True
 
 

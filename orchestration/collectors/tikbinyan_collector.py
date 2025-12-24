@@ -26,22 +26,20 @@ class TikbinyanCollector(BaseCollector):
         self.client = client
 
     def collect(
-        self,
-        location: Optional[LocationQuery] = None,
-        **kwargs
+        self, location: Optional[LocationQuery] = None, **kwargs
     ) -> List[Dict[str, Any]]:
         """Collect building info and permits from tikbinyan portal.
-        
+
         This method ensures comprehensive data collection by:
         - Collecting all building documents (permits, plans, requests, drawings)
         - Trying multiple search methods when possible (block/parcel, address)
         - Merging and deduplicating results from different sources
         - Collecting from all available endpoints (GetGushFile, GetUnifiedFile, building pages)
-        
+
         Args:
             location: Location query with block, parcel,
             **kwargs: Additional parameters (address, etc.)
-            
+
         Returns:
             List of building info and permit documents with comprehensive data including:
             - Building permits (היתר בנייה)
@@ -51,11 +49,11 @@ class TikbinyanCollector(BaseCollector):
             - All other relevant building documents
         """
         query = ensure_location_query(location)
-        
+
         # Try block/parcel
         block = query.block
         parcel = query.parcel
-        
+
         # Try address
         address = kwargs.get("address")
         if not address and query.street:
@@ -63,55 +61,57 @@ class TikbinyanCollector(BaseCollector):
             if query.house_number:
                 address_parts.append(str(query.house_number))
             address = " ".join(address_parts)
-        
+
         all_documents = []
         seen_doc_ids = set()
-        
+
         try:
             documents = self.client.get_building_info(
                 block=str(block) if block else None,
                 parcel=str(parcel) if parcel else None,
                 address=address,
             )
-            
+
             # Deduplicate documents by external_id, request_num, or permission_num
             for doc in documents:
                 doc_id = (
-                    doc.get("external_id") 
-                    or doc.get("request_num") 
+                    doc.get("external_id")
+                    or doc.get("request_num")
                     or doc.get("permission_num")
                     or f"{doc.get('building_id')}_{doc.get('title')}_{doc.get('document_date')}"
                 )
                 if doc_id and doc_id not in seen_doc_ids:
                     seen_doc_ids.add(doc_id)
                     all_documents.append(doc)
-            
+
             # Log collection summary with document type breakdown
             if all_documents:
                 doc_types = {}
                 doc_categories = {}
                 building_ids = set()
-                
+
                 for doc in all_documents:
                     # Track document types
                     doc_type = doc.get("document_type", "other")
                     doc_category = doc.get("document_category", "document")
                     key = f"{doc_category}:{doc_type}"
                     doc_types[key] = doc_types.get(key, 0) + 1
-                    doc_categories[doc_category] = doc_categories.get(doc_category, 0) + 1
-                    
+                    doc_categories[doc_category] = (
+                        doc_categories.get(doc_category, 0) + 1
+                    )
+
                     # Track building IDs
                     bid = doc.get("building_id")
                     if bid:
                         building_ids.add(bid)
-                
+
                 logger.info(
                     "Collected %d documents from tikbinyan for %d building(s): %s. "
                     "Categories: %s",
                     len(all_documents),
                     len(building_ids),
                     ", ".join(f"{k}({v})" for k, v in sorted(doc_types.items())),
-                    ", ".join(f"{k}({v})" for k, v in sorted(doc_categories.items()))
+                    ", ".join(f"{k}({v})" for k, v in sorted(doc_categories.items())),
                 )
             else:
                 logger.warning(
@@ -120,9 +120,9 @@ class TikbinyanCollector(BaseCollector):
                     parcel,
                     address,
                 )
-            
+
             return all_documents
-            
+
         except Exception:
             logger.exception(
                 "Failed to fetch tikbinyan data for block=%s parcel=%s address=%s",
@@ -137,7 +137,7 @@ class TikbinyanCollector(BaseCollector):
         location = ensure_location_query(kwargs.get("location"))
         block = location.block
         address = kwargs.get("address") or location.street
-        
+
         return bool(block or address)
 
 
@@ -173,6 +173,7 @@ __all__ = [
 if __name__ == "__main__":
     # Example usage
     collector = BatYamTikbinyanCollector()
-    result = collector.collect(location=LocationQuery(street="הצפירה", house_number=8, city="בת ים"))
+    result = collector.collect(
+        location=LocationQuery(street="הצפירה", house_number=8, city="בת ים")
+    )
     print(result)
-

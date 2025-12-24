@@ -36,7 +36,9 @@ try:  # pragma: no cover - best effort import
         Permit,
     )
 except Exception as import_exc:  # pragma: no cover - best effort fallback
-    logging.getLogger(__name__).warning("Failed to import Django models: %s", import_exc)
+    logging.getLogger(__name__).warning(
+        "Failed to import Django models: %s", import_exc
+    )
 
     class AlertRule:  # type: ignore
         objects = []
@@ -56,7 +58,9 @@ def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
         dt = datetime.fromtimestamp(timestamp_seconds)
         return dt.date()
     except (ValueError, OSError) as error:
-        logger.warning("Failed to convert timestamp %s to date: %s", timestamp_ms, error)
+        logger.warning(
+            "Failed to convert timestamp %s to date: %s", timestamp_ms, error
+        )
         return None
 
 
@@ -171,11 +175,7 @@ def _upsert_plan(
         return None, False
 
     normalized_number = str(plan_number)
-    plan_obj = (
-        Plan.objects.filter(plan_number=normalized_number)
-        .order_by("id")
-        .first()
-    )
+    plan_obj = Plan.objects.filter(plan_number=normalized_number).order_by("id").first()
     created = False
     update_payload = dict(payload)
 
@@ -256,9 +256,7 @@ def _upsert_permit(
 
     normalized_number = str(permit_number)
     permit_obj = (
-        Permit.objects.filter(permit_number=normalized_number)
-        .order_by("id")
-        .first()
+        Permit.objects.filter(permit_number=normalized_number).order_by("id").first()
     )
     created = False
     update_payload = dict(payload)
@@ -288,7 +286,9 @@ def _upsert_permit(
                 permit_obj.permission_date = extracted
                 permit_obj.save(update_fields=["permission_date"])
             except Exception:
-                logger.debug("Failed to persist permit permission_date for %s", permit_number)
+                logger.debug(
+                    "Failed to persist permit permission_date for %s", permit_number
+                )
 
     if asset is not None and permit_obj is not None:
         _ensure_permit_link(permit_obj, asset)

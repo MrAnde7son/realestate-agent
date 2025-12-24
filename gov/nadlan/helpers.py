@@ -5,20 +5,36 @@ ALG = "HS256"
 DOMAIN = "www.nadlan.gov.il"
 GF = 120  # seconds
 
-def _rev(s: str) -> str: return s[::-1]
+
+def _rev(s: str) -> str:
+    return s[::-1]
+
 
 def make_sk(ttl=GF) -> str:
-    return jwt.encode({"domain": DOMAIN, "exp": int(time.time()) + ttl}, SECRET, algorithm=ALG)
+    return jwt.encode(
+        {"domain": DOMAIN, "exp": int(time.time()) + ttl}, SECRET, algorithm=ALG
+    )
+
 
 def sign_outer(clear: dict, ttl=GF) -> dict:
     body = {**clear, "domain": DOMAIN, "exp": int(time.time()) + ttl}
     compact = jwt.encode(body, SECRET, algorithm=ALG, headers={"alg": ALG})
     return {"##": _rev(compact)}
 
+
 def unwrap_any(resp_obj):
-    if isinstance(resp_obj, dict) and "__" in resp_obj and isinstance(resp_obj["__"], str):
+    if (
+        isinstance(resp_obj, dict)
+        and "__" in resp_obj
+        and isinstance(resp_obj["__"], str)
+    ):
         compact = _rev(resp_obj["__"])
-        return jwt.decode(compact, SECRET, algorithms=[ALG], options={"verify_aud": False, "verify_iss": False})
+        return jwt.decode(
+            compact,
+            SECRET,
+            algorithms=[ALG],
+            options={"verify_aud": False, "verify_iss": False},
+        )
     if isinstance(resp_obj, dict) and "body" in resp_obj:
         try:
             inner = json.loads(resp_obj["body"])
@@ -26,6 +42,7 @@ def unwrap_any(resp_obj):
         except Exception:
             return resp_obj
     return resp_obj
+
 
 def post_deals_neighborhood(neigh_id: str, session=None, max_retries=3):
     s = session or requests.Session()
@@ -69,9 +86,12 @@ def post_deals_neighborhood(neigh_id: str, session=None, max_retries=3):
             backoff *= 1.6
             continue
         # 400 base_name invalid => key typo; but you’ve set neighborhoodId, so raise
-        raise RuntimeError(f"HTTP {status} / JSON {j.get('statusCode')}: {str(j)[:300]}")
+        raise RuntimeError(
+            f"HTTP {status} / JSON {j.get('statusCode')}: {str(j)[:300]}"
+        )
 
     raise RuntimeError("Gave up after 405 retries")
+
 
 if __name__ == "__main__":
     print(post_deals_neighborhood("65210036"))

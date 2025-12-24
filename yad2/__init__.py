@@ -30,7 +30,7 @@ __email__ = "support@yad2scraper.com"
 __all__ = [
     # Core
     "Yad2SearchParameters",
-    "Yad2ParameterReference", 
+    "Yad2ParameterReference",
     "RealEstateListing",
     "URLUtils",
     # Scrapers
@@ -43,7 +43,7 @@ __all__ = [
     # Smart Search (new)
     "Yad2SearchHelper",
     "search_houses_in_neighborhood",
-    "search_apartments_in_city", 
+    "search_apartments_in_city",
     "search_property_by_type_and_location",
     # Configuration (new)
     "get_property_type_code",
@@ -51,4 +51,4 @@ __all__ = [
     "get_neighborhood_code",
     "get_search_preset",
     "validate_search_params",
-] 
+]

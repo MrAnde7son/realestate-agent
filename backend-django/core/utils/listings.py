@@ -129,7 +129,12 @@ def _listing_sort_key(listing: Any) -> float:
         return float("-inf")
     try:
         return fetched_at.timestamp()
-    except (AttributeError, OverflowError, OSError, ValueError):  # pragma: no cover - fallback safety
+    except (
+        AttributeError,
+        OverflowError,
+        OSError,
+        ValueError,
+    ):  # pragma: no cover - fallback safety
         return float("-inf")
 
 
@@ -138,11 +143,21 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
 
     raw = listing_obj.raw or {}
     price = listing_obj.price if listing_obj.price is not None else raw.get("price")
-    area = listing_obj.area if listing_obj.area is not None else raw.get("area") or raw.get("size")
-    rooms_value = listing_obj.rooms if listing_obj.rooms is not None else raw.get("rooms")
+    area = (
+        listing_obj.area
+        if listing_obj.area is not None
+        else raw.get("area") or raw.get("size")
+    )
+    rooms_value = (
+        listing_obj.rooms if listing_obj.rooms is not None else raw.get("rooms")
+    )
 
-    listing_type = listing_obj.listing_type or raw.get("listing_type") or raw.get("listingType")
-    ad_type = getattr(listing_obj, "ad_type", None) or raw.get("ad_type") or raw.get("adType")
+    listing_type = (
+        listing_obj.listing_type or raw.get("listing_type") or raw.get("listingType")
+    )
+    ad_type = (
+        getattr(listing_obj, "ad_type", None) or raw.get("ad_type") or raw.get("adType")
+    )
     contact_info_raw = (
         raw.get("contact_info")
         or raw.get("contactInfo")
@@ -192,7 +207,9 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
     normalized_contact_info = {
         "name": contact_name or contact_info.get("name") or contact_info.get("agent"),
         "agent": contact_info.get("agent") or contact_name,
-        "phone": contact_phone or contact_info.get("phone") or contact_info.get("brokerPhone"),
+        "phone": contact_phone
+        or contact_info.get("phone")
+        or contact_info.get("brokerPhone"),
         "brokerPhone": contact_info.get("brokerPhone"),
         "email": contact_info.get("email"),
     }
@@ -201,26 +218,42 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
     features_obj = raw.get("features", {})
     if not isinstance(features_obj, dict):
         features_obj = {}
-    
+
     meta_obj = raw.get("meta", {})
     if not isinstance(meta_obj, dict):
         meta_obj = {}
-    
+
     # Extract shelter and accessibility from features
-    shelter = features_obj.get("shelter") or features_obj.get("hasShelter") or meta_obj.get("shelter")
-    accessibility = features_obj.get("accessibility") or features_obj.get("hasAccessibility") or meta_obj.get("accessibility")
-    
+    shelter = (
+        features_obj.get("shelter")
+        or features_obj.get("hasShelter")
+        or meta_obj.get("shelter")
+    )
+    accessibility = (
+        features_obj.get("accessibility")
+        or features_obj.get("hasAccessibility")
+        or meta_obj.get("accessibility")
+    )
+
     # Extract Madlan-specific fields
     building_class = meta_obj.get("buildingClass") or meta_obj.get("building_class")
-    general_condition = meta_obj.get("generalCondition") or meta_obj.get("general_condition")
-    
-    investors_data = meta_obj.get("investorsData") or meta_obj.get("investors_data") or {}
+    general_condition = meta_obj.get("generalCondition") or meta_obj.get(
+        "general_condition"
+    )
+
+    investors_data = (
+        meta_obj.get("investorsData") or meta_obj.get("investors_data") or {}
+    )
     if not isinstance(investors_data, dict):
         investors_data = {}
     investment_yield = parse_float(investors_data.get("yield"))
-    approximate_rent = parse_int(investors_data.get("approximateRent") or investors_data.get("approximate_rent"))
-    commute_time = parse_int(meta_obj.get("commuteTime") or meta_obj.get("commute_time"))
-    
+    approximate_rent = parse_int(
+        investors_data.get("approximateRent") or investors_data.get("approximate_rent")
+    )
+    commute_time = parse_int(
+        meta_obj.get("commuteTime") or meta_obj.get("commute_time")
+    )
+
     # Extract tags
     tags = meta_obj.get("tags", {})
     if not isinstance(tags, dict):
@@ -232,7 +265,7 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
     tag_park_access = tags.get("parkAccess") or tags.get("park_access")
     tag_quiet_street = tags.get("quietStreet") or tags.get("quiet_street")
     tag_commute = tags.get("commute")
-    
+
     # Extract exclusivity - check both Madlan and Yad2 sources
     poc = meta_obj.get("poc", {})
     if not isinstance(poc, dict):
@@ -241,16 +274,16 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
     if not isinstance(exclusivity, dict):
         exclusivity = {}
     madlan_exclusive = exclusivity.get("exclusive")
-    
+
     # Yad2 exclusivity: check inProperty.isAssetExclusive
     in_property = raw.get("inProperty", {})
     if not isinstance(in_property, dict):
         in_property = {}
     yad2_exclusive = in_property.get("isAssetExclusive")
-    
+
     # Prefer Yad2 exclusive flag, fallback to Madlan
     exclusive = yad2_exclusive if yad2_exclusive is not None else madlan_exclusive
-    
+
     # Extract previous price and calculate priceDropped
     previous_price = parse_int(
         raw.get("previous_price")
@@ -258,16 +291,12 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         or raw.get("priceBeforeTag")
         or raw.get("price_before_tag")
     )
-    tender_price = parse_int(
-        raw.get("tender_price") or raw.get("tenderPrice")
-    )
+    tender_price = parse_int(raw.get("tender_price") or raw.get("tenderPrice"))
     price_label = raw.get("price_label") or raw.get("priceLabel")
     price_dropped = (
-        previous_price is not None
-        and price is not None
-        and previous_price > price
+        previous_price is not None and price is not None and previous_price > price
     )
-    
+
     # Calculate publishedDays if date_posted is available
     published_days = None
     if date_posted:
@@ -291,7 +320,9 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         "address": listing_obj.address or raw.get("address") or "",
         "rooms": parse_float(rooms_value),
         "rooms_display": format_rooms_value(rooms_value),
-        "roomsDisplay": format_rooms_value(rooms_value),  # Also include camelCase for frontend compatibility
+        "roomsDisplay": format_rooms_value(
+            rooms_value
+        ),  # Also include camelCase for frontend compatibility
         "size": parse_float(area),
         "property_type": raw.get("property_type") or raw.get("propertyType"),
         "url": listing_obj.url or raw.get("url"),
@@ -332,17 +363,23 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         "publishedDays": published_days,
         "tagBestSchool": bool(tag_best_school) if tag_best_school is not None else None,
         "tagSafety": bool(tag_safety) if tag_safety is not None else None,
-        "tagFamilyFriendly": bool(tag_family_friendly) if tag_family_friendly is not None else None,
+        "tagFamilyFriendly": bool(tag_family_friendly)
+        if tag_family_friendly is not None
+        else None,
         "tagLightRail": bool(tag_light_rail) if tag_light_rail is not None else None,
         "tagParkAccess": bool(tag_park_access) if tag_park_access is not None else None,
-        "tagQuietStreet": bool(tag_quiet_street) if tag_quiet_street is not None else None,
+        "tagQuietStreet": bool(tag_quiet_street)
+        if tag_quiet_street is not None
+        else None,
         "tagCommute": bool(tag_commute) if tag_commute is not None else None,
         "exclusive": bool(exclusive) if exclusive is not None else None,
     }
     return normalized
 
 
-def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[str, Any]:
+def normalize_listing_from_meta(
+    meta_listing: Dict[str, Any], idx: int
+) -> Dict[str, Any]:
     """Normalize a legacy metadata listing structure."""
 
     source = meta_listing.get("source") or "yad2"
@@ -373,14 +410,24 @@ def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[
 
     listing_type = meta_listing.get("listing_type") or meta_listing.get("listingType")
     ad_type = meta_listing.get("ad_type") or meta_listing.get("adType")
-    photos = _merge_photos(meta_listing.get("photos", []), meta_listing.get("images", []))
-    video_url = meta_listing.get("video_url") or meta_listing.get("videoUrl") or meta_listing.get("video")
-    recent_deal = bool(meta_listing.get("recent_deal") or meta_listing.get("recentDeal"))
+    photos = _merge_photos(
+        meta_listing.get("photos", []), meta_listing.get("images", [])
+    )
+    video_url = (
+        meta_listing.get("video_url")
+        or meta_listing.get("videoUrl")
+        or meta_listing.get("video")
+    )
+    recent_deal = bool(
+        meta_listing.get("recent_deal") or meta_listing.get("recentDeal")
+    )
 
     normalized_contact_info = {
         "name": contact_name or contact_info.get("name") or contact_info.get("agent"),
         "agent": contact_info.get("agent") or contact_name,
-        "phone": contact_phone or contact_info.get("phone") or contact_info.get("brokerPhone"),
+        "phone": contact_phone
+        or contact_info.get("phone")
+        or contact_info.get("brokerPhone"),
         "brokerPhone": contact_info.get("brokerPhone"),
         "email": contact_info.get("email"),
     }
@@ -397,7 +444,8 @@ def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[
         "size": parse_float(area),
         "property_type": meta_listing.get("property_type"),
         "url": meta_listing.get("url"),
-        "date_posted": meta_listing.get("date_posted") or meta_listing.get("scraped_at"),
+        "date_posted": meta_listing.get("date_posted")
+        or meta_listing.get("scraped_at"),
         "images": photos,
         "photos": photos,
         "description": meta_listing.get("description") or "",

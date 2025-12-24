@@ -33,7 +33,10 @@ def test_assets_post_rate_limited(monkeypatch):
 
     # Mock find_existing_asset to return None (no existing asset found)
     from core.services import asset_deduplication
-    monkeypatch.setattr(asset_deduplication, "find_existing_asset", lambda *args, **kwargs: None)
+
+    monkeypatch.setattr(
+        asset_deduplication, "find_existing_asset", lambda *args, **kwargs: None
+    )
 
     counter = {"value": 0}
 

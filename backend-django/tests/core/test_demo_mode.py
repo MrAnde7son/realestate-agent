@@ -1,4 +1,3 @@
-import json
 from datetime import timedelta
 
 import pytest
@@ -52,7 +51,9 @@ def test_cleanup_demo_data_removes_old_entries():
         password="x",
         is_demo=True,
     )
-    asset = Asset.objects.create(scope_type="address", city="A", is_demo=True, status="done")
+    asset = Asset.objects.create(
+        scope_type="address", city="A", is_demo=True, status="done"
+    )
     old = timezone.now() - timedelta(days=2)
     User.objects.filter(id=user.id).update(created_at=old)
     Asset.objects.filter(id=asset.id).update(created_at=old)

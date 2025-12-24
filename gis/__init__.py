@@ -7,5 +7,5 @@ from .parse_zchuyot import parse_zchuyot
 
 __all__ = [
     "TelAvivGS",
-    "parse_zchuyot", 
+    "parse_zchuyot",
 ]

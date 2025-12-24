@@ -69,7 +69,9 @@ class AssetsPaginationTests(TestCase):
         total_assets = Asset.objects.count()
         expected_total_pages = -(-total_assets // pagination["page_size"])
         self.assertEqual(pagination["total_pages"], expected_total_pages)
-        self.assertEqual(pagination["has_next"], pagination["page"] < expected_total_pages)
+        self.assertEqual(
+            pagination["has_next"], pagination["page"] < expected_total_pages
+        )
         self.assertTrue(pagination["has_previous"])
 
     def test_filters_and_metadata(self):
@@ -97,8 +99,12 @@ class AssetsPaginationTests(TestCase):
         self.assertIn("CityA", filters.get("cities", []))
         self.assertIn("CityB", filters.get("cities", []))
         status_counts = filters.get("statusCounts", {})
-        self.assertEqual(status_counts.get("done"), Asset.objects.filter(status="done").count())
-        self.assertEqual(status_counts.get("pending"), Asset.objects.filter(status="pending").count())
+        self.assertEqual(
+            status_counts.get("done"), Asset.objects.filter(status="done").count()
+        )
+        self.assertEqual(
+            status_counts.get("pending"), Asset.objects.filter(status="pending").count()
+        )
 
     def test_commercial_filter(self):
         response = self.client.get(
@@ -112,8 +118,7 @@ class AssetsPaginationTests(TestCase):
         self.assertEqual(len(rows), 1)
         commercial_row = rows[0]
         self.assertTrue(
-            commercial_row.get("isCommercial")
-            or commercial_row.get("is_commercial")
+            commercial_row.get("isCommercial") or commercial_row.get("is_commercial")
         )
 
         residential_response = self.client.get(
@@ -123,9 +128,7 @@ class AssetsPaginationTests(TestCase):
         self.assertEqual(residential_response.status_code, 200)
         residential_rows = residential_response.json()["rows"]
         self.assertTrue(residential_rows)
-        self.assertTrue(
-            all(not row.get("isCommercial") for row in residential_rows)
-        )
+        self.assertTrue(all(not row.get("isCommercial") for row in residential_rows))
 
     def test_page_size_capped_to_maximum(self):
         response = self.client.get("/api/assets", {"pageSize": MAX_ASSET_PAGE_SIZE * 5})
@@ -153,7 +156,11 @@ class AssetsMetadataTests(TestCase):
             city="Meta City",
             status="done",
             meta={
-                "zoning": {"value": "residential", "source": "gov", "fetched_at": "2024-01-01T00:00:00Z"},
+                "zoning": {
+                    "value": "residential",
+                    "source": "gov",
+                    "fetched_at": "2024-01-01T00:00:00Z",
+                },
                 "listing_prices": {"sale": 1234567},
             },
         )

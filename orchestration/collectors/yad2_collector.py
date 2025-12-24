@@ -1,4 +1,5 @@
 """Yad2 data collector implementation."""
+
 import logging
 
 from typing import List, Optional
@@ -17,11 +18,8 @@ class Yad2Collector(BaseCollector):
     def __init__(self, client: Optional[Yad2APIClient] = None) -> None:
         self.client = client or Yad2APIClient()
 
-
     def collect(
-            self,
-            location: Optional[LocationQuery] = None,
-            **kwargs
+        self, location: Optional[LocationQuery] = None, **kwargs
     ) -> List[RealEstateListing]:
         """Collect Yad2 listings for a given location.
 
@@ -49,14 +47,16 @@ class Yad2Collector(BaseCollector):
 
             if len(listings) > 0:
                 # Safely extract neighborhood and city from meta
-                neighborhood = listings[0].meta.get('neighborhood', '')
-                city = listings[0].meta.get('city', '')
-                
+                neighborhood = listings[0].meta.get("neighborhood", "")
+                city = listings[0].meta.get("city", "")
+
                 # Only fetch latest deals if we have location information
                 if neighborhood or city:
                     location_query = f"{neighborhood} {city}".strip()
                     if location_query:
-                        search_params = self.client.fetch_location_autocomplete(location_query)
+                        search_params = self.client.fetch_location_autocomplete(
+                            location_query
+                        )
                         if search_params:
                             self.client.set_search_parameters(search_params)
                     latest_deals = self.client.fetch_latest_deals()
@@ -72,7 +72,10 @@ class Yad2Collector(BaseCollector):
         location = kwargs.get("location")
         return isinstance(location, LocationQuery) and not location.is_empty()
 
+
 if __name__ == "__main__":
     collector = Yad2Collector()
-    listings = collector.collect(location=LocationQuery(city="תל אביב יפו", street="רוזוב", house_number=14))
+    listings = collector.collect(
+        location=LocationQuery(city="תל אביב יפו", street="רוזוב", house_number=14)
+    )
     print(listings)

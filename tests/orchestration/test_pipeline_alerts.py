@@ -13,7 +13,9 @@ def test_load_user_notifiers_initializes_for_each_active_alert(monkeypatch):
         calls.append((alert_rule.user, alert_rule.params))
         return object()
 
-    monkeypatch.setattr("orchestration.alerts.create_notifier_for_alert_rule", fake_create)
+    monkeypatch.setattr(
+        "orchestration.alerts.create_notifier_for_alert_rule", fake_create
+    )
 
     class DummyUser:
         pass
@@ -52,11 +54,22 @@ def test_pipeline_sends_alerts(monkeypatch):
             self,
             location,
         ):
-            return [types.SimpleNamespace(
-                title="t", price=1, address="Fake 1", rooms=1,
-                floor=1, size=10, total_size=10, property_type="apt", description="",
-                url="http://example", listing_id="123", coordinates=(0, 0)
-            )]
+            return [
+                types.SimpleNamespace(
+                    title="t",
+                    price=1,
+                    address="Fake 1",
+                    rooms=1,
+                    floor=1,
+                    size=10,
+                    total_size=10,
+                    property_type="apt",
+                    description="",
+                    url="http://example",
+                    listing_id="123",
+                    coordinates=(0, 0),
+                )
+            ]
 
     class DummyGIS:
         def collect(
@@ -104,7 +117,7 @@ def test_pipeline_sends_alerts(monkeypatch):
         govmap=DummyGovMap(),
         michrazim=DummyMichrazim(),
         rami=DummyRami(),
-        mavat=DummyMavat()
+        mavat=DummyMavat(),
     )
 
     class DummyNotifier:

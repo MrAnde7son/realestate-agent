@@ -1,4 +1,5 @@
 """Tests for the custom Resend email backend."""
+
 from __future__ import annotations
 
 import importlib
@@ -24,7 +25,9 @@ def reload_backend(monkeypatch, settings):
         else:
             monkeypatch.setenv("RESEND_API_KEY", api_key)
 
-        monkeypatch.setenv("RESEND_FROM", env.pop("RESEND_FROM", "no-reply@example.com"))
+        monkeypatch.setenv(
+            "RESEND_FROM", env.pop("RESEND_FROM", "no-reply@example.com")
+        )
         for key, value in env.items():
             if value is None:
                 monkeypatch.delenv(key, raising=False)

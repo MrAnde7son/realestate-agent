@@ -42,13 +42,19 @@ class ImportBatch(models.Model):
         on_delete=models.CASCADE,
         related_name="import_batches",
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
     totals = models.JSONField(default=dict)
     dry_run = models.BooleanField(default=False)
     conflict_policy = models.CharField(max_length=20, default="update")
     enable_linking = models.BooleanField(default=False)
-    customers_csv = models.FileField(upload_to=_source_upload_path, null=True, blank=True)
-    properties_csv = models.FileField(upload_to=_source_upload_path, null=True, blank=True)
+    customers_csv = models.FileField(
+        upload_to=_source_upload_path, null=True, blank=True
+    )
+    properties_csv = models.FileField(
+        upload_to=_source_upload_path, null=True, blank=True
+    )
     report_csv = models.FileField(upload_to=_report_upload_path, null=True, blank=True)
     report_json = models.FileField(upload_to=_report_upload_path, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

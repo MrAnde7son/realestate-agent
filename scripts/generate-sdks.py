@@ -7,7 +7,6 @@ This script can work with or without Docker.
 import os
 import sys
 import subprocess
-import json
 import requests
 from pathlib import Path
 from typing import Optional
@@ -22,11 +21,7 @@ def run_command(cmd: list, cwd: Optional[Path] = None) -> tuple[bool, str]:
     """Run a command and return success status and output."""
     try:
         result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
-            cwd=cwd,
-            check=True
+            cmd, capture_output=True, text=True, cwd=cwd, check=True
         )
         return True, result.stdout
     except subprocess.CalledProcessError as e:
@@ -48,24 +43,24 @@ def check_openapi_generator() -> bool:
 def download_openapi_spec() -> bool:
     """Download the OpenAPI specification."""
     print("📥 Downloading OpenAPI specification...")
-    
+
     try:
         response = requests.get(OPENAPI_SPEC_URL, timeout=30)
         response.raise_for_status()
-        
+
         CLIENT_DIR.mkdir(exist_ok=True)
         spec_path = CLIENT_DIR / "openapi.yaml"
-        
-        with open(spec_path, 'w', encoding='utf-8') as f:
+
+        with open(spec_path, "w", encoding="utf-8") as f:
             f.write(response.text)
-        
+
         if spec_path.stat().st_size == 0:
             print("❌ Downloaded OpenAPI spec is empty")
             return False
-            
+
         print("✅ OpenAPI spec downloaded successfully")
         return True
-        
+
     except requests.RequestException as e:
         print(f"❌ Failed to download OpenAPI spec: {e}")
         print("   Make sure the Django server is running on", API_BASE_URL)
@@ -75,117 +70,144 @@ def download_openapi_spec() -> bool:
 def generate_with_docker(spec_path: Path) -> bool:
     """Generate SDKs using Docker."""
     print("🐳 Using Docker for OpenAPI Generator...")
-    
+
     generator_cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{Path.cwd()}:/local",
-        "openapitools/openapi-generator-cli"
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{Path.cwd()}:/local",
+        "openapitools/openapi-generator-cli",
     ]
-    
+
     # Generate Python SDK
     print("🐍 Generating Python SDK...")
     python_cmd = generator_cmd + [
         "generate",
-        "-i", f"/local/{spec_path}",
-        "-g", "python",
-        "-o", "/local/client/python",
-        "--additional-properties=packageName=realestate_api,projectName=realestate-api,packageVersion=1.0.0"
+        "-i",
+        f"/local/{spec_path}",
+        "-g",
+        "python",
+        "-o",
+        "/local/client/python",
+        "--additional-properties=packageName=realestate_api,projectName=realestate-api,packageVersion=1.0.0",
     ]
-    
+
     success, output = run_command(python_cmd)
     if not success:
         print(f"❌ Failed to generate Python SDK: {output}")
         return False
-    
+
     # Generate TypeScript SDK
     print("📘 Generating TypeScript SDK...")
     ts_cmd = generator_cmd + [
         "generate",
-        "-i", f"/local/{spec_path}",
-        "-g", "typescript-axios",
-        "-o", "/local/client/typescript",
-        "--additional-properties=npmName=@realestate/api-client,npmVersion=1.0.0"
+        "-i",
+        f"/local/{spec_path}",
+        "-g",
+        "typescript-axios",
+        "-o",
+        "/local/client/typescript",
+        "--additional-properties=npmName=@realestate/api-client,npmVersion=1.0.0",
     ]
-    
+
     success, output = run_command(ts_cmd)
     if not success:
         print(f"❌ Failed to generate TypeScript SDK: {output}")
         return False
-    
+
     # Generate Postman Collection
     print("📮 Generating Postman Collection...")
     postman_cmd = generator_cmd + [
         "generate",
-        "-i", f"/local/{spec_path}",
-        "-g", "postman",
-        "-o", "/local/client/postman",
-        f"--additional-properties=postmanVariables=[{{name:baseUrl,value:{API_BASE_URL}}}]"
+        "-i",
+        f"/local/{spec_path}",
+        "-g",
+        "postman",
+        "-o",
+        "/local/client/postman",
+        f"--additional-properties=postmanVariables=[{{name:baseUrl,value:{API_BASE_URL}}}]",
     ]
-    
+
     success, output = run_command(postman_cmd)
     if not success:
         print(f"❌ Failed to generate Postman collection: {output}")
         return False
-    
+
     return True
 
 
 def generate_with_npm(spec_path: Path) -> bool:
     """Generate SDKs using npm openapi-generator-cli."""
     print("📦 Using npm openapi-generator-cli...")
-    
+
     # Generate Python SDK
     print("🐍 Generating Python SDK...")
     python_cmd = [
-        "npx", "openapi-generator-cli", "generate",
-        "-i", str(spec_path),
-        "-g", "python",
-        "-o", "client/python",
-        "--additional-properties=packageName=realestate_api,projectName=realestate-api,packageVersion=1.0.0"
+        "npx",
+        "openapi-generator-cli",
+        "generate",
+        "-i",
+        str(spec_path),
+        "-g",
+        "python",
+        "-o",
+        "client/python",
+        "--additional-properties=packageName=realestate_api,projectName=realestate-api,packageVersion=1.0.0",
     ]
-    
+
     success, output = run_command(python_cmd)
     if not success:
         print(f"❌ Failed to generate Python SDK: {output}")
         return False
-    
+
     # Generate TypeScript SDK
     print("📘 Generating TypeScript SDK...")
     ts_cmd = [
-        "npx", "openapi-generator-cli", "generate",
-        "-i", str(spec_path),
-        "-g", "typescript-axios",
-        "-o", "client/typescript",
-        "--additional-properties=npmName=@realestate/api-client,npmVersion=1.0.0"
+        "npx",
+        "openapi-generator-cli",
+        "generate",
+        "-i",
+        str(spec_path),
+        "-g",
+        "typescript-axios",
+        "-o",
+        "client/typescript",
+        "--additional-properties=npmName=@realestate/api-client,npmVersion=1.0.0",
     ]
-    
+
     success, output = run_command(ts_cmd)
     if not success:
         print(f"❌ Failed to generate TypeScript SDK: {output}")
         return False
-    
+
     # Generate Postman Collection
     print("📮 Generating Postman Collection...")
     postman_cmd = [
-        "npx", "openapi-generator-cli", "generate",
-        "-i", str(spec_path),
-        "-g", "postman",
-        "-o", "client/postman",
-        f"--additional-properties=postmanVariables=[{{name:baseUrl,value:{API_BASE_URL}}}]"
+        "npx",
+        "openapi-generator-cli",
+        "generate",
+        "-i",
+        str(spec_path),
+        "-g",
+        "postman",
+        "-o",
+        "client/postman",
+        f"--additional-properties=postmanVariables=[{{name:baseUrl,value:{API_BASE_URL}}}]",
     ]
-    
+
     success, output = run_command(postman_cmd)
     if not success:
         print(f"❌ Failed to generate Postman collection: {output}")
         return False
-    
+
     return True
 
 
 def create_readme_files():
     """Create README files for the generated SDKs."""
     print("📝 Creating README files...")
-    
+
     # Python SDK README
     python_readme = CLIENT_DIR / "python" / "README.md"
     python_readme.write_text("""# Real Estate API Python Client
@@ -231,7 +253,7 @@ configuration.api_key['Authorization'] = 'Bearer your-access-token'
 configuration.api_key_prefix['Authorization'] = 'Bearer'
 ```
 """)
-    
+
     # TypeScript SDK README
     ts_readme = CLIENT_DIR / "typescript" / "README.md"
     ts_readme.write_text("""# Real Estate API TypeScript Client
@@ -281,7 +303,7 @@ npm run build
 npm publish
 ```
 """)
-    
+
     # Postman Collection README
     postman_readme = CLIENT_DIR / "postman" / "README.md"
     postman_readme.write_text("""# Real Estate API Postman Collection
@@ -315,7 +337,7 @@ The collection uses the following environment variables:
 3. Start with the Authentication folder to get a token
 4. Use the token in subsequent requests
 """)
-    
+
     # Main client README
     main_readme = CLIENT_DIR / "README.md"
     main_readme.write_text(f"""# Real Estate API Client SDKs
@@ -364,16 +386,16 @@ def main():
     print("🚀 Generating SDKs and Postman collection...")
     print(f"📡 API Base URL: {API_BASE_URL}")
     print(f"📄 OpenAPI Spec URL: {OPENAPI_SPEC_URL}")
-    
+
     # Download OpenAPI spec
     if not download_openapi_spec():
         sys.exit(1)
-    
+
     spec_path = CLIENT_DIR / "openapi.yaml"
-    
+
     # Try to generate SDKs
     success = False
-    
+
     if check_docker():
         success = generate_with_docker(spec_path)
     elif check_openapi_generator():
@@ -384,14 +406,14 @@ def main():
         print("   1. Docker: https://docs.docker.com/get-docker/")
         print("   2. npm: npm install -g @openapitools/openapi-generator-cli")
         sys.exit(1)
-    
+
     if not success:
         print("❌ SDK generation failed")
         sys.exit(1)
-    
+
     # Create README files
     create_readme_files()
-    
+
     print("✅ SDK generation completed successfully!")
     print("")
     print("📁 Generated files:")

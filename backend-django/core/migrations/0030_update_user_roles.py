@@ -14,7 +14,6 @@ def restore_member_role(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0029_add_sync_fields"),
     ]

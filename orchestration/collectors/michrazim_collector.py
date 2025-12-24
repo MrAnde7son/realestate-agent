@@ -23,66 +23,70 @@ logger = logging.getLogger(__name__)
 
 def normalize_address(address: str, city: Optional[str] = None) -> str:
     """Normalize Hebrew address to format: '<street> <number>, <city>'.
-    
+
     Extracts street name and number from various Hebrew address formats.
     Uses provided city or attempts to extract from address if not provided.
-    
+
     Args:
         address: Raw address string (e.g., "רח' שם הגדולים 7", "געש 10")
         city: Optional city name to append. If not provided, attempts extraction.
-    
+
     Returns:
         Normalized address in format "<street> <number>, <city>" or original if parsing fails.
     """
     if not address or not isinstance(address, str):
         return address or ""
-    
+
     # Clean the address
     address = address.strip()
     if not address:
         return ""
-    
+
     # Common street prefixes to remove for parsing
     street_prefixes = [
         r"^רח['']?\s*",  # רח' or רח'
-        r"^רחוב\s+",      # רחוב
-        r"^שד['']?\s*",   # שד' or שד'
-        r"^שדרות\s+",     # שדרות
-        r"^דרך\s+",       # דרך
-        r"^מס['']?\s*",   # מס' or מס'
+        r"^רחוב\s+",  # רחוב
+        r"^שד['']?\s*",  # שד' or שד'
+        r"^שדרות\s+",  # שדרות
+        r"^דרך\s+",  # דרך
+        r"^מס['']?\s*",  # מס' or מס'
     ]
-    
+
     # Remove prefixes for parsing
     cleaned_address = address
     for prefix_pattern in street_prefixes:
-        cleaned_address = re.sub(prefix_pattern, "", cleaned_address, flags=re.IGNORECASE)
-    
+        cleaned_address = re.sub(
+            prefix_pattern, "", cleaned_address, flags=re.IGNORECASE
+        )
+
     # Pattern to match numbers: handles single numbers, ranges (46-44, 9-11), with letters (8א)
     # Also handles corner indicators (פינת) and connectors (ו, /)
     number_pattern = r"\s+(\d+(?:[-–]\d+)?(?:\s*[א-תא-ת])?)\s*"
-    
+
     # Try to find number in the address
     number_match = re.search(number_pattern, cleaned_address)
-    
+
     street = None
     number = None
     extracted_city = None
-    
+
     if number_match:
         # Extract number (could be range like "46-44" or "9-11")
         number = number_match.group(1).strip()
         number_start = number_match.start()
-        
+
         # Street is everything before the number
         street = cleaned_address[:number_start].strip()
-        
+
         # Get remaining text after number
-        remaining = cleaned_address[number_match.end():].strip()
-        
+        remaining = cleaned_address[number_match.end() :].strip()
+
         # If city not provided, try to extract from remaining text
         if not city and remaining:
             # Remove common connectors and corner indicators
-            remaining_clean = re.sub(r"\s*(?:פינת|פ'|ו|ו-|/|,).*$", "", remaining).strip()
+            remaining_clean = re.sub(
+                r"\s*(?:פינת|פ'|ו|ו-|/|,).*$", "", remaining
+            ).strip()
             if remaining_clean and len(remaining_clean) > 1:
                 # If remaining text looks like a city (not a number, not too short)
                 if not re.match(r"^\d+", remaining_clean):
@@ -101,24 +105,24 @@ def normalize_address(address: str, city: Optional[str] = None) -> str:
         else:
             # City provided, no number - treat as street name
             street = cleaned_address
-    
+
     # Use provided city or extracted city
     final_city = city or extracted_city
-    
+
     # Clean up street name - remove extra spaces, trailing punctuation
     if street:
         street = re.sub(r"\s+", " ", street).strip()
         street = re.sub(r"[,\s]+$", "", street)
-    
+
     # Build normalized address
     parts = []
     if street:
         parts.append(street)
     if number:
         parts.append(number)
-    
+
     normalized = " ".join(parts) if parts else ""
-    
+
     # Add city if available
     if final_city:
         city_clean = final_city.strip()
@@ -126,7 +130,7 @@ def normalize_address(address: str, city: Optional[str] = None) -> str:
             normalized = f"{normalized}, {city_clean}"
         else:
             normalized = city_clean
-    
+
     # Fallback to original if normalization produced empty result
     return normalized if normalized else address
 
@@ -200,7 +204,10 @@ class MichrazimCollector(BaseCollector):
         return False
 
     def _build_listing_payload(
-        self, summary: Dict[str, Any], details: Dict[str, Any], city: Optional[str] = None
+        self,
+        summary: Dict[str, Any],
+        details: Dict[str, Any],
+        city: Optional[str] = None,
     ) -> SimpleNamespace:
         """Convert tender details into a listing-like payload."""
         tik = (
@@ -230,7 +237,7 @@ class MichrazimCollector(BaseCollector):
             raw_address = str(raw_address).strip()
         else:
             raw_address = ""
-        
+
         # Normalize address using city from query if available
         address = normalize_address(raw_address, city=city) if raw_address else ""
         listing_id = f"michraz_{summary.get('MichrazID')}"
@@ -315,25 +322,34 @@ class MichrazimCollector(BaseCollector):
         )
 
         yeud_objects = [
-            self._KOD_YEUD_OBJECTS[code]
-            for code in yeud_codes
-            if code in yeud_codes
+            self._KOD_YEUD_OBJECTS[code] for code in yeud_codes if code in yeud_codes
         ]
-        
+
         # Try to find settlement code by name for proper filtering
         yeshuv_code: Optional[int] = None
         if query.city:
             try:
                 # Replace dashes with spaces and collapse multiple spaces into one
-                city_name = re.sub(r'\s+', ' ', query.city.replace("-", " ")).strip()
-                yeshuv_code = self.client.find_yishuv_code(city_name, timeout=details_timeout)
+                city_name = re.sub(r"\s+", " ", query.city.replace("-", " ")).strip()
+                yeshuv_code = self.client.find_yishuv_code(
+                    city_name, timeout=details_timeout
+                )
                 if yeshuv_code:
-                    logger.info("Found settlement code %d for city '%s'", yeshuv_code, query.city)
+                    logger.info(
+                        "Found settlement code %d for city '%s'",
+                        yeshuv_code,
+                        query.city,
+                    )
                 else:
-                    logger.warning("Could not find settlement code for city '%s', using name filter", query.city)
+                    logger.warning(
+                        "Could not find settlement code for city '%s', using name filter",
+                        query.city,
+                    )
             except Exception as exc:
-                logger.warning("Failed to lookup settlement code for '%s': %s", query.city, exc)
-        
+                logger.warning(
+                    "Failed to lookup settlement code for '%s': %s", query.city, exc
+                )
+
         search_filters: Dict[str, Any] = {
             "ActiveQuickSearch": False,
             "ActiveMichraz": None,
@@ -423,7 +439,9 @@ class MichrazimCollector(BaseCollector):
                         continue
 
                     if item and self._matches_asset(details, query.block, query.parcel):
-                        listings.append(self._build_listing_payload(item, details, city=query.city))
+                        listings.append(
+                            self._build_listing_payload(item, details, city=query.city)
+                        )
                         if len(listings) % 10 == 0:
                             logger.info(
                                 "Progress: %d/%d details fetched, %d listings created",

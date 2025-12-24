@@ -5,7 +5,9 @@ from django.db import migrations, models
 
 def rename_index_if_exists(apps, schema_editor, table_name, old_name, new_name):
     with schema_editor.connection.cursor() as cursor:
-        constraints = schema_editor.connection.introspection.get_constraints(cursor, table_name)
+        constraints = schema_editor.connection.introspection.get_constraints(
+            cursor, table_name
+        )
     if old_name not in constraints:
         return
     sql = schema_editor._rename_index_sql(table_name, old_name, new_name)
@@ -13,19 +15,36 @@ def rename_index_if_exists(apps, schema_editor, table_name, old_name, new_name):
 
 
 def rename_block_index(apps, schema_editor):
-    rename_index_if_exists(apps, schema_editor, "core_asset", "core_asset_block_dc43e9_idx", "core_asset_block_531195_idx")
+    rename_index_if_exists(
+        apps,
+        schema_editor,
+        "core_asset",
+        "core_asset_block_dc43e9_idx",
+        "core_asset_block_531195_idx",
+    )
 
 
 def rename_parcel_index(apps, schema_editor):
-    rename_index_if_exists(apps, schema_editor, "core_asset", "core_asset_parcel_38f908_idx", "core_asset_parcel_ebd705_idx")
+    rename_index_if_exists(
+        apps,
+        schema_editor,
+        "core_asset",
+        "core_asset_parcel_38f908_idx",
+        "core_asset_parcel_ebd705_idx",
+    )
 
 
 def rename_subparcel_index(apps, schema_editor):
-    rename_index_if_exists(apps, schema_editor, "core_asset", "core_asset_subhelk_ec1101_idx", "core_asset_subparc_d57846_idx")
+    rename_index_if_exists(
+        apps,
+        schema_editor,
+        "core_asset",
+        "core_asset_subhelk_ec1101_idx",
+        "core_asset_subparc_d57846_idx",
+    )
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0044_add_plan_title"),
     ]

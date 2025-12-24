@@ -1,4 +1,5 @@
 """Tests for notification webhook handling."""
+
 from __future__ import annotations
 
 import hmac
@@ -12,7 +13,9 @@ from django.urls import reverse
 
 @pytest.mark.django_db
 def test_resend_webhook_updates_user(client, monkeypatch):
-    user = get_user_model().objects.create_user(email="user@example.com", username="user", password="pw")
+    user = get_user_model().objects.create_user(
+        email="user@example.com", username="user", password="pw"
+    )
     assert user.notify_email is True
 
     secret = "topsecret"

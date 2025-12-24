@@ -20,16 +20,11 @@ def add_demo_columns(apps, schema_editor):
 
 
 def drop_demo_columns(apps, schema_editor):
-    schema_editor.execute(
-        "ALTER TABLE core_user DROP COLUMN IF EXISTS is_demo"
-    )
-    schema_editor.execute(
-        "ALTER TABLE core_asset DROP COLUMN IF EXISTS is_demo"
-    )
+    schema_editor.execute("ALTER TABLE core_user DROP COLUMN IF EXISTS is_demo")
+    schema_editor.execute("ALTER TABLE core_asset DROP COLUMN IF EXISTS is_demo")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0009_sharetoken"),
     ]
@@ -53,4 +48,3 @@ class Migration(migrations.Migration):
             ],
         ),
     ]
-

@@ -13,7 +13,7 @@ from .utils import URLUtils
 __version__ = "1.0.0"
 __all__ = [
     "Yad2SearchParameters",
-    "Yad2ParameterReference", 
+    "Yad2ParameterReference",
     "RealEstateListing",
-    "URLUtils"
-] 
+    "URLUtils",
+]

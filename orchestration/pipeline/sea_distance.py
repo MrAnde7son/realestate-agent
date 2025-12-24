@@ -96,4 +96,3 @@ class SeaDistanceCalculator:
             return float(point.distance(coastline_geometry))
         except Exception:
             return None
-

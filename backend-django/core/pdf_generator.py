@@ -45,7 +45,9 @@ class HebrewPDFGenerator:
         try:
             if os.path.exists(self.font_path):
                 pdfmetrics.registerFont(TTFont("HebrewFont", self.font_path))
-                self.logger.info("Successfully registered Hebrew font: %s", self.font_path)
+                self.logger.info(
+                    "Successfully registered Hebrew font: %s", self.font_path
+                )
                 return "HebrewFont"
             else:
                 self.logger.warning("Hebrew font not found at: %s", self.font_path)
@@ -122,13 +124,16 @@ class HebrewPDFGenerator:
         permits: List[Dict[str, Optional[str]]] = []
         for document in permits_qs[:limit]:
             meta = document.meta or {}
-            title = self._first_non_empty(
-                document.title,
-                meta.get("title"),
-                meta.get("description"),
-                meta.get("document_type"),
-                document.external_id,
-            ) or "היתר ללא שם"
+            title = (
+                self._first_non_empty(
+                    document.title,
+                    meta.get("title"),
+                    meta.get("description"),
+                    meta.get("document_type"),
+                    document.external_id,
+                )
+                or "היתר ללא שם"
+            )
             stage = self._first_non_empty(
                 meta.get("stage"),
                 meta.get("building_stage"),
@@ -169,32 +174,36 @@ class HebrewPDFGenerator:
 
         filters = Q(assets=asset)
         city_name = asset.city.strip() if asset.city else None
-        
+
         # Match by block and parcel (most precise)
         if asset.block and asset.parcel and city_name:
-            filters |= (
-                Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__city=city_name)
-                | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
-            )
+            filters |= Q(
+                assets__block=asset.block,
+                assets__parcel=asset.parcel,
+                assets__city=city_name,
+            ) | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
             if asset.subparcel:
-                filters |= (
-                    Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__subparcel=asset.subparcel, assets__city=city_name)
-                    | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel, raw__parcel_sub_parcel=asset.subparcel)
+                filters |= Q(
+                    assets__block=asset.block,
+                    assets__parcel=asset.parcel,
+                    assets__subparcel=asset.subparcel,
+                    assets__city=city_name,
+                ) | Q(
+                    raw__parcel_block=asset.block,
+                    raw__parcel_parcel=asset.parcel,
+                    raw__parcel_sub_parcel=asset.subparcel,
                 )
-        
+
         # Match by neighborhood (requires city match)
         if asset.neighborhood and city_name:
             neighborhood = asset.neighborhood.strip()
-            filters |= (
-                Q(assets__neighborhood=neighborhood, assets__city=city_name)
-            )
-        
+            filters |= Q(assets__neighborhood=neighborhood, assets__city=city_name)
+
         # Match by street name (requires city match)
         if asset.street and city_name:
             street = asset.street.strip()
-            filters |= (
-                Q(address__icontains=street, assets__city=city_name)
-                | Q(assets__street=street, assets__city=city_name)
+            filters |= Q(address__icontains=street, assets__city=city_name) | Q(
+                assets__street=street, assets__city=city_name
             )
 
         transactions = (
@@ -413,8 +422,8 @@ class HebrewPDFGenerator:
 
             # Debug output
             self.logger.debug("Listing data: %s", listing)
-            self.logger.debug("Address: %s", listing.get('address', 'NOT_FOUND'))
-            self.logger.debug("City: %s", listing.get('city', 'NOT_FOUND'))
+            self.logger.debug("Address: %s", listing.get("address", "NOT_FOUND"))
+            self.logger.debug("City: %s", listing.get("city", "NOT_FOUND"))
 
             # Create PDF canvas
             c = canvas.Canvas(file_path, pagesize=A4)
@@ -469,7 +478,7 @@ class HebrewPDFGenerator:
 
             # Get planning metrics if available
             planning_metrics = None
-            if asset and hasattr(asset, 'planning_metrics'):
+            if asset and hasattr(asset, "planning_metrics"):
                 try:
                     planning_metrics = asset.planning_metrics
                 except:
@@ -512,18 +521,23 @@ class HebrewPDFGenerator:
             }
 
             # Prepare context with absolute paths for static assets
-            logo_path = (self.base_dir / "core" / "static" / "core" / "nadlaner-logo.svg").resolve()
+            logo_path = (
+                self.base_dir / "core" / "static" / "core" / "nadlaner-logo.svg"
+            ).resolve()
             context["logo_path"] = logo_path.as_uri()
-            
+
             html_string = render_to_string("report_asset.html", context)
             # Use the static files directory as base_url for WeasyPrint to resolve static assets
             static_dir = self.base_dir / "core" / "static"
             try:
                 from weasyprint import HTML
+
                 HTML(string=html_string, base_url=str(static_dir)).write_pdf(file_path)
             except ImportError as e:
                 self.logger.error("WeasyPrint not available: %s", e)
-                raise Exception("PDF generation requires WeasyPrint to be properly installed")
+                raise Exception(
+                    "PDF generation requires WeasyPrint to be properly installed"
+                )
 
             generation_time = time.time() - start_time
             pages = len(PdfReader(file_path).pages)
@@ -618,7 +632,7 @@ class HebrewPDFGenerator:
         )
         y -= 20
         self.draw_hebrew_label(
-            c, "שטח", f"{self.safe_get(listing, 'netSqm', 0)} מ\"ר", x, y
+            c, "שטח", f'{self.safe_get(listing, "netSqm", 0)} מ"ר', x, y
         )
         y -= 20
         self.draw_hebrew_label(
@@ -648,7 +662,7 @@ class HebrewPDFGenerator:
         self.draw_hebrew_label(
             c,
             "תחרות",
-            f"(1 ק\"מ): {self.safe_get(listing, 'competition1km', 'N/A')}",
+            f'(1 ק"מ): {self.safe_get(listing, "competition1km", "N/A")}',
             x,
             y,
         )
@@ -723,11 +737,11 @@ class HebrewPDFGenerator:
         self.draw_hebrew_label(c, "ייעוד קרקע", listing.get("zoning", ""), x, y)
         y -= 20
         self.draw_hebrew_label(
-            c, "זכויות נוספות", f"+{listing.get('remainingRightsSqm', 0)} מ\"ר", x, y
+            c, "זכויות נוספות", f'+{listing.get("remainingRightsSqm", 0)} מ"ר', x, y
         )
         y -= 20
         self.draw_hebrew_label(
-            c, "זכויות בנייה עיקריות", f"{listing.get('netSqm', 0)} מ\"ר", x, y
+            c, "זכויות בנייה עיקריות", f'{listing.get("netSqm", 0)} מ"ר', x, y
         )
 
     def _draw_rights_summary(self, c, listing: dict, y: int):
@@ -735,7 +749,7 @@ class HebrewPDFGenerator:
         x = 450 if self.report_font == "HebrewFont" else 50
 
         self.draw_hebrew_label(
-            c, "זכויות נוספות", f"{listing.get('remainingRightsSqm', 0)} מ\"ר", x, y
+            c, "זכויות נוספות", f'{listing.get("remainingRightsSqm", 0)} מ"ר', x, y
         )
         y -= 20
 
@@ -795,8 +809,8 @@ class HebrewPDFGenerator:
         y -= 20
         self.draw_hebrew_label(c, "שטחים ציבוריים", "≤300מ: כן", x, y)
         y -= 20
-        antenna_distance = listing.get('antennaDistanceM', '—')
-        antenna_text = f"{antenna_distance}מ" if antenna_distance != '—' else "—"
+        antenna_distance = listing.get("antennaDistanceM", "—")
+        antenna_text = f"{antenna_distance}מ" if antenna_distance != "—" else "—"
         self.draw_hebrew_label(c, "מרחק אנטנה", antenna_text, x, y)
 
     def _draw_risk_factors(self, c, listing: dict, y: int):

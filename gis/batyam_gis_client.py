@@ -10,16 +10,16 @@ from gis.proxy_gis_client import ProxyGISClient, ArcGISError
 
 class BatYamGIS(ProxyGISClient):
     """Client for Bat Yam municipal GIS."""
-    
+
     def get_service_url(self) -> str:
         return "http://arcgis006/arcgis/rest/services/Bat_yam/batyam_main_data_public/MapServer"
-    
+
     def get_referer(self) -> str:
         return "https://v5.gis-net.co.il/v5/batyam"
-    
+
     def get_cookies(self) -> Dict[str, str]:
         """Return cookies for Bat Yam authentication.
-        
+
         Note: These cookies may expire. In production, you may want to:
         1. Fetch them dynamically from the main page
         2. Store them in a session
@@ -36,78 +36,87 @@ class BatYamGIS(ProxyGISClient):
             "TS01d52e22": "01fa9750ce2b51ed49bdada02d9a52f8b5a3429a117c8035afe77c3e81cb03c129c196b6fbaf355a14ed4833e74690a98b70b92d707dc5d8d9ee929c48c31e5222dd6c91b6bcb98d0a63f7948a109ccbd4717ef9a6283af9b334873532158058e98bd25001",
             "_ga_DRKJ9KDWZ0": "GS2.1.s1766090557$o1$g1$t1766090721$j56$l0$h0",
         }
-    
+
     def get_layer_id_for_blocks(self) -> int:
         """Layer ID for blocks (גושים) in Bat Yam."""
         return 17  # Based on the simulation script
-    
+
     def get_layer_id_for_parcels(self) -> int:
         """Layer ID for parcels (חלקות) in Bat Yam.
-        
+
         Note: This may need to be determined by inspecting the service.
         Using a placeholder value for now.
         """
         # You may need to find the correct layer ID by inspecting the service
         # For now, returning a placeholder
         return 18  # This should be verified
-    
+
     def get_layer_id_for_addresses(self) -> int:
         """Layer ID for addresses in Bat Yam (used for geocoding)."""
         return 82  # Based on the working query endpoint
-    
-    def get_address_coordinates(self, street: str, house_number: int, like: bool = True) -> Tuple[float, float]:
+
+    def get_address_coordinates(
+        self, street: str, house_number: int, like: bool = True
+    ) -> Tuple[float, float]:
         """
         Get coordinates for an address using the query endpoint on layer 82.
-        
+
         Args:
             street: Street name (Hebrew)
             house_number: House number
             like: Whether to use LIKE matching
-        
+
         Returns:
             Tuple of (x, y) coordinates in ITM (EPSG:2039)
         """
         # Clean the street name and house number
         street_clean = street.strip()
         house_number_str = str(house_number).strip()
-        
+
         # Escape single quotes in street name to prevent SQL injection
         street_escaped = street_clean.replace("'", "''")
-        
+
         # Build the WHERE clause - try multiple formats
         # Format 1: Exact match with trimmed values
         where_clause = f"Stname='{street_escaped}' AND BLDNUMBER='{house_number_str}'"
-        
+
         try:
             layer_id = self.get_layer_id_for_addresses()
             # Try POST first (better for complex WHERE clauses), fallback to GET
             try:
-                data = self._query(layer_id, where_clause, return_geometry=True, method="POST")
+                data = self._query(
+                    layer_id, where_clause, return_geometry=True, method="POST"
+                )
             except ArcGISError:
                 # If POST fails, try GET
                 self._logger.debug("POST query failed, trying GET")
-                data = self._query(layer_id, where_clause, return_geometry=True, method="GET")
-            
+                data = self._query(
+                    layer_id, where_clause, return_geometry=True, method="GET"
+                )
+
             features = data.get("features", [])
             if not features:
                 raise ArcGISError(f"No address found for {street} {house_number}")
-            
+
             # Get the first feature's geometry
             feature = features[0]
             geometry = feature.get("geometry", {})
-            
+
             x = geometry.get("x")
             y = geometry.get("y")
-            
+
             if x is None or y is None:
-                raise ArcGISError(f"Coordinates not found in response for {street} {house_number}")
-            
+                raise ArcGISError(
+                    f"Coordinates not found in response for {street} {house_number}"
+                )
+
             self._logger.info(f"Geocoded {street} {house_number} to ({x}, {y})")
             return float(x), float(y)
-            
+
         except Exception as e:
-            self._logger.error(f"Failed to geocode address {street} {house_number}: {e}")
-            raise ArcGISError(f"Failed to geocode address '{street} {house_number}': {e}")
-
-
-
+            self._logger.error(
+                f"Failed to geocode address {street} {house_number}: {e}"
+            )
+            raise ArcGISError(
+                f"Failed to geocode address '{street} {house_number}': {e}"
+            )

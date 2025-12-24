@@ -63,9 +63,7 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
     assert captured["configured_key"] == "test-key"
     assert captured["model_name"] == "gemini-2.0-flash"
     assert captured["generation_config"] is None
-    assert captured["system_instruction"] == (
-        "You are helpful.\n\nFollow the brief."
-    )
+    assert captured["system_instruction"] == ("You are helpful.\n\nFollow the brief.")
     assert captured["history"] == [
         {"role": "user", "parts": ["Hello"]},
         {"role": "model", "parts": ["Hi"]},

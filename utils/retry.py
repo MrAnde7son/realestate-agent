@@ -4,7 +4,13 @@ from typing import Callable, Any
 import requests
 
 
-def request_with_retry(func: Callable[..., requests.Response], *args: Any, max_retries: int = 3, backoff_factor: float = 1.0, **kwargs: Any) -> requests.Response:
+def request_with_retry(
+    func: Callable[..., requests.Response],
+    *args: Any,
+    max_retries: int = 3,
+    backoff_factor: float = 1.0,
+    **kwargs: Any,
+) -> requests.Response:
     """Call ``func`` with retries and exponential backoff.
 
     Args:

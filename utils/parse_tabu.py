@@ -45,17 +45,17 @@ def _reverse_hebrew_text(text: str) -> str:
     # Split by spaces and reverse each word
     words = text.split()
     reversed_words = []
-    
+
     for word in words:
         # Check if word contains Hebrew characters
-        if any('\u0590' <= char <= '\u05FF' for char in word):
+        if any("\u0590" <= char <= "\u05ff" for char in word):
             # Reverse Hebrew words
             reversed_words.append(word[::-1])
         else:
             # Keep non-Hebrew words as is
             reversed_words.append(word)
-    
-    return ' '.join(reversed_words)
+
+    return " ".join(reversed_words)
 
 
 def _extract_number_near_field(line: str, keyword: str) -> str | None:
@@ -137,11 +137,11 @@ def _extract_owner_line(line: str) -> Tuple[str | None, str | None, str | None]:
     # Validate the candidate name: it must contain Hebrew letters,
     # must not be a known header and must include at least two Hebrew
     # characters (ignoring spaces and hyphens)
-    if name and re.search(r'[א-ת]', name):
+    if name and re.search(r"[א-ת]", name):
         if name in {"בעלים", "הבעלים", "בעלי המשכנתה"}:
             name = None
         else:
-            hebrew_only = ''.join(ch for ch in name if 'א' <= ch <= 'ת')
+            hebrew_only = "".join(ch for ch in name if "א" <= ch <= "ת")
             if len(hebrew_only) < 2:
                 name = None
     else:
@@ -192,7 +192,9 @@ class TabuParser:
         """
         return _extract_number_near_field(line, keyword)
 
-    def _extract_owner_line(self, line: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    def _extract_owner_line(
+        self, line: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """Instance method wrapper for the standalone owner extractor.
 
         Args:
@@ -219,7 +221,11 @@ class TabuParser:
         with pdfplumber.open(self._file) as pdf:
             for page in pdf.pages:
                 text = page.extract_text() or ""
-                lines = [re.sub(r"\s+", " ", line.strip()) for line in text.splitlines() if line.strip()]
+                lines = [
+                    re.sub(r"\s+", " ", line.strip())
+                    for line in text.splitlines()
+                    if line.strip()
+                ]
                 for line in lines:
                     # Fix Hebrew text reversal before processing
                     line = _reverse_hebrew_text(line)
@@ -229,13 +235,17 @@ class TabuParser:
     def _add_row(self, field: str, value: str) -> None:
         """Add a (field, value) pair to the results if not already seen."""
         if (field, value) not in self._seen:
-            self.rows.append({'field': field, 'value': value})
+            self.rows.append({"field": field, "value": value})
             self._seen.add((field, value))
 
     def _process_line(self, line: str) -> None:
         """Process a single normalised line of text and extract data points."""
         # 1. Parcel identifiers
-        for keyword, field_name in [("גוש", "גוש"), ("חלקה", "חלקה"), ("תת חלקה", "תת חלקה")]:
+        for keyword, field_name in [
+            ("גוש", "גוש"),
+            ("חלקה", "חלקה"),
+            ("תת חלקה", "תת חלקה"),
+        ]:
             value = self._extract_number_near_field(line, keyword)
             if value:
                 self._add_row(field_name, value)
@@ -244,21 +254,21 @@ class TabuParser:
         frac_match = re.search(r"\b(\d{1,3})\s*/\s*(\d{1,3})\b(?!\s*/)", line)
         if frac_match:
             frac_value = f"{frac_match.group(1)}/{frac_match.group(2)}"
-            self._add_row('החלק בנכס', frac_value)
+            self._add_row("החלק בנכס", frac_value)
         # Special case for full ownership
-        if 'בשלמות' in line:
-            self._add_row('החלק בנכס', 'בשלמות')
+        if "בשלמות" in line:
+            self._add_row("החלק בנכס", "בשלמות")
 
         # 3. Identification numbers (Israeli IDs)
         for id_match in re.findall(r"\b\d{8,9}\b", line):
-            self._add_row('מספר זיהוי', id_match)
+            self._add_row("מספר זיהוי", id_match)
 
         # 4. Dates
         for date_match in re.findall(r"\b\d{2}/\d{2}/\d{4}\b", line):
-            self._add_row('תאריך', date_match)
+            self._add_row("תאריך", date_match)
 
         # 5. Owner names and actions
-        if re.search(r'[א-ת]', line) and re.search(r'\d', line):
+        if re.search(r"[א-ת]", line) and re.search(r"\d", line):
             has_date = bool(re.search(r"\b\d{2}/\d{2}/\d{4}\b", line))
             action_keywords = ["מכר", "משכנתה", "מתנה", "הקניית", "הערת"]
             has_action = any(act in line for act in action_keywords)
@@ -266,52 +276,52 @@ class TabuParser:
                 name, action, date = self._extract_owner_line(line)
                 if name:
                     # Check if this is a mortgage entry, not an ownership entry
-                    if 'משכנתה' in line:
-                        self._add_row('בעלי המשכנתה', name)
+                    if "משכנתה" in line:
+                        self._add_row("בעלי המשכנתה", name)
                     else:
-                        self._add_row('בעלים', name)
+                        self._add_row("בעלים", name)
                 if action:
-                    self._add_row('מהות פעולה', action)
+                    self._add_row("מהות פעולה", action)
                 if date:
-                    self._add_row('תאריך', date)
+                    self._add_row("תאריך", date)
 
         # 6. Area information extraction
         # Look for area-related fields in Hebrew
-        area_keywords = ['שטח', 'מ״ר', 'מטר', 'שטח כולל', 'שטח נטו', 'שטח בנוי']
+        area_keywords = ["שטח", "מ״ר", "מטר", "שטח כולל", "שטח נטו", "שטח בנוי"]
         for keyword in area_keywords:
             if keyword in line:
                 # Extract numeric value near the keyword
                 value = self._extract_number_near_field(line, keyword)
                 if value:
-                    if 'כולל' in keyword or 'כולל' in line:
-                        self._add_row('שטח כולל', value)
-                    elif 'נטו' in keyword or 'נטו' in line:
-                        self._add_row('שטח נטו', value)
-                    elif 'בנוי' in keyword or 'בנוי' in line:
-                        self._add_row('שטח בנוי', value)
+                    if "כולל" in keyword or "כולל" in line:
+                        self._add_row("שטח כולל", value)
+                    elif "נטו" in keyword or "נטו" in line:
+                        self._add_row("שטח נטו", value)
+                    elif "בנוי" in keyword or "בנוי" in line:
+                        self._add_row("שטח בנוי", value)
                     else:
-                        self._add_row('שטח', value)
+                        self._add_row("שטח", value)
 
         # 7. Specific area patterns from Tabu documents (after Hebrew reversal)
         # Pattern: "ירימ 653.00 ופי- ביבא לת תייריע" → "מירי 653.00 -יפו אביב תל עיריית" (Total area)
-        total_area_match = re.search(r'מירי\s+(\d+(?:\.\d+)?)', line)
+        total_area_match = re.search(r"מירי\s+(\d+(?:\.\d+)?)", line)
         if total_area_match:
-            self._add_row('שטח כולל', total_area_match.group(1))
-        
+            self._add_row("שטח כולל", total_area_match.group(1))
+
         # Pattern: "324.00 עקרק ב" → "324.00 קרקע ב" (Subparcel area)
-        subparcel_area_match = re.search(r'(\d+(?:\.\d+)?)\s+קרקע\s+ב', line)
+        subparcel_area_match = re.search(r"(\d+(?:\.\d+)?)\s+קרקע\s+ב", line)
         if subparcel_area_match:
-            self._add_row('שטח נטו', subparcel_area_match.group(1))
-        
+            self._add_row("שטח נטו", subparcel_area_match.group(1))
+
         # Pattern: "1/2 95.40 - הריד" → "1/2 95.40 - דירה" (Built area)
-        built_area_match = re.search(r'(\d+(?:\.\d+)?)\s*-\s*דירה', line)
+        built_area_match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*דירה", line)
         if built_area_match:
-            self._add_row('שטח בנוי', built_area_match.group(1))
+            self._add_row("שטח בנוי", built_area_match.group(1))
 
         # 8. Generic key/value pairs separated by a single colon
-        if ':' in line and line.count(':') == 1:
-            key, value = [part.strip() for part in line.split(':', 1)]
-            if key and value and not any(k in key for k in ['גוש', 'חלקה', 'תת חלקה']):
+        if ":" in line and line.count(":") == 1:
+            key, value = [part.strip() for part in line.split(":", 1)]
+            if key and value and not any(k in key for k in ["גוש", "חלקה", "תת חלקה"]):
                 self._add_row(key, value)
 
     def search(self, term: str) -> List[Dict[str, str]]:
@@ -327,7 +337,11 @@ class TabuParser:
         if not term:
             return list(self.rows)
         term_lower = term.lower()
-        return [row for row in self.rows if term_lower in row['field'].lower() or term_lower in row['value'].lower()]
+        return [
+            row
+            for row in self.rows
+            if term_lower in row["field"].lower() or term_lower in row["value"].lower()
+        ]
 
 
 def parse_tabu_pdf(file: IO) -> List[Dict[str, str]]:
@@ -363,4 +377,8 @@ def search_rows(rows: Iterable[Dict[str, str]], term: str) -> List[Dict[str, str
     if not term:
         return list(rows)
     term_lower = term.lower()
-    return [r for r in rows if term_lower in r['field'].lower() or term_lower in r['value'].lower()]
+    return [
+        r
+        for r in rows
+        if term_lower in r["field"].lower() or term_lower in r["value"].lower()
+    ]

@@ -61,14 +61,18 @@ MOCK_TRANSACTIONS: Dict[str, List[Dict[str, object]]] = {
 }
 
 
-def _normalize_transactions(data: Dict[str, Iterable[Dict[str, object]]]) -> TransactionsByAddress:
+def _normalize_transactions(
+    data: Dict[str, Iterable[Dict[str, object]]],
+) -> TransactionsByAddress:
     normalized: TransactionsByAddress = {}
     for address, items in data.items():
         normalized[address] = [Deal.from_item(item).to_dict() for item in items]
     return normalized
 
 
-def _price_statistics(transactions: TransactionsByAddress) -> Dict[str, Dict[str, float]]:
+def _price_statistics(
+    transactions: TransactionsByAddress,
+) -> Dict[str, Dict[str, float]]:
     stats: Dict[str, Dict[str, float]] = {}
     for address, deals in transactions.items():
         prices = [deal["deal_amount"] for deal in deals if deal.get("deal_amount")]
@@ -84,7 +88,9 @@ def _price_statistics(transactions: TransactionsByAddress) -> Dict[str, Dict[str
     return stats
 
 
-def _partition_by_price(transactions: TransactionsByAddress, threshold: float) -> Tuple[List[Transaction], List[Transaction]]:
+def _partition_by_price(
+    transactions: TransactionsByAddress, threshold: float
+) -> Tuple[List[Transaction], List[Transaction]]:
     below: List[Transaction] = []
     above: List[Transaction] = []
     for deals in transactions.values():
@@ -102,7 +108,11 @@ def _partition_by_price(transactions: TransactionsByAddress, threshold: float) -
 def test_normalization_preserves_core_fields():
     transactions = _normalize_transactions(MOCK_TRANSACTIONS)
 
-    assert set(transactions) == {"רוזוב 14 תל אביב", "רוטשילד 1 תל אביב", "דיזנגוף 50 תל אביב"}
+    assert set(transactions) == {
+        "רוזוב 14 תל אביב",
+        "רוטשילד 1 תל אביב",
+        "דיזנגוף 50 תל אביב",
+    }
     sample = transactions["רוזוב 14 תל אביב"][0]
     assert sample["address"] == "רוזוב 14, תל אביב-יפו"
     assert sample["deal_amount"] == 2_500_000

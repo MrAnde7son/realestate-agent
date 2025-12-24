@@ -6,7 +6,9 @@ from .worker import process_csvs
 
 
 @shared_task(bind=True)
-def run_nadlanone_import(self, batch_id, mode, dry_run, conflict_policy, enable_linking):
+def run_nadlanone_import(
+    self, batch_id, mode, dry_run, conflict_policy, enable_linking
+):
     batch = ImportBatch.objects.get(id=batch_id)
     if batch.status == ImportBatch.STATUS_CANCELLED:
         return
@@ -19,7 +21,9 @@ def run_nadlanone_import(self, batch_id, mode, dry_run, conflict_policy, enable_
         if results.get("csv_report"):
             batch.report_csv.save(f"{batch_id}.csv", ContentFile(results["csv_report"]))
         if results.get("json_report"):
-            batch.report_json.save(f"{batch_id}.json", ContentFile(results["json_report"]))
+            batch.report_json.save(
+                f"{batch_id}.json", ContentFile(results["json_report"])
+            )
     except Exception as exc:  # pragma: no cover - defensive
         batch.status = ImportBatch.STATUS_FAILED
         batch.totals = {"error": str(exc)}

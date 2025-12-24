@@ -35,41 +35,41 @@ def check_and_rename_fields(apps, schema_editor):
 
     with connection.cursor() as cursor:
         # Only rename fields that exist
-        if 'gush' in columns and 'block' not in columns:
+        if "gush" in columns and "block" not in columns:
             cursor.execute(
                 f"ALTER TABLE {quote_name('core_asset')} RENAME COLUMN {quote_name('gush')} TO {quote_name('block')}"
             )
-            columns.remove('gush')
-            columns.append('block')
+            columns.remove("gush")
+            columns.append("block")
             print("Renamed gush to block")
 
-        if 'helka' in columns and 'parcel' not in columns:
+        if "helka" in columns and "parcel" not in columns:
             cursor.execute(
                 f"ALTER TABLE {quote_name('core_asset')} RENAME COLUMN {quote_name('helka')} TO {quote_name('parcel')}"
             )
-            columns.remove('helka')
-            columns.append('parcel')
+            columns.remove("helka")
+            columns.append("parcel")
             print("Renamed helka to parcel")
 
-        if 'subhelka' in columns and 'subparcel' not in columns:
+        if "subhelka" in columns and "subparcel" not in columns:
             cursor.execute(
                 f"ALTER TABLE {quote_name('core_asset')} RENAME COLUMN {quote_name('subhelka')} TO {quote_name('subparcel')}"
             )
-            columns.remove('subhelka')
-            columns.append('subparcel')
+            columns.remove("subhelka")
+            columns.append("subparcel")
             print("Renamed subhelka to subparcel")
 
         # Handle indexes - remove old ones if they exist, create new ones if they don't
         old_indexes = [
-            'core_asset_gush_dc43e9_idx',
-            'core_asset_helka_38f908_idx',
-            'core_asset_subhelk_ec1101_idx'  # Note: this is the truncated name
+            "core_asset_gush_dc43e9_idx",
+            "core_asset_helka_38f908_idx",
+            "core_asset_subhelk_ec1101_idx",  # Note: this is the truncated name
         ]
 
         new_indexes = [
-            ('core_asset_block_dc43e9_idx', 'block'),
-            ('core_asset_parcel_38f908_idx', 'parcel'),
-            ('core_asset_subparcel_ec1101_idx', 'subparcel')
+            ("core_asset_block_dc43e9_idx", "block"),
+            ("core_asset_parcel_38f908_idx", "parcel"),
+            ("core_asset_subparcel_ec1101_idx", "subparcel"),
         ]
 
         # Remove old indexes if they exist
@@ -99,26 +99,25 @@ def reverse_rename_fields(apps, schema_editor):
         return
 
     with connection.cursor() as cursor:
-        if 'block' in columns and 'gush' not in columns:
+        if "block" in columns and "gush" not in columns:
             cursor.execute(
                 f"ALTER TABLE {quote_name('core_asset')} RENAME COLUMN {quote_name('block')} TO {quote_name('gush')}"
             )
 
-        if 'parcel' in columns and 'helka' not in columns:
+        if "parcel" in columns and "helka" not in columns:
             cursor.execute(
                 f"ALTER TABLE {quote_name('core_asset')} RENAME COLUMN {quote_name('parcel')} TO {quote_name('helka')}"
             )
 
-        if 'subparcel' in columns and 'subhelka' not in columns:
+        if "subparcel" in columns and "subhelka" not in columns:
             cursor.execute(
                 f"ALTER TABLE {quote_name('core_asset')} RENAME COLUMN {quote_name('subparcel')} TO {quote_name('subhelka')}"
             )
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0024_fix_demo_user_plan'),
+        ("core", "0024_fix_demo_user_plan"),
     ]
 
     operations = [

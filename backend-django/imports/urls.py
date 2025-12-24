@@ -4,6 +4,8 @@ from .views import ImportBatchDetailView, ImportBatchListView, NadlanOneImportVi
 
 urlpatterns = [
     path("nadlanone", NadlanOneImportView.as_view(), name="nadlanone-import"),
-    path("<uuid:batch_id>", ImportBatchDetailView.as_view(), name="import-batch-detail"),
+    path(
+        "<uuid:batch_id>", ImportBatchDetailView.as_view(), name="import-batch-detail"
+    ),
     path("", ImportBatchListView.as_view(), name="import-batch-list"),
 ]

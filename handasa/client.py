@@ -12,7 +12,9 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-SEARCH_RESULTS_URL = "https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx"
+SEARCH_RESULTS_URL = (
+    "https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx"
+)
 PROCESS_QUERY_URL = "https://handasa.tel-aviv.gov.il/_vti_bin/client.svc/ProcessQuery"
 FILES_API_URL = "https://handasa.tel-aviv.gov.il/api/files"
 CONTEXT_INFO_URL = "https://handasa.tel-aviv.gov.il/_api/contextinfo"
@@ -20,7 +22,9 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 
 # Large CSOM payload used by the public Handasa search form.  Keeping it in a
 # separate template file keeps this module readable.
-PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_text(encoding="utf-8")
+PROCESS_QUERY_TEMPLATE = (
+    Path(__file__).with_name("payload_template.xml").read_text(encoding="utf-8")
+)
 
 _DIGEST_PATTERN = re.compile(r'"formDigestValue"\s*:\s*"([^"]+)"')
 _BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
@@ -68,7 +72,11 @@ def _classify_handasa_document(row: Dict[str, Any]) -> Tuple[str, str]:
         row.get("Title"),
     ]
     descriptor = next(
-        (value for value in descriptor_candidates if isinstance(value, str) and value.strip()),
+        (
+            value
+            for value in descriptor_candidates
+            if isinstance(value, str) and value.strip()
+        ),
         "",
     )
     normalized = _normalize_label(descriptor)
@@ -84,7 +92,12 @@ def _classify_handasa_document(row: Dict[str, Any]) -> Tuple[str, str]:
     category = "permit" if doc_type in _PERMIT_DOCUMENT_TYPES else "document"
     if doc_type == "plan":
         category = "plan"
-    elif doc_type in {"condo_plan", "architectural_drawing", "technical_drawing", "blueprint"}:
+    elif doc_type in {
+        "condo_plan",
+        "architectural_drawing",
+        "technical_drawing",
+        "blueprint",
+    }:
         category = "drawing"
 
     return doc_type, category
@@ -149,10 +162,10 @@ class HandasaClient:
     # Public API
     # ------------------------------------------------------------------
     def get_archive(
-            self,
-            block: str,
-            parcel: Optional[str] = None,
-            page_size: int = 50,
+        self,
+        block: str,
+        parcel: Optional[str] = None,
+        page_size: int = 50,
     ) -> List[Dict[str, Any]]:
         block_param = self._format_block_parcel(block, parcel)
         digest = self._get_request_digest(block_param)
@@ -183,7 +196,11 @@ class HandasaClient:
             normalized_batch: List[Dict[str, Any]] = []
             for r in batch_rows:
                 n = self._normalize_row(r)
-                ext_id = n.get("external_id") or n.get("preview_url") or n.get("external_url")
+                ext_id = (
+                    n.get("external_id")
+                    or n.get("preview_url")
+                    or n.get("external_url")
+                )
                 if ext_id and ext_id in seen_ids:
                     continue
                 if ext_id:
@@ -247,7 +264,9 @@ class HandasaClient:
             if target_path.exists() and target_path.is_dir():
                 is_directory = True
             else:
-                is_directory = save_to_str.endswith(("/", "\\")) or target_path.suffix == ""
+                is_directory = (
+                    save_to_str.endswith(("/", "\\")) or target_path.suffix == ""
+                )
 
             if is_directory:
                 file_name = result["file_name"] or f"{unique_id or 'document'}.bin"
@@ -317,20 +336,22 @@ class HandasaClient:
             logger.debug("Handasa payload template missing block placeholder")
         if _START_ROW_PLACEHOLDER not in tmpl:
             logger.debug("Handasa payload template missing start-row placeholder")
-        return (
-            tmpl
-            .replace(_BLOCK_PLACEHOLDER, block_param)
-            .replace(_START_ROW_PLACEHOLDER, str(start_row))
+        return tmpl.replace(_BLOCK_PLACEHOLDER, block_param).replace(
+            _START_ROW_PLACEHOLDER, str(start_row)
         )
 
     @staticmethod
-    def _extract_rows_and_total(payload: Iterable[Any]) -> tuple[List[Dict[str, Any]], Optional[int]]:
+    def _extract_rows_and_total(
+        payload: Iterable[Any],
+    ) -> tuple[List[Dict[str, Any]], Optional[int]]:
         rows: List[Dict[str, Any]] = []
         total: Optional[int] = None
         for entry in payload:
             if isinstance(entry, dict):
                 if entry.get("HasException"):
-                    raise RuntimeError(f"Handasa API error: {entry.get('ErrorInfo', {}).get('ErrorMessage')}")
+                    raise RuntimeError(
+                        f"Handasa API error: {entry.get('ErrorInfo', {}).get('ErrorMessage')}"
+                    )
                 for value in entry.values():
                     if isinstance(value, dict) and value.get("ResultTables"):
                         for table in value.get("ResultTables", []):
@@ -338,10 +359,11 @@ class HandasaClient:
                                 if isinstance(table.get("ResultRows"), list):
                                     rows.extend(table["ResultRows"])
                                 # SharePoint Search returns TotalRows (and TotalRowsIncludingDuplicates)
-                                if "TotalRows" in table and isinstance(table["TotalRows"], int):
+                                if "TotalRows" in table and isinstance(
+                                    table["TotalRows"], int
+                                ):
                                     total = table["TotalRows"]
         return rows, total
-
 
     def _normalize_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         unique_id = _normalize_unique_id(row.get("UniqueID"))
@@ -353,13 +375,21 @@ class HandasaClient:
             or _parse_sharepoint_date(row.get("Write"))
             or _parse_sharepoint_date(row.get("TlvMPEngDocDate"))
         )
-        status = row.get("TlvMPEngProcessStage") or row.get("TlvMPEngDocumentStatus") or ""
+        status = (
+            row.get("TlvMPEngProcessStage") or row.get("TlvMPEngDocumentStatus") or ""
+        )
         external_id = unique_id or permission_num or request_num or row.get("Path")
-        external_url = row.get('DocumentLink') or self._build_external_url(unique_id, row)
-        preview_url = "https://handasa.tel-aviv.gov.il" + row.get("TlvMPEngWebsioPreview") if row.get("TlvMPEngWebsioPreview") else None
+        external_url = row.get("DocumentLink") or self._build_external_url(
+            unique_id, row
+        )
+        preview_url = (
+            "https://handasa.tel-aviv.gov.il" + row.get("TlvMPEngWebsioPreview")
+            if row.get("TlvMPEngWebsioPreview")
+            else None
+        )
 
         normalized = {
-            "title": row.get('TlvMPEngDocumentType'),
+            "title": row.get("TlvMPEngDocumentType"),
             "status": status,
             "permission_num": permission_num,
             "request_num": request_num,

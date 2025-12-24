@@ -7,21 +7,21 @@ def rename_index_if_exists(apps, schema_editor):
     """Rename index only if the old index exists and new one doesn't."""
     db_backend = schema_editor.connection.vendor
     with schema_editor.connection.cursor() as cursor:
-        if db_backend == 'sqlite':
+        if db_backend == "sqlite":
             # Check if old index exists
             cursor.execute("""
                 SELECT name FROM sqlite_master 
                 WHERE type='index' AND name='core_asset_permit__0fa22a_idx'
             """)
             old_exists = cursor.fetchone() is not None
-            
+
             # Check if new index exists
             cursor.execute("""
                 SELECT name FROM sqlite_master 
                 WHERE type='index' AND name='core_asset_total_p_41022b_idx'
             """)
             new_exists = cursor.fetchone() is not None
-            
+
             if old_exists and not new_exists:
                 # Rename the index
                 cursor.execute("""
@@ -30,20 +30,20 @@ def rename_index_if_exists(apps, schema_editor):
                 """)
             # If new index already exists, skip (database is ahead of migration state)
             # If old index doesn't exist, skip (already renamed or never existed)
-        elif db_backend == 'postgresql':
+        elif db_backend == "postgresql":
             # For PostgreSQL, check pg_indexes
             cursor.execute("""
                 SELECT indexname FROM pg_indexes 
                 WHERE tablename='core_asset' AND indexname='core_asset_permit__0fa22a_idx'
             """)
             old_exists = cursor.fetchone() is not None
-            
+
             cursor.execute("""
                 SELECT indexname FROM pg_indexes 
                 WHERE tablename='core_asset' AND indexname='core_asset_total_p_41022b_idx'
             """)
             new_exists = cursor.fetchone() is not None
-            
+
             if old_exists and not new_exists:
                 cursor.execute("""
                     ALTER INDEX core_asset_permit__0fa22a_idx 
@@ -55,40 +55,40 @@ def reverse_rename_index_if_exists(apps, schema_editor):
     """Reverse rename index only if needed."""
     db_backend = schema_editor.connection.vendor
     with schema_editor.connection.cursor() as cursor:
-        if db_backend == 'sqlite':
+        if db_backend == "sqlite":
             # Check if new index exists
             cursor.execute("""
                 SELECT name FROM sqlite_master 
                 WHERE type='index' AND name='core_asset_total_p_41022b_idx'
             """)
             new_exists = cursor.fetchone() is not None
-            
+
             # Check if old index exists
             cursor.execute("""
                 SELECT name FROM sqlite_master 
                 WHERE type='index' AND name='core_asset_permit__0fa22a_idx'
             """)
             old_exists = cursor.fetchone() is not None
-            
+
             if new_exists and not old_exists:
                 # Rename back
                 cursor.execute("""
                     ALTER INDEX core_asset_total_p_41022b_idx 
                     RENAME TO core_asset_permit__0fa22a_idx
                 """)
-        elif db_backend == 'postgresql':
+        elif db_backend == "postgresql":
             cursor.execute("""
                 SELECT indexname FROM pg_indexes 
                 WHERE tablename='core_asset' AND indexname='core_asset_total_p_41022b_idx'
             """)
             new_exists = cursor.fetchone() is not None
-            
+
             cursor.execute("""
                 SELECT indexname FROM pg_indexes 
                 WHERE tablename='core_asset' AND indexname='core_asset_permit__0fa22a_idx'
             """)
             old_exists = cursor.fetchone() is not None
-            
+
             if new_exists and not old_exists:
                 cursor.execute("""
                     ALTER INDEX core_asset_total_p_41022b_idx 
@@ -97,7 +97,6 @@ def reverse_rename_index_if_exists(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0069_add_user_preferences"),
     ]

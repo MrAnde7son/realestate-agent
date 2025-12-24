@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Pytest fixtures for Mavat tests."""
+
 from unittest.mock import Mock
 import pytest
 
@@ -31,4 +32,3 @@ def mock_requests_session():
     session.close = Mock()
 
     return session
-

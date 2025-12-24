@@ -29,9 +29,10 @@ class TestMavatCollectorIntegration:
         """Test that MavatCollector can be created."""
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
+
             collector = MavatCollector()
             assert collector is not None
-            assert hasattr(collector, 'client')
+            assert hasattr(collector, "client")
         except Exception as e:
             pytest.fail(f"Failed to create MavatCollector: {e}")
 
@@ -39,10 +40,11 @@ class TestMavatCollectorIntegration:
         """Test that the collect method follows the base interface."""
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
+
             collector = MavatCollector()
-            
+
             # The collect method should exist and be callable
-            assert hasattr(collector, 'collect')
+            assert hasattr(collector, "collect")
             assert callable(collector.collect)
         except Exception as e:
             pytest.fail(f"Collect method test failed: {e}")
@@ -69,16 +71,20 @@ class TestMavatCollectorDataPipelineIntegration:
 
             # Create pipeline instance
             pipeline = DataPipeline()
-            
+
             # Check if mavat collector is included
-            assert hasattr(pipeline, 'mavat'), "MavatCollector not found in pipeline"
-            
+            assert hasattr(pipeline, "mavat"), "MavatCollector not found in pipeline"
+
             # Check if it's the right type
             from orchestration.collectors.mavat_collector import MavatCollector
-            assert isinstance(pipeline.mavat, MavatCollector), "Pipeline mavat is not MavatCollector"
-            
+
+            assert isinstance(pipeline.mavat, MavatCollector), (
+                "Pipeline mavat is not MavatCollector"
+            )
+
         except Exception as e:
             pytest.fail(f"DataPipeline integration test failed: {e}")
+
 
 class TestMavatCollectorErrorHandling:
     """Test error handling in MavatCollector."""
@@ -87,19 +93,22 @@ class TestMavatCollectorErrorHandling:
         """Test that collect method handles errors gracefully."""
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
-            
-            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
+
+            with patch(
+                "orchestration.collectors.mavat_collector.MavatSeleniumClient"
+            ) as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_by_block_parcel.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
-                
+
                 collector = MavatCollector(client=mock_client)
-                
+
                 # Should return empty list on error, not raise exception
                 result = collector.collect(LocationQuery(block=666, parcel=1))
                 assert result == []
         except Exception as e:
             pytest.fail(f"Collect method error handling test failed: {e}")
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

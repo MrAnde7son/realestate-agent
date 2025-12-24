@@ -28,7 +28,11 @@ from orchestration.collectors import (
 )
 from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query
-from orchestration.pipeline import auto_expand_related_assets, create_asset_snapshot, update_asset_with_collected_data
+from orchestration.pipeline import (
+    auto_expand_related_assets,
+    create_asset_snapshot,
+    update_asset_with_collected_data,
+)
 from orchestration.pipeline.listings import _build_listing_snapshot, _normalize_listings
 
 from orchestration.pipeline.documents import AlertRule
@@ -43,8 +47,10 @@ from orchestration.observability import (
 try:  # pragma: no cover - best effort import
     from core.analytics import track  # type: ignore
 except Exception:  # pragma: no cover - fallback when Django not configured
+
     def track(*args, **kwargs):
         pass
+
 
 # alert helpers
 from orchestration.alerts import Notifier
@@ -60,13 +66,14 @@ and RAMI plans) and persists the aggregated results in the local
 SQLAlchemy database.
 """
 
+
 def _load_user_notifiers() -> List[Notifier]:
     """Build notifiers for all users with active alert rules."""
 
     notifiers: List[Notifier] = []
     try:
         from orchestration.alerts import create_notifier_for_alert_rule
-        
+
         alert_rules = AlertRule.objects.filter(active=True).select_related("user")  # type: ignore[attr-defined]
         for alert_rule in alert_rules:
             notifier = create_notifier_for_alert_rule(alert_rule)
@@ -75,7 +82,6 @@ def _load_user_notifiers() -> List[Notifier]:
     except Exception as e:  # pragma: no cover - best effort
         logging.getLogger(__name__).warning(f"Failed to create user notifiers: {e}")
     return notifiers
-
 
 
 def _dispatch_notifications(pending: List[Tuple[Notifier, Any]]) -> None:
@@ -105,13 +111,18 @@ def _dispatch_notifications(pending: List[Tuple[Notifier, Any]]) -> None:
 
     max_workers = min(4, len(pending))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_execute, notifier, listing) for notifier, listing in pending]
+        futures = [
+            executor.submit(_execute, notifier, listing)
+            for notifier, listing in pending
+        ]
         for future in futures:
             future.result()
+
 
 # ---------------------------------------------------------------------------
 # Data pipeline orchestrator
 # ---------------------------------------------------------------------------
+
 
 class DataPipeline:
     """Collect data from external services and persist it to the database."""
@@ -188,7 +199,7 @@ class DataPipeline:
         self.mavat = mavat or MavatCollector()
         self.handasa = handasa or HandasaCollector()
         self.tikbinyan = tikbinyan or MultiCityTikbinyanCollector()
-        
+
         # Note: GovMap client is now accessed through the collector
 
         # Expose Prometheus metrics endpoint
@@ -253,7 +264,7 @@ class DataPipeline:
                         "collector": source,
                         "duration_ms": int(duration * 1000),
                         "items_count": items_count,
-                        "status": "success" if items_count > 0 else "empty"
+                        "status": "success" if items_count > 0 else "empty",
                     },
                 )
 
@@ -261,9 +272,7 @@ class DataPipeline:
         """Best-effort count of items returned by a collector."""
         try:
             if isinstance(data, dict):
-                return sum(
-                    len(v) for v in data.values() if hasattr(v, "__len__")
-                )
+                return sum(len(v) for v in data.values() if hasattr(v, "__len__"))
             if hasattr(data, "__len__"):
                 return len(data)
             return 1 if data is not None else 0
@@ -276,17 +285,17 @@ class DataPipeline:
         asset_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Collect all data from external services without persisting.
-        
+
         This is the core collection logic shared between run() and collect_asset_data().
         Returns a dictionary with all collected data.
-        
+
         Parameters
         ----------
         location: LocationQuery
             Structured location query.
         asset_id: Optional[int]
             Existing asset identifier being enriched (if any).
-            
+
         Returns
         -------
         Dict containing:
@@ -306,11 +315,11 @@ class DataPipeline:
             - block, parcel, subparcel: Updated parcel information
         """
         from govmap.api_client import itm_to_wgs84
-        
+
         initial_block = location.block
         initial_parcel = location.parcel
         initial_subparcel = location.subparcel
-        
+
         x_itm = None
         y_itm = None
         lon_wgs84 = None
@@ -318,7 +327,7 @@ class DataPipeline:
         block = initial_block
         parcel = initial_parcel
         subparcel = initial_subparcel
-        
+
         # Use GovMap collector to get coordinates and parcel data
         try:
             logger.info("🗺️ Getting address coordinates and parcel data from GovMap...")
@@ -331,40 +340,52 @@ class DataPipeline:
                 asset_id=asset_id,
             )
             track("collector_success", source="govmap")
-            
+
             # Extract coordinates from GovMap result
-            logger.info(f"🔍 GovMap data has 'x': {'x' in govmap_data}, has 'y': {'y' in govmap_data}")
+            logger.info(
+                f"🔍 GovMap data has 'x': {'x' in govmap_data}, has 'y': {'y' in govmap_data}"
+            )
             if "x" in govmap_data and "y" in govmap_data:
                 x_itm = govmap_data["x"]
                 y_itm = govmap_data["y"]
                 # Update location with coordinates
-                logger.info(f"🔍 Before with_coordinates: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}")
+                logger.info(
+                    f"🔍 Before with_coordinates: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}"
+                )
                 location = location.with_coordinates(x_itm, y_itm)
-                logger.info(f"🔍 After with_coordinates: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}")
+                logger.info(
+                    f"🔍 After with_coordinates: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}"
+                )
                 # Convert ITM to WGS84
                 lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                logger.info(
+                    f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})"
+                )
             else:
-                logger.warning(f"⚠️ No coordinates found in GovMap response. Available keys: {list(govmap_data.keys())}")
-                
+                logger.warning(
+                    f"⚠️ No coordinates found in GovMap response. Available keys: {list(govmap_data.keys())}"
+                )
+
         except Exception as e:
             govmap_data = {}
             track("collector_fail", source="govmap", error_code=str(e))
             logger.warning(f"⚠️ GovMap collection failed: {e}")
             logger.info("🔄 Falling back to GIS collector for coordinates...")
-        
+
         # Extract block and parcel from GovMap data
         if govmap_data.get("api_data", {}).get("parcel"):
             parcel_obj = govmap_data.get("api_data", {}).get("parcel", {})
             # Unwrap Feature if needed, then prefer gushnumber/parcelnumber
             if isinstance(parcel_obj, dict) and parcel_obj.get("properties"):
-                parcel_props = parcel_obj.get('properties', {})
+                parcel_props = parcel_obj.get("properties", {})
             else:
                 parcel_props = parcel_obj or {}
 
             block = parcel_props.get("gushnumber", "")
             parcel = parcel_props.get("parcelnumber", "")
-            logger.info(f"🔍 Updating location with block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+            logger.info(
+                f"🔍 Updating location with block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}"
+            )
             location = LocationQuery(
                 city=location.city,
                 street=location.street,
@@ -375,30 +396,39 @@ class DataPipeline:
                 x_itm=location.x_itm,
                 y_itm=location.y_itm,
             )
-            logger.info(f"🔍 Location after block/parcel update: x_itm={location.x_itm}, y_itm={location.y_itm}")
+            logger.info(
+                f"🔍 Location after block/parcel update: x_itm={location.x_itm}, y_itm={location.y_itm}"
+            )
 
         logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
 
         # Update location with corrected address from GovMap if available
-        if govmap_data.get("address") and govmap_data.get("address") != location.formatted:
+        if (
+            govmap_data.get("address")
+            and govmap_data.get("address") != location.formatted
+        ):
             # GovMap provided a corrected address, update the location object
             corrected_address = govmap_data["address"]
             logger.info(f"🔄 Using corrected address from GovMap: {corrected_address}")
-            
+
             # Parse the corrected address to update the location object
             try:
                 # Try to extract street, house number, and city from the corrected address
                 # Pattern to match Hebrew addresses like "רחוב שם 123, עיר"
-                address_pattern = r'^(.+?)\s+(\d+)(?:\s*,\s*(.+))?$'
+                address_pattern = r"^(.+?)\s+(\d+)(?:\s*,\s*(.+))?$"
                 match = re.match(address_pattern, corrected_address.strip())
-                
+
                 if match:
                     street_part = match.group(1).strip()
                     house_number = int(match.group(2))
-                    city_part = match.group(3).strip() if match.group(3) else location.city
-                    
+                    city_part = (
+                        match.group(3).strip() if match.group(3) else location.city
+                    )
+
                     # Update the location object with corrected address components
-                    logger.info(f"🔍 Updating location with corrected address. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                    logger.info(
+                        f"🔍 Updating location with corrected address. Before: x_itm={location.x_itm}, y_itm={location.y_itm}"
+                    )
                     location = LocationQuery(
                         street=street_part,
                         house_number=house_number,
@@ -409,15 +439,19 @@ class DataPipeline:
                         x_itm=location.x_itm,
                         y_itm=location.y_itm,
                     )
-                    logger.info(f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}', x_itm={location.x_itm}, y_itm={location.y_itm}")
+                    logger.info(
+                        f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}', x_itm={location.x_itm}, y_itm={location.y_itm}"
+                    )
                 else:
                     # If parsing fails, try to extract just the street name
                     # Split by space and take the first part as street, rest as city
-                    parts = corrected_address.split(',')
+                    parts = corrected_address.split(",")
                     if len(parts) >= 2:
                         street_part = parts[0].strip()
                         city_part = parts[1].strip()
-                        logger.info(f"🔍 Updating location with corrected address (simple parse). Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                        logger.info(
+                            f"🔍 Updating location with corrected address (simple parse). Before: x_itm={location.x_itm}, y_itm={location.y_itm}"
+                        )
                         location = LocationQuery(
                             street=street_part,
                             house_number=location.house_number,
@@ -428,25 +462,33 @@ class DataPipeline:
                             x_itm=location.x_itm,
                             y_itm=location.y_itm,
                         )
-                        logger.info(f"🔍 Location after simple parse update: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                        logger.info(
+                            f"🔍 Location after simple parse update: x_itm={location.x_itm}, y_itm={location.y_itm}"
+                        )
                     else:
-                        logger.info("📍 Could not parse corrected address, keeping original location")
+                        logger.info(
+                            "📍 Could not parse corrected address, keeping original location"
+                        )
             except Exception as e:
-                logger.warning(f"Failed to parse corrected address '{corrected_address}': {e}")
+                logger.warning(
+                    f"Failed to parse corrected address '{corrected_address}': {e}"
+                )
                 logger.info("📍 Keeping original location due to parsing error")
-        
+
         # Check if city is Tel Aviv (GIS and Handasa only support Tel Aviv)
         city = location.city or ""
         is_tel_aviv = "תל אביב" in city
-        
+
         # Initialize tikbinyan archive
         tikbinyan_archive: List[Dict[str, Any]] = []
-        
+
         if not is_tel_aviv:
-            logger.info(f"📍 City '{city}' - using tikbinyan collectors for municipal building info")
+            logger.info(
+                f"📍 City '{city}' - using tikbinyan collectors for municipal building info"
+            )
             gis_data = {}
             handasa_archive = []
-            
+
             # Use multi-city tikbinyan collector (automatically routes to correct city adapter)
             try:
                 logger.info(f"🏗️ Collecting tikbinyan building info for {city}...")
@@ -459,7 +501,9 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="tikbinyan")
-                logger.info(f"🏗️ Tikbinyan documents collected for {city}: {len(tikbinyan_archive)}")
+                logger.info(
+                    f"🏗️ Tikbinyan documents collected for {city}: {len(tikbinyan_archive)}"
+                )
             except ValueError as e:
                 # City not supported by any tikbinyan adapter
                 tikbinyan_archive = []
@@ -468,7 +512,7 @@ class DataPipeline:
                 tikbinyan_archive = []
                 track("collector_fail", source="tikbinyan", error_code=str(e))
                 logger.warning(f"⚠️ Tikbinyan collection failed for {city}: {e}")
-            
+
             # Also collect multi-city GIS data for rights and other data
             gis_data = {}
             try:
@@ -482,7 +526,9 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gis")
-                logger.info(f"🗺️ Multi-city GIS data collected for {city}: keys={list(gis_data.keys())}")
+                logger.info(
+                    f"🗺️ Multi-city GIS data collected for {city}: keys={list(gis_data.keys())}"
+                )
             except Exception as e:
                 gis_data = {}
                 track("collector_fail", source="gis", error_code=str(e))
@@ -501,12 +547,14 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gis")
-                
+
                 # Extract block and parcel from successful GIS collection
-                if gis_data.get('block') and gis_data.get('parcel'):
-                    block = gis_data.get('block', '')
-                    parcel = gis_data.get('parcel', '')
-                    logger.info(f"🔍 Updating location with GIS block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}")
+                if gis_data.get("block") and gis_data.get("parcel"):
+                    block = gis_data.get("block", "")
+                    parcel = gis_data.get("parcel", "")
+                    logger.info(
+                        f"🔍 Updating location with GIS block/parcel. Before: x_itm={location.x_itm}, y_itm={location.y_itm}"
+                    )
                     location = LocationQuery(
                         city=location.city,
                         street=location.street,
@@ -517,7 +565,9 @@ class DataPipeline:
                         x_itm=location.x_itm,
                         y_itm=location.y_itm,
                     )
-                    logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}, x_itm={location.x_itm}, y_itm={location.y_itm}")
+                    logger.info(
+                        f"✅ GIS data collected successfully: block={block}, parcel={parcel}, x_itm={location.x_itm}, y_itm={location.y_itm}"
+                    )
             except Exception as e:
                 gis_data = {}
                 track("collector_fail", source="gis", error_code=str(e))
@@ -537,7 +587,9 @@ class DataPipeline:
                         asset_id=asset_id,
                     )
                     track("collector_success", source="handasa")
-                    logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
+                    logger.info(
+                        "🏗️ Handasa documents collected: %d", len(handasa_archive)
+                    )
                 except Exception as e:
                     handasa_archive = []
                     track("collector_fail", source="handasa", error_code=str(e))
@@ -547,16 +599,22 @@ class DataPipeline:
         gov_data = {"decisive": [], "transactions": []}
         has_coordinates = location.x_itm is not None and location.y_itm is not None
         has_block_parcel = bool(block and parcel)
-        
-        logger.info(f"🔍 Before GovCollector: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}, has_coordinates={has_coordinates}")
-        
+
+        logger.info(
+            f"🔍 Before GovCollector: location.x_itm={location.x_itm}, location.y_itm={location.y_itm}, has_coordinates={has_coordinates}"
+        )
+
         if has_coordinates or has_block_parcel:
             try:
                 logger.info("🏛️ Collecting government data...")
                 if has_coordinates:
-                    logger.info(f"📍 Using coordinates for GovMap deals: ITM({location.x_itm}, {location.y_itm})")
+                    logger.info(
+                        f"📍 Using coordinates for GovMap deals: ITM({location.x_itm}, {location.y_itm})"
+                    )
                 if has_block_parcel:
-                    logger.info(f"📍 Using block/parcel for decisive appraisals: block={block}, parcel={parcel}")
+                    logger.info(
+                        f"📍 Using block/parcel for decisive appraisals: block={block}, parcel={parcel}"
+                    )
                 # GovCollector will use coordinates from LocationQuery if available
                 gov_data = self._collect_with_observability(
                     "gov",
@@ -567,14 +625,18 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gov")
-                logger.info(f"📊 Government data collected: {len(gov_data.get('decisive', []))} decisives, {len(gov_data.get('transactions', []))} transactions")
+                logger.info(
+                    f"📊 Government data collected: {len(gov_data.get('decisive', []))} decisives, {len(gov_data.get('transactions', []))} transactions"
+                )
             except Exception as e:
                 gov_data = {"decisive": [], "transactions": []}
                 track("collector_fail", source="gov", error_code=str(e))
                 logger.warning(f"⚠️ Government data collection failed: {e}")
         else:
-            logger.info("⚠️ Skipping government data collection: no coordinates or block/parcel available")
-        
+            logger.info(
+                "⚠️ Skipping government data collection: no coordinates or block/parcel available"
+            )
+
         # Get RAMI plans once for the address
         plans = []
         if block and parcel:
@@ -594,7 +656,7 @@ class DataPipeline:
                 plans = []
                 track("collector_fail", source="gov_rami", error_code=str(e))
                 logger.warning(f"⚠️ RAMI collection failed: {e}")
-        
+
         # Get Mavat plans once for the address
         mavat_plans = []
         if block and parcel:
@@ -614,7 +676,7 @@ class DataPipeline:
                 mavat_plans = []
                 track("collector_fail", source="mavat", error_code=str(e))
                 logger.warning(f"⚠️ Mavat collection failed: {e}")
-        
+
         # Search tenders from rami (includes Amidar)
         michrazim_listings = []
         try:
@@ -637,24 +699,30 @@ class DataPipeline:
         # Search Yad2 for listings
         try:
             logger.info("🏠 Searching Yad2 for listings...")
-            
+
             # Update location with address information from GovMap if location is not properly provided
-            if govmap_data.get('addresses') and govmap_data['addresses'] and not (location.street and location.city):
-                first_address = govmap_data['addresses'][0]
-                if first_address.get('street') and first_address.get('city'):
+            if (
+                govmap_data.get("addresses")
+                and govmap_data["addresses"]
+                and not (location.street and location.city)
+            ):
+                first_address = govmap_data["addresses"][0]
+                if first_address.get("street") and first_address.get("city"):
                     # Create new location with the detailed address
                     location = LocationQuery(
-                        street=first_address.get('street', ''),
-                        city=first_address.get('city', ''),
-                        house_number=first_address.get('house_number'),
+                        street=first_address.get("street", ""),
+                        city=first_address.get("city", ""),
+                        house_number=first_address.get("house_number"),
                         block=block,
                         parcel=parcel,
                         subparcel=subparcel,
                         x_itm=location.x_itm,
                         y_itm=location.y_itm,
                     )
-                    logger.info(f"Updated location for Yad2 search: {location.street} {location.house_number}, {location.city}")
-            
+                    logger.info(
+                        f"Updated location for Yad2 search: {location.street} {location.house_number}, {location.city}"
+                    )
+
             listings = self._collect_with_observability(
                 "yad2",
                 self.yad2.collect,
@@ -669,11 +737,11 @@ class DataPipeline:
             track("collector_fail", source="yad2", error_code=str(e))
             logger.error(f"❌ Yad2 collection failed: {e}")
             listings = []
-        
+
         # Search Madlan for listings
         madlan_listings = []
         try:
-            logger.info("🏠 Searching Madlan for listings...")            
+            logger.info("🏠 Searching Madlan for listings...")
             madlan_listings = self._collect_with_observability(
                 "madlan",
                 self.madlan.collect,
@@ -688,7 +756,7 @@ class DataPipeline:
             track("collector_fail", source="madlan", error_code=str(e))
             logger.error(f"❌ Madlan collection failed: {e}")
             madlan_listings = []
-        
+
         return {
             "location": location,
             "govmap_data": govmap_data,
@@ -713,8 +781,12 @@ class DataPipeline:
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> DBListing:
         # Check if listing already exists by listing_id
-        existing_listing = session.query(DBListing).filter_by(listing_id=str(listing.listing_id)).first()
-        
+        existing_listing = (
+            session.query(DBListing)
+            .filter_by(listing_id=str(listing.listing_id))
+            .first()
+        )
+
         contact_name = getattr(listing, "contact_name", None)
         contact_phone = getattr(listing, "contact_phone", None)
         contact_info = getattr(listing, "contact_info", None)
@@ -730,7 +802,11 @@ class DataPipeline:
                     "brokerPhone": getattr(contact_info, "brokerPhone", None),
                 }
             contact_name = contact_name or contact_data.get("name")
-            contact_phone = contact_phone or contact_data.get("phone") or contact_data.get("brokerPhone")
+            contact_phone = (
+                contact_phone
+                or contact_data.get("phone")
+                or contact_data.get("brokerPhone")
+            )
 
         photos_data: List[str] = []
         raw_photos = getattr(listing, "images", None)
@@ -803,11 +879,13 @@ class DataPipeline:
                 except Exception:
                     pass
             session.add(obj)
-        
+
         session.flush()  # populate id
         return obj
 
-    def _add_source_record(self, session, listing_id: int, source: str, data: Any) -> None:
+    def _add_source_record(
+        self, session, listing_id: int, source: str, data: Any
+    ) -> None:
         session.add(SourceRecord(listing_id=listing_id, source=source, data=data))
 
     def _add_transactions(self, session, listing_id: int, deals: Iterable[Any]) -> None:
@@ -818,10 +896,11 @@ class DataPipeline:
                 return v
             try:
                 # Remove thousands separators / currency symbols
-                cleaned = str(v).replace(',', '').replace('₪', '').strip()
+                cleaned = str(v).replace(",", "").replace("₪", "").strip()
                 return float(cleaned) if cleaned else None
             except Exception:
                 return None
+
         for d in deals:
             raw = d.to_dict() if hasattr(d, "to_dict") else dict(d)
             session.add(
@@ -870,7 +949,7 @@ class DataPipeline:
         # Only add house_number if it's not None
         if location.house_number is not None:
             span_attributes["house_number"] = location.house_number
-            
+
         with tracer.start_as_current_span(
             "data_pipeline.run",
             attributes=span_attributes,
@@ -886,10 +965,10 @@ class DataPipeline:
 
             results: List[Any] = []
             pending_notifications: List[Tuple[Notifier, Any]] = []
-            
+
             # Collect all data using shared collection logic
             collected = self._collect_all_data(location, asset_id=asset_id)
-            
+
             # Extract collected data
             location = collected["location"]
             govmap_data = collected["govmap_data"]
@@ -909,14 +988,16 @@ class DataPipeline:
             block = collected["block"]
             parcel = collected["parcel"]
             subparcel = collected["subparcel"]
-            
+
             # Combine listings from all sources
             all_listings = listings + madlan_listings + michrazim_listings
-            
+
             try:
                 # Process listings if any exist
                 for i, listing in enumerate(all_listings, 1):
-                    logger.info(f"🏠 Processing listing {i}/{len(all_listings)}: {listing.title}")
+                    logger.info(
+                        f"🏠 Processing listing {i}/{len(all_listings)}: {listing.title}"
+                    )
                     # Store listing in DB and add to return list
                     db_listing = self._store_listing(session, listing)
                     results.append(listing)
@@ -926,12 +1007,21 @@ class DataPipeline:
                     # ---------------- GovMap Autocomplete (already collected above) ----------------
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
-                        self._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete_data)
-                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
+                        self._add_source_record(
+                            session,
+                            db_listing.id,
+                            "govmap_autocomplete",
+                            autocomplete_data,
+                        )
+                        results.append(
+                            {"source": "govmap_autocomplete", "data": autocomplete_data}
+                        )
 
                     # ---------------- GovMap Parcel Data (already collected above) ----------------
                     if govmap_data:
-                        self._add_source_record(session, db_listing.id, "govmap", govmap_data)
+                        self._add_source_record(
+                            session, db_listing.id, "govmap", govmap_data
+                        )
                         results.append({"source": "govmap", "data": govmap_data})
 
                     # ---------------- GIS (supplementary data) ----------------
@@ -940,16 +1030,22 @@ class DataPipeline:
                         results.append({"source": "gis", "data": gis_data})
 
                     if handasa_archive:
-                        self._add_source_record(session, db_listing.id, "handasa", handasa_archive)
+                        self._add_source_record(
+                            session, db_listing.id, "handasa", handasa_archive
+                        )
                         results.append({"source": "handasa", "data": handasa_archive})
-                    
+
                     if tikbinyan_archive:
-                        self._add_source_record(session, db_listing.id, "tikbinyan", tikbinyan_archive)
-                        results.append({"source": "tikbinyan", "data": tikbinyan_archive})
+                        self._add_source_record(
+                            session, db_listing.id, "tikbinyan", tikbinyan_archive
+                        )
+                        results.append(
+                            {"source": "tikbinyan", "data": tikbinyan_archive}
+                        )
 
                     # ---------------- Gov data (collected once above) ----------------
                     self._add_source_record(session, db_listing.id, "gov", gov_data)
-                    
+
                     decisives = gov_data.get("decisive") or []
                     if decisives:
                         self._add_source_record(
@@ -964,7 +1060,9 @@ class DataPipeline:
 
                     # ---------------- RAMI plans (collected once above) ----------------
                     if plans:
-                        self._add_source_record(session, db_listing.id, "gov_rami", plans)
+                        self._add_source_record(
+                            session, db_listing.id, "gov_rami", plans
+                        )
                         results.append({"source": "gov_rami", "data": plans})
 
                     # ---------------- Mavat plans (collected once above) ----------------
@@ -978,40 +1076,50 @@ class DataPipeline:
                     for notifier in notifiers:
                         if notifier.matches(listing_snapshot):
                             pending_notifications.append((notifier, listing_snapshot))
-                
+
                 # If no listings, still add collected data to results
                 if not all_listings:
-                    logger.info("📊 No listings found, but adding collected data to results")
-                    
+                    logger.info(
+                        "📊 No listings found, but adding collected data to results"
+                    )
+
                     # Add GovMap autocomplete data to results
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
-                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
+                        results.append(
+                            {"source": "govmap_autocomplete", "data": autocomplete_data}
+                        )
 
                     # Add GovMap parcel data to results
                     if govmap_data:
                         results.append({"source": "govmap", "data": govmap_data})
-                    
+
                     # Add GIS data to results (supplementary)
                     if gis_data:
                         results.append({"source": "gis", "data": gis_data})
 
                     if handasa_archive:
                         results.append({"source": "handasa", "data": handasa_archive})
-                    
+
                     if tikbinyan_archive:
-                        results.append({"source": "tikbinyan", "data": tikbinyan_archive})
-                    
+                        results.append(
+                            {"source": "tikbinyan", "data": tikbinyan_archive}
+                        )
+
                     # Add government data to results
                     if gov_data.get("decisive"):
-                        results.append({"source": "decisive", "data": gov_data["decisive"]})
+                        results.append(
+                            {"source": "decisive", "data": gov_data["decisive"]}
+                        )
                     if gov_data.get("transactions"):
-                        results.append({"source": "transactions", "data": gov_data["transactions"]})
-                    
+                        results.append(
+                            {"source": "transactions", "data": gov_data["transactions"]}
+                        )
+
                     # Add RAMI plans to results
                     if plans:
                         results.append({"source": "gov_rami", "data": plans})
-                    
+
                     # Add Mavat plans to results
                     if mavat_plans:
                         results.append({"source": "mavat", "data": mavat_plans})
@@ -1076,17 +1184,25 @@ class DataPipeline:
                     # Trigger alert evaluation
                     try:
                         from core.tasks import evaluate_alerts_for_asset
+
                         evaluate_alerts_for_asset.delay(asset_id)
                     except Exception as e:
-                        logger.error("Failed to trigger alert evaluation for asset %s: %s", asset_id, e)
+                        logger.error(
+                            "Failed to trigger alert evaluation for asset %s: %s",
+                            asset_id,
+                            e,
+                        )
             finally:
                 if not session_provided:
                     session.close()
 
                 # Log completion summary
                 execution_time = time.perf_counter() - start_time
-                logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
                 logger.info(
-                    f"📊 Processed {len(all_listings)} listings ({len(listings)} Yad2, {len(madlan_listings)} Madlan) with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
+                    f"✅ Pipeline completed successfully in {execution_time:.2f}s"
+                )
+                logger.info(
+                    f"📊 Processed {len(all_listings)} listings ({len(listings)} Yad2, {len(madlan_listings)} Madlan) with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources"
+                )
 
             return results

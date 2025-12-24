@@ -2677,10 +2677,10 @@ useDedupedEffect(() => {
   }, [activeTab, tabContext])
 
   const tabListClassName =
-    "flex flex-wrap gap-2 rounded-xl bg-white/90 p-2 shadow-md md:flex-nowrap md:gap-2"
+    "flex flex-wrap gap-2 rounded-xl bg-card/90 p-2 shadow-md md:flex-nowrap md:gap-2"
 
   const tabTriggerClassName =
-    "flex-1 min-w-[110px] cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-muted-foreground shadow-sm transition hover:-translate-y-[1px] hover:shadow-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
+    "flex-1 min-w-[110px] cursor-pointer rounded-lg bg-background px-4 py-2 text-sm font-semibold text-muted-foreground shadow-sm transition hover:-translate-y-[1px] hover:shadow-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg"
 
   const breadcrumbItems: PersistentBreadcrumbItemType[] = React.useMemo(() => {
     const items: PersistentBreadcrumbItemType[] = [

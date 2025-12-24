@@ -259,3 +259,10 @@ media/*
 !media/.gitkeep
 **/media/*
 !**/media/.gitkeep
+
+# Local development files - avoid committing local changes
+**/permits/
+**/privilege_pages/
+**/error_modal_*.png
+**/privilege_block*.pdf
+**/test_privilege_pages/

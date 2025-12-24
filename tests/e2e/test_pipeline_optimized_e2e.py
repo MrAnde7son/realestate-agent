@@ -164,8 +164,8 @@ def isolate_pipeline(monkeypatch):
     monkeypatch.setattr(module, "tracer", DummyTracer())
     monkeypatch.setattr(module, "_load_user_notifiers", lambda: [])
     monkeypatch.setattr(module, "track", lambda *a, **k: None)
-    monkeypatch.setattr(module, "itm_to_wgs84", lambda x, y: (x / 1000.0, y / 1000.0))
     yield
+
 
 
 class FakeQuery:

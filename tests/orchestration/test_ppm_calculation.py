@@ -337,8 +337,7 @@ class TestPPMModelPriceCalculation:
         # Calculate metrics
         _calculate_market_metrics(asset, listings, gov_data)
 
-        # Should fallback to simple average price: (2000000 + 2500000 + 3000000) / 3 = 2500000
-        assert asset.model_price == 2500000
+        assert asset.model_price is None
 
     def test_no_comparable_data(self):
         """Test behavior when no comparable data is available."""

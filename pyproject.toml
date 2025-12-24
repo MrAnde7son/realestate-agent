@@ -1,7 +1,31 @@
 [tool.pytest.ini_options]
+# Django settings
+DJANGO_SETTINGS_MODULE = "broker_backend.settings"
+pythonpath = [".", "backend-django"]
+
+# Test discovery
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests", "backend-django/tests", "."]
+
+# Default options
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+
+# Warning filters
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# Test markers (consolidated from pytest.ini and pytest-ci.ini)
 markers = [
     "django: marks tests as django tests",
-    "slow: marks tests as slow",
+    "slow: marks tests as slow running tests",
     "integration: marks tests as integration tests",
     "asyncio: marks tests as asyncio tests",
     "mavat: marks tests for Mavat collector",
@@ -11,4 +35,5 @@ markers = [
     "gis: marks tests for GIS client",
     "rami: marks tests for RAMI client",
     "govmap: marks tests for GovMap client and collector",
+    "external_service: marks tests that depend on external services (API/network)",
 ]

@@ -669,4 +669,16 @@ describe('AssetDetailPage', () => {
       expect(callCounts[documentsCall!]).toBe(1)
     })
   })
+
+  it('uses theme-aware background classes for asset detail tabs', async () => {
+    await act(async () => {
+      render(<AssetDetailPageClient assetId="1" />)
+    })
+
+    const tabList = await screen.findByRole('tablist')
+    expect(tabList.className).toContain('bg-card/90')
+
+    const firstTab = await screen.findByRole('tab', { name: 'ניתוח כללי' })
+    expect(firstTab.className).toContain('bg-background')
+  })
 })

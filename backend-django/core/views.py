@@ -10,7 +10,13 @@ from typing import Optional, Any, List
 from pathlib import Path
 
 from django.db.models.fields.json import KeyTextTransform
-from django.http import JsonResponse, FileResponse, Http404, StreamingHttpResponse, HttpResponse
+from django.http import (
+    JsonResponse,
+    FileResponse,
+    Http404,
+    StreamingHttpResponse,
+    HttpResponse,
+)
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -45,6 +51,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+
 try:
     from rest_framework_simplejwt.token_blacklist.models import (
         BlacklistedToken,
@@ -55,7 +62,13 @@ except ImportError:  # pragma: no cover - blacklist app not installed
 
 # Import OpenAI exceptions for error handling
 try:
-    from openai import RateLimitError, APIError, APIConnectionError, APITimeoutError, AuthenticationError
+    from openai import (
+        RateLimitError,
+        APIError,
+        APIConnectionError,
+        APITimeoutError,
+        AuthenticationError,
+    )
 except ImportError:
     RateLimitError = None
     APIError = None
@@ -94,7 +107,8 @@ from .serializers import (
     UserProfileSerializer,
     PlanTypeSerializer,
     UserPlanSerializer,
-    UserPlanInfoSerializer, DocumentSerializer,
+    UserPlanInfoSerializer,
+    DocumentSerializer,
 )
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
@@ -112,19 +126,28 @@ except ImportError as e:
     try:
         import sys
         import os
+
         # Get the backend-django directory
-        backend_django_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        backend_django_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..")
+        )
         if backend_django_path not in sys.path:
             sys.path.insert(0, backend_django_path)
         from agent.real_estate_agent import RealEstateAgent
+
         _agent_import_error = None
     except ImportError as e2:
         _agent_import_error = f"{_agent_import_error}; {str(e2)}"
         # Last resort: try importing the file directly
         try:
             import importlib.util
-            agent_file = os.path.join(os.path.dirname(__file__), "..", "agent", "real_estate_agent.py")
-            spec = importlib.util.spec_from_file_location("real_estate_agent", agent_file)
+
+            agent_file = os.path.join(
+                os.path.dirname(__file__), "..", "agent", "real_estate_agent.py"
+            )
+            spec = importlib.util.spec_from_file_location(
+                "real_estate_agent", agent_file
+            )
             if spec and spec.loader:
                 agent_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(agent_module)
@@ -188,9 +211,14 @@ DEFAULT_ASSET_PAGE_SIZE = 25
 MAX_ASSET_PAGE_SIZE = 100
 _assets_rate_limit = {}
 
+
 def _update_onboarding(user, step):
-    logger.debug("_update_onboarding called - User: %s, Step: %s, Authenticated: %s", 
-                 user, step, getattr(user, 'is_authenticated', False) if user else 'No user')
+    logger.debug(
+        "_update_onboarding called - User: %s, Step: %s, Authenticated: %s",
+        user,
+        step,
+        getattr(user, "is_authenticated", False) if user else "No user",
+    )
     if not user or not user.is_authenticated:
         logger.debug("Skipping onboarding update - No authenticated user")
         return
@@ -210,43 +238,41 @@ def _update_onboarding(user, step):
     tags=["Authentication"],
     methods=["GET", "POST"],
     request={
-        'application/json': {
-            'type': 'object',
-            'properties': {
-                'email': {'type': 'string', 'format': 'email'},
-                'password': {'type': 'string'},
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "email": {"type": "string", "format": "email"},
+                "password": {"type": "string"},
             },
-            'required': ['email', 'password']
+            "required": ["email", "password"],
         }
     },
     responses={
         200: {
-            'description': 'Login successful (POST) or login form (GET)',
-            'content': {
-                'text/html': {
-                    'example': '<html>Login form</html>'
-                },
-                'application/json': {
-                    'examples': {
-                        'success': {
-                            'value': {
-                                'access': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                                'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                                'user': {
-                                    'id': 1,
-                                    'email': 'user@example.com',
-                                    'username': 'user',
-                                    'role': 'broker'
-                                }
+            "description": "Login successful (POST) or login form (GET)",
+            "content": {
+                "text/html": {"example": "<html>Login form</html>"},
+                "application/json": {
+                    "examples": {
+                        "success": {
+                            "value": {
+                                "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+                                "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+                                "user": {
+                                    "id": 1,
+                                    "email": "user@example.com",
+                                    "username": "user",
+                                    "role": "broker",
+                                },
                             }
                         }
                     }
-                }
-            }
+                },
+            },
         },
-        400: {'description': 'Invalid credentials'},
-        401: {'description': 'Authentication failed'}
-    }
+        400: {"description": "Invalid credentials"},
+        401: {"description": "Authentication failed"},
+    },
 )
 @api_view(["GET", "POST"])
 @permission_classes([AllowAny])
@@ -255,59 +281,62 @@ def auth_login(request):
     """User login endpoint. Supports both GET (show login form) and POST (process login)."""
     from django.shortcuts import redirect
     from django.contrib.auth import login as django_login
-    from django.http import HttpResponse
-    
+
     # Handle GET request - redirect to frontend login page
     if request.method == "GET":
         next_url = request.GET.get("next", "")
         error_msg = request.GET.get("error", "")
-        
+
         # Get frontend URL from settings
         from django.conf import settings
-        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000").rstrip("/")
-        
+
+        frontend_url = getattr(
+            settings, "FRONTEND_URL", "http://localhost:3000"
+        ).rstrip("/")
+
         # Build redirect URL to frontend login page
         # Frontend uses 'redirect' parameter, not 'next'
         from urllib.parse import urlencode
+
         params = {}
         if next_url:
             # If next_url is a relative path (starts with /), make it absolute by prepending backend URL
-            if next_url.startswith('/'):
+            if next_url.startswith("/"):
                 # Get the current request's scheme and host to build absolute backend URL
                 scheme = request.scheme
                 host = request.get_host()
                 backend_url = f"{scheme}://{host}"
                 # Make the redirect URL absolute (pointing to backend)
                 absolute_next_url = f"{backend_url}{next_url}"
-                params['redirect'] = absolute_next_url
+                params["redirect"] = absolute_next_url
             else:
                 # Already absolute, use as-is
-                params['redirect'] = next_url
+                params["redirect"] = next_url
         if error_msg:
-            params['error'] = error_msg
-        
+            params["error"] = error_msg
+
         frontend_login_url = f"{frontend_url}/auth"
         if params:
             frontend_login_url += f"?{urlencode(params)}"
-        
+
         # Redirect to frontend login page
         return redirect(frontend_login_url)
-    
+
     # Handle POST request - process login
     try:
         # Support both JSON and form-encoded data
-        if request.content_type == 'application/json':
+        if request.content_type == "application/json":
             data = json.loads(request.body.decode("utf-8"))
         else:
             # Form-encoded data
             data = request.POST.dict()
-        
+
         email = data.get("email")
         password = data.get("password")
         next_url = data.get("next") or request.GET.get("next", "")
 
         if not email or not password:
-            if request.content_type == 'application/json':
+            if request.content_type == "application/json":
                 return Response(
                     {"error": "Email and password are required"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -315,7 +344,10 @@ def auth_login(request):
             else:
                 # For form submissions, redirect back with error
                 from django.shortcuts import redirect
-                return redirect(f"/api/auth/login?next={next_url}&error=missing_credentials")
+
+                return redirect(
+                    f"/api/auth/login?next={next_url}&error=missing_credentials"
+                )
 
         # Use authentication service
         logger.info("Login attempt for %s", email)
@@ -325,21 +357,24 @@ def auth_login(request):
                 user = get_user_model().objects.get(email=email)
                 # Log the user in using Django's session authentication
                 # This is needed for OAuth flow to recognize the user as authenticated
-                django_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                django_login(
+                    request, user, backend="django.contrib.auth.backends.ModelBackend"
+                )
             except Exception:
                 user = None
             track("user_login", user=user)
             logger.info("Login succeeded for %s", email)
-            
+
             # If next URL is provided (OAuth flow), redirect there
             if next_url:
                 from django.shortcuts import redirect as django_redirect
+
                 # If next_url is absolute and points to OAuth, ensure session is established
                 # The session is already established by django_login above, so just redirect
                 return django_redirect(next_url)
-            
+
             # Otherwise return JSON response (API call)
-            if request.content_type == 'application/json':
+            if request.content_type == "application/json":
                 return Response(
                     result["data"],
                     status=result["status"],
@@ -349,14 +384,15 @@ def auth_login(request):
                 return redirect("/")
         else:
             logger.warning("Login failed for %s: %s", email, result.get("error"))
-            
+
             # For form submissions, redirect back with error
-            if request.content_type != 'application/json':
+            if request.content_type != "application/json":
                 from django.shortcuts import redirect
                 from urllib.parse import quote
+
                 error_msg = quote(result.get("error", "Invalid credentials"))
                 return redirect(f"/api/auth/login?next={next_url}&error={error_msg}")
-            
+
             return Response(
                 {"error": result["error"]},
                 status=result["status"],
@@ -374,23 +410,23 @@ def auth_login(request):
     description="Register a new user account",
     tags=["Authentication"],
     request={
-        'application/json': {
-            'type': 'object',
-            'properties': {
-                'email': {'type': 'string', 'format': 'email'},
-                'password': {'type': 'string', 'minLength': 8},
-                'first_name': {'type': 'string'},
-                'last_name': {'type': 'string'},
-                'equity': {'type': 'number', 'minimum': 0},
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "email": {"type": "string", "format": "email"},
+                "password": {"type": "string", "minLength": 8},
+                "first_name": {"type": "string"},
+                "last_name": {"type": "string"},
+                "equity": {"type": "number", "minimum": 0},
             },
-            'required': ['email', 'password']
+            "required": ["email", "password"],
         }
     },
     responses={
-        201: {'description': 'User created successfully'},
-        400: {'description': 'Invalid input data'},
-        409: {'description': 'User already exists'}
-    }
+        201: {"description": "User created successfully"},
+        400: {"description": "Invalid input data"},
+        409: {"description": "User already exists"},
+    },
 )
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -420,7 +456,9 @@ def auth_register(request):
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.exception("Unexpected error during registration for %s", locals().get("email"))
+        logger.exception(
+            "Unexpected error during registration for %s", locals().get("email")
+        )
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -435,41 +473,45 @@ def auth_establish_session(request):
     # Handle OPTIONS preflight request
     if request.method == "OPTIONS":
         from django.http import HttpResponse
+
         response = HttpResponse()
         # CORS middleware will add the proper headers, but we ensure credentials are allowed
         return response
-    
+
     from rest_framework_simplejwt.authentication import JWTAuthentication
+
     jwt_auth = JWTAuthentication()
-    
+
     try:
         jwt_user, jwt_token = jwt_auth.authenticate(request)
         if jwt_user and jwt_user.is_authenticated:
             # Set up Django session from JWT
             from django.contrib.auth import login as django_login
-            django_login(request, jwt_user, backend='django.contrib.auth.backends.ModelBackend')
-            logger.info("Django session established for user %s (OAuth flow)", jwt_user.email)
-            
+
+            django_login(
+                request, jwt_user, backend="django.contrib.auth.backends.ModelBackend"
+            )
+            logger.info(
+                "Django session established for user %s (OAuth flow)", jwt_user.email
+            )
+
             # Ensure session is saved
             request.session.save()
-            
+
             # CORS headers are handled by django-cors-headers middleware
             # With CORS_ALLOW_CREDENTIALS = True in settings, it will set the proper headers
-            return Response({
-                "success": True,
-                "message": "Session established"
-            })
+            return Response({"success": True, "message": "Session established"})
         else:
             logger.warning("Failed to establish session: Invalid or missing JWT token")
             return Response(
                 {"error": "Invalid or missing JWT token"},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
     except Exception as e:
         logger.exception("Error establishing session from JWT: %s", str(e))
         return Response(
             {"error": "Failed to establish session"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_401_UNAUTHORIZED,
         )
 
 
@@ -480,9 +522,8 @@ def auth_logout(request):
     try:
         refresh_token = None
         if isinstance(request.data, dict):
-            refresh_token = (
-                request.data.get("refresh_token")
-                or request.data.get("refresh")
+            refresh_token = request.data.get("refresh_token") or request.data.get(
+                "refresh"
             )
 
         if not refresh_token:
@@ -529,10 +570,10 @@ def auth_profile(request):
     """Get current user profile."""
     try:
         user = request.user
-        
+
         # Get onboarding progress
         onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
-        
+
         response_data = {
             "user": {
                 "id": user.id,
@@ -542,8 +583,12 @@ def auth_profile(request):
                 "last_name": user.last_name,
                 "company": getattr(user, "company", ""),
                 "role": getattr(user, "role", ""),
-                "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
-                "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
+                "equity": float(user.equity)
+                if getattr(user, "equity", None) is not None
+                else None,
+                "monthly_income": float(user.monthly_income)
+                if getattr(user, "monthly_income", None) is not None
+                else None,
                 "preference_city": getattr(user, "preference_city", ""),
                 "preference_streets": getattr(user, "preference_streets", ""),
                 "preference_asset_type": getattr(user, "preference_asset_type", ""),
@@ -553,9 +598,7 @@ def auth_profile(request):
                 "preference_notes": getattr(user, "preference_notes", ""),
                 "is_verified": getattr(user, "is_verified", False),
                 "created_at": (
-                    user.created_at.isoformat()
-                    if hasattr(user, "created_at")
-                    else None
+                    user.created_at.isoformat() if hasattr(user, "created_at") else None
                 ),
                 "language": getattr(user, "language", ""),
                 "timezone": getattr(user, "timezone", ""),
@@ -570,11 +613,10 @@ def auth_profile(request):
                     "add_first_asset": onboarding_progress.add_first_asset,
                     "generate_first_report": onboarding_progress.generate_first_report,
                     "set_one_alert": onboarding_progress.set_one_alert,
-                }
+                },
             }
         }
-        
-        
+
         return Response(response_data)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -679,7 +721,7 @@ def auth_update_profile(request):
 
         # Get onboarding progress
         onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
-        
+
         return Response(
             {
                 "user": {
@@ -690,8 +732,12 @@ def auth_update_profile(request):
                     "last_name": user.last_name,
                     "company": getattr(user, "company", ""),
                     "role": getattr(user, "role", ""),
-                    "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
-                    "monthly_income": float(user.monthly_income) if getattr(user, "monthly_income", None) is not None else None,
+                    "equity": float(user.equity)
+                    if getattr(user, "equity", None) is not None
+                    else None,
+                    "monthly_income": float(user.monthly_income)
+                    if getattr(user, "monthly_income", None) is not None
+                    else None,
                     "preference_city": getattr(user, "preference_city", ""),
                     "preference_streets": getattr(user, "preference_streets", ""),
                     "preference_asset_type": getattr(user, "preference_asset_type", ""),
@@ -705,7 +751,7 @@ def auth_update_profile(request):
                         "add_first_asset": onboarding_progress.add_first_asset,
                         "generate_first_report": onboarding_progress.generate_first_report,
                         "set_one_alert": onboarding_progress.set_one_alert,
-                    }
+                    },
                 }
             }
         )
@@ -844,11 +890,13 @@ def demo_start(request):
 
     for data in sample_assets:
         asset_data = data.copy()
-        asset_data.update({
-            "status": "done",
-            "is_demo": True,
-            "meta": {"demo": True},
-        })
+        asset_data.update(
+            {
+                "status": "done",
+                "is_demo": True,
+                "meta": {"demo": True},
+            }
+        )
         Asset.objects.create(**asset_data)
 
     from rest_framework_simplejwt.tokens import RefreshToken
@@ -888,7 +936,8 @@ def user_settings(request):
             "notify_whatsapp": getattr(user, "notify_whatsapp", False),
             "notify_urgent": getattr(user, "notify_urgent", False),
             "notification_time": getattr(user, "notification_time", ""),
-            "report_sections": getattr(user, "report_sections", []) or DEFAULT_REPORT_SECTIONS,
+            "report_sections": getattr(user, "report_sections", [])
+            or DEFAULT_REPORT_SECTIONS,
             # LLM settings - indicate if keys are set but never return the actual keys
             "llm_provider_preference": getattr(user, "llm_provider_preference", None),
             "has_openai_key": bool(getattr(user, "openai_api_key", None)),
@@ -918,44 +967,44 @@ def user_settings(request):
         ]:
             if field in data:
                 setattr(user, field, data[field])
-        
+
         # LLM API key fields - allow setting but validate
         if "openai_api_key" in data:
             key = data["openai_api_key"]
             if key:  # Allow clearing by setting to empty string
                 if not isinstance(key, str) or len(key.strip()) < 10:
                     return Response(
-                        {"error": "Invalid OpenAI API key format"}, 
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"error": "Invalid OpenAI API key format"},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
                 user.openai_api_key = key.strip()
             else:
                 user.openai_api_key = None
-        
+
         if "gemini_api_key" in data:
             key = data["gemini_api_key"]
             if key:
                 if not isinstance(key, str) or len(key.strip()) < 10:
                     return Response(
-                        {"error": "Invalid Gemini API key format"}, 
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"error": "Invalid Gemini API key format"},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
                 user.gemini_api_key = key.strip()
             else:
                 user.gemini_api_key = None
-        
+
         if "groq_api_key" in data:
             key = data["groq_api_key"]
             if key:
                 if not isinstance(key, str) or len(key.strip()) < 10:
                     return Response(
-                        {"error": "Invalid Groq API key format"}, 
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"error": "Invalid Groq API key format"},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
                 user.groq_api_key = key.strip()
             else:
                 user.groq_api_key = None
-        
+
         # LLM provider preference
         if "llm_provider_preference" in data:
             preference = data["llm_provider_preference"]
@@ -963,10 +1012,10 @@ def user_settings(request):
                 user.llm_provider_preference = preference if preference else None
             else:
                 return Response(
-                    {"error": "Invalid LLM provider preference"}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "Invalid LLM provider preference"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-        
+
         user.save()
 
         return Response(
@@ -980,7 +1029,9 @@ def user_settings(request):
                 "notify_urgent": user.notify_urgent,
                 "notification_time": user.notification_time,
                 "report_sections": user.report_sections,
-                "llm_provider_preference": getattr(user, "llm_provider_preference", None),
+                "llm_provider_preference": getattr(
+                    user, "llm_provider_preference", None
+                ),
                 "has_openai_key": bool(getattr(user, "openai_api_key", None)),
                 "has_gemini_key": bool(getattr(user, "gemini_api_key", None)),
                 "has_groq_key": bool(getattr(user, "groq_api_key", None)),
@@ -1006,10 +1057,14 @@ def alerts(request):
         if serializer.is_valid():
             # Save with user from request - pass user object to save method
             alert_rule = serializer.save(user=request.user)
-            
+
             # Track analytics event for alert rule creation
-            track("alert_rule_create", user=request.user, asset_id=alert_rule.asset_id if alert_rule.asset else None)
-            
+            track(
+                "alert_rule_create",
+                user=request.user,
+                asset_id=alert_rule.asset_id if alert_rule.asset else None,
+            )
+
             _update_onboarding(request.user, "set_one_alert")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1018,28 +1073,32 @@ def alerts(request):
         # Only return alert rules for the current user
         rules = AlertRule.objects.filter(user=request.user).order_by("-created_at")
         serializer = AlertRuleSerializer(rules, many=True)
-        
+
         # Track feature usage
         track_feature_usage("alert_rules_view", user=request.user)
-        
+
         return Response({"rules": serializer.data})
 
     if request.method == "PUT":
-        rule_id = request.GET.get('id')
+        rule_id = request.GET.get("id")
         if not rule_id:
-            return Response({"error": "Alert rule ID required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "Alert rule ID required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             rule = AlertRule.objects.get(id=rule_id, user=request.user)
         except AlertRule.DoesNotExist:
-            return Response({"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND)
-        
+            return Response(
+                {"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
         data = parse_json(request)
         if not data:
             return Response(
                 {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = AlertRuleSerializer(rule, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -1047,16 +1106,23 @@ def alerts(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == "DELETE":
-        rule_id = request.GET.get('ruleId')
+        rule_id = request.GET.get("ruleId")
         if not rule_id:
-            return Response({"error": "Alert rule ID required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "Alert rule ID required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             rule = AlertRule.objects.get(id=rule_id, user=request.user)
             rule.delete()
-            return Response({"message": "Alert rule deleted successfully"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "Alert rule deleted successfully"},
+                status=status.HTTP_200_OK,
+            )
         except AlertRule.DoesNotExist:
-            return Response({"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
     return Response(
         {"error": "Unsupported method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
@@ -1155,7 +1221,7 @@ def sync_address(request):
         from .models import Asset
         from .services.asset_deduplication import find_existing_asset
         from orchestration.location import LocationQuery
-        
+
         # Try to find existing asset (city may not be available in this endpoint)
         location = LocationQuery(
             city="",
@@ -1166,7 +1232,7 @@ def sync_address(request):
             location=location,
             scope_type="address",
         )
-        
+
         if existing_asset:
             # Update existing asset instead of creating duplicate
             asset = existing_asset
@@ -1175,7 +1241,10 @@ def sync_address(request):
                 asset.meta = {}
             asset.meta.update({"radius": 150})
             asset.save()
-            logger.info("Found existing asset %s in sync_address, updating instead of creating duplicate", asset.id)
+            logger.info(
+                "Found existing asset %s in sync_address, updating instead of creating duplicate",
+                asset.id,
+            )
         else:
             # Create a new asset for the address
             asset = Asset.objects.create(
@@ -1190,21 +1259,28 @@ def sync_address(request):
         try:
             # Check if Celery is enabled
             from django.conf import settings
-            if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+
+            if hasattr(settings, "CELERY_BROKER_URL") and settings.CELERY_BROKER_URL:
                 run_data_pipeline.delay(asset.id)
-                message = (
-                    "Asset enrichment started for {} {} (Asset ID: {})".format(street, number, asset.id)
+                message = "Asset enrichment started for {} {} (Asset ID: {})".format(
+                    street, number, asset.id
                 )
             else:
                 # Run asynchronously in background thread when Celery is disabled
                 import threading
-                
+
                 def run_pipeline_async():
                     try:
                         run_data_pipeline(asset.id)
-                        logger.info("Background data pipeline completed for asset %s", asset.id)
+                        logger.info(
+                            "Background data pipeline completed for asset %s", asset.id
+                        )
                     except Exception as e:
-                        logger.error("Background data pipeline failed for asset %s: %s", asset.id, e)
+                        logger.error(
+                            "Background data pipeline failed for asset %s: %s",
+                            asset.id,
+                            e,
+                        )
                         # Update asset status to error
                         try:
                             asset_obj = Asset.objects.get(id=asset.id)
@@ -1212,12 +1288,14 @@ def sync_address(request):
                             asset_obj.last_enrich_error = str(e)
                             asset_obj.save()
                         except Exception as save_error:
-                            logger.error("Failed to update asset status: %s", save_error)
-                
+                            logger.error(
+                                "Failed to update asset status: %s", save_error
+                            )
+
                 thread = threading.Thread(target=run_pipeline_async, daemon=True)
                 thread.start()
-                message = (
-                    "Asset enrichment started for {} {} (Asset ID: {})".format(street, number, asset.id)
+                message = "Asset enrichment started for {} {} (Asset ID: {})".format(
+                    street, number, asset.id
                 )
         except Exception as e:
             message = "Asset created but enrichment failed: {}".format(str(e))
@@ -1236,10 +1314,16 @@ def sync_address(request):
         ]
 
         return JsonResponse(
-            {"rows": assets, "message": message, "address": "{} {}".format(street, number)}
+            {
+                "rows": assets,
+                "message": message,
+                "address": "{} {}".format(street, number),
+            }
         )
     except ValueError as e:
-        return JsonResponse({"error": "Validation error: {}".format(str(e))}, status=400)
+        return JsonResponse(
+            {"error": "Validation error: {}".format(str(e))}, status=400
+        )
     except Exception as e:
         # Log the full error for debugging
         import logging
@@ -1274,7 +1358,8 @@ def reports(request):
 
             if success:
                 return Response(
-                    {"message": "Report {} deleted successfully".format(report_id)}, status=200
+                    {"message": "Report {} deleted successfully".format(report_id)},
+                    status=200,
                 )
             else:
                 return Response({"error": "Failed to delete report"}, status=500)
@@ -1319,10 +1404,14 @@ def reports(request):
 
         _update_onboarding(getattr(request, "user", None), "generate_first_report")
         track("report_success", user=getattr(request, "user", None), asset_id=asset_id)
-        
+
         # Track feature usage
-        track_feature_usage("report_generation", user=getattr(request, "user", None), asset_id=asset_id)
-        logger.info("Report %s successfully generated for asset %s", report.id, asset_id)
+        track_feature_usage(
+            "report_generation", user=getattr(request, "user", None), asset_id=asset_id
+        )
+        logger.info(
+            "Report %s successfully generated for asset %s", report.id, asset_id
+        )
 
         # Return success response
         return Response(
@@ -1381,7 +1470,9 @@ def assets_bulk_action(request):
 
     assets_map = {
         asset.id: asset
-        for asset in Asset.objects.filter(id__in=requested_ids).select_related("created_by")
+        for asset in Asset.objects.filter(id__in=requested_ids).select_related(
+            "created_by"
+        )
     }
 
     if not assets_map:
@@ -1491,9 +1582,13 @@ def assets_bulk_action(request):
                                 asset_obj = Asset.objects.get(id=asset_pk)
                                 asset_obj.status = "failed"
                                 asset_obj.last_enrich_error = str(err)
-                                asset_obj.save(update_fields=["status", "last_enrich_error"])
+                                asset_obj.save(
+                                    update_fields=["status", "last_enrich_error"]
+                                )
                             except Exception as save_error:
-                                logger.error("Failed to update asset status: %s", save_error)
+                                logger.error(
+                                    "Failed to update asset status: %s", save_error
+                                )
 
                     thread = threading.Thread(
                         target=run_sync_async, args=(asset.id,), daemon=True
@@ -1614,7 +1709,9 @@ def assets_bulk_action(request):
                     }
                 )
 
-        message = f"Generated reports for {success_count} of {len(requested_ids)} assets"
+        message = (
+            f"Generated reports for {success_count} of {len(requested_ids)} assets"
+        )
 
     else:
         return Response({"error": "Unsupported action"}, status=400)
@@ -1684,7 +1781,7 @@ def report_file(request, filename):
     report = report_service.get_report_by_filename(filename)
     if not report or not os.path.exists(report.file_path):
         raise Http404("Report not found")
-    
+
     # Track export/download event
     track_feature_usage(
         "export",
@@ -1694,9 +1791,9 @@ def report_file(request, filename):
             "export_type": "report",
             "report_type": report.report_type,
             "filename": filename,
-        }
+        },
     )
-    
+
     return FileResponse(open(report.file_path, "rb"), content_type="application/pdf")
 
 
@@ -1777,7 +1874,7 @@ def mortgage_analyze(request):
         recommended_payment, annual_rate_pct, term_years
     )
     max_loan_by_ltv = price * 0.70 if price > 0 else max_loan_from_payment
-    
+
     # If we have payment-based calculation, use the minimum of both
     # Otherwise, use LTV-based calculation
     if max_loan_from_payment > 0:
@@ -1785,26 +1882,30 @@ def mortgage_analyze(request):
     else:
         # No payment data available, use LTV-based calculation
         approved_loan_ceiling = max_loan_by_ltv
-    
+
     # Calculate estimated monthly payment for the approved loan
     if approved_loan_ceiling > 0 and annual_rate_pct > 0:
         r = (annual_rate_pct / 100.0) / 12.0
         n = term_years * 12
         if r > 0:
-            estimated_monthly_payment = approved_loan_ceiling * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+            estimated_monthly_payment = (
+                approved_loan_ceiling * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+            )
         else:
             estimated_monthly_payment = approved_loan_ceiling / n
     else:
         estimated_monthly_payment = 0.0
-    
+
     # Use estimated payment if we don't have payment-based recommendation
     if recommended_payment == 0 and estimated_monthly_payment > 0:
         recommended_payment = estimated_monthly_payment
-    
+
     cash_needed = max(0.0, price - approved_loan_ceiling)
     cash_gap = max(0.0, cash_needed - savings)
     logger.info(
-        "Mortgage analysis completed for price %s with loan ceiling %s", price, approved_loan_ceiling
+        "Mortgage analysis completed for price %s with loan ceiling %s",
+        price,
+        approved_loan_ceiling,
     )
     return JsonResponse(
         {
@@ -1851,7 +1952,12 @@ def tabu(request):
         query = request.GET.get("q") or ""
         if query:
             # Simple search implementation
-            rows = [row for row in rows if query.lower() in row.get('field', '').lower() or query.lower() in row.get('value', '').lower()]
+            rows = [
+                row
+                for row in rows
+                if query.lower() in row.get("field", "").lower()
+                or query.lower() in row.get("value", "").lower()
+            ]
             # Track search query
             track_search(
                 query=query,
@@ -1859,7 +1965,7 @@ def tabu(request):
                 meta={
                     "source": "tabu",
                     "results_count": len(rows),
-                }
+                },
             )
         return JsonResponse({"rows": rows})
     except Exception as e:
@@ -1913,7 +2019,9 @@ def assets(request):
     if request.method == "DELETE":
         user = getattr(request, "user", None)
         if not user or not getattr(user, "is_authenticated", False):
-            return Response({"error": "Authentication required"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Authentication required"}, status=status.HTTP_403_FORBIDDEN
+            )
 
         if not (
             getattr(user, "role", None) == User.Role.ADMIN
@@ -1934,7 +2042,8 @@ def assets(request):
 
             if asset.delete_asset():
                 return Response(
-                    {"message": "Asset {} deleted successfully".format(asset_id)}, status=200
+                    {"message": "Asset {} deleted successfully".format(asset_id)},
+                    status=200,
                 )
             else:
                 return Response({"error": "Failed to delete asset"}, status=500)
@@ -1989,25 +2098,29 @@ def assets(request):
         # Get user for attribution
         user = getattr(request, "user", None)
         is_authenticated = user and getattr(user, "is_authenticated", False)
-        
+
         # Validate plan limits for authenticated users
         if is_authenticated:
             from .plan_service import PlanService
+
             validation_result = PlanService.validate_asset_creation(user)
-            if not validation_result['can_create']:
-                return Response({
-                    'error': validation_result['error'],
-                    'message': validation_result['message'],
-                    'current_plan': validation_result.get('current_plan'),
-                    'asset_limit': validation_result.get('asset_limit'),
-                    'assets_used': validation_result.get('assets_used'),
-                    'remaining': validation_result.get('remaining', 0)
-                }, status=status.HTTP_403_FORBIDDEN)
-        
+            if not validation_result["can_create"]:
+                return Response(
+                    {
+                        "error": validation_result["error"],
+                        "message": validation_result["message"],
+                        "current_plan": validation_result.get("current_plan"),
+                        "asset_limit": validation_result.get("asset_limit"),
+                        "assets_used": validation_result.get("assets_used"),
+                        "remaining": validation_result.get("remaining", 0),
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         # Check for existing asset using deduplication service
         from .services.asset_deduplication import find_existing_asset
         from orchestration.location import LocationQuery
-        
+
         city = data.get("city") or scope.get("city")
         location = LocationQuery(
             city=city or "",
@@ -2021,24 +2134,29 @@ def assets(request):
             location=location,
             scope_type=scope_type,
         )
-        
+
         if existing_asset:
             # Update existing asset instead of creating duplicate
             asset = existing_asset
             asset.status = "pending"  # Reset status to trigger re-enrichment
             asset.last_updated_by = user if is_authenticated else None
-            
+
             # Update meta with new scope/input if needed
             if not asset.meta:
                 asset.meta = {}
-            asset.meta.update({
-                "scope": scope,
-                "raw_input": data,
-                "radius": data.get("radius", 150),
-            })
+            asset.meta.update(
+                {
+                    "scope": scope,
+                    "raw_input": data,
+                    "radius": data.get("radius", 150),
+                }
+            )
             asset.save()
-            logger.info("Found existing asset %s, updating instead of creating duplicate", asset.id)
-            
+            logger.info(
+                "Found existing asset %s, updating instead of creating duplicate",
+                asset.id,
+            )
+
             # Create asset_data dict for response consistency
             asset_data = {
                 "status": asset.status,
@@ -2077,33 +2195,38 @@ def assets(request):
             # Save to Django database
             asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
-        
+
         # Create attribution record if user is authenticated
         if is_authenticated:
             from .models import AssetContribution, UserProfile
+
             AssetContribution.objects.create(
                 asset=asset,
                 user=user,
-                contribution_type='creation',
-                description="נוצר נכס עבור {}: {}".format(scope_type, data.get('city', 'מיקום לא ידוע')),
-                source='manual'
+                contribution_type="creation",
+                description="נוצר נכס עבור {}: {}".format(
+                    scope_type, data.get("city", "מיקום לא ידוע")
+                ),
+                source="manual",
             )
-            
+
             # Update user profile stats
             profile, created = UserProfile.objects.get_or_create(user=user)
-            profile.update_contribution_stats('creation')
-            
+            profile.update_contribution_stats("creation")
+
             # Update plan usage
             from .plan_service import PlanService
+
             PlanService.update_asset_usage(user, 1)
-        
-        logger.info("Asset creation - User: %s, Authenticated: %s", 
-                   user, is_authenticated)
+
+        logger.info(
+            "Asset creation - User: %s, Authenticated: %s", user, is_authenticated
+        )
         if is_authenticated:
             track("asset_create", user=user, asset_id=asset_id)
         else:
             track("asset_create", asset_id=asset_id)
-        
+
         # Track feature usage
         track_feature_usage("asset_creation", user=user, asset_id=asset_id)
         _update_onboarding(user, "add_first_asset")
@@ -2113,21 +2236,31 @@ def assets(request):
         try:
             # Check if Celery is enabled
             from django.conf import settings
-            if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+
+            if hasattr(settings, "CELERY_BROKER_URL") and settings.CELERY_BROKER_URL:
                 result = run_data_pipeline.delay(asset_id)
                 job_id = result.id
                 logger.info("Enqueued enrichment task with job ID: %s", job_id)
             else:
                 # Run asynchronously in background thread when Celery is disabled
                 import threading
-                logger.info("Celery disabled, running data pipeline in background thread")
-                
+
+                logger.info(
+                    "Celery disabled, running data pipeline in background thread"
+                )
+
                 def run_pipeline_async():
                     try:
                         run_data_pipeline(asset_id)
-                        logger.info("Background data pipeline completed for asset %s", asset_id)
+                        logger.info(
+                            "Background data pipeline completed for asset %s", asset_id
+                        )
                     except Exception as e:
-                        logger.error("Background data pipeline failed for asset %s: %s", asset_id, e)
+                        logger.error(
+                            "Background data pipeline failed for asset %s: %s",
+                            asset_id,
+                            e,
+                        )
                         # Update asset status to error
                         try:
                             asset = Asset.objects.get(id=asset_id)
@@ -2135,11 +2268,15 @@ def assets(request):
                             asset.last_enrich_error = str(e)
                             asset.save()
                         except Exception as save_error:
-                            logger.error("Failed to update asset status: %s", save_error)
-                
+                            logger.error(
+                                "Failed to update asset status: %s", save_error
+                            )
+
                 thread = threading.Thread(target=run_pipeline_async, daemon=True)
                 thread.start()
-                logger.info("Started background data pipeline thread for asset %s", asset_id)
+                logger.info(
+                    "Started background data pipeline thread for asset %s", asset_id
+                )
         except Exception as e:
             logger.error("Failed to start enrichment task: %s", e)
             # Update asset status to error
@@ -2220,13 +2357,14 @@ def _apply_asset_filters(queryset, params, user):
             query=search,
             user=user if user and getattr(user, "is_authenticated", False) else None,
             results_count=None,
-            meta={"source": "assets_list"}
+            meta={"source": "assets_list"},
         )
 
     city = params.get("city")
     if city and city != "all":
         # Handle city name variations (e.g., "תל אביב יפו", "תל אביב-יפו", "תל אביב יפו")
         from .services.asset_deduplication import _get_city_variations
+
         city_variations = _get_city_variations(city)
         if city_variations:
             queryset = queryset.filter(city__in=city_variations)
@@ -2259,13 +2397,9 @@ def _apply_asset_filters(queryset, params, user):
 
     risk_filter = params.get("risk")
     if risk_filter == "flagged":
-        queryset = queryset.exclude(
-            Q(risk_flags__isnull=True) | Q(risk_flags=[])
-        )
+        queryset = queryset.exclude(Q(risk_flags__isnull=True) | Q(risk_flags=[]))
     elif risk_filter == "clean":
-        queryset = queryset.filter(
-            Q(risk_flags__isnull=True) | Q(risk_flags=[])
-        )
+        queryset = queryset.filter(Q(risk_flags__isnull=True) | Q(risk_flags=[]))
 
     documents_filter = params.get("documents")
     if documents_filter == "with":
@@ -2273,49 +2407,61 @@ def _apply_asset_filters(queryset, params, user):
             Q(documents__isnull=False) | Q(documents_m2m__isnull=False)
         )
     elif documents_filter == "without":
-        queryset = queryset.filter(
-            documents__isnull=True, documents_m2m__isnull=True
-        )
+        queryset = queryset.filter(documents__isnull=True, documents_m2m__isnull=True)
 
     status_filter = params.get("status")
     if status_filter and status_filter != "all":
         queryset = queryset.filter(status__iexact=status_filter)
 
     # Support both listingType and listing_type (and rentalSale for backward compatibility)
-    listing_type_filter = params.get("listingType") or params.get("listing_type") or params.get("rentalSale")
+    listing_type_filter = (
+        params.get("listingType")
+        or params.get("listing_type")
+        or params.get("rentalSale")
+    )
     if listing_type_filter and listing_type_filter != "all":
         listing_type_str = str(listing_type_filter) if listing_type_filter else ""
         normalized_listing_type = listing_type_str.strip().lower()
-        
+
         # Filter by listing_type - check both listings_m2m and listing_links relationships
         # First, get all assets that have listings with the requested type
         matching_asset_ids = set(
             queryset.filter(
                 Q(listings_m2m__listing_type__iexact=normalized_listing_type)
-                | Q(listing_links__listing__listing_type__iexact=normalized_listing_type)
-            ).values_list("id", flat=True).distinct()
+                | Q(
+                    listing_links__listing__listing_type__iexact=normalized_listing_type
+                )
+            )
+            .values_list("id", flat=True)
+            .distinct()
         )
 
         if normalized_listing_type in {"rent", "sale"}:
             # Only check meta fields if we have no results from listings
             # This avoids evaluating huge unfiltered querysets
             should_check_meta = len(matching_asset_ids) == 0
-            
+
             if should_check_meta:
                 # Estimate queryset size - use a limit to avoid full count
                 # If we can get 1000+ results quickly, the queryset is too large
                 sample_size = list(queryset[:1001].values_list("id", flat=True))
-                if len(sample_size) <= 1000:  # Only check meta if queryset is small enough
+                if (
+                    len(sample_size) <= 1000
+                ):  # Only check meta if queryset is small enough
                     # Fetch candidate assets with meta in one query instead of N+1
                     candidate_ids = sample_size
                     if candidate_ids:
-                        candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta", "normalized_address")
+                        candidate_assets = Asset.objects.filter(
+                            id__in=candidate_ids
+                        ).only("id", "meta", "normalized_address")
                         for asset in candidate_assets:
                             meta = getattr(asset, "meta", {}) or {}
-                            normalized_addr = getattr(asset, "normalized_address", "") or ""
+                            normalized_addr = (
+                                getattr(asset, "normalized_address", "") or ""
+                            )
                             if not normalized_addr:
                                 continue
-                            
+
                             yad2_listings = meta.get("yad2_listings", []) or []
                             if not isinstance(yad2_listings, list):
                                 continue
@@ -2323,16 +2469,24 @@ def _apply_asset_filters(queryset, params, user):
                                 if not isinstance(listing, dict):
                                     continue
                                 # Safely extract listing_type
-                                listing_type_value = listing.get("listing_type") or listing.get("listingType")
-                                if listing_type_value and isinstance(listing_type_value, str):
+                                listing_type_value = listing.get(
+                                    "listing_type"
+                                ) or listing.get("listingType")
+                                if listing_type_value and isinstance(
+                                    listing_type_value, str
+                                ):
                                     listing_type_value = listing_type_value.lower()
                                 else:
                                     listing_type_value = ""
-                                
+
                                 # Check if listing type matches AND address matches (primary listing candidate)
                                 if listing_type_value == normalized_listing_type:
                                     listing_addr = listing.get("address") or ""
-                                    if listing_addr and normalized_addr.lower() in listing_addr.lower():
+                                    if (
+                                        listing_addr
+                                        and normalized_addr.lower()
+                                        in listing_addr.lower()
+                                    ):
                                         matching_asset_ids.add(asset.id)
                                         break
 
@@ -2342,36 +2496,42 @@ def _apply_asset_filters(queryset, params, user):
             queryset = queryset.none()
 
     # Support sellerType (new) and adType/ad_type (legacy) parameters
-    ad_type_filter = params.get("sellerType") or params.get("adType") or params.get("ad_type")
+    ad_type_filter = (
+        params.get("sellerType") or params.get("adType") or params.get("ad_type")
+    )
     if ad_type_filter and ad_type_filter != "all":
         ad_type_str = str(ad_type_filter) if ad_type_filter else ""
         normalized_ad_type = ad_type_str.strip().lower()
-        
+
         # Filter by primary listing's ad_type only
         # Use AssetSerializer to get the primary listing for each asset
         from .serializers import AssetSerializer
-        
+
         matching_asset_ids = set()
-        
+
         # Get candidate assets to check
-        sample_size = list(queryset.distinct()[:1001].values_list("id", "normalized_address"))
+        sample_size = list(
+            queryset.distinct()[:1001].values_list("id", "normalized_address")
+        )
         if len(sample_size) <= 1000:  # Only check if queryset is small enough
-            candidate_assets = Asset.objects.filter(
-                id__in=[asset_id for asset_id, _ in sample_size]
-            ).prefetch_related("listings_m2m").only("id", "normalized_address", "meta")
-            
+            candidate_assets = (
+                Asset.objects.filter(id__in=[asset_id for asset_id, _ in sample_size])
+                .prefetch_related("listings_m2m")
+                .only("id", "normalized_address", "meta")
+            )
+
             serializer = AssetSerializer()
             for asset in candidate_assets:
                 # Get the primary listing using the serializer
                 primary_listing = serializer._get_primary_listing_instance(asset)
-                
+
                 if primary_listing:
                     # Check if primary listing's ad_type matches
                     listing_ad_type = getattr(primary_listing, "ad_type", "") or ""
                     if listing_ad_type.lower() == normalized_ad_type:
                         matching_asset_ids.add(asset.id)
                         continue
-                
+
                 # Also check meta fields for legacy listings (yad2_listings) if no primary listing found
                 if asset.id not in matching_asset_ids:
                     normalized_addr = getattr(asset, "normalized_address", "") or ""
@@ -2384,15 +2544,20 @@ def _apply_asset_filters(queryset, params, user):
                                 if not isinstance(listing, dict):
                                     continue
                                 # Safely extract ad_type
-                                ad_type_value = listing.get("ad_type") or listing.get("adType")
+                                ad_type_value = listing.get("ad_type") or listing.get(
+                                    "adType"
+                                )
                                 if ad_type_value and isinstance(ad_type_value, str):
                                     ad_type_value = ad_type_value.lower()
                                 else:
                                     ad_type_value = ""
-                                
+
                                 # Check if address matches (primary listing candidate)
                                 listing_addr = listing.get("address") or ""
-                                if listing_addr and asset_address in listing_addr.lower():
+                                if (
+                                    listing_addr
+                                    and asset_address in listing_addr.lower()
+                                ):
                                     if ad_type_value == normalized_ad_type:
                                         matching_asset_ids.add(asset.id)
                                         break
@@ -2400,8 +2565,11 @@ def _apply_asset_filters(queryset, params, user):
             # For larger querysets, use a simpler approach: filter by listings with matching ad_type
             # and then verify primary listing match using the serializer
             from .models import Listing
+
             matching_listing_ids = list(
-                Listing.objects.filter(ad_type__iexact=normalized_ad_type).values_list("id", flat=True)
+                Listing.objects.filter(ad_type__iexact=normalized_ad_type).values_list(
+                    "id", flat=True
+                )
             )
             if matching_listing_ids:
                 # Get assets that have these listings
@@ -2411,15 +2579,17 @@ def _apply_asset_filters(queryset, params, user):
                     ).values_list("asset_id", flat=True)
                 )
                 # Then filter to only those where the primary listing matches
-                candidate_assets = Asset.objects.filter(
-                    id__in=asset_ids_with_listings
-                ).prefetch_related("listings_m2m").only("id", "normalized_address")
-                
+                candidate_assets = (
+                    Asset.objects.filter(id__in=asset_ids_with_listings)
+                    .prefetch_related("listings_m2m")
+                    .only("id", "normalized_address")
+                )
+
                 serializer = AssetSerializer()
                 for asset in candidate_assets:
                     # Get the primary listing using the serializer
                     primary_listing = serializer._get_primary_listing_instance(asset)
-                    
+
                     # Check if primary listing is one of the matching listings
                     if primary_listing and primary_listing.id in matching_listing_ids:
                         matching_asset_ids.add(asset.id)
@@ -2640,11 +2810,13 @@ def _apply_asset_filters(queryset, params, user):
                 listing__recent_deal=recent_deal_filter
             ).values_list("asset_id", flat=True)
         )
-        
+
         candidate_ids = list(queryset.values_list("id", flat=True))
         if candidate_ids:
             # Optimize: fetch all candidate assets with meta in one query instead of N+1
-            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only("id", "meta")
+            candidate_assets = Asset.objects.filter(id__in=candidate_ids).only(
+                "id", "meta"
+            )
             for asset in candidate_assets:
                 meta = getattr(asset, "meta", {}) or {}
                 yad2_listings = meta.get("yad2_listings", []) or []
@@ -2653,11 +2825,16 @@ def _apply_asset_filters(queryset, params, user):
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
-                    recent_deal_value = listing.get("recent_deal") or listing.get("recentDeal")
-                    if isinstance(recent_deal_value, bool) and recent_deal_value == recent_deal_filter:
+                    recent_deal_value = listing.get("recent_deal") or listing.get(
+                        "recentDeal"
+                    )
+                    if (
+                        isinstance(recent_deal_value, bool)
+                        and recent_deal_value == recent_deal_filter
+                    ):
                         matching_asset_ids.add(asset.id)
                         break
-        
+
         if matching_asset_ids:
             queryset = queryset.filter(id__in=matching_asset_ids).distinct()
         else:
@@ -2675,57 +2852,57 @@ def _apply_asset_filters(queryset, params, user):
     if antenna_distance_min is not None:
         # Try both direct value and wrapped value structure
         queryset = queryset.filter(
-            Q(meta__antennaDistanceM__value__gte=antenna_distance_min) |
-            Q(meta__antennaDistanceM__gte=antenna_distance_min)
+            Q(meta__antennaDistanceM__value__gte=antenna_distance_min)
+            | Q(meta__antennaDistanceM__gte=antenna_distance_min)
         )
 
     antenna_distance_max = _parse_optional_number(params.get("antennaDistanceMax"))
     if antenna_distance_max is not None:
         queryset = queryset.filter(
-            Q(meta__antennaDistanceM__value__lte=antenna_distance_max) |
-            Q(meta__antennaDistanceM__lte=antenna_distance_max)
+            Q(meta__antennaDistanceM__value__lte=antenna_distance_max)
+            | Q(meta__antennaDistanceM__lte=antenna_distance_max)
         )
 
     shelter_distance_min = _parse_optional_number(params.get("shelterDistanceMin"))
     if shelter_distance_min is not None:
         queryset = queryset.filter(
-            Q(meta__shelterDistanceM__value__gte=shelter_distance_min) |
-            Q(meta__shelterDistanceM__gte=shelter_distance_min)
+            Q(meta__shelterDistanceM__value__gte=shelter_distance_min)
+            | Q(meta__shelterDistanceM__gte=shelter_distance_min)
         )
 
     shelter_distance_max = _parse_optional_number(params.get("shelterDistanceMax"))
     if shelter_distance_max is not None:
         queryset = queryset.filter(
-            Q(meta__shelterDistanceM__value__lte=shelter_distance_max) |
-            Q(meta__shelterDistanceM__lte=shelter_distance_max)
+            Q(meta__shelterDistanceM__value__lte=shelter_distance_max)
+            | Q(meta__shelterDistanceM__lte=shelter_distance_max)
         )
 
     noise_level_min = _parse_optional_number(params.get("noiseLevelMin"))
     if noise_level_min is not None:
         queryset = queryset.filter(
-            Q(meta__noiseLevel__value__gte=noise_level_min) |
-            Q(meta__noiseLevel__gte=noise_level_min)
+            Q(meta__noiseLevel__value__gte=noise_level_min)
+            | Q(meta__noiseLevel__gte=noise_level_min)
         )
 
     noise_level_max = _parse_optional_number(params.get("noiseLevelMax"))
     if noise_level_max is not None:
         queryset = queryset.filter(
-            Q(meta__noiseLevel__value__lte=noise_level_max) |
-            Q(meta__noiseLevel__lte=noise_level_max)
+            Q(meta__noiseLevel__value__lte=noise_level_max)
+            | Q(meta__noiseLevel__lte=noise_level_max)
         )
 
     green_within_300m_filter = _parse_bool(params.get("greenWithin300m"))
     if green_within_300m_filter is not None:
         queryset = queryset.filter(
-            Q(meta__greenWithin300m__value=green_within_300m_filter) |
-            Q(meta__greenWithin300m=green_within_300m_filter)
+            Q(meta__greenWithin300m__value=green_within_300m_filter)
+            | Q(meta__greenWithin300m=green_within_300m_filter)
         )
 
     schools_within_500m_filter = _parse_bool(params.get("schoolsWithin500m"))
     if schools_within_500m_filter is not None:
         queryset = queryset.filter(
-            Q(meta__schoolsWithin500m__value=schools_within_500m_filter) |
-            Q(meta__schoolsWithin500m=schools_within_500m_filter)
+            Q(meta__schoolsWithin500m__value=schools_within_500m_filter)
+            | Q(meta__schoolsWithin500m=schools_within_500m_filter)
         )
 
     return queryset.distinct()
@@ -2737,7 +2914,7 @@ def _get_asset_filter_metadata():
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return cached_data
-    
+
     base_qs = Asset.objects.all()
 
     def _distinct(field):
@@ -2750,12 +2927,16 @@ def _get_asset_filter_metadata():
     property_types = set(_distinct("building_type"))
     property_types.update(
         value
-        for value in base_qs.order_by().values_list("meta__property_type", flat=True).distinct()
+        for value in base_qs.order_by()
+        .values_list("meta__property_type", flat=True)
+        .distinct()
         if value not in (None, "")
     )
     property_types.update(
         value
-        for value in base_qs.order_by().values_list("meta__propertyType", flat=True).distinct()
+        for value in base_qs.order_by()
+        .values_list("meta__propertyType", flat=True)
+        .distinct()
         if value not in (None, "")
     )
 
@@ -2840,35 +3021,45 @@ def _get_asset_filter_metadata():
         "bedroomCounts": sorted(
             {
                 value
-                for value in base_qs.order_by().values_list("bedrooms", flat=True).distinct()
+                for value in base_qs.order_by()
+                .values_list("bedrooms", flat=True)
+                .distinct()
                 if value is not None
             }
         ),
         "bathroomCounts": sorted(
             {
                 value
-                for value in base_qs.order_by().values_list("bathrooms", flat=True).distinct()
+                for value in base_qs.order_by()
+                .values_list("bathrooms", flat=True)
+                .distinct()
                 if value is not None
             }
         ),
         "totalFloorCounts": sorted(
             {
                 value
-                for value in base_qs.order_by().values_list("total_floors", flat=True).distinct()
+                for value in base_qs.order_by()
+                .values_list("total_floors", flat=True)
+                .distinct()
                 if value is not None
             }
         ),
         "parkingSpaceCounts": sorted(
             {
                 value
-                for value in base_qs.order_by().values_list("parking_spaces", flat=True).distinct()
+                for value in base_qs.order_by()
+                .values_list("parking_spaces", flat=True)
+                .distinct()
                 if value is not None
             }
         ),
         "balconyAreas": sorted(
             {
                 value
-                for value in base_qs.order_by().values_list("balcony_area", flat=True).distinct()
+                for value in base_qs.order_by()
+                .values_list("balcony_area", flat=True)
+                .distinct()
                 if value is not None
             }
         ),
@@ -2884,7 +3075,7 @@ def _get_asset_filter_metadata():
         "parkingSpaceRange": _range_dict("parking_spaces_min", "parking_spaces_max"),
         "balconyAreaRange": _range_dict("balcony_area_min", "balcony_area_max"),
     }
-    
+
     # Cache for 1 hour (3600 seconds) to improve performance
     cache.set(cache_key, result, 3600)
     return result
@@ -2894,7 +3085,7 @@ def _get_asset_filter_metadata():
 @permission_classes([AllowAny])
 def assets_filter_metadata(request):
     """Get asset filter metadata (cities, neighborhoods, types, etc.).
-    
+
     This endpoint is separate from the assets list to reduce response size.
     Filter metadata can be large and is cached for 1 hour.
     """
@@ -2915,7 +3106,8 @@ def _get_assets_list(request):
 
     page = _parse_positive_int(params.get("page"), 1)
     page_size = _parse_positive_int(
-        params.get("pageSize") or params.get("page_size") or params.get("limit"), DEFAULT_ASSET_PAGE_SIZE
+        params.get("pageSize") or params.get("page_size") or params.get("limit"),
+        DEFAULT_ASSET_PAGE_SIZE,
     )
     page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 
@@ -2925,14 +3117,25 @@ def _get_assets_list(request):
         # Note: listings_m2m already returns Listing objects directly (not AssetListing)
         # Use Prefetch with only() to limit fields fetched from listings - significantly reduces query time and memory
         from django.db.models import Prefetch
+
         # Only fetch fields needed for primary listing calculation and price/type lookups
         listings_prefetch = Prefetch(
             "listings_m2m",
             queryset=Listing.objects.only(
-                "id", "address", "price", "area", "listing_type", "ad_type",
-                "contact_name", "contact_phone", "fetched_at", "recent_deal",
-                "video_url", "photos", "raw"
-            )
+                "id",
+                "address",
+                "price",
+                "area",
+                "listing_type",
+                "ad_type",
+                "contact_name",
+                "contact_phone",
+                "fetched_at",
+                "recent_deal",
+                "video_url",
+                "photos",
+                "raw",
+            ),
         )
         queryset = Asset.objects.all().prefetch_related(listings_prefetch)
 
@@ -2950,23 +3153,52 @@ def _get_assets_list(request):
         has_filters = any(
             params.get(key) not in (None, "", "all")
             for key in [
-                "city", "type", "priceMin", "priceMax", "neighborhood", "zoning",
-                "risk", "documents", "status", "listingType", "listing_type", "rentalSale", "sellerType", "adType", "ad_type", "source",
-                "commercial", "userAssets", "buildingType", "floorMin", "floorMax",
-                "areaMin", "areaMax", "rooms", "features", "pricePerSqmMin", "pricePerSqmMax"
+                "city",
+                "type",
+                "priceMin",
+                "priceMax",
+                "neighborhood",
+                "zoning",
+                "risk",
+                "documents",
+                "status",
+                "listingType",
+                "listing_type",
+                "rentalSale",
+                "sellerType",
+                "adType",
+                "ad_type",
+                "source",
+                "commercial",
+                "userAssets",
+                "buildingType",
+                "floorMin",
+                "floorMax",
+                "areaMin",
+                "areaMax",
+                "rooms",
+                "features",
+                "pricePerSqmMin",
+                "pricePerSqmMax",
             ]
         )
-        
+
         if has_filters:
             track_feature_usage(
                 "filter",
-                user=user if user and getattr(user, "is_authenticated", False) else None,
+                user=user
+                if user and getattr(user, "is_authenticated", False)
+                else None,
                 meta={
-                    "filter_params": {k: v for k, v in params.items() if k != "search" and v not in (None, "", "all")},
-                    "source": "assets_list"
-                }
+                    "filter_params": {
+                        k: v
+                        for k, v in params.items()
+                        if k != "search" and v not in (None, "", "all")
+                    },
+                    "source": "assets_list",
+                },
             )
-        
+
         queryset = _apply_asset_filters(queryset, params, user)
 
         # Optimize: defer the large meta JSONField since it's excluded from list responses
@@ -2979,21 +3211,23 @@ def _get_assets_list(request):
         ordering_param = params.get("ordering", "-created_at")
         if ordering_param:
             ordering_field = ordering_param.lstrip("-")
-            
+
             # Annotate listing_type and ad_type from primary listing when needed for sorting
             # These fields come from the related Listing model, not directly from Asset
             if ordering_field in ("listing_type", "ad_type"):
                 # Get the first listing's field value for sorting
                 # Access through the many-to-many reverse relationship (listings_m2m on Asset)
                 # From Listing side, we access assets through the M2M relationship
-                listing_subquery = Listing.objects.filter(
-                    assets__id=OuterRef('pk')
-                ).order_by('id').values(ordering_field)[:1]
-                
+                listing_subquery = (
+                    Listing.objects.filter(assets__id=OuterRef("pk"))
+                    .order_by("id")
+                    .values(ordering_field)[:1]
+                )
+
                 queryset = queryset.annotate(
                     **{f"_sort_{ordering_field}": Subquery(listing_subquery)}
                 )
-            
+
             ordering_map = {
                 "address": "normalized_address",
                 "city": "city",
@@ -3009,8 +3243,12 @@ def _get_assets_list(request):
                 "built_area": "built_area",
                 "floor": "floor",
                 "total_floors": "total_floors",
-                "listing_type": "_sort_listing_type" if ordering_field == "listing_type" else "listing_type",
-                "ad_type": "_sort_ad_type" if ordering_field == "ad_type" else "ad_type",
+                "listing_type": "_sort_listing_type"
+                if ordering_field == "listing_type"
+                else "listing_type",
+                "ad_type": "_sort_ad_type"
+                if ordering_field == "ad_type"
+                else "ad_type",
                 "price": "price",
                 "rent_price": "rent_price",
                 "price_per_sqm": "price_per_sqm",
@@ -3035,7 +3273,7 @@ def _get_assets_list(request):
                 "recent_deal": "recent_deal",
                 "created_at": "created_at",
             }
-            
+
             if ordering_field in ordering_map:
                 mapped_field = ordering_map[ordering_field]
                 ordering_prefix = "-" if ordering_param.startswith("-") else ""
@@ -3099,20 +3337,20 @@ def asset_detail(request, asset_id):
             include_documents = False
 
         prefetch_fields = [
-            'transactions',
-            'transactions_m2m',
-            'permits',
-            'permits_m2m',
-            'plans',
-            'plans_m2m',
-            'listings_m2m',  # Needed for primary_listing and price/pricePerSqm from listings
+            "transactions",
+            "transactions_m2m",
+            "permits",
+            "permits_m2m",
+            "plans",
+            "plans_m2m",
+            "listings_m2m",  # Needed for primary_listing and price/pricePerSqm from listings
         ]
         if include_documents:
-            prefetch_fields.extend(['documents', 'documents_m2m'])
+            prefetch_fields.extend(["documents", "documents_m2m"])
 
         # Get asset using Django ORM with attribution data and optional documents
         try:
-            queryset = Asset.objects.select_related('created_by', 'last_updated_by')
+            queryset = Asset.objects.select_related("created_by", "last_updated_by")
             if prefetch_fields:
                 queryset = queryset.prefetch_related(*prefetch_fields)
             asset = queryset.get(id=asset_id)
@@ -3161,7 +3399,9 @@ def asset_detail(request, asset_id):
             )
 
         # Get latest snapshot data
-        latest_snapshot = Snapshot.objects.filter(asset_id=asset_id).order_by('-created_at').first()
+        latest_snapshot = (
+            Snapshot.objects.filter(asset_id=asset_id).order_by("-created_at").first()
+        )
         snapshot_data = {}
         if latest_snapshot:
             snapshot_data = {
@@ -3177,47 +3417,65 @@ def asset_detail(request, asset_id):
             attribution_info["created_by"] = {
                 "id": asset.created_by.id,
                 "email": asset.created_by.email,
-                "name": "{} {}".format(asset.created_by.first_name, asset.created_by.last_name).strip() or asset.created_by.email,
+                "name": "{} {}".format(
+                    asset.created_by.first_name, asset.created_by.last_name
+                ).strip()
+                or asset.created_by.email,
             }
         if asset.last_updated_by:
             attribution_info["last_updated_by"] = {
                 "id": asset.last_updated_by.id,
                 "email": asset.last_updated_by.email,
-                "name": "{} {}".format(asset.last_updated_by.first_name, asset.last_updated_by.last_name).strip() or asset.last_updated_by.email,
+                "name": "{} {}".format(
+                    asset.last_updated_by.first_name, asset.last_updated_by.last_name
+                ).strip()
+                or asset.last_updated_by.email,
             }
-        
+
         # Get recent contributions (last 5)
         from .models import AssetContribution
-        recent_contributions = AssetContribution.objects.filter(asset=asset).order_by('-created_at')[:5]
+
+        recent_contributions = AssetContribution.objects.filter(asset=asset).order_by(
+            "-created_at"
+        )[:5]
         contributions_list = []
-        
+
         # Hebrew translations for contribution types
         contribution_translations = {
-            'creation': 'יצירת נכס',
-            'enrichment': 'העשרת נתונים',
-            'verification': 'אימות נתונים',
-            'update': 'עדכון שדה',
-            'source_add': 'הוספת מקור',
-            'comment': 'הערה/תגובה'
+            "creation": "יצירת נכס",
+            "enrichment": "העשרת נתונים",
+            "verification": "אימות נתונים",
+            "update": "עדכון שדה",
+            "source_add": "הוספת מקור",
+            "comment": "הערה/תגובה",
         }
-        
+
         for contrib in recent_contributions:
-            contributions_list.append({
-                "id": contrib.id,
-                "user": {
-                    "email": contrib.user.email,
-                    "name": "{} {}".format(contrib.user.first_name, contrib.user.last_name).strip() or contrib.user.email,
-                },
-                "type": contrib.contribution_type,
-                "type_display": contribution_translations.get(contrib.contribution_type, contrib.get_contribution_type_display()),
-                "field_name": contrib.field_name,
-                "description": contrib.description,
-                "source": contrib.source,
-                "created_at": contrib.created_at.isoformat(),
-            })
+            contributions_list.append(
+                {
+                    "id": contrib.id,
+                    "user": {
+                        "email": contrib.user.email,
+                        "name": "{} {}".format(
+                            contrib.user.first_name, contrib.user.last_name
+                        ).strip()
+                        or contrib.user.email,
+                    },
+                    "type": contrib.contribution_type,
+                    "type_display": contribution_translations.get(
+                        contrib.contribution_type,
+                        contrib.get_contribution_type_display(),
+                    ),
+                    "field_name": contrib.field_name,
+                    "description": contrib.description,
+                    "source": contrib.source,
+                    "created_at": contrib.created_at.isoformat(),
+                }
+            )
 
         # Use serializer to get properly formatted asset data with _meta
         from .serializers import AssetSerializer
+
         serializer = AssetSerializer(
             asset,
             context={
@@ -3232,31 +3490,33 @@ def asset_detail(request, asset_id):
         try:
             from crm.models import Lead
             from crm.serializers import LeadSerializer
-            
+
             # Get leads for this asset
-            leads = Lead.objects.filter(asset=asset).select_related('contact').order_by('-last_activity_at')
-            leads_serializer = LeadSerializer(leads, many=True, context={'request': request})
-            crm_data = {
-                "leads": leads_serializer.data,
-                "leads_count": leads.count()
-            }
+            leads = (
+                Lead.objects.filter(asset=asset)
+                .select_related("contact")
+                .order_by("-last_activity_at")
+            )
+            leads_serializer = LeadSerializer(
+                leads, many=True, context={"request": request}
+            )
+            crm_data = {"leads": leads_serializer.data, "leads_count": leads.count()}
         except Exception as e:
             logger.warning(f"Error fetching CRM data for asset {asset_id}: {e}")
-            crm_data = {
-                "leads": [],
-                "leads_count": 0
-            }
-        
+            crm_data = {"leads": [], "leads_count": 0}
+
         # Add additional data not in the serializer
-        asset_data.update({
-            "attribution": attribution_info,
-            "recent_contributions": contributions_list,
-            "records": records_by_source,
-            "transactions": transaction_list,
-            "snapshot": snapshot_data,
-            "CRM": crm_data,
-        })
-        
+        asset_data.update(
+            {
+                "attribution": attribution_info,
+                "recent_contributions": contributions_list,
+                "records": records_by_source,
+                "transactions": transaction_list,
+                "snapshot": snapshot_data,
+                "CRM": crm_data,
+            }
+        )
+
         return JsonResponse({"asset": asset_data})
 
     except Exception as e:
@@ -3266,11 +3526,16 @@ def asset_detail(request, asset_id):
         )
 
 
-
-
-def _filter_sort_paginate_appraisals(entries, search=None, source_filter=None,
-                                     status_filter=None, ordering='-date', limit=25,
-                                     offset=0, allow_status=False):
+def _filter_sort_paginate_appraisals(
+    entries,
+    search=None,
+    source_filter=None,
+    status_filter=None,
+    ordering="-date",
+    limit=25,
+    offset=0,
+    allow_status=False,
+):
     try:
         limit = max(1, min(int(limit), 100))
     except (TypeError, ValueError):
@@ -3285,23 +3550,36 @@ def _filter_sort_paginate_appraisals(entries, search=None, source_filter=None,
     filtered = []
 
     for entry in entries:
-        source_value = (entry.get('source') or '').lower()
-        if source_filter and source_filter != 'all' and source_value != source_filter.lower():
+        source_value = (entry.get("source") or "").lower()
+        if (
+            source_filter
+            and source_filter != "all"
+            and source_value != source_filter.lower()
+        ):
             continue
 
         if allow_status:
-            status_value = (entry.get('status') or '').lower()
-            if status_filter and status_filter != 'all' and status_value != status_filter.lower():
+            status_value = (entry.get("status") or "").lower()
+            if (
+                status_filter
+                and status_filter != "all"
+                and status_value != status_filter.lower()
+            ):
                 continue
 
         if search_lower:
             values = [
-                str(entry.get('appraiser') or ''),
-                str(entry.get('date') or ''),
-                str(entry.get('appraisedValue') or entry.get('marketValue') or entry.get('value') or ''),
-                str(entry.get('source') or ''),
-                str(entry.get('plan_number') or ''),
-                str(entry.get('status') or ''),
+                str(entry.get("appraiser") or ""),
+                str(entry.get("date") or ""),
+                str(
+                    entry.get("appraisedValue")
+                    or entry.get("marketValue")
+                    or entry.get("value")
+                    or ""
+                ),
+                str(entry.get("source") or ""),
+                str(entry.get("plan_number") or ""),
+                str(entry.get("status") or ""),
             ]
             if not any(search_lower in value.lower() for value in values):
                 continue
@@ -3310,42 +3588,50 @@ def _filter_sort_paginate_appraisals(entries, search=None, source_filter=None,
 
     total_count = len(filtered)
 
-    ordering_field = ordering or '-date'
+    ordering_field = ordering or "-date"
     reverse = False
-    if ordering_field.startswith('-'):
+    if ordering_field.startswith("-"):
         reverse = True
         ordering_field = ordering_field[1:]
 
     def sort_key(item):
-        if ordering_field == 'date':
-            return _parse_date_value(item.get('date')) or datetime.min
-        if ordering_field == 'appraiser':
-            return (item.get('appraiser') or '').lower()
-        if ordering_field == 'value':
-            value = item.get('appraisedValue') or item.get('marketValue') or item.get('value')
+        if ordering_field == "date":
+            return _parse_date_value(item.get("date")) or datetime.min
+        if ordering_field == "appraiser":
+            return (item.get("appraiser") or "").lower()
+        if ordering_field == "value":
+            value = (
+                item.get("appraisedValue")
+                or item.get("marketValue")
+                or item.get("value")
+            )
             try:
                 return float(value)
             except (TypeError, ValueError):
                 return 0.0
-        if ordering_field == 'source':
-            return (item.get('source') or '').lower()
-        if ordering_field == 'plan_number':
-            return (item.get('plan_number') or '').lower()
-        if ordering_field == 'status':
-            return (item.get('status') or '').lower()
-        return _parse_date_value(item.get('date')) or datetime.min
+        if ordering_field == "source":
+            return (item.get("source") or "").lower()
+        if ordering_field == "plan_number":
+            return (item.get("plan_number") or "").lower()
+        if ordering_field == "status":
+            return (item.get("status") or "").lower()
+        return _parse_date_value(item.get("date")) or datetime.min
 
     filtered.sort(key=sort_key, reverse=reverse)
 
-    paginated = filtered[offset: offset + limit]
+    paginated = filtered[offset : offset + limit]
 
     filters_metadata = {
-        'source': sorted({entry.get('source') for entry in entries if entry.get('source')})
+        "source": sorted(
+            {entry.get("source") for entry in entries if entry.get("source")}
+        )
     }
     if allow_status:
-        filters_metadata['status'] = sorted({entry.get('status') for entry in entries if entry.get('status')})
+        filters_metadata["status"] = sorted(
+            {entry.get("status") for entry in entries if entry.get("status")}
+        )
 
-    ordering_value = ordering if ordering else '-date'
+    ordering_value = ordering if ordering else "-date"
 
     return paginated, total_count, filters_metadata, limit, offset, ordering_value
 
@@ -3364,7 +3650,7 @@ def asset_appraisal(request, asset_id):
 
         appraisal_records = SourceRecord.objects.filter(
             asset_id=asset_id,
-            source__in=['appraisal_decisive', 'appraisal_rmi', 'decisive', 'rami']
+            source__in=["appraisal_decisive", "appraisal_rmi", "decisive", "rami"],
         )
 
         appraisal_data = {
@@ -3377,14 +3663,16 @@ def asset_appraisal(request, asset_id):
                 "city": asset.city,
                 "area": asset.area,
                 "block": asset.block,
-                "plot": asset.parcel
-            }
+                "plot": asset.parcel,
+            },
         }
 
         decisive_entries = []
         rami_entries = []
 
-        decisive_records = appraisal_records.filter(source__in=['appraisal_decisive', 'decisive'])
+        decisive_records = appraisal_records.filter(
+            source__in=["appraisal_decisive", "decisive"]
+        )
         for record in decisive_records:
             entry = {
                 "id": record.id,
@@ -3392,134 +3680,186 @@ def asset_appraisal(request, asset_id):
                 "date": record.fetched_at.isoformat() if record.fetched_at else None,
                 "appraisedValue": None,
                 "url": record.url,
-                "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None,
-                "source": (record.source or 'decisive').lower(),
+                "fetched_at": record.fetched_at.isoformat()
+                if record.fetched_at
+                else None,
+                "source": (record.source or "decisive").lower(),
             }
             if record.raw:
                 try:
-                    raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
+                    raw_data = (
+                        json.loads(record.raw)
+                        if isinstance(record.raw, str)
+                        else record.raw
+                    )
                 except (json.JSONDecodeError, TypeError):
                     raw_data = {}
             else:
                 raw_data = {}
 
-            entry["appraiser"] = raw_data.get("appraiser", entry["appraiser"] or "לא זמין")
+            entry["appraiser"] = raw_data.get(
+                "appraiser", entry["appraiser"] or "לא זמין"
+            )
             entry["date"] = raw_data.get("date", entry["date"])
-            entry["appraisedValue"] = raw_data.get("appraisedValue", raw_data.get("value", entry["appraisedValue"]))
+            entry["appraisedValue"] = raw_data.get(
+                "appraisedValue", raw_data.get("value", entry["appraisedValue"])
+            )
             decisive_entries.append(entry)
 
-        rami_records = appraisal_records.filter(source__in=['appraisal_rmi', 'rami'])
+        rami_records = appraisal_records.filter(source__in=["appraisal_rmi", "rami"])
         for record in rami_records:
             entry = {
                 "id": record.id,
                 "date": record.fetched_at.isoformat() if record.fetched_at else None,
                 "marketValue": None,
                 "url": record.url,
-                "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None,
-                "source": (record.source or 'rami').lower(),
+                "fetched_at": record.fetched_at.isoformat()
+                if record.fetched_at
+                else None,
+                "source": (record.source or "rami").lower(),
             }
             if record.raw:
                 try:
-                    raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
+                    raw_data = (
+                        json.loads(record.raw)
+                        if isinstance(record.raw, str)
+                        else record.raw
+                    )
                 except (json.JSONDecodeError, TypeError):
                     raw_data = {}
             else:
                 raw_data = {}
 
             entry["date"] = raw_data.get("date", entry["date"])
-            entry["marketValue"] = raw_data.get("marketValue", raw_data.get("value", entry["marketValue"]))
+            entry["marketValue"] = raw_data.get(
+                "marketValue", raw_data.get("value", entry["marketValue"])
+            )
             rami_entries.append(entry)
 
         document_qs = Document.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id),
-            document_type__in=['appraisal_decisive', 'appraisal', 'appraisal_rmi']
+            document_type__in=["appraisal_decisive", "appraisal", "appraisal_rmi"],
         ).distinct()
 
         for doc in document_qs:
             meta = doc.meta or {}
             base_entry = {
                 "id": f"doc_{doc.id}",
-                "appraiser": meta.get('appraiser') or doc.title,
-                "date": doc.document_date.isoformat() if doc.document_date else meta.get('date'),
-                "appraisedValue": meta.get('appraised_value') or meta.get('value'),
-                "marketValue": meta.get('marketValue') or meta.get('value'),
+                "appraiser": meta.get("appraiser") or doc.title,
+                "date": doc.document_date.isoformat()
+                if doc.document_date
+                else meta.get("date"),
+                "appraisedValue": meta.get("appraised_value") or meta.get("value"),
+                "marketValue": meta.get("marketValue") or meta.get("value"),
                 "url": doc.external_url or doc.file_url,
                 "fetched_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
-                "source": (doc.source or meta.get('source') or 'unknown').lower(),
-                "plan_number": meta.get('planNumber') or meta.get('plan_number') or doc.external_id,
-                "status": meta.get('status'),
+                "source": (doc.source or meta.get("source") or "unknown").lower(),
+                "plan_number": meta.get("planNumber")
+                or meta.get("plan_number")
+                or doc.external_id,
+                "status": meta.get("status"),
             }
 
             doc_type = doc.document_type
-            if doc_type == 'appraisal_decisive' or (doc_type == 'appraisal' and (doc.source and 'decisive' in doc.source.lower())):
+            if doc_type == "appraisal_decisive" or (
+                doc_type == "appraisal"
+                and (doc.source and "decisive" in doc.source.lower())
+            ):
                 decisive_entries.append(base_entry.copy())
-            elif doc_type in ['appraisal_rmi'] or (doc.source and 'ram' in doc.source.lower()):
+            elif doc_type in ["appraisal_rmi"] or (
+                doc.source and "ram" in doc.source.lower()
+            ):
                 rami_entries.append(base_entry.copy())
 
         if asset.meta:
-            decisive_appraisals = asset.get_property_value('government_data.decisive_appraisals', [])
+            decisive_appraisals = asset.get_property_value(
+                "government_data.decisive_appraisals", []
+            )
             if decisive_appraisals:
                 for appraisal in decisive_appraisals:
-                    decisive_entries.append({
-                        "id": f"collected_{appraisal.get('id', '')}",
-                        "appraiser": appraisal.get('appraiser', 'לא זמין'),
-                        "date": appraisal.get('date', ''),
-                        "appraisedValue": appraisal.get('value'),
-                        "url": appraisal.get('url'),
-                        "fetched_at": appraisal.get('fetched_at'),
-                        "source": (appraisal.get('source') or 'decisive').lower(),
-                    })
+                    decisive_entries.append(
+                        {
+                            "id": f"collected_{appraisal.get('id', '')}",
+                            "appraiser": appraisal.get("appraiser", "לא זמין"),
+                            "date": appraisal.get("date", ""),
+                            "appraisedValue": appraisal.get("value"),
+                            "url": appraisal.get("url"),
+                            "fetched_at": appraisal.get("fetched_at"),
+                            "source": (appraisal.get("source") or "decisive").lower(),
+                        }
+                    )
 
-            rami_plans = asset.get_property_value('government_data.rami_plans', [])
+            rami_plans = asset.get_property_value("government_data.rami_plans", [])
             if rami_plans:
                 for plan in rami_plans:
-                    if plan.get('marketValue') or plan.get('value'):
-                        rami_entries.append({
-                            "id": f"collected_rami_{plan.get('planNumber', plan.get('plan_number', ''))}",
-                            "date": plan.get('status_date', plan.get('date', '')),
-                            "marketValue": plan.get('marketValue', plan.get('value', None)),
-                            "url": plan.get('url', ''),
-                            "fetched_at": asset.get_property_value('last_enrichment'),
-                            "source": 'rami',
-                            "plan_number": plan.get('planNumber', plan.get('plan_number', '')),
-                            "status": plan.get('status', ''),
-                        })
+                    if plan.get("marketValue") or plan.get("value"):
+                        rami_entries.append(
+                            {
+                                "id": f"collected_rami_{plan.get('planNumber', plan.get('plan_number', ''))}",
+                                "date": plan.get("status_date", plan.get("date", "")),
+                                "marketValue": plan.get(
+                                    "marketValue", plan.get("value", None)
+                                ),
+                                "url": plan.get("url", ""),
+                                "fetched_at": asset.get_property_value(
+                                    "last_enrichment"
+                                ),
+                                "source": "rami",
+                                "plan_number": plan.get(
+                                    "planNumber", plan.get("plan_number", "")
+                                ),
+                                "status": plan.get("status", ""),
+                            }
+                        )
 
-        market_metrics = asset.get_property_value('market_metrics', {})
+        market_metrics = asset.get_property_value("market_metrics", {})
         if market_metrics:
-            appraisal_data["market_analysis"].update({
-                "model_price": market_metrics.get('modelPrice'),
-                "price_gap_pct": market_metrics.get('priceGapPct'),
-                "confidence_pct": market_metrics.get('confidencePct'),
-                "expected_price_range": market_metrics.get('expectedPriceRange'),
-                "competition_level": market_metrics.get('competition1km'),
-                "risk_flags": market_metrics.get('riskFlags', [])
-            })
+            appraisal_data["market_analysis"].update(
+                {
+                    "model_price": market_metrics.get("modelPrice"),
+                    "price_gap_pct": market_metrics.get("priceGapPct"),
+                    "confidence_pct": market_metrics.get("confidencePct"),
+                    "expected_price_range": market_metrics.get("expectedPriceRange"),
+                    "competition_level": market_metrics.get("competition1km"),
+                    "risk_flags": market_metrics.get("riskFlags", []),
+                }
+            )
 
         all_appraisals = decisive_entries + rami_entries
         if all_appraisals:
-            sorted_appraisals = sorted(all_appraisals, key=lambda x: x.get("date", ""), reverse=True)
+            sorted_appraisals = sorted(
+                all_appraisals, key=lambda x: x.get("date", ""), reverse=True
+            )
             appraisal_data["appraisal"] = sorted_appraisals[0]
 
-        decisive_paged, decisive_total, decisive_filters, decisive_limit, decisive_offset, decisive_ordering = _filter_sort_paginate_appraisals(
+        (
+            decisive_paged,
+            decisive_total,
+            decisive_filters,
+            decisive_limit,
+            decisive_offset,
+            decisive_ordering,
+        ) = _filter_sort_paginate_appraisals(
             decisive_entries,
-            search=request.GET.get('decisive_search'),
-            source_filter=request.GET.get('decisive_source'),
-            ordering=request.GET.get('decisive_ordering', '-date'),
-            limit=request.GET.get('decisive_limit', 25),
-            offset=request.GET.get('decisive_offset', 0),
+            search=request.GET.get("decisive_search"),
+            source_filter=request.GET.get("decisive_source"),
+            ordering=request.GET.get("decisive_ordering", "-date"),
+            limit=request.GET.get("decisive_limit", 25),
+            offset=request.GET.get("decisive_offset", 0),
             allow_status=False,
         )
 
-        rami_paged, rami_total, rami_filters, rami_limit, rami_offset, rami_ordering = _filter_sort_paginate_appraisals(
-            rami_entries,
-            search=request.GET.get('rami_search'),
-            source_filter=request.GET.get('rami_source'),
-            status_filter=request.GET.get('rami_status'),
-            ordering=request.GET.get('rami_ordering', '-date'),
-            limit=request.GET.get('rami_limit', 25),
-            offset=request.GET.get('rami_offset', 0),
-            allow_status=True,
+        rami_paged, rami_total, rami_filters, rami_limit, rami_offset, rami_ordering = (
+            _filter_sort_paginate_appraisals(
+                rami_entries,
+                search=request.GET.get("rami_search"),
+                source_filter=request.GET.get("rami_source"),
+                status_filter=request.GET.get("rami_status"),
+                ordering=request.GET.get("rami_ordering", "-date"),
+                limit=request.GET.get("rami_limit", 25),
+                offset=request.GET.get("rami_offset", 0),
+                allow_status=True,
+            )
         )
 
         appraisal_data["decisive_appraisals"] = decisive_paged
@@ -3541,8 +3881,11 @@ def asset_appraisal(request, asset_id):
     except Exception as e:
         logger.error("Error retrieving appraisal data for asset %s: %s", asset_id, e)
         return JsonResponse(
-            {"error": "Failed to retrieve appraisal data", "details": str(e)}, status=500
+            {"error": "Failed to retrieve appraisal data", "details": str(e)},
+            status=500,
         )
+
+
 @csrf_exempt
 def asset_transactions(request, asset_id):
     """Get comparable transactions for an asset."""
@@ -3570,80 +3913,112 @@ def asset_transactions(request, asset_id):
         source_filter = (request.GET.get("source") or "").strip()
         area_filter = (request.GET.get("area") or "").strip()
         ordering_param = request.GET.get("ordering", "-date")
-        
+
         # Parse price per sqm filters
         try:
-            price_per_sqm_min = float(request.GET.get("price_per_sqm_min", 0)) if request.GET.get("price_per_sqm_min") else None
+            price_per_sqm_min = (
+                float(request.GET.get("price_per_sqm_min", 0))
+                if request.GET.get("price_per_sqm_min")
+                else None
+            )
         except (TypeError, ValueError):
             price_per_sqm_min = None
-        
+
         try:
-            price_per_sqm_max = float(request.GET.get("price_per_sqm_max", 0)) if request.GET.get("price_per_sqm_max") else None
+            price_per_sqm_max = (
+                float(request.GET.get("price_per_sqm_max", 0))
+                if request.GET.get("price_per_sqm_max")
+                else None
+            )
         except (TypeError, ValueError):
             price_per_sqm_max = None
-        
+
         # Parse price filters
         try:
-            price_min = float(request.GET.get("price_min", 0)) if request.GET.get("price_min") else None
+            price_min = (
+                float(request.GET.get("price_min", 0))
+                if request.GET.get("price_min")
+                else None
+            )
         except (TypeError, ValueError):
             price_min = None
-        
+
         try:
-            price_max = float(request.GET.get("price_max", 0)) if request.GET.get("price_max") else None
+            price_max = (
+                float(request.GET.get("price_max", 0))
+                if request.GET.get("price_max")
+                else None
+            )
         except (TypeError, ValueError):
             price_max = None
-        
+
         # Parse area filters
         try:
-            area_min = float(request.GET.get("area_min", 0)) if request.GET.get("area_min") else None
+            area_min = (
+                float(request.GET.get("area_min", 0))
+                if request.GET.get("area_min")
+                else None
+            )
         except (TypeError, ValueError):
             area_min = None
-        
+
         try:
-            area_max = float(request.GET.get("area_max", 0)) if request.GET.get("area_max") else None
+            area_max = (
+                float(request.GET.get("area_max", 0))
+                if request.GET.get("area_max")
+                else None
+            )
         except (TypeError, ValueError):
             area_max = None
-        
+
         address_filter = (request.GET.get("address") or "").strip()
 
         # Get transactions for comparable analysis
         # Always include transactions directly linked to this asset
         # Additionally include transactions from the same neighborhood, block/parcel, or street
         transaction_filters = Q(assets__id=asset_id)
-        
+
         city_name = asset.city.strip() if asset.city else None
-        
+
         # Match by block and parcel (most precise)
         if asset.block and asset.parcel and city_name:
-            transaction_filters |= (
-                Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__city=city_name)
-                | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
-            )
+            transaction_filters |= Q(
+                assets__block=asset.block,
+                assets__parcel=asset.parcel,
+                assets__city=city_name,
+            ) | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel)
             # If subparcel is available, make it even more precise
             if asset.subparcel:
-                transaction_filters |= (
-                    Q(assets__block=asset.block, assets__parcel=asset.parcel, assets__subparcel=asset.subparcel, assets__city=city_name)
-                    | Q(raw__parcel_block=asset.block, raw__parcel_parcel=asset.parcel, raw__parcel_sub_parcel=asset.subparcel)
+                transaction_filters |= Q(
+                    assets__block=asset.block,
+                    assets__parcel=asset.parcel,
+                    assets__subparcel=asset.subparcel,
+                    assets__city=city_name,
+                ) | Q(
+                    raw__parcel_block=asset.block,
+                    raw__parcel_parcel=asset.parcel,
+                    raw__parcel_sub_parcel=asset.subparcel,
                 )
-        
+
         # Match by neighborhood (requires city match)
         if asset.neighborhood and city_name:
             neighborhood_name = asset.neighborhood.strip()
-            transaction_filters |= (
-                Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
-                | Q(raw__neighborhood=neighborhood_name)
-            )
-        
+            transaction_filters |= Q(
+                assets__neighborhood=neighborhood_name, assets__city=city_name
+            ) | Q(raw__neighborhood=neighborhood_name)
+
         # Match by street name (requires city match)
         if asset.street and city_name:
             street_name = asset.street.strip()
             transaction_filters |= (
-                Q(address__icontains=street_name, assets__city=city_name) |
-                Q(assets__street=street_name, assets__city=city_name)
+                Q(address__icontains=street_name, assets__city=city_name)
+                | Q(assets__street=street_name, assets__city=city_name)
                 | Q(raw__streetNameHeb__icontains=street_name)
             )
-        
-        transactions = RealEstateTransaction.objects.filter(transaction_filters).distinct()
+
+        transactions = RealEstateTransaction.objects.filter(
+            transaction_filters
+        ).distinct()
 
         transactions = transactions.annotate(
             price_per_sqm=Case(
@@ -3660,17 +4035,22 @@ def asset_transactions(request, asset_id):
                 output_field=FloatField(),
             ),
             source_value=Case(
-                    When(raw__source__isnull=False, 
-                        then=KeyTextTransform('source', 'raw')),
-                    When(raw__sourceType__isnull=False, 
-                        then=KeyTextTransform('sourceType', 'raw')),
-                    When(raw__source_type__isnull=False, 
-                        then=KeyTextTransform('source_type', 'raw')),
-                    When(raw__data_source__isnull=False, 
-                        then=KeyTextTransform('data_source', 'raw')),
-                    default=Value("government"),
-                    output_field=CharField(),
-                )
+                When(raw__source__isnull=False, then=KeyTextTransform("source", "raw")),
+                When(
+                    raw__sourceType__isnull=False,
+                    then=KeyTextTransform("sourceType", "raw"),
+                ),
+                When(
+                    raw__source_type__isnull=False,
+                    then=KeyTextTransform("source_type", "raw"),
+                ),
+                When(
+                    raw__data_source__isnull=False,
+                    then=KeyTextTransform("data_source", "raw"),
+                ),
+                default=Value("government"),
+                output_field=CharField(),
+            ),
         )
 
         if source_filter and source_filter.lower() != "all":
@@ -3704,43 +4084,43 @@ def asset_transactions(request, asset_id):
                         )
                     except ValueError:
                         pass
-        
+
         # Apply user-provided filters
         if price_min is not None:
             transactions = transactions.filter(price__gte=price_min)
         if price_max is not None:
             transactions = transactions.filter(price__lte=price_max)
-        
+
         if area_min is not None:
             transactions = transactions.filter(area__gte=area_min)
         if area_max is not None:
             transactions = transactions.filter(area__lte=area_max)
-        
+
         if price_per_sqm_min is not None:
             transactions = transactions.filter(price_per_sqm__gte=price_per_sqm_min)
         if price_per_sqm_max is not None:
             transactions = transactions.filter(price_per_sqm__lte=price_per_sqm_max)
-        
+
         if address_filter:
             transactions = transactions.filter(address__icontains=address_filter)
-        
+
         # Filter out outliers by default (unless user explicitly wants to see them)
         # Exclude transactions with unrealistic data that skew statistics:
         # - Area < 10 sqm (likely data errors, parking spaces, or storage units)
         # - Price per sqm > 500K (unrealistic for residential/commercial)
         # - Price per sqm < 1K (too low, likely data errors)
-        
+
         # Always filter out very small areas unless user explicitly requests them
         filter_small_areas = True
         if area_min is not None and area_min < 10:
             # User explicitly wants to see small areas
             filter_small_areas = False
-        
+
         if filter_small_areas:
             transactions = transactions.filter(
                 Q(area__isnull=True) | Q(area__gte=10),  # Area >= 10 sqm or null
             )
-        
+
         # Filter PPM outliers unless user explicitly sets a range that includes them
         filter_ppm_outliers = True
         if price_per_sqm_max is not None and price_per_sqm_max >= 500000:
@@ -3749,11 +4129,12 @@ def asset_transactions(request, asset_id):
         if price_per_sqm_min is not None and price_per_sqm_min < 1000:
             # User explicitly wants to see low PPM values
             filter_ppm_outliers = False
-        
+
         if filter_ppm_outliers:
             # Filter out unrealistic PPM: between 1K and 500K (or null)
             transactions = transactions.filter(
-                Q(price_per_sqm__isnull=True) | (Q(price_per_sqm__gte=1000) & Q(price_per_sqm__lte=500000)),
+                Q(price_per_sqm__isnull=True)
+                | (Q(price_per_sqm__gte=1000) & Q(price_per_sqm__lte=500000)),
             )
 
         ordering_field = ordering_param.lstrip("-")
@@ -3785,7 +4166,7 @@ def asset_transactions(request, asset_id):
             price_per_sqm__gt=0,
             price_per_sqm__lt=500000,  # Reasonable upper bound: 500K per sqm
         )
-        
+
         valid_count = valid_transactions_for_stats.count()
         market_analysis = {}
         if valid_count > 0:
@@ -3799,8 +4180,9 @@ def asset_transactions(request, asset_id):
             )
 
             prices = list(
-                valid_transactions_for_stats.order_by("price")
-                .values_list("price", flat=True)
+                valid_transactions_for_stats.order_by("price").values_list(
+                    "price", flat=True
+                )
             )
 
             if prices:
@@ -3832,7 +4214,9 @@ def asset_transactions(request, asset_id):
 
             market_analysis.update(
                 {
-                    "avg_price_per_sqm": _coerce(filtered_avg_ppsqm) if filtered_avg_ppsqm is not None else _coerce(price_stats.get("avg_ppsqm")),
+                    "avg_price_per_sqm": _coerce(filtered_avg_ppsqm)
+                    if filtered_avg_ppsqm is not None
+                    else _coerce(price_stats.get("avg_ppsqm")),
                     "min_price_per_sqm": _coerce(price_stats.get("min_ppsqm")),
                     "max_price_per_sqm": _coerce(price_stats.get("max_ppsqm")),
                 }
@@ -3917,7 +4301,8 @@ def asset_transactions(request, asset_id):
     except Exception as e:
         logger.error("Error retrieving transaction data for asset %s: %s", asset_id, e)
         return JsonResponse(
-            {"error": "Failed to retrieve transaction data", "details": str(e)}, status=500
+            {"error": "Failed to retrieve transaction data", "details": str(e)},
+            status=500,
         )
 
 
@@ -3949,7 +4334,7 @@ def _parse_date_value(value):
                 numeric = numeric / 1000
             return datetime.fromtimestamp(numeric)
         if isinstance(value, str):
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except Exception:
         return None
     return None
@@ -3959,101 +4344,101 @@ def _format_date_value(value):
     parsed = _parse_date_value(value)
     if not parsed:
         return None
-    return parsed.strftime('%Y-%m-%d')
+    return parsed.strftime("%Y-%m-%d")
 
 
 def _normalize_permit(serializer_data):
-    meta = serializer_data.get('meta') or {}
+    meta = serializer_data.get("meta") or {}
 
     permit_number = _first_non_empty(
-        meta.get('permit_number'),
-        meta.get('permission_num'),
-        meta.get('TlvMPEngPermitNum'),
-        serializer_data.get('external_id'),
+        meta.get("permit_number"),
+        meta.get("permission_num"),
+        meta.get("TlvMPEngPermitNum"),
+        serializer_data.get("external_id"),
     )
 
     request_number = _first_non_empty(
-        meta.get('request_num'),
-        meta.get('TlvMPEngRequestNum'),
-        meta.get('TlvMPEngOnlineReqNum'),
+        meta.get("request_num"),
+        meta.get("TlvMPEngRequestNum"),
+        meta.get("TlvMPEngOnlineReqNum"),
     )
 
     addresses = _first_non_empty(
-        meta.get('addresses'),
-        meta.get('address'),
+        meta.get("addresses"),
+        meta.get("address"),
     )
 
     description = _first_non_empty(
-        meta.get('tochen_bakasha'),
-        meta.get('description'),
-        serializer_data.get('description'),
-        serializer_data.get('title'),
+        meta.get("tochen_bakasha"),
+        meta.get("description"),
+        serializer_data.get("description"),
+        serializer_data.get("title"),
     )
 
     building_stage = _first_non_empty(
-        meta.get('building_stage'),
-        meta.get('stage'),
-        serializer_data.get('status'),
+        meta.get("building_stage"),
+        meta.get("stage"),
+        serializer_data.get("status"),
     )
 
     status = _first_non_empty(
-        serializer_data.get('status'),
-        meta.get('status'),
+        serializer_data.get("status"),
+        meta.get("status"),
         building_stage,
     )
 
     approval_date = _format_date_value(
-        meta.get('permission_date')
-        or meta.get('document_date')
-        or serializer_data.get('document_date')
-        or meta.get('TlvMPEngDocDate')
+        meta.get("permission_date")
+        or meta.get("document_date")
+        or serializer_data.get("document_date")
+        or meta.get("TlvMPEngDocDate")
     )
 
     expiry_date = _format_date_value(
-        meta.get('expiry_date')
-        or meta.get('expiration_date')
-        or meta.get('license_exp_date')
-        or meta.get('valid_until')
-        or meta.get('valid_till')
+        meta.get("expiry_date")
+        or meta.get("expiration_date")
+        or meta.get("license_exp_date")
+        or meta.get("valid_until")
+        or meta.get("valid_till")
     )
 
     issue_date = _format_date_value(
-        meta.get('open_request')
-        or meta.get('issue_date')
-        or meta.get('license_issue_date')
+        meta.get("open_request")
+        or meta.get("issue_date")
+        or meta.get("license_issue_date")
     )
 
     handasa_link = _first_non_empty(
-        meta.get('url_hadmaya'),
-        meta.get('Path'),
-        meta.get('DocumentLink'),
-        serializer_data.get('external_url'),
+        meta.get("url_hadmaya"),
+        meta.get("Path"),
+        meta.get("DocumentLink"),
+        serializer_data.get("external_url"),
     )
 
     document_type = _first_non_empty(
-        meta.get('handasa_document_type'),
-        meta.get('TlvMPEngDocumentType'),
-        meta.get('document_type'),
-        serializer_data.get('document_type'),
+        meta.get("handasa_document_type"),
+        meta.get("TlvMPEngDocumentType"),
+        meta.get("document_type"),
+        serializer_data.get("document_type"),
     )
 
     request_type = _first_non_empty(
-        meta.get('sug_bakasha'),
-        meta.get('request_type'),
+        meta.get("sug_bakasha"),
+        meta.get("request_type"),
     )
 
     external_id = _first_non_empty(
-        serializer_data.get('external_id'),
-        meta.get('external_id'),
-        meta.get('id'),
-        serializer_data.get('id'),
+        serializer_data.get("external_id"),
+        meta.get("external_id"),
+        meta.get("id"),
+        serializer_data.get("id"),
     )
 
-    source = _first_non_empty(serializer_data.get('source'), meta.get('source'))
-    external_url = serializer_data.get('external_url')
+    source = _first_non_empty(serializer_data.get("source"), meta.get("source"))
+    external_url = serializer_data.get("external_url")
 
     title = _first_non_empty(
-        serializer_data.get('title'),
+        serializer_data.get("title"),
         description,
         document_type,
         permit_number,
@@ -4083,28 +4468,29 @@ def _normalize_permit(serializer_data):
     )
 
     return {
-        'id': serializer_data.get('id'),
-        'external_id': external_id,
-        'title': title,
-        'description': description,
-        'addresses': addresses,
-        'permitNumber': permit_number,
-        'requestNumber': request_number,
-        'stage': building_stage,
-        'status': status,
-        'documentType': document_type,
-        'requestType': request_type,
-        'approvalDate': approval_date,
-        'issueDate': issue_date,
-        'expiryDate': expiry_date,
-        'handasaLink': handasa_link,
-        'externalUrl': external_url,
-        'external_url': external_url,
-        'source': source,
-        'meta': meta,
-        'searchValues': search_values,
-        'raw': serializer_data,
+        "id": serializer_data.get("id"),
+        "external_id": external_id,
+        "title": title,
+        "description": description,
+        "addresses": addresses,
+        "permitNumber": permit_number,
+        "requestNumber": request_number,
+        "stage": building_stage,
+        "status": status,
+        "documentType": document_type,
+        "requestType": request_type,
+        "approvalDate": approval_date,
+        "issueDate": issue_date,
+        "expiryDate": expiry_date,
+        "handasaLink": handasa_link,
+        "externalUrl": external_url,
+        "external_url": external_url,
+        "source": source,
+        "meta": meta,
+        "searchValues": search_values,
+        "raw": serializer_data,
     }
+
 
 @csrf_exempt
 def asset_permits(request, asset_id):
@@ -4120,31 +4506,30 @@ def asset_permits(request, asset_id):
             return JsonResponse({"error": "Asset not found"}, status=404)
 
         try:
-            limit = max(1, min(int(request.GET.get('limit', 25)), 100))
+            limit = max(1, min(int(request.GET.get("limit", 25)), 100))
         except ValueError:
             limit = 25
 
         try:
-            offset = max(0, int(request.GET.get('offset', 0)))
+            offset = max(0, int(request.GET.get("offset", 0)))
         except ValueError:
             offset = 0
 
-        search_query = request.GET.get('search')
-        stage_filter = request.GET.get('stage')
-        document_type_filter = request.GET.get('document_type')
-        source_filter = request.GET.get('source')
-        ordering_param = request.GET.get('ordering', '-approval_date')
+        search_query = request.GET.get("search")
+        stage_filter = request.GET.get("stage")
+        document_type_filter = request.GET.get("document_type")
+        source_filter = request.GET.get("source")
+        ordering_param = request.GET.get("ordering", "-approval_date")
 
         # Get permits from Document model (single source of truth)
         permit_documents = (
             Document.objects.filter(
-                Q(asset_id=asset_id) | Q(assets__id=asset_id),
-                document_type='permit'
+                Q(asset_id=asset_id) | Q(assets__id=asset_id), document_type="permit"
             )
-            .select_related('asset')
-            .prefetch_related('assets')
+            .select_related("asset")
+            .prefetch_related("assets")
             .distinct()
-            .order_by('-document_date', '-uploaded_at')
+            .order_by("-document_date", "-uploaded_at")
         )
 
         normalized_permits = []
@@ -4152,21 +4537,26 @@ def asset_permits(request, asset_id):
             serializer = DocumentSerializer(doc)
             normalized = _normalize_permit(serializer.data)
 
-            if stage_filter and stage_filter != 'all':
-                if (normalized.get('stage') or '').lower() != stage_filter.lower():
+            if stage_filter and stage_filter != "all":
+                if (normalized.get("stage") or "").lower() != stage_filter.lower():
                     continue
 
-            if document_type_filter and document_type_filter != 'all':
-                if (normalized.get('documentType') or '').lower() != document_type_filter.lower():
+            if document_type_filter and document_type_filter != "all":
+                if (
+                    normalized.get("documentType") or ""
+                ).lower() != document_type_filter.lower():
                     continue
 
-            if source_filter and source_filter != 'all':
-                if (normalized.get('source') or '').lower() != source_filter.lower():
+            if source_filter and source_filter != "all":
+                if (normalized.get("source") or "").lower() != source_filter.lower():
                     continue
 
             if search_query:
                 search_lower = search_query.lower()
-                if not any(value.lower().find(search_lower) != -1 for value in normalized.get('searchValues', [])):
+                if not any(
+                    value.lower().find(search_lower) != -1
+                    for value in normalized.get("searchValues", [])
+                ):
                     continue
 
             normalized_permits.append(normalized)
@@ -4176,49 +4566,65 @@ def asset_permits(request, asset_id):
         # Sorting
         ordering_field = ordering_param
         reverse = False
-        if ordering_field.startswith('-'):
+        if ordering_field.startswith("-"):
             reverse = True
             ordering_field = ordering_field[1:]
 
         def sort_key(item):
-            if ordering_field == 'approval_date':
-                return _parse_date_value(item.get('approvalDate')) or datetime.min
-            if ordering_field == 'issue_date':
-                return _parse_date_value(item.get('issueDate')) or datetime.min
-            if ordering_field == 'expiry_date':
-                return _parse_date_value(item.get('expiryDate')) or datetime.min
-            if ordering_field == 'permit_number':
-                return item.get('permitNumber') or ''
-            if ordering_field == 'request_number':
-                return item.get('requestNumber') or ''
-            if ordering_field == 'stage':
-                return item.get('stage') or ''
-            if ordering_field == 'document_type':
-                return item.get('documentType') or ''
-            if ordering_field == 'source':
-                return item.get('source') or ''
-            if ordering_field == 'title':
-                return item.get('title') or ''
-            return _parse_date_value(item.get('approvalDate')) or datetime.min
+            if ordering_field == "approval_date":
+                return _parse_date_value(item.get("approvalDate")) or datetime.min
+            if ordering_field == "issue_date":
+                return _parse_date_value(item.get("issueDate")) or datetime.min
+            if ordering_field == "expiry_date":
+                return _parse_date_value(item.get("expiryDate")) or datetime.min
+            if ordering_field == "permit_number":
+                return item.get("permitNumber") or ""
+            if ordering_field == "request_number":
+                return item.get("requestNumber") or ""
+            if ordering_field == "stage":
+                return item.get("stage") or ""
+            if ordering_field == "document_type":
+                return item.get("documentType") or ""
+            if ordering_field == "source":
+                return item.get("source") or ""
+            if ordering_field == "title":
+                return item.get("title") or ""
+            return _parse_date_value(item.get("approvalDate")) or datetime.min
 
         normalized_permits.sort(key=sort_key, reverse=reverse)
 
-        paginated_permits = normalized_permits[offset: offset + limit]
+        paginated_permits = normalized_permits[offset : offset + limit]
 
         filters_metadata = {
-            'stage': sorted({item.get('stage') for item in normalized_permits if item.get('stage')}),
-            'document_type': sorted({item.get('documentType') for item in normalized_permits if item.get('documentType')}),
-            'source': sorted({item.get('source') for item in normalized_permits if item.get('source')}),
+            "stage": sorted(
+                {item.get("stage") for item in normalized_permits if item.get("stage")}
+            ),
+            "document_type": sorted(
+                {
+                    item.get("documentType")
+                    for item in normalized_permits
+                    if item.get("documentType")
+                }
+            ),
+            "source": sorted(
+                {
+                    item.get("source")
+                    for item in normalized_permits
+                    if item.get("source")
+                }
+            ),
         }
 
-        return JsonResponse({
-            "permits": paginated_permits,
-            "count": total_count,
-            "limit": limit,
-            "offset": offset,
-            "ordering": ordering_param,
-            "filters": filters_metadata,
-        })
+        return JsonResponse(
+            {
+                "permits": paginated_permits,
+                "count": total_count,
+                "limit": limit,
+                "offset": offset,
+                "ordering": ordering_param,
+                "filters": filters_metadata,
+            }
+        )
 
     except Exception as e:
         logger.error("Error retrieving permits for asset %s: %s", asset_id, e)
@@ -4233,7 +4639,7 @@ def _canonical_plan_number(value):
         return None
     if not isinstance(value, str):
         value = str(value)
-    cleaned = re.sub(r'\s+', '', value).replace('"', '').replace("'", '')
+    cleaned = re.sub(r"\s+", "", value).replace('"', "").replace("'", "")
     return cleaned or None
 
 
@@ -4243,7 +4649,7 @@ def _canonical_plan_title(value):
         return None
     if not isinstance(value, str):
         value = str(value)
-    cleaned = re.sub(r'\s+', ' ', value).strip().lower()
+    cleaned = re.sub(r"\s+", " ", value).strip().lower()
     return cleaned or None
 
 
@@ -4274,7 +4680,9 @@ def _merge_plan_entries(entries):
     merged = {}
     for entry in entries:
         canonical_number = _canonical_plan_number(entry.get("plan_number"))
-        canonical_title = _canonical_plan_title(entry.get("title") or entry.get("description"))
+        canonical_title = _canonical_plan_title(
+            entry.get("title") or entry.get("description")
+        )
         key = canonical_number or canonical_title or f"__missing__:{entry.get('id')}"
 
         if key not in merged:
@@ -4303,7 +4711,9 @@ def _merge_plan_entries(entries):
             elif len(meaningful_sources) > 1:
                 existing["source"] = "mixed"
             else:
-                existing["source"] = combined_sources[0] if combined_sources else existing.get("source")
+                existing["source"] = (
+                    combined_sources[0] if combined_sources else existing.get("source")
+                )
 
         for field in ("title", "description", "status", "effective_date", "file_url"):
             if not existing.get(field) and entry.get(field):
@@ -4312,7 +4722,9 @@ def _merge_plan_entries(entries):
         existing_search = existing.get("search_values") or []
         incoming_search = entry.get("search_values") or []
         if incoming_search:
-            existing["search_values"] = list(dict.fromkeys(existing_search + incoming_search))
+            existing["search_values"] = list(
+                dict.fromkeys(existing_search + incoming_search)
+            )
 
         if not existing.get("raw") and entry.get("raw"):
             existing["raw"] = entry.get("raw")
@@ -4392,19 +4804,19 @@ def asset_plans(request, asset_id):
             return JsonResponse({"error": "Asset not found"}, status=404)
 
         try:
-            limit = max(1, min(int(request.GET.get('limit', 25)), 100))
+            limit = max(1, min(int(request.GET.get("limit", 25)), 100))
         except (TypeError, ValueError):
             limit = 25
 
         try:
-            offset = max(0, int(request.GET.get('offset', 0)))
+            offset = max(0, int(request.GET.get("offset", 0)))
         except (TypeError, ValueError):
             offset = 0
 
-        search_query = request.GET.get('search')
-        source_filter = request.GET.get('source')
-        status_filter = request.GET.get('status')
-        ordering_param = request.GET.get('ordering', '-effective_date')
+        search_query = request.GET.get("search")
+        source_filter = request.GET.get("source")
+        status_filter = request.GET.get("status")
+        ordering_param = request.GET.get("ordering", "-effective_date")
 
         plan_entries = []
 
@@ -4413,62 +4825,72 @@ def asset_plans(request, asset_id):
         ).distinct()
         for plan in local_plans:
             plan_raw = plan.raw or {}
-            raw_source = str(plan_raw.get('source') or '').lower()
-            source = 'unknown'
-            if plan_raw.get('planNumber'):
-                source = 'rami'
-            elif raw_source == 'mavat' or plan_raw.get('plan_id'):
-                source = 'mavat'
+            raw_source = str(plan_raw.get("source") or "").lower()
+            source = "unknown"
+            if plan_raw.get("planNumber"):
+                source = "rami"
+            elif raw_source == "mavat" or plan_raw.get("plan_id"):
+                source = "mavat"
             elif raw_source:
                 source = raw_source
-            elif plan_raw.get('url_documents'):
-                source = 'gis'
+            elif plan_raw.get("url_documents"):
+                source = "gis"
 
-            normalized_entry = _normalize_plan_entry({
-                "id": plan.id,
-                "plan_number": plan.plan_number,
-                "title": plan.title,
-                "description": plan.description,
-                "status": plan.status,
-                "effective_date": plan.effective_date.isoformat() if plan.effective_date else None,
-                "file_url": plan.file_url,
-                "source": source,
-                "raw": plan.raw,
-            })
+            normalized_entry = _normalize_plan_entry(
+                {
+                    "id": plan.id,
+                    "plan_number": plan.plan_number,
+                    "title": plan.title,
+                    "description": plan.description,
+                    "status": plan.status,
+                    "effective_date": plan.effective_date.isoformat()
+                    if plan.effective_date
+                    else None,
+                    "file_url": plan.file_url,
+                    "source": source,
+                    "raw": plan.raw,
+                }
+            )
             plan_entries.append(normalized_entry)
 
         plan_documents = Document.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id),
-            document_type__in=['plan', 'plan_local', 'plan_citywide', 'plan_detailed']
+            document_type__in=["plan", "plan_local", "plan_citywide", "plan_detailed"],
         ).distinct()
 
         for doc in plan_documents:
             meta = doc.meta or {}
-            meta_plan_number = meta.get('planNumber') or meta.get('plan_number')
+            meta_plan_number = meta.get("planNumber") or meta.get("plan_number")
             fallback_number = doc.external_id or f"document_{doc.id}"
             display_plan_number = meta_plan_number or fallback_number
-            source = 'unknown'
-            raw_source = (doc.source or '').lower()
-            meta_source = (meta.get('source') or '').lower()
-            if 'rami' in raw_source or 'rami' in meta_source:
-                source = 'rami'
-            elif 'mavat' in raw_source or meta_source == 'mavat':
-                source = 'mavat'
-            elif 'gis' in raw_source or meta.get('url_documents'):
-                source = 'gis'
+            source = "unknown"
+            raw_source = (doc.source or "").lower()
+            meta_source = (meta.get("source") or "").lower()
+            if "rami" in raw_source or "rami" in meta_source:
+                source = "rami"
+            elif "mavat" in raw_source or meta_source == "mavat":
+                source = "mavat"
+            elif "gis" in raw_source or meta.get("url_documents"):
+                source = "gis"
 
-            plan_entries.append(_normalize_plan_entry({
-                "id": doc.id,
-                "plan_number": display_plan_number,
-                "planNumber": fallback_number,
-                "title": doc.title or doc.description,
-                "description": doc.description or doc.title,
-                "status": doc.status,
-                "effective_date": doc.document_date.isoformat() if doc.document_date else None,
-                "file_url": doc.external_url or doc.file_url,
-                "source": source,
-                "raw": meta,
-            }))
+            plan_entries.append(
+                _normalize_plan_entry(
+                    {
+                        "id": doc.id,
+                        "plan_number": display_plan_number,
+                        "planNumber": fallback_number,
+                        "title": doc.title or doc.description,
+                        "description": doc.description or doc.title,
+                        "status": doc.status,
+                        "effective_date": doc.document_date.isoformat()
+                        if doc.document_date
+                        else None,
+                        "file_url": doc.external_url or doc.file_url,
+                        "source": source,
+                        "raw": meta,
+                    }
+                )
+            )
 
         plan_entries = _merge_plan_entries(plan_entries)
 
@@ -4476,23 +4898,25 @@ def asset_plans(request, asset_id):
         filtered_plans = []
         search_lower = search_query.lower() if search_query else None
         for entry in plan_entries:
-            if source_filter and source_filter != 'all':
-                entry_sources = entry.get('sources') or []
+            if source_filter and source_filter != "all":
+                entry_sources = entry.get("sources") or []
                 candidate_sources = set()
-                candidate_sources.update(s.lower() for s in entry_sources if isinstance(s, str))
-                source_single = entry.get('source')
+                candidate_sources.update(
+                    s.lower() for s in entry_sources if isinstance(s, str)
+                )
+                source_single = entry.get("source")
                 if source_single:
                     candidate_sources.add(source_single.lower())
                 if source_filter.lower() not in candidate_sources:
                     continue
 
-            if status_filter and status_filter != 'all':
-                if (entry.get('status') or '').lower() != status_filter.lower():
+            if status_filter and status_filter != "all":
+                if (entry.get("status") or "").lower() != status_filter.lower():
                     continue
 
             if search_lower:
-                values = entry.get('search_values', [])
-                if not any((v or '').lower().find(search_lower) != -1 for v in values):
+                values = entry.get("search_values", [])
+                if not any((v or "").lower().find(search_lower) != -1 for v in values):
                     continue
 
             filtered_plans.append(entry)
@@ -4501,56 +4925,58 @@ def asset_plans(request, asset_id):
 
         ordering_field = ordering_param
         reverse = False
-        if ordering_field.startswith('-'):
+        if ordering_field.startswith("-"):
             reverse = True
             ordering_field = ordering_field[1:]
 
         def plan_sort_key(item):
-            if ordering_field == 'effective_date':
-                return _parse_date_value(item.get('effective_date')) or datetime.min
-            if ordering_field == 'plan_number':
-                return item.get('plan_number') or ''
-            if ordering_field == 'title':
-                return item.get('title') or ''
-            if ordering_field == 'status':
-                return item.get('status') or ''
-            if ordering_field == 'source':
-                return item.get('source') or ''
-            if ordering_field == 'description':
-                return item.get('description') or ''
-            return _parse_date_value(item.get('effective_date')) or datetime.min
+            if ordering_field == "effective_date":
+                return _parse_date_value(item.get("effective_date")) or datetime.min
+            if ordering_field == "plan_number":
+                return item.get("plan_number") or ""
+            if ordering_field == "title":
+                return item.get("title") or ""
+            if ordering_field == "status":
+                return item.get("status") or ""
+            if ordering_field == "source":
+                return item.get("source") or ""
+            if ordering_field == "description":
+                return item.get("description") or ""
+            return _parse_date_value(item.get("effective_date")) or datetime.min
 
         filtered_plans.sort(key=plan_sort_key, reverse=reverse)
 
-        paginated_plans = filtered_plans[offset: offset + limit]
+        paginated_plans = filtered_plans[offset : offset + limit]
 
         source_values: set[str] = set()
         status_values: set[str] = set()
         for item in plan_entries:
-            sources_list = item.get('sources') or []
+            sources_list = item.get("sources") or []
             for s in sources_list:
                 if s:
                     source_values.add(s)
-            source_single = item.get('source')
+            source_single = item.get("source")
             if source_single:
                 source_values.add(source_single)
-            status = item.get('status')
+            status = item.get("status")
             if status:
                 status_values.add(status)
 
         filters_metadata = {
-            'source': sorted(source_values),
-            'status': sorted(status_values),
+            "source": sorted(source_values),
+            "status": sorted(status_values),
         }
 
-        return JsonResponse({
-            "plans": paginated_plans,
-            "count": total_count,
-            "limit": limit,
-            "offset": offset,
-            "ordering": ordering_param,
-            "filters": filters_metadata,
-        })
+        return JsonResponse(
+            {
+                "plans": paginated_plans,
+                "count": total_count,
+                "limit": limit,
+                "offset": offset,
+                "ordering": ordering_param,
+                "filters": filters_metadata,
+            }
+        )
 
     except Exception as e:
         logger.error("Error retrieving plans for asset %s: %s", asset_id, e)
@@ -4588,10 +5014,12 @@ def _format_area(value: Any) -> Optional[str]:
     number = _landing_numeric(value)
     if number is None:
         return None
-    return f"{number:,.0f} מ\"ר"
+    return f'{number:,.0f} מ"ר'
 
 
-def _format_rooms_display(value: Any, display_hint: Optional[str] = None) -> Optional[str]:
+def _format_rooms_display(
+    value: Any, display_hint: Optional[str] = None
+) -> Optional[str]:
     normalized = format_rooms_value(value) or display_hint
     if not normalized:
         return None
@@ -4698,7 +5126,9 @@ def _ad_type_label(value: Optional[str]) -> Optional[str]:
 
 
 def _build_contact_block(asset_payload: Any, primary_listing: dict, user) -> dict:
-    info = primary_listing.get("contactInfo") if isinstance(primary_listing, dict) else {}
+    info = (
+        primary_listing.get("contactInfo") if isinstance(primary_listing, dict) else {}
+    )
     if not isinstance(info, dict):
         info = {}
     contact_name = (
@@ -4724,11 +5154,15 @@ def _build_contact_block(asset_payload: Any, primary_listing: dict, user) -> dic
         "email": contact_email,
         "email_href": f"mailto:{contact_email}" if contact_email else None,
         "company": getattr(user, "company", None) or "צוות התיווך שלכם",
-        "role": user.get_role_display() if hasattr(user, "get_role_display") else "Broker",
+        "role": user.get_role_display()
+        if hasattr(user, "get_role_display")
+        else "Broker",
     }
 
 
-def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, user) -> dict:
+def _build_landing_page_context(
+    asset, asset_payload: Any, listing_data: dict, user
+) -> dict:
     primary_listing = asset_payload.get("primary_listing") or {}
     if not isinstance(primary_listing, dict):
         primary_listing = {}
@@ -4750,7 +5184,7 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
     price_per_sqm_display = None
     ppm_number = _landing_numeric(ppm_value)
     if ppm_number is not None:
-        price_per_sqm_display = f"₪{ppm_number:,.0f} למ\"ר"
+        price_per_sqm_display = f'₪{ppm_number:,.0f} למ"ר'
 
     rent_price_display = _format_currency(
         listing_data.get("rentPrice")
@@ -4759,9 +5193,8 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
     )
 
     rooms_display = _format_rooms_display(
-        listing_data.get("rooms")
-        or asset_payload.get("rooms"),
-        primary_listing.get("roomsDisplay")
+        listing_data.get("rooms") or asset_payload.get("rooms"),
+        primary_listing.get("roomsDisplay"),
     )
     area_display = _format_area(
         listing_data.get("netSqm")
@@ -4769,8 +5202,7 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
         or asset_payload.get("area")
     )
     floor_display = _format_floor_label(
-        asset_payload.get("floor")
-        or primary_listing.get("floor")
+        asset_payload.get("floor") or primary_listing.get("floor")
     )
     type_display = (
         asset_payload.get("type")
@@ -4778,12 +5210,10 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
         or listing_data.get("type")
     )
     listing_type_label = _listing_type_label(
-        primary_listing.get("listingType")
-        or asset_payload.get("listing_type")
+        primary_listing.get("listingType") or asset_payload.get("listing_type")
     )
     ad_type_label = _ad_type_label(
-        primary_listing.get("adType")
-        or asset_payload.get("ad_type")
+        primary_listing.get("adType") or asset_payload.get("ad_type")
     )
 
     summary_parts = [rooms_display, area_display, type_display]
@@ -4804,7 +5234,7 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
             _append_unique(feature_labels, f"{int(parking_spaces)} חניות")
     balcony_area = _landing_numeric(asset_payload.get("balcony_area"))
     if balcony_area:
-        _append_unique(feature_labels, f"מרפסת {int(balcony_area)} מ\"ר")
+        _append_unique(feature_labels, f'מרפסת {int(balcony_area)} מ"ר')
     if _is_affirmative(asset_payload.get("storage_room")):
         _append_unique(feature_labels, "מחסן")
     if _is_affirmative(asset_payload.get("air_conditioning")):
@@ -4819,7 +5249,7 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
     stats = []
     for label, value in (
         ("מחיר", price_display),
-        ("מחיר למ\"ר", price_per_sqm_display),
+        ('מחיר למ"ר', price_per_sqm_display),
         ("חדרים", rooms_display),
         ("שטח", area_display),
     ):
@@ -4849,7 +5279,9 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
         badges.append(listing_type_label)
     if listing_data.get("priceDropped"):
         badges.append("ירידת מחיר")
-    published_days = primary_listing.get("publishedDays") or listing_data.get("publishedDays")
+    published_days = primary_listing.get("publishedDays") or listing_data.get(
+        "publishedDays"
+    )
     if isinstance(published_days, int) and published_days <= 30:
         badges.append("חדש בשוק")
 
@@ -4868,15 +5300,16 @@ def _build_landing_page_context(asset, asset_payload: Any, listing_data: dict, u
     price_gap = _landing_numeric(asset_payload.get("priceGapPct"))
     if price_gap is not None:
         direction = "זול מהשוק" if price_gap < 0 else "יקר מהשוק"
-        analysis_cards.append({"label": "פער מהשוק", "value": f"{abs(price_gap):.0f}% {direction}"})
+        analysis_cards.append(
+            {"label": "פער מהשוק", "value": f"{abs(price_gap):.0f}% {direction}"}
+        )
     investment_potential = asset_payload.get("investmentPotential")
     if investment_potential:
-        analysis_cards.append({"label": "פוטנציאל השקעה", "value": investment_potential})
+        analysis_cards.append(
+            {"label": "פוטנציאל השקעה", "value": investment_potential}
+        )
 
-    description = (
-        primary_listing.get("description")
-        or listing_data.get("description")
-    )
+    description = primary_listing.get("description") or listing_data.get("description")
     if description:
         description = str(description).strip()
     if not description:
@@ -4972,9 +5405,10 @@ def asset_landing_page(request, asset_id):
         return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
 
     user = request.user
-    if getattr(user, "role", None) not in {User.Role.BROKER, User.Role.ADMIN} and not getattr(
-        user, "is_superuser", False
-    ):
+    if getattr(user, "role", None) not in {
+        User.Role.BROKER,
+        User.Role.ADMIN,
+    } and not getattr(user, "is_superuser", False):
         return Response(
             {"error": "Landing page generation is limited to brokers or admins"},
             status=status.HTTP_403_FORBIDDEN,
@@ -4982,12 +5416,17 @@ def asset_landing_page(request, asset_id):
 
     serializer = AssetSerializer(asset, context={"request": request})
     asset_payload = serializer.data
-    source_records = SourceRecord.objects.filter(asset_id=asset.id).order_by("-fetched_at")
+    source_records = SourceRecord.objects.filter(asset_id=asset.id).order_by(
+        "-fetched_at"
+    )
     listing_data = build_listing(asset, source_records)
 
     context = _build_landing_page_context(asset, asset_payload, listing_data, user)
     html = render_to_string("asset_landing_page.html", context)
-    filename_base = slugify(context.get("address") or f"asset-{asset_id}", allow_unicode=True) or f"asset-{asset_id}"
+    filename_base = (
+        slugify(context.get("address") or f"asset-{asset_id}", allow_unicode=True)
+        or f"asset-{asset_id}"
+    )
     filename = f"{filename_base}-landing-page.html"
 
     track_feature_usage(
@@ -4996,7 +5435,11 @@ def asset_landing_page(request, asset_id):
         asset_id=asset_id,
         meta={"format": "html"},
     )
-    logger.info("Generated broker landing page for asset %s by user %s", asset_id, getattr(user, "id", None))
+    logger.info(
+        "Generated broker landing page for asset %s by user %s",
+        asset_id,
+        getattr(user, "id", None),
+    )
 
     response = HttpResponse(html, content_type="text/html; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -5062,8 +5505,8 @@ def asset_share_message(request, asset_id):
     try:
         llm = get_llm(request)
         options = BaseGenOptions(temperature=0.2)
-        system_prompt = (
-            "You write short real estate marketing messages in {}.".format(language)
+        system_prompt = "You write short real estate marketing messages in {}.".format(
+            language
         )
         payload = [
             ChatMessage(role="system", content=system_prompt),
@@ -5091,13 +5534,21 @@ def asset_share_message(request, asset_id):
         message = "למכירה {}{} ב{}{}.".format(rooms_s, area_s, addr, price_s)
         is_ai_generated = False
 
-    logger.info("Marketing message generated for asset %s: AI-generated: %s", asset_id, is_ai_generated)
+    logger.info(
+        "Marketing message generated for asset %s: AI-generated: %s",
+        asset_id,
+        is_ai_generated,
+    )
 
     token = secrets.token_urlsafe(16)
     ShareToken.objects.create(asset=asset, token=token)
     share_url = "/r/{}".format(token)
 
-    response_data = {"text": message, "share_url": share_url, "is_ai_generated": is_ai_generated}
+    response_data = {
+        "text": message,
+        "share_url": share_url,
+        "is_ai_generated": is_ai_generated,
+    }
 
     return Response(response_data)
 
@@ -5190,12 +5641,14 @@ def alert_rules(request):
         rules = AlertRule.objects.filter(user=request.user).order_by("-created_at")
         serializer = AlertRuleSerializer(rules, many=True)
         return Response({"rules": serializer.data})
-    
+
     if request.method == "POST":
         data = parse_json(request)
         if not data:
-            return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         serializer = AlertRuleSerializer(data=data)
         if serializer.is_valid():
             # Save with user from request - pass user object to save method
@@ -5212,43 +5665,51 @@ def alert_rule_detail(request, rule_id):
     try:
         rule = AlertRule.objects.get(id=rule_id, user=request.user)
     except AlertRule.DoesNotExist:
-        return Response({"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+        return Response(
+            {"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND
+        )
+
     if request.method == "GET":
         serializer = AlertRuleSerializer(rule)
         return Response(serializer.data)
-    
+
     if request.method == "PATCH":
         data = parse_json(request)
         if not data:
-            return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         serializer = AlertRuleSerializer(rule, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     if request.method == "DELETE":
         rule.delete()
-        return Response({"message": "Alert rule deleted successfully"}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": "Alert rule deleted successfully"}, status=status.HTTP_200_OK
+        )
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def alert_events(request):
     """Get alert events for the current user."""
-    since = request.GET.get('since')
+    since = request.GET.get("since")
     events = AlertEvent.objects.filter(alert_rule__user=request.user)
-    
+
     if since:
         try:
-            since_dt = timezone.datetime.fromisoformat(since.replace('Z', '+00:00'))
+            since_dt = timezone.datetime.fromisoformat(since.replace("Z", "+00:00"))
             events = events.filter(occurred_at__gte=since_dt)
         except ValueError:
-            return Response({"error": "Invalid since parameter"}, status=status.HTTP_400_BAD_REQUEST)
-    
-    events = events.order_by('-occurred_at')[:100]  # Limit to 100 most recent
+            return Response(
+                {"error": "Invalid since parameter"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+    events = events.order_by("-occurred_at")[:100]  # Limit to 100 most recent
     serializer = AlertEventSerializer(events, many=True)
     return Response({"events": serializer.data})
 
@@ -5257,32 +5718,42 @@ def alert_events(request):
 @permission_classes([IsAuthenticated])
 def alert_test(request):
     """Send a test alert to verify channels are working."""
-    
+
     user = request.user
     channels = []
-    
-    if getattr(user, 'notify_email', False) and user.email:
+
+    if getattr(user, "notify_email", False) and user.email:
         from orchestration.alerts import EmailAlert
+
         channels.append(EmailAlert(user.email))
-    
-    if getattr(user, 'notify_whatsapp', False) and getattr(user, 'phone', None):
+
+    if getattr(user, "notify_whatsapp", False) and getattr(user, "phone", None):
         from orchestration.alerts import WhatsAppAlert
+
         channels.append(WhatsAppAlert(user.phone))
-    
+
     if not channels:
-        return Response({"error": "No notification channels configured"}, status=status.HTTP_400_BAD_REQUEST)
-    
+        return Response(
+            {"error": "No notification channels configured"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     # Send test message
     test_message = "נדלנר: זהו הודעת בדיקה. הערוצים שלך מוגדרים כראוי."
-    
+
     try:
         for channel in channels:
             channel.send(test_message)
-        
-        return Response({"message": "Test alert sent successfully"}, status=status.HTTP_200_OK)
+
+        return Response(
+            {"message": "Test alert sent successfully"}, status=status.HTTP_200_OK
+        )
     except Exception as e:
         logger.error("Failed to send test alert: %s", e)
-        return Response({"error": "Failed to send test alert"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to send test alert"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # Attribution API endpoints
@@ -5292,14 +5763,19 @@ def asset_contributions(request, asset_id):
     """Get all contributions for a specific asset."""
     try:
         asset = Asset.objects.get(id=asset_id)
-        contributions = AssetContribution.objects.filter(asset=asset).order_by('-created_at')
+        contributions = AssetContribution.objects.filter(asset=asset).order_by(
+            "-created_at"
+        )
         serializer = AssetContributionSerializer(contributions, many=True)
         return Response({"contributions": serializer.data})
     except Asset.DoesNotExist:
         return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error("Error fetching asset contributions: %s", e)
-        return Response({"error": "Failed to fetch contributions"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to fetch contributions"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5307,12 +5783,17 @@ def asset_contributions(request, asset_id):
 def user_contributions(request):
     """Get all contributions made by the current user."""
     try:
-        contributions = AssetContribution.objects.filter(user=request.user).order_by('-created_at')
+        contributions = AssetContribution.objects.filter(user=request.user).order_by(
+            "-created_at"
+        )
         serializer = AssetContributionSerializer(contributions, many=True)
         return Response({"contributions": serializer.data})
     except Exception as e:
         logger.error("Error fetching user contributions: %s", e)
-        return Response({"error": "Failed to fetch contributions"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to fetch contributions"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5325,7 +5806,10 @@ def user_profile(request):
         return Response({"profile": serializer.data})
     except Exception as e:
         logger.error("Error fetching user profile: %s", e)
-        return Response({"error": "Failed to fetch profile"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to fetch profile"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["PUT"])
@@ -5335,14 +5819,17 @@ def update_user_profile(request):
     try:
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
-        
+
         if serializer.is_valid():
             serializer.save()
             return Response({"profile": serializer.data})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error("Error updating user profile: %s", e)
-        return Response({"error": "Failed to update profile"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to update profile"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5352,34 +5839,36 @@ def top_contributors(request):
     try:
         # Get top contributors by assets created
         top_creators = UserProfile.objects.filter(
-            assets_created__gt=0,
-            public_profile=True
-        ).order_by('-assets_created')[:10]
-        
+            assets_created__gt=0, public_profile=True
+        ).order_by("-assets_created")[:10]
+
         # Get top contributors by total contributions
         top_contributors = UserProfile.objects.filter(
-            contributions_made__gt=0,
-            public_profile=True
-        ).order_by('-contributions_made')[:10]
-        
+            contributions_made__gt=0, public_profile=True
+        ).order_by("-contributions_made")[:10]
+
         # Get top contributors by reputation
         top_reputation = UserProfile.objects.filter(
-            reputation_score__gt=0,
-            public_profile=True
-        ).order_by('-reputation_score')[:10]
-        
+            reputation_score__gt=0, public_profile=True
+        ).order_by("-reputation_score")[:10]
+
         creators_serializer = UserProfileSerializer(top_creators, many=True)
         contributors_serializer = UserProfileSerializer(top_contributors, many=True)
         reputation_serializer = UserProfileSerializer(top_reputation, many=True)
-        
-        return Response({
-            "top_creators": creators_serializer.data,
-            "top_contributors": contributors_serializer.data,
-            "top_reputation": reputation_serializer.data
-        })
+
+        return Response(
+            {
+                "top_creators": creators_serializer.data,
+                "top_contributors": contributors_serializer.data,
+                "top_reputation": reputation_serializer.data,
+            }
+        )
     except Exception as e:
         logger.error("Error fetching top contributors: %s", e)
-        return Response({"error": "Failed to fetch top contributors"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to fetch top contributors"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["POST"])
@@ -5389,28 +5878,31 @@ def add_contribution(request, asset_id):
     try:
         asset = Asset.objects.get(id=asset_id)
         data = request.data.copy()
-        data['asset'] = asset_id
-        data['user'] = request.user.id
-        
+        data["asset"] = asset_id
+        data["user"] = request.user.id
+
         serializer = AssetContributionSerializer(data=data)
         if serializer.is_valid():
             contribution = serializer.save()
-            
+
             # Update asset's last_updated_by
             asset.last_updated_by = request.user
-            asset.save(update_fields=['last_updated_by'])
-            
+            asset.save(update_fields=["last_updated_by"])
+
             # Update user profile stats
             profile, created = UserProfile.objects.get_or_create(user=request.user)
             profile.update_contribution_stats(contribution.contribution_type)
-            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     except Asset.DoesNotExist:
         return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error("Error adding contribution: %s", e)
-        return Response({"error": "Failed to add contribution"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to add contribution"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5419,12 +5911,18 @@ def user_plan_info(request):
     """Get current user's plan information."""
     try:
         from .plan_service import PlanService
+
         plan_info = PlanService.get_user_plan_info(request.user)
         serializer = UserPlanInfoSerializer(plan_info)
         return Response(serializer.data)
     except Exception as e:
-        logger.error("Error getting plan info for user {}: {}".format(request.user.email, e))
-        return Response({"error": "Failed to get plan information"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.error(
+            "Error getting plan info for user {}: {}".format(request.user.email, e)
+        )
+        return Response(
+            {"error": "Failed to get plan information"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5433,12 +5931,16 @@ def plan_types(request):
     """Get all available plan types."""
     try:
         from .models import PlanType
-        plans = PlanType.objects.filter(is_active=True).order_by('price')
+
+        plans = PlanType.objects.filter(is_active=True).order_by("price")
         serializer = PlanTypeSerializer(plans, many=True)
         return Response({"plans": serializer.data})
     except Exception as e:
         logger.error("Error getting plan types: {}".format(e))
-        return Response({"error": "Failed to get plan types"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to get plan types"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["POST"])
@@ -5448,17 +5950,24 @@ def upgrade_plan(request):
     try:
         data = parse_json(request)
         if not data or not data.get("plan_name"):
-            return Response({"error": "plan_name is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "plan_name is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         from .plan_service import PlanService, PlanValidationError
+
         new_plan = PlanService.upgrade_user_plan(request.user, data["plan_name"])
         serializer = UserPlanSerializer(new_plan)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     except PlanValidationError as e:
-        logger.warning("Plan validation error for user {}: {}".format(request.user.email, e))
+        logger.warning(
+            "Plan validation error for user {}: {}".format(request.user.email, e)
+        )
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error("Error upgrading plan for user {}: {}".format(request.user.email, e))
+        logger.error(
+            "Error upgrading plan for user {}: {}".format(request.user.email, e)
+        )
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -5466,13 +5975,13 @@ def upgrade_plan(request):
 @permission_classes([IsAuthenticated])
 def sync_asset(request, asset_id):
     """Sync data for an existing asset using the data pipeline.
-    
+
     This endpoint triggers the data pipeline to collect fresh data
     from all external sources for the specified asset.
-    
+
     Expected JSON payload:
     - address: str - Address to sync (optional, uses asset's address if not provided)
-    
+
     Returns:
     - 200: {"message": "Sync started", "asset_id": int} - Sync initiated successfully
     - 404: Asset not found
@@ -5484,18 +5993,23 @@ def sync_asset(request, asset_id):
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
-            return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
-        
+            return Response(
+                {"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
         # Parse request data
         data = parse_json(request)
         if not data:
             data = {}
-        
+
         # Use provided address or asset's address
         address = data.get("address", asset.address)
         if not address:
-            return Response({"error": "No address provided and asset has no address"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "No address provided and asset has no address"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Extract house number from address if not provided
         house_number = data.get("house_number")
         if not house_number and asset.number:
@@ -5503,24 +6017,32 @@ def sync_asset(request, asset_id):
         elif not house_number:
             # Try to extract from address
             import re
-            match = re.search(r'(\d+)', address)
+
+            match = re.search(r"(\d+)", address)
             if match:
                 house_number = int(match.group(1))
             else:
                 house_number = 1  # Default fallback
-        
-        logger.info("Starting asset sync for asset %s with address %s %s", asset_id, address, house_number)
-        
+
+        logger.info(
+            "Starting asset sync for asset %s with address %s %s",
+            asset_id,
+            address,
+            house_number,
+        )
+
         # Update asset status
         asset.status = "syncing"
         asset.last_sync_started_at = timezone.now()
         asset.save(update_fields=["status", "last_sync_started_at"])
-        
+
         # Check if Celery is enabled
         from django.conf import settings
-        if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+
+        if hasattr(settings, "CELERY_BROKER_URL") and settings.CELERY_BROKER_URL:
             # Use Celery task
             from .tasks import run_data_pipeline
+
             result = run_data_pipeline.delay(asset_id)
             job_id = result.id
             logger.info("Enqueued asset sync task with job ID: %s", job_id)
@@ -5528,14 +6050,19 @@ def sync_asset(request, asset_id):
         else:
             # Run asynchronously in background thread when Celery is disabled
             import threading
-            
+
             def run_sync_async():
                 try:
                     from .tasks import run_data_pipeline
+
                     run_data_pipeline(asset_id)
-                    logger.info("Background asset sync completed for asset %s", asset_id)
+                    logger.info(
+                        "Background asset sync completed for asset %s", asset_id
+                    )
                 except Exception as e:
-                    logger.error("Background asset sync failed for asset %s: %s", asset_id, e)
+                    logger.error(
+                        "Background asset sync failed for asset %s: %s", asset_id, e
+                    )
                     # Update asset status to error
                     try:
                         asset_obj = Asset.objects.get(id=asset_id)
@@ -5544,22 +6071,27 @@ def sync_asset(request, asset_id):
                         asset_obj.save()
                     except Exception as save_error:
                         logger.error("Failed to update asset status: %s", save_error)
-            
+
             thread = threading.Thread(target=run_sync_async, daemon=True)
             thread.start()
             message = f"סנכרון נתונים התחיל עבור {address} {house_number} (מזהה נכס: {asset_id})"
-        
-        return Response({
-            "message": message,
-            "asset_id": asset_id,
-            "address": address,
-            "house_number": house_number,
-            "status": "syncing"
-        })
-        
+
+        return Response(
+            {
+                "message": message,
+                "asset_id": asset_id,
+                "address": address,
+                "house_number": house_number,
+                "status": "syncing",
+            }
+        )
+
     except Exception as e:
         logger.error("Error starting asset sync for asset %s: %s", asset_id, e)
-        return Response({"error": "שגיאה בהתחלת סנכרון הנתונים"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "שגיאה בהתחלת סנכרון הנתונים"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5570,27 +6102,43 @@ def asset_listings(request, asset_id):
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
-            return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         limit = parse_int(request.GET.get("limit"), 10, minimum=1, maximum=100)
         offset = parse_int(request.GET.get("offset"), 0, minimum=0) or 0
         search = (request.GET.get("search") or "").strip()
         source_filter = (request.GET.get("source") or "all").strip().lower()
-        property_type_filter = (request.GET.get("property_type") or "all").strip().lower()
+        property_type_filter = (
+            (request.GET.get("property_type") or "all").strip().lower()
+        )
         listing_type_filter = (
-            request.GET.get("listing_type")
-            or request.GET.get("listingType")
-            or "all"
-        ).strip().lower()
+            (request.GET.get("listing_type") or request.GET.get("listingType") or "all")
+            .strip()
+            .lower()
+        )
         ad_type_filter = (
-            request.GET.get("ad_type")
-            or request.GET.get("adType")
-            or "all"
-        ).strip().lower()
-        rooms_filter = (request.GET.get("rooms") or request.GET.get("rooms_filter") or "all").strip()
-        min_price = parse_int(request.GET.get("min_price") or request.GET.get("price_min"), None, minimum=0)
-        max_price = parse_int(request.GET.get("max_price") or request.GET.get("price_max"), None, minimum=0)
-        ordering = (request.GET.get("ordering") or "-date_posted").strip() or "-date_posted"
+            (request.GET.get("ad_type") or request.GET.get("adType") or "all")
+            .strip()
+            .lower()
+        )
+        rooms_filter = (
+            request.GET.get("rooms") or request.GET.get("rooms_filter") or "all"
+        ).strip()
+        min_price = parse_int(
+            request.GET.get("min_price") or request.GET.get("price_min"),
+            None,
+            minimum=0,
+        )
+        max_price = parse_int(
+            request.GET.get("max_price") or request.GET.get("price_max"),
+            None,
+            minimum=0,
+        )
+        ordering = (
+            request.GET.get("ordering") or "-date_posted"
+        ).strip() or "-date_posted"
 
         listings_all = []
         seen_keys = set()
@@ -5598,50 +6146,54 @@ def asset_listings(request, asset_id):
 
         # Build location filters to query listings by location (similar to transactions)
         listing_filters = Q()
-        
+
         # Match by block and parcel (most precise)
         if asset.block and asset.parcel and city_name:
-            listing_filters |= (
-                Q(raw__parcel_block=str(asset.block), raw__parcel_parcel=str(asset.parcel))
+            listing_filters |= Q(
+                raw__parcel_block=str(asset.block), raw__parcel_parcel=str(asset.parcel)
             )
             if asset.subparcel:
-                listing_filters |= (
-                    Q(raw__parcel_block=str(asset.block), raw__parcel_parcel=str(asset.parcel), raw__parcel_sub_parcel=str(asset.subparcel))
+                listing_filters |= Q(
+                    raw__parcel_block=str(asset.block),
+                    raw__parcel_parcel=str(asset.parcel),
+                    raw__parcel_sub_parcel=str(asset.subparcel),
                 )
-        
+
         # Match by neighborhood (requires city match)
         if asset.neighborhood and city_name:
             neighborhood_name = asset.neighborhood.strip()
             city_lower = city_name.lower()
             # Check if neighborhood appears in address field (with city)
-            listing_filters |= (
-                Q(address__icontains=neighborhood_name) & Q(address__icontains=city_lower)
+            listing_filters |= Q(address__icontains=neighborhood_name) & Q(
+                address__icontains=city_lower
             )
             # Also check raw data for neighborhood
             listing_filters |= Q(raw__neighborhood=neighborhood_name)
             listing_filters |= Q(raw__address_details__neighbourhood=neighborhood_name)
             # Also check if listing is linked to assets in the same neighborhood
-            listing_filters |= (
-                Q(assets__neighborhood=neighborhood_name, assets__city=city_name)
+            listing_filters |= Q(
+                assets__neighborhood=neighborhood_name, assets__city=city_name
             )
-        
+
         # Match by street name (requires city match)
         if asset.street and city_name:
             street_name = asset.street.strip()
             city_lower = city_name.lower()
-            listing_filters |= (
-                Q(address__icontains=street_name) & Q(address__icontains=city_lower)
+            listing_filters |= Q(address__icontains=street_name) & Q(
+                address__icontains=city_lower
             )
             listing_filters |= Q(raw__address_details__streetName=street_name)
-        
+
         # Query listings by location (not just linked ones)
         location_matched_listings = []
         if listing_filters:
-            location_matched_listings = list(Listing.objects.filter(
-                listing_filters,
-                status='active'  # Only active listings
-            ).distinct())
-        
+            location_matched_listings = list(
+                Listing.objects.filter(
+                    listing_filters,
+                    status="active",  # Only active listings
+                ).distinct()
+            )
+
         # Combine: linked listings + location-matched listings
         linked_listings = list(asset_listings_all(asset))
         all_listing_objs = linked_listings + location_matched_listings
@@ -5653,58 +6205,74 @@ def asset_listings(request, asset_id):
                 seen_ids.add(listing.id)
                 unique_listings.append(listing)
         all_listing_objs = unique_listings
-        
+
         # Process all listings
         for listing_obj in all_listing_objs:
             listing_address = (listing_obj.address or "").lower()
-            
+
             # Verify location match
             location_match = False
-            
+
             # Match by block and parcel (most precise)
             if asset.block and asset.parcel and city_name:
                 raw_data = listing_obj.raw or {}
-                listing_block = str(raw_data.get('parcel_block') or raw_data.get('block') or '')
-                listing_parcel = str(raw_data.get('parcel_parcel') or raw_data.get('parcel') or '')
-                if listing_block == str(asset.block) and listing_parcel == str(asset.parcel):
+                listing_block = str(
+                    raw_data.get("parcel_block") or raw_data.get("block") or ""
+                )
+                listing_parcel = str(
+                    raw_data.get("parcel_parcel") or raw_data.get("parcel") or ""
+                )
+                if listing_block == str(asset.block) and listing_parcel == str(
+                    asset.parcel
+                ):
                     location_match = True
-            
+
             # Match by neighborhood (requires city match)
             if not location_match and asset.neighborhood and city_name:
                 neighborhood_name = asset.neighborhood.strip().lower()
                 city_lower = city_name.lower()
                 # Check address field
-                if neighborhood_name in listing_address and city_lower in listing_address:
+                if (
+                    neighborhood_name in listing_address
+                    and city_lower in listing_address
+                ):
                     location_match = True
                 # Check raw data
                 if not location_match:
                     raw_data = listing_obj.raw or {}
-                    raw_neighborhood = raw_data.get('neighborhood') or (raw_data.get('address_details') or {}).get('neighbourhood')
-                    if raw_neighborhood and neighborhood_name in str(raw_neighborhood).lower():
+                    raw_neighborhood = raw_data.get("neighborhood") or (
+                        raw_data.get("address_details") or {}
+                    ).get("neighbourhood")
+                    if (
+                        raw_neighborhood
+                        and neighborhood_name in str(raw_neighborhood).lower()
+                    ):
                         location_match = True
                 # Check if listing is linked to assets in the same neighborhood
                 if not location_match:
                     linked_assets = listing_obj.assets.filter(
-                        neighborhood=asset.neighborhood,
-                        city=city_name
+                        neighborhood=asset.neighborhood, city=city_name
                     )
                     if linked_assets.exists():
                         location_match = True
-            
+
             # Match by street name (requires city match)
             if not location_match and asset.street and city_name:
                 street_name = asset.street.strip().lower()
                 city_lower = city_name.lower()
                 if street_name in listing_address and city_lower in listing_address:
                     location_match = True
-            
+
             # If we have location info but no match, skip this listing
             has_location_info = bool(asset.block or asset.neighborhood or asset.street)
             if has_location_info and not location_match:
                 continue
-            
+
             normalized = normalize_listing_from_model(listing_obj)
-            key = normalized["id"] or f"{normalized.get('source', 'external')}:{normalized.get('external_id') or listing_obj.id}"
+            key = (
+                normalized["id"]
+                or f"{normalized.get('source', 'external')}:{normalized.get('external_id') or listing_obj.id}"
+            )
             if key in seen_keys:
                 continue
             seen_keys.add(key)
@@ -5716,35 +6284,41 @@ def asset_listings(request, asset_id):
         for idx, meta_listing in enumerate(yad2_listings):
             if not meta_listing:
                 continue
-            
-            meta_address = (meta_listing.get('address') or "").lower()
+
+            meta_address = (meta_listing.get("address") or "").lower()
             should_include = False
-            
+
             # Match by block and parcel (most precise)
             if asset.block and asset.parcel and city_name:
-                meta_block = str(meta_listing.get('parcel_block') or meta_listing.get('block') or '')
-                meta_parcel = str(meta_listing.get('parcel_parcel') or meta_listing.get('parcel') or '')
+                meta_block = str(
+                    meta_listing.get("parcel_block") or meta_listing.get("block") or ""
+                )
+                meta_parcel = str(
+                    meta_listing.get("parcel_parcel")
+                    or meta_listing.get("parcel")
+                    or ""
+                )
                 if meta_block == str(asset.block) and meta_parcel == str(asset.parcel):
                     should_include = True
-            
+
             # Match by neighborhood (requires city match)
             if not should_include and asset.neighborhood and city_name:
                 neighborhood_name = asset.neighborhood.strip().lower()
                 city_lower = city_name.lower()
                 if neighborhood_name in meta_address and city_lower in meta_address:
                     should_include = True
-            
+
             # Match by street (requires city match)
             if not should_include and asset.street and city_name:
                 street_name = asset.street.strip().lower()
                 city_lower = city_name.lower()
                 if street_name in meta_address and city_lower in meta_address:
                     should_include = True
-            
+
             # If no location match, skip this listing
             if not should_include:
                 continue
-            
+
             normalized = normalize_listing_from_meta(meta_listing or {}, idx)
             key = normalized["id"] or f"{normalized.get('source', 'yad2')}:{idx}"
             if key in seen_keys:
@@ -5759,7 +6333,11 @@ def asset_listings(request, asset_id):
             {listing.get("source") for listing in listings_all if listing.get("source")}
         )
         property_types_available = sorted(
-            {listing.get("property_type") for listing in listings_all if listing.get("property_type")}
+            {
+                listing.get("property_type")
+                for listing in listings_all
+                if listing.get("property_type")
+            }
         )
         listing_types_available = sorted(
             {
@@ -5784,7 +6362,9 @@ def asset_listings(request, asset_id):
             key=lambda x: float(x.replace(",", ".")) if x else 0.0,
         )
         price_values = [
-            listing.get("price") for listing in listings_all if isinstance(listing.get("price"), int)
+            listing.get("price")
+            for listing in listings_all
+            if isinstance(listing.get("price"), int)
         ]
         price_meta = {
             "min": min(price_values) if price_values else None,
@@ -5792,7 +6372,11 @@ def asset_listings(request, asset_id):
         }
 
         search_lower = search.lower() if search else None
-        rooms_filter_normalized = format_rooms_value(rooms_filter) if rooms_filter not in ("", "all") else None
+        rooms_filter_normalized = (
+            format_rooms_value(rooms_filter)
+            if rooms_filter not in ("", "all")
+            else None
+        )
 
         filtered_listings = []
         for listing in listings_all:
@@ -5801,14 +6385,24 @@ def asset_listings(request, asset_id):
                 continue
 
             listing_property_type = (listing.get("property_type") or "").lower()
-            if property_type_filter not in ("", "all") and listing_property_type != property_type_filter:
+            if (
+                property_type_filter not in ("", "all")
+                and listing_property_type != property_type_filter
+            ):
                 continue
 
-            listing_type_value = (listing.get("listing_type") or listing.get("listingType") or "").lower()
-            if listing_type_filter not in ("", "all") and listing_type_value != listing_type_filter:
+            listing_type_value = (
+                listing.get("listing_type") or listing.get("listingType") or ""
+            ).lower()
+            if (
+                listing_type_filter not in ("", "all")
+                and listing_type_value != listing_type_filter
+            ):
                 continue
 
-            listing_ad_type = (listing.get("ad_type") or listing.get("adType") or "").lower()
+            listing_ad_type = (
+                listing.get("ad_type") or listing.get("adType") or ""
+            ).lower()
             if ad_type_filter not in ("", "all") and listing_ad_type != ad_type_filter:
                 continue
 
@@ -5823,8 +6417,13 @@ def asset_listings(request, asset_id):
                     continue
 
             if rooms_filter_normalized:
-                listing_rooms_display = listing.get("rooms_display") or format_rooms_value(listing.get("rooms"))
-                if not listing_rooms_display or listing_rooms_display != rooms_filter_normalized:
+                listing_rooms_display = listing.get(
+                    "rooms_display"
+                ) or format_rooms_value(listing.get("rooms"))
+                if (
+                    not listing_rooms_display
+                    or listing_rooms_display != rooms_filter_normalized
+                ):
                     continue
 
             if search_lower:
@@ -5833,7 +6432,9 @@ def asset_listings(request, asset_id):
                     listing.get("address") or "",
                     listing.get("description") or "",
                 ]
-                if not any(search_lower in (value or "").lower() for value in searchable_values):
+                if not any(
+                    search_lower in (value or "").lower() for value in searchable_values
+                ):
                     continue
 
             filtered_listings.append(listing)
@@ -5879,7 +6480,7 @@ def asset_listings(request, asset_id):
 
         filtered_listings.sort(key=sort_key, reverse=reverse)
 
-        paginated = filtered_listings[offset: offset + limit]
+        paginated = filtered_listings[offset : offset + limit]
 
         response_data = {
             "results": paginated,
@@ -5902,7 +6503,10 @@ def asset_listings(request, asset_id):
 
     except Exception as e:
         logger.error(f"Error fetching listings for asset {asset_id}: {e}")
-        return Response({"error": "Failed to fetch listings"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to fetch listings"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -5912,108 +6516,142 @@ def dashboard_market_data(request):
     try:
         from datetime import datetime, timedelta
         from collections import defaultdict
-        
+
         # Get last 6 months of data
         now = datetime.now()
         six_months_ago = now - timedelta(days=180)
-        
+
         # Aggregate government transaction data by month
         gov_transactions = RealEstateTransaction.objects.filter(
-            date__gte=six_months_ago,
-            price__isnull=False,
-            price__gt=0
-        ).values('date', 'price', 'area', 'rooms')
-        
+            date__gte=six_months_ago, price__isnull=False, price__gt=0
+        ).values("date", "price", "area", "rooms")
+
         # Aggregate Yad2 market data by month from asset metadata
         yad2_data = []
         assets_with_yad2 = Asset.objects.filter(
             meta__yad2_listings__isnull=False
         ).exclude(meta__yad2_listings=[])
-        
+
         for asset in assets_with_yad2:
-            yad2_listings = asset.get_property_value('yad2_listings', [])
+            yad2_listings = asset.get_property_value("yad2_listings", [])
             for listing in yad2_listings:
-                if listing.get('price'):
+                if listing.get("price"):
                     # Use scraped_at if available, otherwise skip
-                    date_field = listing.get('scraped_at') or listing.get('date_posted')
+                    date_field = listing.get("scraped_at") or listing.get("date_posted")
                     if date_field:
                         try:
-                            date_scraped = datetime.fromisoformat(date_field.replace('Z', '+00:00'))
+                            date_scraped = datetime.fromisoformat(
+                                date_field.replace("Z", "+00:00")
+                            )
                             if date_scraped >= six_months_ago:
-                                yad2_data.append({
-                                    'date': date_scraped,
-                                    'price': listing['price'],
-                                    'area': listing.get('area'),
-                                    'rooms': listing.get('rooms')
-                                })
+                                yad2_data.append(
+                                    {
+                                        "date": date_scraped,
+                                        "price": listing["price"],
+                                        "area": listing.get("area"),
+                                        "rooms": listing.get("rooms"),
+                                    }
+                                )
                         except (ValueError, TypeError):
                             continue
-        
+
         # Group data by month
-        gov_by_month = defaultdict(lambda: {'count': 0, 'volume': 0, 'prices': []})
-        yad2_by_month = defaultdict(lambda: {'count': 0, 'volume': 0, 'prices': []})
-        
+        gov_by_month = defaultdict(lambda: {"count": 0, "volume": 0, "prices": []})
+        yad2_by_month = defaultdict(lambda: {"count": 0, "volume": 0, "prices": []})
+
         # Process government transactions
         for tx in gov_transactions:
-            if tx['date']:
-                month_key = tx['date'].strftime('%Y-%m')
-                gov_by_month[month_key]['count'] += 1
-                gov_by_month[month_key]['volume'] += tx['price']
-                gov_by_month[month_key]['prices'].append(tx['price'])
-        
+            if tx["date"]:
+                month_key = tx["date"].strftime("%Y-%m")
+                gov_by_month[month_key]["count"] += 1
+                gov_by_month[month_key]["volume"] += tx["price"]
+                gov_by_month[month_key]["prices"].append(tx["price"])
+
         # Process Yad2 data
         for listing in yad2_data:
-            month_key = listing['date'].strftime('%Y-%m')
-            yad2_by_month[month_key]['count'] += 1
-            yad2_by_month[month_key]['volume'] += listing['price']
-            yad2_by_month[month_key]['prices'].append(listing['price'])
-        
+            month_key = listing["date"].strftime("%Y-%m")
+            yad2_by_month[month_key]["count"] += 1
+            yad2_by_month[month_key]["volume"] += listing["price"]
+            yad2_by_month[month_key]["prices"].append(listing["price"])
+
         # Hebrew month names mapping
         hebrew_months = {
-            1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל',
-            5: 'מאי', 6: 'יוני', 7: 'יולי', 8: 'אוגוסט',
-            9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר'
+            1: "ינואר",
+            2: "פברואר",
+            3: "מרץ",
+            4: "אפריל",
+            5: "מאי",
+            6: "יוני",
+            7: "יולי",
+            8: "אוגוסט",
+            9: "ספטמבר",
+            10: "אוקטובר",
+            11: "נובמבר",
+            12: "דצמבר",
         }
-        
+
         # Build response data for last 6 months
         market_data = []
         for i in range(6):
-            month_date = now - timedelta(days=30*i)
-            month_key = month_date.strftime('%Y-%m')
+            month_date = now - timedelta(days=30 * i)
+            month_key = month_date.strftime("%Y-%m")
             month_label = hebrew_months[month_date.month]
-            
+
             gov_data = gov_by_month[month_key]
             yad2_data_month = yad2_by_month[month_key]
-            
+
             # Calculate average prices
-            gov_avg_price = sum(gov_data['prices']) / len(gov_data['prices']) if gov_data['prices'] else 0
-            yad2_avg_price = sum(yad2_data_month['prices']) / len(yad2_data_month['prices']) if yad2_data_month['prices'] else 0
-            
-            market_data.append({
-                'month': month_label,
-                'avgPrice': int((gov_avg_price + yad2_avg_price) / 2) if gov_avg_price and yad2_avg_price else int(gov_avg_price or yad2_avg_price),
-                'transactions': gov_data['count'],
-                'volume': gov_data['volume'],
-                'yad2_listings': yad2_data_month['count'],
-                'yad2_volume': yad2_data_month['volume']
-            })
-        
+            gov_avg_price = (
+                sum(gov_data["prices"]) / len(gov_data["prices"])
+                if gov_data["prices"]
+                else 0
+            )
+            yad2_avg_price = (
+                sum(yad2_data_month["prices"]) / len(yad2_data_month["prices"])
+                if yad2_data_month["prices"]
+                else 0
+            )
+
+            market_data.append(
+                {
+                    "month": month_label,
+                    "avgPrice": int((gov_avg_price + yad2_avg_price) / 2)
+                    if gov_avg_price and yad2_avg_price
+                    else int(gov_avg_price or yad2_avg_price),
+                    "transactions": gov_data["count"],
+                    "volume": gov_data["volume"],
+                    "yad2_listings": yad2_data_month["count"],
+                    "yad2_volume": yad2_data_month["volume"],
+                }
+            )
+
         # Reverse to show oldest first
         market_data.reverse()
-        
-        return Response({
-            'marketData': market_data,
-            'summary': {
-                'totalTransactions': sum(gov_by_month[m]['count'] for m in gov_by_month),
-                'totalVolume': sum(gov_by_month[m]['volume'] for m in gov_by_month),
-                'totalYad2Listings': sum(yad2_by_month[m]['count'] for m in yad2_by_month),
-                'totalYad2Volume': sum(yad2_by_month[m]['volume'] for m in yad2_by_month)
+
+        return Response(
+            {
+                "marketData": market_data,
+                "summary": {
+                    "totalTransactions": sum(
+                        gov_by_month[m]["count"] for m in gov_by_month
+                    ),
+                    "totalVolume": sum(gov_by_month[m]["volume"] for m in gov_by_month),
+                    "totalYad2Listings": sum(
+                        yad2_by_month[m]["count"] for m in yad2_by_month
+                    ),
+                    "totalYad2Volume": sum(
+                        yad2_by_month[m]["volume"] for m in yad2_by_month
+                    ),
+                },
             }
-        })
-        
+        )
+
     except Exception as e:
         logger.error(f"Error fetching dashboard market data: {e}")
-        return Response({"error": "Failed to fetch market data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to fetch market data"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 def get_user_friendly_error_message(exception: Exception) -> str:
@@ -6022,40 +6660,52 @@ def get_user_friendly_error_message(exception: Exception) -> str:
     Prevents exposing internal error details to users.
     """
     error_str = str(exception).lower()
-    
+
     # Handle authentication errors first (invalid API key)
     if AuthenticationError and isinstance(exception, AuthenticationError):
-        if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+        if (
+            "invalid api key" in error_str
+            or "authentication" in error_str
+            or "401" in error_str
+        ):
             return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
         return "שגיאה באימות. אנא נסה שוב מאוחר יותר."
-    
+
     # Handle OpenAI/Groq rate limit errors
     if RateLimitError and isinstance(exception, RateLimitError):
         if "rate limit" in error_str or "429" in error_str:
             return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
-    
+
     # Handle API connection errors
     if APIConnectionError and isinstance(exception, APIConnectionError):
         return "בעיית חיבור לשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
-    
+
     # Handle API timeout errors
     if APITimeoutError and isinstance(exception, APITimeoutError):
         return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
-    
+
     # Handle general API errors
     if APIError and isinstance(exception, APIError):
         if "rate limit" in error_str or "429" in error_str:
             return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
         if "quota" in error_str or "limit" in error_str:
             return "המגבלה היומית הושגה. אנא נסה שוב מחר."
-        if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+        if (
+            "invalid api key" in error_str
+            or "authentication" in error_str
+            or "401" in error_str
+        ):
             return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
         return "שגיאה בשירות הבינה המלאכותית. אנא נסה שוב מאוחר יותר."
-    
+
     # Check error message content for common patterns
-    if "model" in error_str and ("decommissioned" in error_str or "no longer supported" in error_str):
+    if "model" in error_str and (
+        "decommissioned" in error_str or "no longer supported" in error_str
+    ):
         return "המודל שנבחר הוצא משימוש. אנא עדכן את משתנה הסביבה GROQ_MODEL למודל תקף (לדוגמה: llama-3.3-70b-versatile)"
-    if "'nonetype' object has no attribute 'get'" in error_str or ("nonetype" in error_str and "get" in error_str):
+    if "'nonetype' object has no attribute 'get'" in error_str or (
+        "nonetype" in error_str and "get" in error_str
+    ):
         return "אירעה שגיאה בעיבוד הבקשה. אנא נסה לנסח מחדש את השאלה או לנסות שוב."
     if "rate limit" in error_str or "429" in error_str:
         return "השירות עמוס כרגע. אנא נסה שוב בעוד כמה דקות."
@@ -6065,9 +6715,13 @@ def get_user_friendly_error_message(exception: Exception) -> str:
         return "הבקשה ארכה יותר מדי זמן. אנא נסה שוב."
     if "connection" in error_str or "network" in error_str:
         return "בעיית חיבור. אנא בדוק את החיבור לאינטרנט ונסה שוב."
-    if "invalid api key" in error_str or "authentication" in error_str or "401" in error_str:
+    if (
+        "invalid api key" in error_str
+        or "authentication" in error_str
+        or "401" in error_str
+    ):
         return "שגיאה באימות המפתח. אנא בדוק את הגדרות המפתח ונסה שוב."
-    
+
     # Generic fallback message
     return "אירעה שגיאה בעת קבלת התשובה. אנא נסה שוב מאוחר יותר."
 
@@ -6077,45 +6731,43 @@ def get_user_friendly_error_message(exception: Exception) -> str:
     description="Chat with the AI real estate agent",
     tags=["Agent"],
     request={
-        'application/json': {
-            'type': 'object',
-                'properties': {
-                    'message': {'type': 'string', 'description': 'User message'},
-                    'chat_history': {
-                        'type': 'array',
-                        'items': {
-                            'type': 'object',
-                            'properties': {
-                                'role': {'type': 'string'},
-                                'content': {'type': 'string'}
-                            }
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "User message"},
+                "chat_history": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "role": {"type": "string"},
+                            "content": {"type": "string"},
                         },
-                        'description': 'Optional chat history'
                     },
-                    'internet_enabled': {
-                        'type': 'boolean',
-                        'description': 'Enable Internet access for this request (default: false). When enabled, allows fetching web pages from whitelisted domains only.',
-                        'default': False
-                    }
+                    "description": "Optional chat history",
                 },
-                'required': ['message']
+                "internet_enabled": {
+                    "type": "boolean",
+                    "description": "Enable Internet access for this request (default: false). When enabled, allows fetching web pages from whitelisted domains only.",
+                    "default": False,
+                },
+            },
+            "required": ["message"],
         }
     },
     responses={
         200: {
-            'description': 'Agent response',
-            'content': {
-                'application/json': {
-                    'schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response': {'type': 'string'}
-                        }
+            "description": "Agent response",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"response": {"type": "string"}},
                     }
                 }
-            }
+            },
         }
-    }
+    },
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -6127,44 +6779,48 @@ def agent_chat(request):
             if _agent_import_error:
                 error_msg += f" Import error: {_agent_import_error}"
             return Response(
-                {"error": error_msg},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
+                {"error": error_msg}, status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
-        
+
         # Check question limit for non-admin users
         user = request.user
         is_admin = getattr(user, "role", None) == "admin"
-        
+
         if not is_admin:
             from .models import AgentChatUsage
+
             AGENT_CHAT_QUESTION_LIMIT = 5
-            
+
             usage = AgentChatUsage.get_or_create_usage(user)
             if usage.questions_count >= AGENT_CHAT_QUESTION_LIMIT:
                 return Response(
                     {
                         "error": f"הגעת למגבלת השאלות ({AGENT_CHAT_QUESTION_LIMIT}). אנא פנה למנהל המערכת להסרת המגבלה."
                     },
-                    status=status.HTTP_403_FORBIDDEN
+                    status=status.HTTP_403_FORBIDDEN,
                 )
-        
+
         data = json.loads(request.body.decode("utf-8"))
         message = data.get("message")
         chat_history = data.get("chat_history", [])
-        internet_enabled = data.get("internet_enabled", False)  # Default: off, enable per task
-        
+        internet_enabled = data.get(
+            "internet_enabled", False
+        )  # Default: off, enable per task
+
         if not message:
             return Response(
-                {"error": "Message is required"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Message is required"}, status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Get or create API token for the authenticated user
         api_token = None
         try:
             from .models import APIToken
+
             # Try to get an active token for the user
-            api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
+            api_token_obj = APIToken.objects.filter(
+                user=request.user, is_active=True
+            ).first()
             if api_token_obj and api_token_obj.is_valid():
                 api_token = api_token_obj.token
             else:
@@ -6178,46 +6834,55 @@ def agent_chat(request):
                 api_token = api_token_obj.token
                 logger.info("Auto-created API token for user %s", request.user.email)
         except Exception as e:
-            logger.warning("Failed to get/create API token for user %s: %s", request.user.email, e)
+            logger.warning(
+                "Failed to get/create API token for user %s: %s", request.user.email, e
+            )
             # Continue without token - agent will need to handle this
-        
+
         # Helper function to get API key - checks user's keys first, then environment
         def get_api_key_for_provider(provider: str, user=None) -> Optional[str]:
             """Get API key for provider, checking user's keys first, then environment."""
             if provider == "groq":
-                if user and hasattr(user, 'groq_api_key') and user.groq_api_key:
+                if user and hasattr(user, "groq_api_key") and user.groq_api_key:
                     key = user.groq_api_key.strip()
                     if len(key) > 10:
                         return key
-                return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+                return os.getenv("GROQ_API_KEY") or getattr(
+                    settings, "GROQ_API_KEY", None
+                )
             elif provider == "gemini":
-                if user and hasattr(user, 'gemini_api_key') and user.gemini_api_key:
+                if user and hasattr(user, "gemini_api_key") and user.gemini_api_key:
                     key = user.gemini_api_key.strip()
                     if len(key) > 10:
                         return key
-                return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
-                       getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+                return (
+                    os.getenv("GEMINI_API_KEY")
+                    or os.getenv("GOOGLE_API_KEY")
+                    or getattr(settings, "GEMINI_API_KEY", None)
+                    or getattr(settings, "GOOGLE_API_KEY", None)
+                )
             elif provider == "openai":
-                if user and hasattr(user, 'openai_api_key') and user.openai_api_key:
+                if user and hasattr(user, "openai_api_key") and user.openai_api_key:
                     key = user.openai_api_key.strip()
                     if len(key) > 10:
                         return key
-                return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+                return os.getenv("OPENAI_API_KEY") or getattr(
+                    settings, "OPENAI_API_KEY", None
+                )
             elif provider == "bedrock":
                 # Bedrock uses AWS credentials, not API keys
                 # Return a dummy value to indicate bedrock is configured
                 # Actual validation checks for AWS region
                 return "bedrock_configured"
             return None
-        
+
         def has_valid_api_key(provider: str, user=None) -> bool:
             """Check if valid API key exists for provider."""
             if provider == "bedrock":
                 # Bedrock requires AWS region, not API key
                 # Check if region is configured
-                aws_region = (
-                    os.getenv("BEDROCK_AWS_REGION") or
-                    getattr(settings, "BEDROCK_AWS_REGION", None)
+                aws_region = os.getenv("BEDROCK_AWS_REGION") or getattr(
+                    settings, "BEDROCK_AWS_REGION", None
                 )
                 # AWS credentials can come from:
                 # 1. Explicit BEDROCK_AWS_ACCESS_KEY_ID / BEDROCK_AWS_SECRET_ACCESS_KEY
@@ -6226,33 +6891,39 @@ def agent_chat(request):
                 # 4. AWS credentials file (~/.aws/credentials)
                 # We only require region - credentials can be from any source
                 return bool(aws_region and aws_region.strip())
-            
+
             key = get_api_key_for_provider(provider, user)
-            return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
-        
+            return bool(
+                key and isinstance(key, str) and key.strip() and len(key.strip()) > 10
+            )
+
         # Determine LLM provider - check user preference first
         llm_provider = None
         user = request.user
-        
+
         # Check user's preference
-        if user and hasattr(user, 'llm_provider_preference') and user.llm_provider_preference:
+        if (
+            user
+            and hasattr(user, "llm_provider_preference")
+            and user.llm_provider_preference
+        ):
             if has_valid_api_key(user.llm_provider_preference, user):
                 llm_provider = user.llm_provider_preference
-        
+
         # If no user preference or no valid key, check environment
         if not llm_provider:
             llm_provider = os.getenv("AGENT_LLM_PROVIDER")
             # Validate key exists for explicitly set provider
             if llm_provider and not has_valid_api_key(llm_provider, user):
                 llm_provider = None  # Fall back to auto-detection
-        
+
         # Check default provider if still not set
         if not llm_provider:
             default_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
             # Only use default if it has a valid key
             if default_provider and has_valid_api_key(default_provider, user):
                 llm_provider = default_provider
-        
+
         # Auto-detect if still no provider
         if not llm_provider:
             # Check user's keys first, then environment - prefer groq
@@ -6268,11 +6939,11 @@ def agent_chat(request):
                 return Response(
                     {
                         "error": "No valid API key found. Please set an API key in user settings or environment variables: "
-                                "OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, or BEDROCK_AWS_REGION"
+                        "OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, or BEDROCK_AWS_REGION"
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-        
+
         # Validate we have a valid key for the selected provider
         if not has_valid_api_key(llm_provider, user):
             if llm_provider == "bedrock":
@@ -6285,52 +6956,72 @@ def agent_chat(request):
                     f"No valid API key found for provider '{llm_provider}'. "
                     f"Please set a valid key in user settings or {llm_provider.upper()}_API_KEY environment variable."
                 )
-            return Response(
-                {"error": error_msg},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
         # Get the API key to pass to agent (for bedrock, this is a dummy value)
         api_key = get_api_key_for_provider(llm_provider, user)
-        
+
         # Log which key source is being used
-        key_source = "user" if (user and hasattr(user, f'{llm_provider}_api_key') and getattr(user, f'{llm_provider}_api_key')) else "environment"
-        key_preview = f"{api_key[:10]}...{api_key[-4:]}" if api_key and len(api_key) > 14 else (api_key[:10] + "..." if api_key else "None")
-        logger.info("Initializing agent (non-stream) - Provider: %s, Key source: %s, Key preview: %s, User: %s", 
-                   llm_provider, key_source, key_preview, user.email if user else "None")
-        
+        key_source = (
+            "user"
+            if (
+                user
+                and hasattr(user, f"{llm_provider}_api_key")
+                and getattr(user, f"{llm_provider}_api_key")
+            )
+            else "environment"
+        )
+        key_preview = (
+            f"{api_key[:10]}...{api_key[-4:]}"
+            if api_key and len(api_key) > 14
+            else (api_key[:10] + "..." if api_key else "None")
+        )
+        logger.info(
+            "Initializing agent (non-stream) - Provider: %s, Key source: %s, Key preview: %s, User: %s",
+            llm_provider,
+            key_source,
+            key_preview,
+            user.email if user else "None",
+        )
+
         agent = RealEstateAgent(
             llm_provider=llm_provider,
             api_token=api_token,
-            api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+            api_url=os.getenv(
+                "REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"
+            ),
             temperature=0.3,
             user_api_key=api_key,  # Pass user's API key to agent
-            internet_enabled=internet_enabled  # Enable Internet access per request
+            internet_enabled=internet_enabled,  # Enable Internet access per request
         )
-        
+
         # Convert chat history format if needed
         formatted_history = []
         for msg in chat_history:
             if isinstance(msg, dict):
-                formatted_history.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
-                })
-        
+                formatted_history.append(
+                    {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                )
+
         # Get response from agent (with tool calls tracking)
-        result = async_to_sync(agent.chat)(message, formatted_history, track_tool_calls=True)
-        
+        result = async_to_sync(agent.chat)(
+            message, formatted_history, track_tool_calls=True
+        )
+
         # Increment question count for non-admin users after successful request
         if not is_admin:
             from .models import AgentChatUsage
+
             usage = AgentChatUsage.get_or_create_usage(user)
             usage.increment_question_count()
-        
-        return Response({
-            "response": result.get("response", ""),
-            "tool_calls": result.get("tool_calls", [])
-        })
-        
+
+        return Response(
+            {
+                "response": result.get("response", ""),
+                "tool_calls": result.get("tool_calls", []),
+            }
+        )
+
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
@@ -6338,8 +7029,7 @@ def agent_chat(request):
         # Get user-friendly error message
         user_message = get_user_friendly_error_message(e)
         return Response(
-            {"error": user_message},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": user_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -6348,47 +7038,65 @@ def agent_chat(request):
 def agent_chat_stream(request):
     """Stream chat responses from the AI real estate agent using Server-Sent Events."""
     import json
-    
+
     try:
         if RealEstateAgent is None:
             error_msg = "Agent not available. Please install langchain dependencies."
             if _agent_import_error:
                 error_msg += f" Import error: {_agent_import_error}"
+
             def error_generator():
                 yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
-            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
-        
+
+            return StreamingHttpResponse(
+                error_generator(), content_type="text/event-stream"
+            )
+
         # Check question limit for non-admin users
         user = request.user
         is_admin = getattr(user, "role", None) == "admin"
-        
+
         if not is_admin:
             from .models import AgentChatUsage
+
             AGENT_CHAT_QUESTION_LIMIT = 5
-            
+
             usage = AgentChatUsage.get_or_create_usage(user)
             if usage.questions_count >= AGENT_CHAT_QUESTION_LIMIT:
+
                 def error_generator():
                     error_msg = f"הגעת למגבלת השאלות ({AGENT_CHAT_QUESTION_LIMIT}). אנא פנה למנהל המערכת להסרת המגבלה."
                     yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
-                return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
-        
+
+                return StreamingHttpResponse(
+                    error_generator(), content_type="text/event-stream"
+                )
+
         data = json.loads(request.body.decode("utf-8"))
         message = data.get("message")
         chat_history = data.get("chat_history", [])
-        internet_enabled = data.get("internet_enabled", False)  # Default: off, enable per task
-        
+        internet_enabled = data.get(
+            "internet_enabled", False
+        )  # Default: off, enable per task
+
         if not message:
+
             def error_generator():
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Message is required'})}\n\n"
-            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
-        
+
+            return StreamingHttpResponse(
+                error_generator(), content_type="text/event-stream"
+            )
+
         # Get or create API token for the authenticated user
         api_token = None
         try:
             from .models import APIToken
+
             # Try to get an active token for the user
-            api_token_obj = APIToken.objects.filter(user=request.user, is_active=True).first()
+            api_token_obj = APIToken.objects.filter(
+                user=request.user, is_active=True
+            ).first()
             if api_token_obj and api_token_obj.is_valid():
                 api_token = api_token_obj.token
             else:
@@ -6402,67 +7110,83 @@ def agent_chat_stream(request):
                 api_token = api_token_obj.token
                 logger.info("Auto-created API token for user %s", request.user.email)
         except Exception as e:
-            logger.warning("Failed to get/create API token for user %s: %s", request.user.email, e)
+            logger.warning(
+                "Failed to get/create API token for user %s: %s", request.user.email, e
+            )
             # Continue without token - agent will need to handle this
-        
+
         # Helper function to get API key - checks user's keys first, then environment
         def get_api_key_for_provider(provider: str, user=None) -> Optional[str]:
             """Get API key for provider, checking user's keys first, then environment."""
             if provider == "groq":
                 # Check user's key first
-                if user and hasattr(user, 'groq_api_key') and user.groq_api_key:
+                if user and hasattr(user, "groq_api_key") and user.groq_api_key:
                     key = user.groq_api_key.strip()
                     if len(key) > 10:
                         return key
                 # Fall back to environment
-                return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+                return os.getenv("GROQ_API_KEY") or getattr(
+                    settings, "GROQ_API_KEY", None
+                )
             elif provider == "gemini":
                 # Check user's key first
-                if user and hasattr(user, 'gemini_api_key') and user.gemini_api_key:
+                if user and hasattr(user, "gemini_api_key") and user.gemini_api_key:
                     key = user.gemini_api_key.strip()
                     if len(key) > 10:
                         return key
                 # Fall back to environment
-                return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or 
-                       getattr(settings, "GEMINI_API_KEY", None) or getattr(settings, "GOOGLE_API_KEY", None))
+                return (
+                    os.getenv("GEMINI_API_KEY")
+                    or os.getenv("GOOGLE_API_KEY")
+                    or getattr(settings, "GEMINI_API_KEY", None)
+                    or getattr(settings, "GOOGLE_API_KEY", None)
+                )
             elif provider == "openai":
                 # Check user's key first
-                if user and hasattr(user, 'openai_api_key') and user.openai_api_key:
+                if user and hasattr(user, "openai_api_key") and user.openai_api_key:
                     key = user.openai_api_key.strip()
                     if len(key) > 10:
                         return key
                 # Fall back to environment
-                return os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+                return os.getenv("OPENAI_API_KEY") or getattr(
+                    settings, "OPENAI_API_KEY", None
+                )
             return None
-        
+
         def has_valid_api_key(provider: str, user=None) -> bool:
             """Check if valid API key exists for provider."""
             key = get_api_key_for_provider(provider, user)
-            return bool(key and isinstance(key, str) and key.strip() and len(key.strip()) > 10)
-        
+            return bool(
+                key and isinstance(key, str) and key.strip() and len(key.strip()) > 10
+            )
+
         # Determine LLM provider - check user preference first
         llm_provider = None
         user = request.user
-        
+
         # Check user's preference
-        if user and hasattr(user, 'llm_provider_preference') and user.llm_provider_preference:
+        if (
+            user
+            and hasattr(user, "llm_provider_preference")
+            and user.llm_provider_preference
+        ):
             if has_valid_api_key(user.llm_provider_preference, user):
                 llm_provider = user.llm_provider_preference
-        
+
         # If no user preference or no valid key, check environment
         if not llm_provider:
             llm_provider = os.getenv("AGENT_LLM_PROVIDER")
             # Validate key exists for explicitly set provider
             if llm_provider and not has_valid_api_key(llm_provider, user):
                 llm_provider = None  # Fall back to auto-detection
-        
+
         # Check default provider if still not set
         if not llm_provider:
             default_provider = getattr(settings, "LLM_DEFAULT_PROVIDER", None)
             # Only use default if it has a valid key
             if default_provider and has_valid_api_key(default_provider, user):
                 llm_provider = default_provider
-        
+
         # Auto-detect if still no provider
         if not llm_provider:
             # Check user's keys first, then environment - prefer groq
@@ -6475,67 +7199,102 @@ def agent_chat_stream(request):
             else:
                 # No valid key found
                 def error_generator():
-                    error_msg = ("לא נמצא מפתח API תקף. אנא הגדר מפתח API בהגדרות המשתמש או במשתני הסביבה: "
-                               "OPENAI_API_KEY, GEMINI_API_KEY, או GROQ_API_KEY")
+                    error_msg = (
+                        "לא נמצא מפתח API תקף. אנא הגדר מפתח API בהגדרות המשתמש או במשתני הסביבה: "
+                        "OPENAI_API_KEY, GEMINI_API_KEY, או GROQ_API_KEY"
+                    )
                     yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
-                return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
-        
+
+                return StreamingHttpResponse(
+                    error_generator(), content_type="text/event-stream"
+                )
+
         # Validate we have a valid key for the selected provider
         if not has_valid_api_key(llm_provider, user):
+
             def error_generator():
-                error_msg = (f"מפתח API לא תקף עבור ספק '{llm_provider}'. "
-                           f"אנא הגדר מפתח תקף בהגדרות המשתמש או במשתנה {llm_provider.upper()}_API_KEY.")
+                error_msg = (
+                    f"מפתח API לא תקף עבור ספק '{llm_provider}'. "
+                    f"אנא הגדר מפתח תקף בהגדרות המשתמש או במשתנה {llm_provider.upper()}_API_KEY."
+                )
                 yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
-            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
-        
+
+            return StreamingHttpResponse(
+                error_generator(), content_type="text/event-stream"
+            )
+
         # Get the API key to pass to agent
         api_key = get_api_key_for_provider(llm_provider, user)
-        
+
         # Log which key source is being used
-        key_source = "user" if (user and hasattr(user, f'{llm_provider}_api_key') and getattr(user, f'{llm_provider}_api_key')) else "environment"
-        key_preview = f"{api_key[:10]}...{api_key[-4:]}" if api_key and len(api_key) > 14 else (api_key[:10] + "..." if api_key else "None")
-        logger.info("Initializing agent - Provider: %s, Key source: %s, Key preview: %s, User: %s", 
-                   llm_provider, key_source, key_preview, user.email if user else "None")
-        
+        key_source = (
+            "user"
+            if (
+                user
+                and hasattr(user, f"{llm_provider}_api_key")
+                and getattr(user, f"{llm_provider}_api_key")
+            )
+            else "environment"
+        )
+        key_preview = (
+            f"{api_key[:10]}...{api_key[-4:]}"
+            if api_key and len(api_key) > 14
+            else (api_key[:10] + "..." if api_key else "None")
+        )
+        logger.info(
+            "Initializing agent - Provider: %s, Key source: %s, Key preview: %s, User: %s",
+            llm_provider,
+            key_source,
+            key_preview,
+            user.email if user else "None",
+        )
+
         try:
             agent = RealEstateAgent(
                 llm_provider=llm_provider,
                 api_token=api_token,
-                api_url=os.getenv("REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"),
+                api_url=os.getenv(
+                    "REALESTATE_API_URL", f"{request.scheme}://{request.get_host()}/api"
+                ),
                 temperature=0.3,
                 user_api_key=api_key,  # Pass user's API key to agent
-                internet_enabled=internet_enabled  # Enable Internet access per request
+                internet_enabled=internet_enabled,  # Enable Internet access per request
             )
         except ValueError as e:
             # Catch API key errors during agent initialization
             error_exception = e  # Capture exception for use in generator
+
             def error_generator():
                 error_msg = f"שגיאה באתחול הסוכן: {str(error_exception)}"
                 yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
-            return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
-        
+
+            return StreamingHttpResponse(
+                error_generator(), content_type="text/event-stream"
+            )
+
         # Convert chat history format if needed
         formatted_history = []
         for msg in chat_history:
             if isinstance(msg, dict):
-                formatted_history.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
-                })
-        
+                formatted_history.append(
+                    {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                )
+
         # Stream response from agent
         # Capture is_admin and user for use in the generator
         stream_is_admin = is_admin
         stream_user = user
+
         async def stream_generator():
             question_incremented = False
             try:
                 async for event in agent.chat_stream(message, formatted_history):
                     yield f"data: {json.dumps(event)}\n\n"
                     # Increment question count after first successful event (non-error)
-                    if not question_incremented and event.get('type') != 'error':
+                    if not question_incremented and event.get("type") != "error":
                         if not stream_is_admin:
                             from .models import AgentChatUsage
+
                             usage = AgentChatUsage.get_or_create_usage(stream_user)
                             usage.increment_question_count()
                             question_incremented = True
@@ -6543,10 +7302,11 @@ def agent_chat_stream(request):
                 logger.exception("Error in agent chat stream: %s", e)
                 user_message = get_user_friendly_error_message(e)
                 yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
-        
+
         # Convert async generator to sync generator for Django
         def sync_stream_generator():
             import asyncio
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             async_gen = None
@@ -6566,23 +7326,33 @@ def agent_chat_stream(request):
                     except Exception:
                         pass  # Ignore errors during cleanup
                 loop.close()
-        
-        response = StreamingHttpResponse(sync_stream_generator(), content_type='text/event-stream')
-        response['Cache-Control'] = 'no-cache'
-        response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+
+        response = StreamingHttpResponse(
+            sync_stream_generator(), content_type="text/event-stream"
+        )
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"  # Disable buffering in nginx
         return response
-        
+
     except json.JSONDecodeError:
+
         def error_generator():
             yield f"data: {json.dumps({'type': 'error', 'error': 'Invalid JSON'})}\n\n"
-        return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+
+        return StreamingHttpResponse(
+            error_generator(), content_type="text/event-stream"
+        )
     except Exception as e:
         logger.exception("Error in agent chat stream: %s", e)
         error_exception = e  # Capture exception for use in generator
+
         def error_generator():
             user_message = get_user_friendly_error_message(error_exception)
             yield f"data: {json.dumps({'type': 'error', 'error': user_message})}\n\n"
-        return StreamingHttpResponse(error_generator(), content_type='text/event-stream')
+
+        return StreamingHttpResponse(
+            error_generator(), content_type="text/event-stream"
+        )
 
 
 @extend_schema(
@@ -6590,33 +7360,46 @@ def agent_chat_stream(request):
     description="Submit feedback for agent responses",
     tags=["Agent"],
     request={
-        'application/json': {
-            'type': 'object',
-            'properties': {
-                'message_id': {'type': 'string', 'description': 'Unique message identifier'},
-                'feedback': {'type': 'string', 'enum': ['positive', 'negative'], 'description': 'Feedback type'},
-                'message_content': {'type': 'string', 'description': 'The assistant message content'},
-                'user_message': {'type': 'string', 'description': 'The user message that prompted this response'}
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "message_id": {
+                    "type": "string",
+                    "description": "Unique message identifier",
+                },
+                "feedback": {
+                    "type": "string",
+                    "enum": ["positive", "negative"],
+                    "description": "Feedback type",
+                },
+                "message_content": {
+                    "type": "string",
+                    "description": "The assistant message content",
+                },
+                "user_message": {
+                    "type": "string",
+                    "description": "The user message that prompted this response",
+                },
             },
-            'required': ['message_id', 'feedback']
+            "required": ["message_id", "feedback"],
         }
     },
     responses={
         200: {
-            'description': 'Feedback submitted successfully',
-            'content': {
-                'application/json': {
-                    'schema': {
-                        'type': 'object',
-                        'properties': {
-                            'success': {'type': 'boolean'},
-                            'message': {'type': 'string'}
-                        }
+            "description": "Feedback submitted successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean"},
+                            "message": {"type": "string"},
+                        },
                     }
                 }
-            }
+            },
         }
-    }
+    },
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -6628,25 +7411,24 @@ def agent_feedback(request):
         feedback = data.get("feedback")
         message_content = data.get("message_content", "")
         user_message = data.get("user_message")
-        
+
         if not message_id:
             return Response(
-                {"error": "message_id is required"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "message_id is required"}, status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if feedback not in ["positive", "negative"]:
             return Response(
                 {"error": "feedback must be 'positive' or 'negative'"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # Log feedback for analytics/improvement
         logger.info(
             f"Agent feedback: user={request.user.id}, message_id={message_id}, "
             f"feedback={feedback}, content_length={len(message_content) if message_content else 0}"
         )
-        
+
         # Track feedback in analytics
         try:
             track(
@@ -6656,24 +7438,21 @@ def agent_feedback(request):
                     "message_id": message_id,
                     "feedback": feedback,
                     "message_length": len(message_content) if message_content else 0,
-                    "has_user_message": bool(user_message)
-                }
+                    "has_user_message": bool(user_message),
+                },
             )
         except Exception as e:
             logger.warning(f"Failed to track agent feedback: {e}")
-        
-        return Response({
-            "success": True,
-            "message": "Feedback submitted successfully"
-        })
-        
+
+        return Response({"success": True, "message": "Feedback submitted successfully"})
+
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.exception("Error in agent feedback: %s", e)
         return Response(
             {"error": f"Failed to submit feedback: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
@@ -6683,50 +7462,48 @@ def agent_feedback(request):
     tags=["Agent"],
     responses={
         200: {
-            'description': 'Recommended questions',
-            'content': {
-                'application/json': {
-                    'schema': {
-                        'type': 'object',
-                        'properties': {
-                            'recommendations': {
-                                'type': 'array',
-                                'items': {'type': 'string'},
-                                'description': 'List of recommended questions in Hebrew'
+            "description": "Recommended questions",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "recommendations": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of recommended questions in Hebrew",
                             }
-                        }
+                        },
                     }
                 }
-            }
+            },
         }
-    }
+    },
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def agent_recommendations(request):
     """Get recommended questions for the AI chat interface.
-    
+
     Returns personalized recommendations based on user's assets and activity,
     or default recommendations if no personalization is available.
     """
     user = request.user
-    
+
     # Base recommendations - always include these
     recommendations = [
         "נכסים ברשימת מעקב",
         "מצא לי נכסים בתל אביב מתחת למחיר שוק",
         "נכסים ברמת החייל בתל אביב מתחת ל7 מיליון שקל",
-        "חשב משכנתא של 4 מיליון עם הון עצמי של 1.5 מיליון"
+        "חשב משכנתא של 4 מיליון עם הון עצמי של 1.5 מיליון",
     ]
-    
+
     # Try to personalize based on user's assets
     try:
         from .models import Asset
-        user_assets = Asset.objects.filter(created_by=user).order_by('-created_at')[:5]
+
+        user_assets = Asset.objects.filter(created_by=user).order_by("-created_at")[:5]
     except Exception as e:
         logger.warning(f"Error personalizing recommendations: {e}")
 
-    
-    return Response({
-        "recommendations": recommendations
-    })
+    return Response({"recommendations": recommendations})

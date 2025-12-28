@@ -32,11 +32,15 @@ def rename_indexes_safely(apps, schema_editor):
 
         # Define the renames we want to do (old_name, new_name, field_name)
         renames = [
-            ('core_asset_block_dc43e9_idx', 'core_asset_block_531195_idx', 'block'),
-            ('core_asset_parcel_38f908_idx', 'core_asset_parcel_ebd705_idx', 'parcel'),
-            ('core_asset_subparcel_ec1101_idx', 'core_asset_subparc_d57846_idx', 'subparcel'),
+            ("core_asset_block_dc43e9_idx", "core_asset_block_531195_idx", "block"),
+            ("core_asset_parcel_38f908_idx", "core_asset_parcel_ebd705_idx", "parcel"),
+            (
+                "core_asset_subparcel_ec1101_idx",
+                "core_asset_subparc_d57846_idx",
+                "subparcel",
+            ),
         ]
-        
+
         for old_name, new_name, field_name in renames:
             if old_name in existing_indexes and new_name not in existing_indexes:
                 # Drop the old index
@@ -47,7 +51,7 @@ def rename_indexes_safely(apps, schema_editor):
                 cursor.execute(
                     "CREATE INDEX {} ON {} ({})".format(
                         schema_editor.quote_name(new_name),
-                        schema_editor.quote_name('core_asset'),
+                        schema_editor.quote_name("core_asset"),
                         schema_editor.quote_name(field_name),
                     )
                 )
@@ -87,11 +91,15 @@ def reverse_rename_indexes(apps, schema_editor):
 
         # Define the reverse renames (new_name, old_name, field_name)
         reverse_renames = [
-            ('core_asset_block_531195_idx', 'core_asset_block_dc43e9_idx', 'block'),
-            ('core_asset_parcel_ebd705_idx', 'core_asset_parcel_38f908_idx', 'parcel'),
-            ('core_asset_subparc_d57846_idx', 'core_asset_subparcel_ec1101_idx', 'subparcel'),
+            ("core_asset_block_531195_idx", "core_asset_block_dc43e9_idx", "block"),
+            ("core_asset_parcel_ebd705_idx", "core_asset_parcel_38f908_idx", "parcel"),
+            (
+                "core_asset_subparc_d57846_idx",
+                "core_asset_subparcel_ec1101_idx",
+                "subparcel",
+            ),
         ]
-        
+
         for new_name, old_name, field_name in reverse_renames:
             if new_name in existing_indexes and old_name not in existing_indexes:
                 # Drop the new index
@@ -102,7 +110,7 @@ def reverse_rename_indexes(apps, schema_editor):
                 cursor.execute(
                     "CREATE INDEX {} ON {} ({})".format(
                         schema_editor.quote_name(old_name),
-                        schema_editor.quote_name('core_asset'),
+                        schema_editor.quote_name("core_asset"),
                         schema_editor.quote_name(field_name),
                     )
                 )
@@ -110,9 +118,8 @@ def reverse_rename_indexes(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0025_rename_asset_fields'),
+        ("core", "0025_rename_asset_fields"),
     ]
 
     operations = [

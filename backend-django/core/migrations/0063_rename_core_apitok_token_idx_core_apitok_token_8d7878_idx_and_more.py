@@ -60,10 +60,7 @@ def rename_index_if_exists(
             connection = schema_editor.connection
             with connection.cursor() as cursor:
                 cursor.execute(
-                    (
-                        "SELECT name FROM sqlite_master "
-                        "WHERE type='index' AND name=?"
-                    ),
+                    ("SELECT name FROM sqlite_master WHERE type='index' AND name=?"),
                     [old_name],
                 )
                 if not cursor.fetchone():
@@ -146,7 +143,6 @@ def revert_indexes(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0062_add_oauth_authorization_code"),
     ]

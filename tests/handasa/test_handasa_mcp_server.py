@@ -27,7 +27,9 @@ async def test_handasa_archive_success(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self) -> None:
             self.calls = 0
 
-        def get_archive(self, block: str, parcel: Optional[str] = None, page_size: int = 50):
+        def get_archive(
+            self, block: str, parcel: Optional[str] = None, page_size: int = 50
+        ):
             self.calls += 1
             return [{"external_id": "123"}]
 
@@ -49,7 +51,9 @@ async def test_handasa_archive_retries(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self) -> None:
             self.calls = 0
 
-        def get_archive(self, block: str, parcel: Optional[str] = None, page_size: int = 50):
+        def get_archive(
+            self, block: str, parcel: Optional[str] = None, page_size: int = 50
+        ):
             self.calls += 1
             if self.calls < 2:
                 raise RuntimeError("temporary error")
@@ -107,7 +111,9 @@ async def test_download_handasa_document(monkeypatch: pytest.MonkeyPatch) -> Non
     assert result["content_type"] == "application/pdf"
     assert result["size"] == 4
     assert result["file_path"] == str(payload["file_path"])
-    assert result["content_base64"] == base64.b64encode(payload["content"]).decode("utf-8")
+    assert result["content_base64"] == base64.b64encode(payload["content"]).decode(
+        "utf-8"
+    )
 
 
 @pytest.mark.asyncio

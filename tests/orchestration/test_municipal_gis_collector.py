@@ -27,7 +27,9 @@ class _StubCollector:
 
 
 def test_multi_city_raises_for_unknown_city():
-    collector = MultiCityGISCollector(adapters=[TelAvivMunicipalGisAdapter(collector=_StubCollector("ta"))])
+    collector = MultiCityGISCollector(
+        adapters=[TelAvivMunicipalGisAdapter(collector=_StubCollector("ta"))]
+    )
 
     with pytest.raises(ValueError):
         collector.collect(LocationQuery(city="מודיעין"))
@@ -41,4 +43,3 @@ def test_tel_aviv_adapter_city_normalization(city_variant):
     adapter = TelAvivMunicipalGisAdapter(collector=None)
 
     assert adapter.supports(city_variant)
-

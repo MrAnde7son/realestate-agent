@@ -15,7 +15,6 @@ from io import StringIO
 from .models import (
     Contact,
     Lead,
-    LeadStatus,
     ContactTask,
     ContactMeeting,
     ContactInteraction,
@@ -30,11 +29,7 @@ from .serializers import (
     ContactInteractionSerializer,
 )
 from .permissions import HasCrmAccess, IsOwnerContact, has_global_crm_access
-from .analytics import (
-    track_crm_search, track_crm_export, track_crm_dashboard_view,
-    track_crm_contact_lead_association, track_crm_bulk_action,
-    track_crm_permission_denied, track_crm_error
-)
+from .analytics import track_crm_search, track_crm_export
 
 
 class StandardPagination(PageNumberPagination):
@@ -73,13 +68,22 @@ class ContactViewSet(viewsets.ModelViewSet):
                 serializer.save(owner=self.request.user)
         except IntegrityError as e:
             from rest_framework.exceptions import ValidationError
-            if 'unique constraint' in str(e).lower() and 'email' in str(e):
-                raise ValidationError({
-                    'email': ['A contact with this email already exists for your account.']
-                })
-            raise ValidationError({
-                'non_field_errors': ['A database error occurred while creating the contact.']
-            })
+
+            if "unique constraint" in str(e).lower() and "email" in str(e):
+                raise ValidationError(
+                    {
+                        "email": [
+                            "A contact with this email already exists for your account."
+                        ]
+                    }
+                )
+            raise ValidationError(
+                {
+                    "non_field_errors": [
+                        "A database error occurred while creating the contact."
+                    ]
+                }
+            )
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -98,24 +102,28 @@ class ContactViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def search(self, request):
         """Search contacts by name, email, phone, or tags."""
-        query = request.query_params.get('q', '')
+        query = request.query_params.get("q", "")
         if not query:
             return Response([])
-        
+
         # Build search query
-        search_q = Q(name__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query)
-        
+        search_q = (
+            Q(name__icontains=query)
+            | Q(email__icontains=query)
+            | Q(phone__icontains=query)
+        )
+
         # Add tag search - check if any tag contains the query
         search_q |= Q(tags__icontains=query)
-        
+
         contacts = self.get_queryset().filter(search_q)[:10]  # Limit to 10 results
-        
+
         # Track search event
-        track_crm_search(request.user.id, 'contacts', query, contacts.count())
-        
+        track_crm_search(request.user.id, "contacts", query, contacts.count())
+
         serializer = self.get_serializer(contacts, many=True)
         return Response(serializer.data)
 
@@ -129,14 +137,16 @@ class ContactViewSet(viewsets.ModelViewSet):
         writer.writerow(["Name", "Email", "Phone", "Equity", "Tags", "Created At"])
 
         for contact in queryset:
-            writer.writerow([
-                contact.name,
-                contact.email,
-                contact.phone,
-                contact.equity if contact.equity is not None else "",
-                "; ".join(contact.tags or []),
-                contact.created_at.isoformat()
-            ])
+            writer.writerow(
+                [
+                    contact.name,
+                    contact.email,
+                    contact.phone,
+                    contact.equity if contact.equity is not None else "",
+                    "; ".join(contact.tags or []),
+                    contact.created_at.isoformat(),
+                ]
+            )
 
         output.seek(0)
 
@@ -146,23 +156,28 @@ class ContactViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = 'attachment; filename="contacts.csv"'
         return response
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def leads(self, request, pk=None):
         """Get all leads for a specific contact."""
         contact = self.get_object()
-        
+
         # Get leads for this contact
-        leads = Lead.objects.filter(contact=contact).select_related('asset').order_by('-last_activity_at')
-        
+        leads = (
+            Lead.objects.filter(contact=contact)
+            .select_related("asset")
+            .order_by("-last_activity_at")
+        )
+
         # Apply any filters from query parameters
-        status_filter = request.query_params.get('status')
+        status_filter = request.query_params.get("status")
         if status_filter:
             leads = leads.filter(status=status_filter)
-        
+
         # Serialize the leads
         from .serializers import LeadSerializer
-        serializer = LeadSerializer(leads, many=True, context={'request': request})
-        
+
+        serializer = LeadSerializer(leads, many=True, context={"request": request})
+
         return Response(serializer.data)
 
 
@@ -188,17 +203,23 @@ class LeadViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Return leads for contacts owned by the current user, or all leads for superusers."""
         if self.request.user.is_superuser:
-            queryset = Lead.objects.all().select_related("contact", "asset").order_by("-last_activity_at")
+            queryset = (
+                Lead.objects.all()
+                .select_related("contact", "asset")
+                .order_by("-last_activity_at")
+            )
         else:
-            queryset = Lead.objects.filter(
-                contact__owner=self.request.user
-            ).select_related("contact", "asset").order_by("-last_activity_at")
-        
+            queryset = (
+                Lead.objects.filter(contact__owner=self.request.user)
+                .select_related("contact", "asset")
+                .order_by("-last_activity_at")
+            )
+
         # Filter by status if provided
-        status_filter = self.request.query_params.get('status')
+        status_filter = self.request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
-        
+
         return queryset
 
     def perform_create(self, serializer):
@@ -206,11 +227,16 @@ class LeadViewSet(viewsets.ModelViewSet):
         try:
             serializer.save()
         except IntegrityError as e:
-            if 'unique constraint' in str(e).lower() and 'contact_id' in str(e):
+            if "unique constraint" in str(e).lower() and "contact_id" in str(e):
                 from rest_framework.exceptions import ValidationError
-                raise ValidationError({
-                    'non_field_errors': ['A lead already exists for this contact and asset combination.']
-                })
+
+                raise ValidationError(
+                    {
+                        "non_field_errors": [
+                            "A lead already exists for this contact and asset combination."
+                        ]
+                    }
+                )
             raise
 
     @action(detail=True, methods=["post"], url_path="set_status")
@@ -221,11 +247,12 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         if serializer.is_valid():
             old_status = lead.status
-            lead.status = serializer.validated_data['status']
+            lead.status = serializer.validated_data["status"]
             lead.last_activity_at = timezone.now()
             lead.save(update_fields=["status", "last_activity_at"])
 
             from .analytics import track_lead_status_changed
+
             track_lead_status_changed(lead, request.user.id, old_status, lead.status)
 
             return Response(LeadSerializer(lead, context={"request": request}).data)
@@ -239,23 +266,21 @@ class LeadViewSet(viewsets.ModelViewSet):
         serializer = LeadNoteSerializer(data=request.data)
 
         if serializer.is_valid():
-            note_text = serializer.validated_data['text'].strip()
+            note_text = serializer.validated_data["text"].strip()
             if not note_text:
                 return Response(
                     {"detail": "Cannot add empty note"},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             notes = lead.notes or []
-            notes.append({
-                "ts": timezone.now().isoformat(),
-                "text": note_text
-            })
+            notes.append({"ts": timezone.now().isoformat(), "text": note_text})
             lead.notes = notes
             lead.last_activity_at = timezone.now()
             lead.save(update_fields=["notes", "last_activity_at"])
 
             from .analytics import track_lead_note_added
+
             track_lead_note_added(lead, request.user.id, note_text)
 
             return Response(LeadSerializer(lead, context={"request": request}).data)
@@ -268,22 +293,21 @@ class LeadViewSet(viewsets.ModelViewSet):
         lead = self.get_object()
 
         from .analytics import track_lead_report_sent
-        via = 'email' if lead.contact.email else 'link'
+
+        via = "email" if lead.contact.email else "link"
         track_lead_report_sent(lead, request.user.id, via)
 
-        return Response({
-            "message": "Report sent successfully",
-            "contact_email": lead.contact.email
-        })
+        return Response(
+            {"message": "Report sent successfully", "contact_email": lead.contact.email}
+        )
 
-    @action(detail=False, methods=['get'], url_path="by_asset")
+    @action(detail=False, methods=["get"], url_path="by_asset")
     def by_asset(self, request):
         """Get leads for a specific asset."""
-        asset_id = request.query_params.get('asset_id')
+        asset_id = request.query_params.get("asset_id")
         if not asset_id:
             return Response(
-                {"detail": "asset_id is required"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "asset_id is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         from core.models import Asset
@@ -294,33 +318,37 @@ class LeadViewSet(viewsets.ModelViewSet):
         except (ValueError, TypeError):
             return Response(
                 {"detail": "Invalid asset_id format"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Asset.DoesNotExist:
             return Response(
-                {"detail": "Asset not found"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Asset not found"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         leads = self.get_queryset().filter(asset=asset)
         serializer = self.get_serializer(leads, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['get'], url_path="tasks")
+    @action(detail=True, methods=["get"], url_path="tasks")
     def tasks(self, request, pk=None):
         """Get tasks for a specific lead."""
         lead = self.get_object()
-        tasks = ContactTask.objects.filter(lead=lead).select_related("contact", "lead", "lead__asset")
-        
+        tasks = ContactTask.objects.filter(lead=lead).select_related(
+            "contact", "lead", "lead__asset"
+        )
+
         # Apply filters
         status_filter = request.query_params.get("status")
         if status_filter:
             tasks = tasks.filter(status=status_filter)
-        
+
         tasks = tasks.order_by("due_at", "-created_at")
-        
+
         from .serializers import ContactTaskSerializer
-        serializer = ContactTaskSerializer(tasks, many=True, context={'request': request})
+
+        serializer = ContactTaskSerializer(
+            tasks, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
 
@@ -440,7 +468,9 @@ class ContactInteractionViewSet(viewsets.ModelViewSet):
             try:
                 parsed = datetime.fromisoformat(since)
                 if timezone.is_naive(parsed):
-                    parsed = timezone.make_aware(parsed, timezone=timezone.get_current_timezone())
+                    parsed = timezone.make_aware(
+                        parsed, timezone=timezone.get_current_timezone()
+                    )
                 queryset = queryset.filter(occurred_at__gte=parsed)
             except ValueError:
                 pass

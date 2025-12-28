@@ -3,7 +3,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from .models import Asset, Permit, Plan, Document
+from .models import Permit, Plan, Document
 from django.db.models import Q
 
 from .serializers import PermitSerializer, PlanSerializer, DocumentSerializer
@@ -13,8 +13,6 @@ from .services.deal_expenses_service import DealExpensesService
 import logging
 
 logger = logging.getLogger(__name__)
-
-
 
 
 @extend_schema_view(
@@ -52,9 +50,10 @@ logger = logging.getLogger(__name__)
 class PermitViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing building permits.
-    
+
     Provides CRUD operations for building permits and approvals.
     """
+
     queryset = Permit.objects.all()
     serializer_class = PermitSerializer
     permission_classes = [permissions.AllowAny]
@@ -95,9 +94,10 @@ class PermitViewSet(viewsets.ModelViewSet):
 class PlanViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing urban planning documents.
-    
+
     Provides CRUD operations for urban planning and development plans.
     """
+
     queryset = Plan.objects.all()
     serializer_class = PlanSerializer
     permission_classes = [permissions.AllowAny]
@@ -138,10 +138,13 @@ class PlanViewSet(viewsets.ModelViewSet):
 class DocumentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing documents.
-    
+
     Provides CRUD operations for document files and metadata.
     """
-    queryset = Document.objects.select_related('asset', 'user').prefetch_related('assets')
+
+    queryset = Document.objects.select_related("asset", "user").prefetch_related(
+        "assets"
+    )
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
     CATEGORY_LOOKUP = {
@@ -152,7 +155,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Filter documents by user permissions."""
-        base_qs = Document.objects.select_related('asset', 'user').prefetch_related('assets')
+        base_qs = Document.objects.select_related("asset", "user").prefetch_related(
+            "assets"
+        )
 
         # Allow anonymous users to access public document data (e.g., asset details page)
         user = getattr(self.request, "user", None)
@@ -165,7 +170,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         return base_qs.filter(
             Q(asset__created_by=user) | Q(assets__created_by=user)
         ).distinct()
-    
+
     @extend_schema(
         summary="Get documents by asset",
         description="Retrieve all documents for a specific asset",
@@ -180,29 +185,31 @@ class DocumentViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def by_asset(self, request):
         """Get documents for a specific asset."""
-        asset_id = request.query_params.get('asset_id')
+        asset_id = request.query_params.get("asset_id")
         if not asset_id:
             return Response(
-                {'error': 'asset_id parameter is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "asset_id parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         try:
-            documents = self.get_queryset().filter(
-                Q(asset_id=asset_id) | Q(assets__id=asset_id)
-            ).distinct()
+            documents = (
+                self.get_queryset()
+                .filter(Q(asset_id=asset_id) | Q(assets__id=asset_id))
+                .distinct()
+            )
             serializer = self.get_serializer(documents, many=True)
             return Response(serializer.data)
         except Exception as e:
             logger.error(f"Error getting documents by asset: {e}")
             return Response(
-                {'error': 'Failed to get documents'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to get documents"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-    
+
     @extend_schema(
         summary="Get documents organized by Hebrew categories",
         description="Retrieve documents organized by Hebrew categories (שומות, היתרים, תוכניות, נסחים, תשריטים)",
@@ -217,29 +224,29 @@ class DocumentViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def by_category(self, request):
         """Get documents organized by Hebrew categories."""
-        asset_id = request.query_params.get('asset_id')
-        
+        asset_id = request.query_params.get("asset_id")
+
         try:
             documents_by_category = Document.get_documents_by_category(asset_id)
-            
+
             # Convert to serialized format
             result = {}
             for category, documents in documents_by_category.items():
                 if documents:  # Only include categories with documents
                     serializer = self.get_serializer(documents, many=True)
                     result[category] = serializer.data
-            
+
             return Response(result)
         except Exception as e:
             logger.error(f"Error getting documents by category: {e}")
             return Response(
-                {'error': 'Failed to get documents by category'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to get documents by category"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-    
+
     @extend_schema(
         summary="Search documents",
         description="Search documents by title, description, external_id, or filename",
@@ -268,62 +275,66 @@ class DocumentViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def search(self, request):
         """Search documents with optional filtering."""
-        query = request.query_params.get('q', '')
-        asset_id = request.query_params.get('asset_id')
-        category = request.query_params.get('category')
-        
+        query = request.query_params.get("q", "")
+        asset_id = request.query_params.get("asset_id")
+        category = request.query_params.get("category")
+
         try:
             # Start with base queryset
             queryset = self.get_queryset()
-            
+
             # Apply search
             if query:
                 queryset = Document.search_documents(query, asset_id)
             elif asset_id:
                 queryset = queryset.filter(asset_id=asset_id)
-            
+
             # Apply category filter
             if category and category in Document.DOCUMENT_CATEGORIES:
                 type_filter = Document.DOCUMENT_CATEGORIES[category]
                 queryset = queryset.filter(document_type__in=type_filter)
-            
+
             serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                'results': serializer.data,
-                'count': queryset.count(),
-                'query': query,
-                'category': category
-            })
+            return Response(
+                {
+                    "results": serializer.data,
+                    "count": queryset.count(),
+                    "query": query,
+                    "category": category,
+                }
+            )
         except Exception as e:
             logger.error(f"Error searching documents: {e}")
             return Response(
-                {'error': 'Failed to search documents'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to search documents"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def _get_category_for_type(self, document_type: str) -> str:
-        return self.CATEGORY_LOOKUP.get(document_type, 'אחר')
+        return self.CATEGORY_LOOKUP.get(document_type, "אחר")
 
     @extend_schema(
         summary="Documents table data",
         description="Retrieve paginated documents for table view",
         tags=["Documents"],
     )
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny])
     def table(self, request):
         try:
             queryset = self.get_queryset()
 
-            asset_id = request.query_params.get('asset_id')
+            asset_id = request.query_params.get("asset_id")
             if asset_id:
                 # Filter by asset (both FK and M2M relationships)
                 # The distinct() is necessary to avoid duplicates from M2M JOIN
-                queryset = queryset.filter(Q(asset_id=asset_id) | Q(assets__id=asset_id)).distinct()
+                queryset = queryset.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct()
 
-            search = request.query_params.get('search')
+            search = request.query_params.get("search")
             if search:
                 queryset = queryset.filter(
                     Q(title__icontains=search)
@@ -332,8 +343,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     | Q(filename__icontains=search)
                 )
 
-            category_filter = request.query_params.get('category')
-            if category_filter and category_filter != 'all':
+            category_filter = request.query_params.get("category")
+            if category_filter and category_filter != "all":
                 category_types = None
                 for category, types in Document.DOCUMENT_CATEGORIES.items():
                     if category == category_filter:
@@ -344,25 +355,25 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 else:
                     queryset = queryset.none()
 
-            type_filter = request.query_params.get('type')
-            if type_filter and type_filter != 'all':
+            type_filter = request.query_params.get("type")
+            if type_filter and type_filter != "all":
                 queryset = queryset.filter(document_type=type_filter)
 
-            source_filter = request.query_params.get('source')
-            if source_filter and source_filter != 'all':
+            source_filter = request.query_params.get("source")
+            if source_filter and source_filter != "all":
                 queryset = queryset.filter(source__iexact=source_filter)
 
-            status_filter = request.query_params.get('status')
-            if status_filter and status_filter != 'all':
+            status_filter = request.query_params.get("status")
+            if status_filter and status_filter != "all":
                 queryset = queryset.filter(status__iexact=status_filter)
 
             try:
-                limit = max(1, min(int(request.query_params.get('limit', 25)), 100))
+                limit = max(1, min(int(request.query_params.get("limit", 25)), 100))
             except (TypeError, ValueError):
                 limit = 25
 
             try:
-                offset = max(0, int(request.query_params.get('offset', 0)))
+                offset = max(0, int(request.query_params.get("offset", 0)))
             except (TypeError, ValueError):
                 offset = 0
 
@@ -370,12 +381,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
             total_count = queryset.count()
 
             # Get paginated documents (fast, limited rows)
-            documents = list(queryset[offset: offset + limit])
+            documents = list(queryset[offset : offset + limit])
             serializer = self.get_serializer(documents, many=True)
-            serialized = list(serializer.data)  # Explicitly convert to list for type checker
+            serialized = list(
+                serializer.data
+            )  # Explicitly convert to list for type checker
             for item in serialized:
-                doc_type = item.get('document_type') or item.get('documentType')
-                item['category'] = self._get_category_for_type(doc_type)
+                doc_type = item.get("document_type") or item.get("documentType")
+                item["category"] = self._get_category_for_type(doc_type)
 
             # For filter options, compute distinct values efficiently
             # These queries benefit from database indexes on document_type, source, and status
@@ -383,15 +396,15 @@ class DocumentViewSet(viewsets.ModelViewSet):
             try:
                 # Use the queryset directly - database will use indexes for these column scans
                 distinct_types = list(
-                    queryset.values_list('document_type', flat=True).distinct()
+                    queryset.values_list("document_type", flat=True).distinct()
                 )
                 distinct_sources = list(
-                    queryset.values_list('source', flat=True).distinct()
+                    queryset.values_list("source", flat=True).distinct()
                 )
                 distinct_statuses = list(
                     queryset.exclude(status__isnull=True)
-                    .exclude(status='')
-                    .values_list('status', flat=True)
+                    .exclude(status="")
+                    .values_list("status", flat=True)
                     .distinct()
                 )
             except Exception as e:
@@ -400,32 +413,41 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 distinct_sources = []
                 distinct_statuses = []
 
-            categories = sorted({self._get_category_for_type(doc_type) for doc_type in distinct_types})
+            categories = sorted(
+                {self._get_category_for_type(doc_type) for doc_type in distinct_types}
+            )
             categories = [category for category in categories if category]
 
             filters = {
-                'category': categories,
-                'type': sorted(filter(None, distinct_types)),
-                'source': sorted(filter(None, distinct_sources)),
-                'status': sorted(filter(None, distinct_statuses)),
+                "category": categories,
+                "type": sorted(filter(None, distinct_types)),
+                "source": sorted(filter(None, distinct_sources)),
+                "status": sorted(filter(None, distinct_statuses)),
             }
 
-            return Response({
-                'results': serialized,
-                'count': total_count,
-                'limit': limit,
-                'offset': offset,
-                'filters': filters,
-            })
+            return Response(
+                {
+                    "results": serialized,
+                    "count": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "filters": filters,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error retrieving documents table data: {e}")
-            return Response({
-                'error': 'Failed to get documents',
-                'details': str(e),
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {
+                    "error": "Failed to get documents",
+                    "details": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 # Cost estimation API endpoints
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 @extend_schema(
     summary="Estimate build cost",
@@ -435,16 +457,25 @@ class DocumentViewSet(viewsets.ModelViewSet):
         "application/json": {
             "type": "object",
             "properties": {
-                "area_m2": {"type": "number", "description": "Building area in square meters"},
+                "area_m2": {
+                    "type": "number",
+                    "description": "Building area in square meters",
+                },
                 "scope": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of construction scopes"
+                    "description": "List of construction scopes",
                 },
-                "region": {"type": "string", "description": "Region code (TA, CENTER, NORTH, SOUTH)"},
-                "quality": {"type": "string", "description": "Quality level (basic, standard, premium)"}
+                "region": {
+                    "type": "string",
+                    "description": "Region code (TA, CENTER, NORTH, SOUTH)",
+                },
+                "quality": {
+                    "type": "string",
+                    "description": "Quality level (basic, standard, premium)",
+                },
             },
-            "required": ["area_m2"]
+            "required": ["area_m2"],
         }
     },
     responses={
@@ -463,16 +494,16 @@ class DocumentViewSet(viewsets.ModelViewSet):
                                 "low_cost": {"type": "number"},
                                 "low_cost_with_vat": {"type": "number"},
                                 "high_cost": {"type": "number"},
-                                "high_cost_with_vat": {"type": "number"}
-                            }
+                                "high_cost_with_vat": {"type": "number"},
+                            },
                         },
-                        "metadata": {"type": "object"}
-                    }
+                        "metadata": {"type": "object"},
+                    },
                 }
-            }
+            },
         },
-        400: {"description": "Invalid input data"}
-    }
+        400: {"description": "Invalid input data"},
+    },
 )
 def estimate_build_cost(request):
     """Estimate building construction costs."""
@@ -482,10 +513,13 @@ def estimate_build_cost(request):
         return Response(estimate)
     except Exception as e:
         logger.error(f"Error estimating build cost: {e}")
-        return Response({"error": "Failed to estimate build cost"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to estimate build cost"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([permissions.AllowAny])
 @extend_schema(
     summary="Get cost estimation options",
@@ -500,28 +534,33 @@ def estimate_build_cost(request):
                     "properties": {
                         "regions": {"type": "array"},
                         "qualities": {"type": "array"},
-                        "scopes": {"type": "array"}
-                    }
+                        "scopes": {"type": "array"},
+                    },
                 }
-            }
+            },
         }
-    }
+    },
 )
 def get_cost_options(request):
     """Get available options for cost estimation."""
     try:
         cost_service = CostService()
-        return Response({
-            "regions": cost_service.get_available_regions(),
-            "qualities": cost_service.get_available_qualities(),
-            "scopes": cost_service.get_available_scopes()
-        })
+        return Response(
+            {
+                "regions": cost_service.get_available_regions(),
+                "qualities": cost_service.get_available_qualities(),
+                "scopes": cost_service.get_available_scopes(),
+            }
+        )
     except Exception as e:
         logger.error(f"Error getting cost options: {e}")
-        return Response({"error": "Failed to get cost options"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to get cost options"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 @extend_schema(
     summary="Calculate deal expenses",
@@ -532,12 +571,15 @@ def get_cost_options(request):
             "type": "object",
             "properties": {
                 "price": {"type": "number", "description": "Property price"},
-                "area": {"type": "number", "description": "Property area in square meters"},
+                "area": {
+                    "type": "number",
+                    "description": "Property area in square meters",
+                },
                 "propertyType": {
                     "type": "string",
                     "enum": ["residential", "land"],
                     "description": "Property type",
-                    "default": "residential"
+                    "default": "residential",
                 },
                 "buyers": {
                     "type": "array",
@@ -545,16 +587,19 @@ def get_cost_options(request):
                         "type": "object",
                         "properties": {
                             "name": {"type": "string"},
-                            "sharePct": {"type": "number", "description": "Percentage share (0-100)"},
+                            "sharePct": {
+                                "type": "number",
+                                "description": "Percentage share (0-100)",
+                            },
                             "isFirstHome": {"type": "boolean"},
                             "isReplacementHome": {"type": "boolean"},
                             "oleh": {"type": "boolean"},
                             "disabled": {"type": "boolean"},
-                            "bereavedFamily": {"type": "boolean"}
+                            "bereavedFamily": {"type": "boolean"},
                         },
-                        "required": ["sharePct"]
+                        "required": ["sharePct"],
                     },
-                    "description": "List of buyers"
+                    "description": "List of buyers",
                 },
                 "services": {
                     "type": "array",
@@ -562,33 +607,39 @@ def get_cost_options(request):
                         "type": "object",
                         "properties": {
                             "label": {"type": "string"},
-                            "percent": {"type": "number", "description": "Percentage of price"},
+                            "percent": {
+                                "type": "number",
+                                "description": "Percentage of price",
+                            },
                             "amount": {"type": "number", "description": "Fixed amount"},
-                            "includesVat": {"type": "boolean", "description": "Whether VAT is included"}
-                        }
+                            "includesVat": {
+                                "type": "boolean",
+                                "description": "Whether VAT is included",
+                            },
+                        },
                     },
-                    "description": "List of service costs"
+                    "description": "List of service costs",
                 },
                 "vatRate": {
                     "type": "number",
                     "description": "VAT rate (e.g., 0.18 for 18%)",
-                    "default": 0.18
+                    "default": 0.18,
                 },
                 "constructionArea": {
                     "type": "number",
-                    "description": "Construction area in sqm (for land)"
+                    "description": "Construction area in sqm (for land)",
                 },
                 "constructionCostPerSqm": {
                     "type": "number",
-                    "description": "Construction cost per sqm (for land)"
+                    "description": "Construction cost per sqm (for land)",
                 },
                 "constructionIncludesVat": {
                     "type": "boolean",
                     "description": "Whether construction cost includes VAT",
-                    "default": True
-                }
+                    "default": True,
+                },
             },
-            "required": ["price", "buyers"]
+            "required": ["price", "buyers"],
         }
     },
     responses={
@@ -607,9 +658,9 @@ def get_cost_options(request):
                                     "buyer": {"type": "object"},
                                     "portionPrice": {"type": "number"},
                                     "tax": {"type": "number"},
-                                    "track": {"type": "string"}
-                                }
-                            }
+                                    "track": {"type": "string"},
+                                },
+                            },
                         },
                         "serviceTotal": {"type": "number"},
                         "serviceBreakdown": {
@@ -618,20 +669,20 @@ def get_cost_options(request):
                                 "type": "object",
                                 "properties": {
                                     "label": {"type": "string"},
-                                    "cost": {"type": "number"}
-                                }
-                            }
+                                    "cost": {"type": "number"},
+                                },
+                            },
                         },
                         "constructionCost": {"type": "number"},
                         "total": {"type": "number"},
                         "pricePerSqBefore": {"type": "number"},
-                        "pricePerSqAfter": {"type": "number"}
-                    }
+                        "pricePerSqAfter": {"type": "number"},
+                    },
                 }
-            }
+            },
         },
-        400: {"description": "Invalid input data"}
-    }
+        400: {"description": "Invalid input data"},
+    },
 )
 def calculate_deal_expenses(request):
     """Calculate complete deal expenses."""
@@ -643,5 +694,5 @@ def calculate_deal_expenses(request):
         logger.error(f"Error calculating deal expenses: {e}")
         return Response(
             {"error": "Failed to calculate deal expenses", "details": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

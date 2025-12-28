@@ -60,7 +60,6 @@ def rename_subparcel_index(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0048_add_is_commercial_to_asset"),
     ]

@@ -17,4 +17,3 @@ def test_reports_dir_env_override(monkeypatch, tmp_path):
     base_dir = Path(__file__).resolve().parents[2] / "backend-django"
     service = ReportService(base_dir)
     assert Path(service.reports_dir) == custom.resolve()
-

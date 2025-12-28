@@ -63,7 +63,9 @@ def test_run_data_pipeline_task(monkeypatch):
     with pytest.raises(celery_exceptions.Ignore):
         tasks.run_data_pipeline.run(asset_id=1)
 
-    collected_names = tuple((sig.name, sig.args, sig.kwargs) for sig in captured["args"])
+    collected_names = tuple(
+        (sig.name, sig.args, sig.kwargs) for sig in captured["args"]
+    )
     assert collected_names == (
         ("collect", (), {"asset_id": 1}),
         ("normalize", (), {}),

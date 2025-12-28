@@ -26,4 +26,3 @@ def test_report_file_endpoint_serves_pdf(tmp_path):
     body = b"".join(resp.streaming_content)
     assert body.startswith(b"%PDF")
     assert report.file_url == f"/api/reports/file/{filename}"
-

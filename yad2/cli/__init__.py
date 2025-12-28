@@ -8,4 +8,4 @@ Command-line interface tools for the Yad2 scraper.
 
 from .interactive import InteractiveCLI
 
-__all__ = ["InteractiveCLI"] 
+__all__ = ["InteractiveCLI"]

@@ -2,6 +2,7 @@ import time
 import pytest
 from orchestration.data_pipeline import DataPipeline
 
+
 def get_pipeline():
     # Create DataPipeline instance without triggering __init__ side effects
     return DataPipeline.__new__(DataPipeline)

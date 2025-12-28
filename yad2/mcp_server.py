@@ -30,7 +30,7 @@ import os
 import sys
 import traceback
 import logging
-from typing import Literal, Optional, Dict, Any
+from typing import Optional, Dict, Any
 
 from fastmcp import Context, FastMCP
 
@@ -46,7 +46,9 @@ from yad2.utils.property_types import PropertyTypeUtils
 logger = logging.getLogger(__name__)
 
 # Create an MCP server
-mcp = FastMCP("Yad2RealEstate", dependencies=["requests", "beautifulsoup4", "lxml", "pandas"]) 
+mcp = FastMCP(
+    "Yad2RealEstate", dependencies=["requests", "beautifulsoup4", "lxml", "pandas"]
+)
 
 # Module-level state (persists across tool calls within the same server process)
 _api_client = Yad2APIClient()
@@ -114,9 +116,9 @@ async def fetch_listings(
     limit: Optional[int | str] = None,
 ) -> Dict[str, Any]:
     """Fetch active listings via Yad2's public map feed API.
-    
+
     Supports all Yad2 search parameters. Boolean parameters accept: 1/0, true/false, yes/no.
-    
+
     Args:
         maxPrice: Maximum price filter
         minPrice: Minimum price filter
@@ -165,7 +167,7 @@ async def fetch_listings(
         listing_type: Type of listing - "sale", "rent", "commercial", or "all"
         pull_contacts: Whether to fetch contact information for listings
         limit: Maximum number of listings to return (applied after fetching)
-    
+
     Returns:
         Dictionary with listings data and statistics
     """
@@ -222,28 +224,35 @@ async def fetch_listings(
     }
 
     # Convert Hebrew property type names to codes if needed
-    if 'property' in params and params['property']:
-        property_value = params['property']
-        
+    if "property" in params and params["property"]:
+        property_value = params["property"]
+
         # If it's a string (Hebrew name), try to convert to code
         if isinstance(property_value, str) and not property_value.isdigit():
             # Try exact match first
             code = PropertyTypeUtils.hebrew_name_to_code(property_value)
             if code is not None:
-                params['property'] = str(code)
-                await ctx.info(f"Converted property type '{property_value}' to code: {code}")
+                params["property"] = str(code)
+                await ctx.info(
+                    f"Converted property type '{property_value}' to code: {code}"
+                )
             else:
                 # Try partial match
-                matching_codes = PropertyTypeUtils.search_hebrew_name_to_code(property_value)
+                matching_codes = PropertyTypeUtils.search_hebrew_name_to_code(
+                    property_value
+                )
                 if matching_codes:
                     # Use the first match
                     code, hebrew_name = matching_codes[0]
-                    params['property'] = str(code)
-                    await ctx.info(f"Converted property type '{property_value}' to code: {code} (matched: {hebrew_name})")
+                    params["property"] = str(code)
+                    await ctx.info(
+                        f"Converted property type '{property_value}' to code: {code} (matched: {hebrew_name})"
+                    )
                 else:
-                    await ctx.warning(f"Could not convert property type '{property_value}' to code. Using as-is.")
+                    await ctx.warning(
+                        f"Could not convert property type '{property_value}' to code. Using as-is."
+                    )
 
-    
     search_params = Yad2SearchParameters()
     for key, value in params.items():
         try:
@@ -251,19 +260,20 @@ async def fetch_listings(
         except ValueError:
             search_params.parameters[key] = value
 
-
     await ctx.info("Fetching listings from Yad2 API...")
     await ctx.info(f"Search parameters: {search_params.get_active_parameters()}")
-    await ctx.info(f"Fetching map listings from Yad2 map feed API (listing_type={listing_type}, zoom={zoom})...")
+    await ctx.info(
+        f"Fetching map listings from Yad2 map feed API (listing_type={listing_type}, zoom={zoom})..."
+    )
     try:
         listings = _api_client.fetch_listings(
             search_params=search_params,
             zoom=zoom,
             listing_type=listing_type,
-            pull_contacts=pull_contacts
+            pull_contacts=pull_contacts,
         )
         _last_search_results = listings
-        
+
         await ctx.info(f"Fetched {len(listings)} listings from Yad2 map endpoint")
 
         if not listings:
@@ -288,25 +298,31 @@ async def fetch_listings(
         preview_limit = min(20, len(listings))
         formatted = []
         for l in listings[:preview_limit]:
-            formatted.append({
-                "title": l.title,
-                "price": l.price,
-                "address": l.address,
-                "rooms": l.rooms,
-                "size": l.size,
-                "floor": l.floor,
-                "property_type": l.property_type,
-                "url": l.url,
-                "listing_id": l.listing_id,
-                "contact_info": l.contact_info.to_dict() if l.contact_info else None,
-            })
+            formatted.append(
+                {
+                    "title": l.title,
+                    "price": l.price,
+                    "address": l.address,
+                    "rooms": l.rooms,
+                    "size": l.size,
+                    "floor": l.floor,
+                    "property_type": l.property_type,
+                    "url": l.url,
+                    "listing_id": l.listing_id,
+                    "contact_info": l.contact_info.to_dict()
+                    if l.contact_info
+                    else None,
+                }
+            )
 
         price_stats = DataUtils.calculate_price_stats(listings) if listings else None
 
         return {
             "success": True,
             "total_listings": len(listings),
-            "total_fetched": len(_last_search_results) if _last_search_results else len(listings),
+            "total_fetched": len(_last_search_results)
+            if _last_search_results
+            else len(listings),
             "limit_applied": limit_int,
             "parameters": search_params.get_active_parameters(),
             "listings_preview": formatted,
@@ -320,7 +336,7 @@ async def fetch_listings(
             "Exception in fetch_listings handler. Params: %s, Error: %s",
             search_params.get_active_parameters(),
             error_traceback,
-            exc_info=True
+            exc_info=True,
         )
         return {
             "success": False,
@@ -333,15 +349,15 @@ async def fetch_listings(
 @mcp.tool()
 async def fetch_contact_info(ctx: Context, token: str) -> Dict[str, Any]:
     """Fetch contact information for a listing token.
-    
+
     Args:
         token: Listing token from Yad2 URL (e.g., from /item/{token})
-    
+
     Returns:
         Dictionary with contact information or error message
     """
     global _api_client
-    
+
     try:
         contact = _api_client.fetch_contact_info(token)
         if contact:
@@ -365,15 +381,15 @@ async def fetch_contact_info(ctx: Context, token: str) -> Dict[str, Any]:
 @mcp.tool()
 async def fetch_project_autocomplete(ctx: Context, phrase: str) -> Dict[str, Any]:
     """Fetch project data from Yad1 developers autocomplete API.
-    
+
     Args:
         phrase: Free-text phrase, e.g. project name
-    
+
     Returns:
         Dictionary with project data or None if not found
     """
     global _api_client
-    
+
     try:
         project_data = _api_client.fetch_project_autocomplete(phrase)
         if project_data:
@@ -397,15 +413,15 @@ async def fetch_project_autocomplete(ctx: Context, phrase: str) -> Dict[str, Any
 @mcp.tool()
 async def fetch_location_autocomplete(ctx: Context, search_text: str) -> Dict[str, Any]:
     """Fetch location data from Yad2 address autocomplete API and return prepared search parameters.
-    
+
     Args:
         search_text: Address text to search for (e.g., "רוזוב תל אביב")
-    
+
     Returns:
         Dictionary with prepared search parameters (city, area, neighborhood, street, etc.)
     """
     global _api_client
-    
+
     try:
         location_params = _api_client.fetch_location_autocomplete(search_text)
         if location_params:
@@ -442,7 +458,7 @@ async def fetch_latest_deals(
     max_pages: int = 1,
 ) -> Dict[str, Any]:
     """Fetch completed deal records from Yad2's latest-deals endpoint.
-    
+
     Args:
         city: Optional city identifier
         neighborhood: Optional neighborhood identifier
@@ -452,19 +468,19 @@ async def fetch_latest_deals(
         sort_by: Sorting field (e.g., "distance", "saleDate") (default: "saleDate")
         order: Sort order "asc" or "desc" (default: "desc")
         max_pages: Number of pages to fetch (default: 1)
-    
+
     Returns:
         Dictionary with deal records
     """
     global _api_client
-    
+
     try:
         search_params = Yad2SearchParameters()
         if city:
             search_params.set_parameter("city", city)
         if neighborhood:
             search_params.set_parameter("neighborhood", neighborhood)
-        
+
         deals = _api_client.fetch_latest_deals(
             search_params=search_params,
             city=city,
@@ -474,30 +490,32 @@ async def fetch_latest_deals(
             page=page,
             sort_by=sort_by,
             order=order,
-            max_pages=max_pages
+            max_pages=max_pages,
         )
-        
+
         if not deals:
             return {
                 "success": False,
                 "message": "No deals found for the specified criteria.",
             }
-        
+
         # Format deals for output
         formatted = []
         for deal in deals[:20]:
-            formatted.append({
-                "title": deal.title,
-                "price": deal.price,
-                "address": deal.address,
-                "rooms": deal.rooms,
-                "size": deal.size,
-                "floor": deal.floor,
-                "property_type": deal.property_type,
-                "date_posted": deal.date_posted,
-                "recent_deal": deal.recent_deal,
-            })
-        
+            formatted.append(
+                {
+                    "title": deal.title,
+                    "price": deal.price,
+                    "address": deal.address,
+                    "rooms": deal.rooms,
+                    "size": deal.size,
+                    "floor": deal.floor,
+                    "property_type": deal.property_type,
+                    "date_posted": deal.date_posted,
+                    "recent_deal": deal.recent_deal,
+                }
+            )
+
         return {
             "success": True,
             "total_deals": len(deals),
@@ -509,6 +527,7 @@ async def fetch_latest_deals(
             "success": False,
             "error": str(e),
         }
+
 
 @mcp.tool()
 async def get_search_parameters_reference(ctx: Context):
@@ -523,11 +542,29 @@ async def get_search_parameters_reference(ctx: Context):
         "Property Types": ["property"],
         "Property Details": ["rooms", "floor", "size", "minSize", "maxSize"],
         "Features & Amenities": [
-            "parking", "elevator", "balcony", "renovated", "accessibility",
-            "airCondition", "bars", "shelter", "storage", "terrace", "garden",
-            "pets", "furniture", "shelter"
+            "parking",
+            "elevator",
+            "balcony",
+            "renovated",
+            "accessibility",
+            "airCondition",
+            "bars",
+            "shelter",
+            "storage",
+            "terrace",
+            "garden",
+            "pets",
+            "furniture",
+            "shelter",
         ],
-        "Search Options": ["page", "order", "priceOnly", "priceDropped", "exclusive", "publishedDays"],
+        "Search Options": [
+            "page",
+            "order",
+            "priceOnly",
+            "priceDropped",
+            "exclusive",
+            "publishedDays",
+        ],
     }
 
     result = {"categories": {}, "all_parameters": params}
@@ -537,14 +574,13 @@ async def get_search_parameters_reference(ctx: Context):
     return result
 
 
-
 @mcp.tool()
 async def get_all_property_types(ctx: Context):
     """Get all available property type codes with Hebrew and English names."""
     global _api_client
     try:
         property_types = _api_client.param_reference.get_property_types()
-        
+
         # Add English translations for each
         enhanced_types = {}
         for code, hebrew_name in property_types.items():
@@ -552,13 +588,13 @@ async def get_all_property_types(ctx: Context):
             enhanced_types[code] = {
                 "hebrew": hebrew_name,
                 "english": english_name,
-                "code": code
+                "code": code,
             }
-        
+
         return {
             "success": True,
             "total_types": len(enhanced_types),
-            "property_types": enhanced_types
+            "property_types": enhanced_types,
         }
     except Exception as e:
         return {"success": False, "error": str(e)}

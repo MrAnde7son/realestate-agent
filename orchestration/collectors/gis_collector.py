@@ -20,9 +20,7 @@ class GISCollector(BaseCollector):
         self.client = client or TelAvivGS()
 
     def collect(
-        self,
-        location: Optional[LocationQuery] = None,
-        **kwargs
+        self, location: Optional[LocationQuery] = None, **kwargs
     ) -> Dict[str, Any]:
         """Geocode and collect GIS data for a given address or block/parcel."""
 
@@ -40,7 +38,9 @@ class GISCollector(BaseCollector):
             return self._collect_by_block_parcel(block, parcel)
 
         if not search_street:
-            raise ValueError("GISCollector requires at least a street name or block/parcel")
+            raise ValueError(
+                "GISCollector requires at least a street name or block/parcel"
+            )
 
         x, y = self._geocode(search_street, number, city)
         data = {
@@ -84,14 +84,16 @@ class GISCollector(BaseCollector):
         # Ensure block and parcel are strings
         block_str = str(block).strip()
         parcel_str = str(parcel).strip()
-        
+
         logger.info(f"Collecting GIS data for block {block_str}, parcel {parcel_str}")
-        
+
         # Get addresses for this block/parcel
         addresses = self.client.get_addresses_by_block_parcel(block_str, parcel_str)
-        
+
         if not addresses:
-            logger.warning(f"No addresses found for block {block_str}, parcel {parcel_str}")
+            logger.warning(
+                f"No addresses found for block {block_str}, parcel {parcel_str}"
+            )
             return {
                 "blocks": [],
                 "parcels": [],
@@ -129,15 +131,16 @@ class GISCollector(BaseCollector):
                 "x": None,
                 "y": None,
             }
-        
+
         # Use the first address for coordinate-based queries
         first_address = addresses[0]
         x, y = first_address["x"], first_address["y"]
-        city="תל אביב - יפו"
+        city = "תל אביב - יפו"
 
-        
-        logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}, city: {city}")
-        
+        logger.info(
+            f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}, city: {city}"
+        )
+
         data = {
             "blocks": self.client.get_blocks(x, y),
             "parcels": self.client.get_parcels(x, y),
@@ -176,32 +179,34 @@ class GISCollector(BaseCollector):
             "x": x,
             "y": y,
         }
-        
+
         return data
 
     def _generate_spelling_variants(self, street: str) -> list[str]:
         """Generate spelling variants by removing double characters.
-        
+
         Handles any double character -> single character transformation:
         - וו -> ו (double vav becoming single)
         - Any double character -> single character
         """
         variants = set([street])  # Start with original
-        
+
         # Find all double characters (same character repeated twice)
         # Use regex to find any character that appears twice in a row
-        pattern = re.compile(r'(.)\1')
+        pattern = re.compile(r"(.)\1")
         matches = list(pattern.finditer(street))
-        
+
         # Generate variants by replacing each double character with single
         for match in matches:
             char = match.group(1)
             variant = street.replace(char + char, char, 1)  # Replace first occurrence
             variants.add(variant)
-        
+
         return list(variants)
-    
-    def _geocode(self, street: str, house_number: int, city: str = "") -> Tuple[float, float]:
+
+    def _geocode(
+        self, street: str, house_number: int, city: str = ""
+    ) -> Tuple[float, float]:
         """Geocode an address to coordinates with fallback strategies."""
         # Try the original address first with like=True (same as MCP server)
         try:
@@ -210,13 +215,15 @@ class GISCollector(BaseCollector):
             logger.warning(f"Primary geocoding failed: {e}")
 
         # Try with reversed street name (common issue with Hebrew addresses)
-        if ' ' in street:
+        if " " in street:
             parts = street.split()
             if len(parts) == 2:
                 reversed_address = f"{parts[1]} {parts[0]}"
                 try:
                     logger.info(f"Trying reversed address: {reversed_address}")
-                    return self.client.get_address_coordinates(reversed_address, house_number, like=True)
+                    return self.client.get_address_coordinates(
+                        reversed_address, house_number, like=True
+                    )
                 except Exception as e2:
                     logger.warning(f"Reversed geocoding failed: {e2}")
 
@@ -227,7 +234,9 @@ class GISCollector(BaseCollector):
                 continue  # Already tried
             try:
                 logger.info(f"Trying spelling variant: {variant}")
-                return self.client.get_address_coordinates(variant, house_number, like=True)
+                return self.client.get_address_coordinates(
+                    variant, house_number, like=True
+                )
             except Exception as e_variant:
                 logger.debug(f"Spelling variant '{variant}' failed: {e_variant}")
 
@@ -236,13 +245,14 @@ class GISCollector(BaseCollector):
             try:
                 combined = f"{street} {city}".strip()
                 logger.info(f"Trying geocoding with city context: {combined}")
-                return self.client.get_address_coordinates(combined, house_number, like=True)
+                return self.client.get_address_coordinates(
+                    combined, house_number, like=True
+                )
             except Exception as e3:
                 logger.warning(f"City-aware geocoding failed: {e3}")
 
         # If all else fails, raise the original error
         raise Exception(f"All geocoding attempts failed for {street} {house_number}")
-
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""
@@ -256,7 +266,7 @@ class GISCollector(BaseCollector):
                 # Convert to string if it's a number
                 if block and not isinstance(block, str):
                     block = str(block)
-        
+
         # Try to extract from parcels array
         parcel = ""
         parcels = data.get("parcels", [])
@@ -267,18 +277,21 @@ class GISCollector(BaseCollector):
                 # Convert to string if it's a number
                 if parcel and not isinstance(parcel, str):
                     parcel = str(parcel)
-        
+
         # Strip whitespace and return
         block = block.strip() if block else ""
         parcel = parcel.strip() if parcel else ""
-        
-        if block or parcel:
-            logger.info(f"Extracted block/parcel from GIS data: block={block}, parcel={parcel}")
-        else:
-            logger.warning(f"Could not extract block/parcel from GIS data. Blocks: {len(blocks)}, Parcels: {len(parcels)}")
-        
-        return block, parcel
 
+        if block or parcel:
+            logger.info(
+                f"Extracted block/parcel from GIS data: block={block}, parcel={parcel}"
+            )
+        else:
+            logger.warning(
+                f"Could not extract block/parcel from GIS data. Blocks: {len(blocks)}, Parcels: {len(parcels)}"
+            )
+
+        return block, parcel
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for GIS collection."""
@@ -290,12 +303,13 @@ class GISCollector(BaseCollector):
         # Valid if we have a location with street, or block/parcel
         if isinstance(location, LocationQuery) and bool(location.street):
             return True
-        
+
         # Also valid if we have block and parcel
         if block and parcel:
             return True
-            
+
         return False
+
 
 if __name__ == "__main__":
     gis_collector = GISCollector()

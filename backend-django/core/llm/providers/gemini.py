@@ -28,36 +28,43 @@ class GeminiAdapter(LLMClient):
         """
         if not google_exceptions:
             return None
-        
+
         error_msg = str(exception).lower()
         actual_exception = exception
-        
+
         # Unwrap if it's wrapped in another exception
-        if hasattr(exception, '__cause__') and exception.__cause__:
+        if hasattr(exception, "__cause__") and exception.__cause__:
             actual_exception = exception.__cause__
             error_msg = str(actual_exception).lower()
-        elif hasattr(exception, '__context__') and exception.__context__:
+        elif hasattr(exception, "__context__") and exception.__context__:
             actual_exception = exception.__context__
             error_msg = str(actual_exception).lower()
-        
+
         # Check for rate limit errors
-        if isinstance(actual_exception, google_exceptions.TooManyRequests) or \
-           "too many requests" in error_msg or "quota exceeded" in error_msg or "rate limit" in error_msg:
+        if (
+            isinstance(actual_exception, google_exceptions.TooManyRequests)
+            or "too many requests" in error_msg
+            or "quota exceeded" in error_msg
+            or "rate limit" in error_msg
+        ):
             return {
                 "type": "rate_limit",
                 "message": "API rate limit exceeded. Please try again in a minute.",
                 "details": str(actual_exception),
             }
-        
+
         # Check for model not found errors
-        if isinstance(actual_exception, google_exceptions.NotFound) or \
-           "not found" in error_msg or "404" in error_msg:
+        if (
+            isinstance(actual_exception, google_exceptions.NotFound)
+            or "not found" in error_msg
+            or "404" in error_msg
+        ):
             return {
                 "type": "model_not_found",
                 "message": "AI model not available. Please check your API configuration.",
                 "details": str(actual_exception),
             }
-        
+
         # Check for invalid argument errors
         if isinstance(actual_exception, google_exceptions.InvalidArgument):
             return {
@@ -65,7 +72,7 @@ class GeminiAdapter(LLMClient):
                 "message": "Invalid request to AI service. Please try again.",
                 "details": str(actual_exception),
             }
-        
+
         # Check for permission denied errors
         if isinstance(actual_exception, google_exceptions.PermissionDenied):
             return {
@@ -73,7 +80,7 @@ class GeminiAdapter(LLMClient):
                 "message": "API access denied. Please check your API key configuration.",
                 "details": str(actual_exception),
             }
-        
+
         # Check for service unavailable errors
         if isinstance(actual_exception, google_exceptions.ServiceUnavailable):
             return {
@@ -81,15 +88,13 @@ class GeminiAdapter(LLMClient):
                 "message": "AI service is temporarily unavailable. Please try again later.",
                 "details": str(actual_exception),
             }
-        
+
         return None
 
     def __init__(self) -> None:
         api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
         if not api_key:
-            raise ValueError(
-                "GEMINI_API_KEY or GOOGLE_API_KEY is not configured"
-            )
+            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is not configured")
         genai.configure(
             api_key=api_key,
             client_options=ClientOptions(
@@ -136,13 +141,9 @@ class GeminiAdapter(LLMClient):
             normalized.append({"role": role, "parts": [message.content]})
 
         if not normalized:
-            raise ValueError(
-                "At least one user or assistant message is required"
-            )
+            raise ValueError("At least one user or assistant message is required")
 
-        system_instruction = (
-            "\n\n".join(system_parts) if system_parts else None
-        )
+        system_instruction = "\n\n".join(system_parts) if system_parts else None
         history = normalized[:-1]
         last_message = normalized[-1]
 

@@ -46,16 +46,16 @@ async def get_addresses(
     completion_types: Optional[List[str]] = None,
 ):
     """Autocomplete addresses and get address details from Madlan.
-    
+
     This tool searches for addresses matching the provided text and returns
     detailed address information including location, hierarchy, and relevant
     document IDs.
-    
+
     Args:
         text: Search text for address autocomplete (e.g., "רוזוב 14 תל")
         completion_types: Optional list of completion types to search.
                          Defaults to all available types if not provided.
-    
+
     Returns:
         Dictionary with success status and list of addresses, each containing:
         - id: Address identifier
@@ -66,32 +66,34 @@ async def get_addresses(
         - Additional fields depend on the address type
     """
     global _current_client
-    
+
     try:
         if _current_client is None:
             _current_client = MadlanAPIClient()
-        
+
         addresses = _current_client.get_addresses(text, completion_types)
-        
+
         if not addresses:
             return {
                 "success": False,
                 "message": f"No addresses found for query: {text}",
                 "addresses": [],
             }
-        
+
         # Format addresses for output
         formatted = []
         for addr in addresses[:20]:  # Limit to first 20 for brevity
-            formatted.append({
-                "id": addr.get("id"),
-                "docId": addr.get("docId"),
-                "name": addr.get("name"),
-                "type": addr.get("type"),
-                "location": addr.get("location"),
-                "identityDocId": addr.get("identityDocId"),
-            })
-        
+            formatted.append(
+                {
+                    "id": addr.get("id"),
+                    "docId": addr.get("docId"),
+                    "name": addr.get("name"),
+                    "type": addr.get("type"),
+                    "location": addr.get("location"),
+                    "identityDocId": addr.get("identityDocId"),
+                }
+            )
+
         return {
             "success": True,
             "total_addresses": len(addresses),
@@ -131,14 +133,13 @@ async def madlan_search_real_estate(
     under_price_estimation: bool = False,
     discounted_projects: bool = False,
     only_immediate: bool = False,
-    is_commercial_real_estate: bool = False
-
+    is_commercial_real_estate: bool = False,
 ):
     """Search for real estate listings on Madlan with optional filters.
-    
+
     This tool searches for property listings based on various filters including
     location, price, rooms, area, and other property characteristics.
-    
+
     Args:
         location_doc_id: Document ID for location (e.g., from get_addresses)
         deal_type: Type of deal - "unitBuy" (for sale) or "unitRent" (for rent)
@@ -164,32 +165,34 @@ async def madlan_search_real_estate(
         discounted_projects: Filter for discounted projects
         only_immediate: Filter for immediate availability only
         is_commercial_real_estate: Filter for commercial real estate
-    
+
     Returns:
         Dictionary with success status and list of listings
     """
     global _current_client, _last_search_results
-    
+
     try:
         if _current_client is None:
             _current_client = MadlanAPIClient()
-        
+
         # Convert deal_type string to DealType enum
-        deal_type_enum = DealType.UNIT_BUY if deal_type == "unitBuy" else DealType.UNIT_RENT
-        
+        deal_type_enum = (
+            DealType.UNIT_BUY if deal_type == "unitBuy" else DealType.UNIT_RENT
+        )
+
         await ctx.info(f"Searching Madlan for {deal_type} listings...")
-        
+
         # Convert string inputs to appropriate numeric types
         def to_int(value):
             if value is None:
                 return None
             return int(value) if isinstance(value, str) else value
-        
+
         def to_float(value):
             if value is None:
                 return None
             return float(value) if isinstance(value, str) else value
-        
+
         min_price_num = to_int(min_price)
         max_price_num = to_int(max_price)
         min_rooms_num = to_float(min_rooms)
@@ -202,27 +205,53 @@ async def madlan_search_real_estate(
         max_baths_num = to_float(max_baths)
         limit_num = to_int(limit) if limit else 50
         offset_num = to_int(offset) if offset else 0
-        
+
         # Convert min/max parameters to ranges
-        price_range = [min_price_num, max_price_num] if (min_price_num is not None or max_price_num is not None) else None
-        rooms_range = [min_rooms_num, max_rooms_num] if (min_rooms_num is not None or max_rooms_num is not None) else None
-        area_range = [min_area_num, max_area_num] if (min_area_num is not None or max_area_num is not None) else None
-        floor_range = [min_floor_num, max_floor_num] if (min_floor_num is not None or max_floor_num is not None) else None
-        baths_range = [min_baths_num, max_baths_num] if (min_baths_num is not None or max_baths_num is not None) else None
-        
+        price_range = (
+            [min_price_num, max_price_num]
+            if (min_price_num is not None or max_price_num is not None)
+            else None
+        )
+        rooms_range = (
+            [min_rooms_num, max_rooms_num]
+            if (min_rooms_num is not None or max_rooms_num is not None)
+            else None
+        )
+        area_range = (
+            [min_area_num, max_area_num]
+            if (min_area_num is not None or max_area_num is not None)
+            else None
+        )
+        floor_range = (
+            [min_floor_num, max_floor_num]
+            if (min_floor_num is not None or max_floor_num is not None)
+            else None
+        )
+        baths_range = (
+            [min_baths_num, max_baths_num]
+            if (min_baths_num is not None or max_baths_num is not None)
+            else None
+        )
+
         # Convert comma-separated strings to lists
         building_class_list = None
         if building_class:
-            building_class_list = [item.strip() for item in building_class.split(",") if item.strip()]
-        
+            building_class_list = [
+                item.strip() for item in building_class.split(",") if item.strip()
+            ]
+
         general_condition_list = None
         if general_condition:
-            general_condition_list = [item.strip() for item in general_condition.split(",") if item.strip()]
-        
+            general_condition_list = [
+                item.strip() for item in general_condition.split(",") if item.strip()
+            ]
+
         seller_type_list = None
         if seller_type:
-            seller_type_list = [item.strip() for item in seller_type.split(",") if item.strip()]
-        
+            seller_type_list = [
+                item.strip() for item in seller_type.split(",") if item.strip()
+            ]
+
         listings = _current_client.fetch_listings(
             location_doc_id=location_doc_id,
             deal_type=deal_type_enum,
@@ -244,31 +273,33 @@ async def madlan_search_real_estate(
             only_immediate=only_immediate,
             is_commercial_real_estate=is_commercial_real_estate,
         )
-        
+
         _last_search_results = listings
-        
+
         if not listings:
             return {
                 "success": False,
                 "message": "No listings found for the specified criteria.",
                 "listings": [],
             }
-        
+
         # Format listings for output (limit to first 10 for brevity)
         formatted = []
         for listing in listings[:10]:
-            formatted.append({
-                "listing_id": listing.listing_id,
-                "title": listing.title,
-                "address": listing.address,
-                "price": listing.price,
-                "rooms": listing.rooms,
-                "size": listing.size,
-                "floor": listing.floor,
-                "url": listing.url,
-                "listing_type": listing.listing_type,
-            })
-        
+            formatted.append(
+                {
+                    "listing_id": listing.listing_id,
+                    "title": listing.title,
+                    "address": listing.address,
+                    "price": listing.price,
+                    "rooms": listing.rooms,
+                    "size": listing.size,
+                    "floor": listing.floor,
+                    "url": listing.url,
+                    "listing_type": listing.listing_type,
+                }
+            )
+
         return {
             "success": True,
             "total_listings": len(listings),
@@ -282,7 +313,5 @@ async def madlan_search_real_estate(
         }
 
 
-
 if __name__ == "__main__":
     mcp.run()
-

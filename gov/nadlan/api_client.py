@@ -15,7 +15,6 @@ from typing import Dict, List, Optional, Any, Union
 import requests
 
 from gov.nadlan.helpers import make_sk, sign_outer, unwrap_any
-from gov.nadlan.models import Deal, NeighborhoodInfo
 from gov.nadlan.exceptions import NadlanAPIError, NadlanConfigError, NadlanDecodeError
 
 
@@ -116,7 +115,7 @@ class NadlanAPIClient:
         """Decode regular or URL-safe base64 strings with automatic padding."""
         import base64
 
-        normalized = data.strip().replace('-', '+').replace('_', '/')
+        normalized = data.strip().replace("-", "+").replace("_", "/")
         normalized += "=" * (-len(normalized) % 4)
         return base64.b64decode(normalized)
 
@@ -184,7 +183,7 @@ class NadlanAPIClient:
 
         # 2) JWT/JWE-like dot-separated pieces: try each segment
         if "." in blob:
-            for part in blob.split('.'):
+            for part in blob.split("."):
                 try:
                     decoded = self._b64_any(part)
                 except Exception:
@@ -237,7 +236,7 @@ class NadlanAPIClient:
     def get_fresh_token(self) -> str:
         """
         Try to get a fresh JWT token from the website.
-        
+
         Returns:
             Fresh JWT token or fallback to hardcoded token
         """
@@ -245,21 +244,24 @@ class NadlanAPIClient:
             # Visit the main page to get any tokens in cookies or HTML
             response = self.session.get("https://www.nadlan.gov.il/", timeout=30)
             response.raise_for_status()
-            
+
             # Check cookies for any JWT-like tokens
             for cookie in self.session.cookies:
-                if cookie.name and ('token' in cookie.name.lower() or 'jwt' in cookie.name.lower()):
+                if cookie.name and (
+                    "token" in cookie.name.lower() or "jwt" in cookie.name.lower()
+                ):
                     print(f"Found potential token cookie: {cookie.name}")
                     return cookie.value
-            
+
             # Check HTML for any embedded tokens
             html_content = response.text
-            
+
             # Look for JWT patterns in the HTML
             import re
-            jwt_pattern = r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'
+
+            jwt_pattern = r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"
             matches = re.findall(jwt_pattern, html_content)
-            
+
             if matches:
                 print(f"Found {len(matches)} potential JWT tokens in HTML")
                 # Return the first one that looks like a JWT
@@ -267,27 +269,28 @@ class NadlanAPIClient:
                     if len(token) > 50:  # JWT tokens are typically longer
                         print(f"Using token from HTML: {token[:50]}...")
                         return token
-            
+
             # Try to get token from the reCAPTCHA endpoint mentioned in config
             config_data = self.load_config()
             recaptcha_token_url = config_data.get("recaptcha_token_url")
-            
+
             if recaptcha_token_url:
                 try:
                     token_response = self.session.get(recaptcha_token_url, timeout=10)
                     if token_response.status_code == 200:
                         token_data = token_response.json()
-                        if 'token' in token_data:
-                            print(f"Got token from reCAPTCHA endpoint: {token_data['token'][:50]}...")
-                            return token_data['token']
+                        if "token" in token_data:
+                            print(
+                                f"Got token from reCAPTCHA endpoint: {token_data['token'][:50]}..."
+                            )
+                            return token_data["token"]
                 except Exception as e:
                     print(f"Failed to get token from reCAPTCHA endpoint: {e}")
             print("No fresh token found, using hardcoded token")
         except Exception as e:
             print(f"Error getting fresh token: {e}")
-        
-        return "c6Hc3DbK-oQjY2bUua0B0brvxEEphNB1PVaBeNDqk1n.0nIslmL292Zu4WYsRWYu5yd3dnI6IibpFWbvRmIsMTN1YTO5gTN3EjOiAHelJCLiYGOkFTMmBzN5cjMx0CO2QWOtIzYzQTL5MWZ50SN4EWYyQWYiJiOi4WZr9GdiwiI4gFTUdzRUN1TqpmY3cVYYZENwoUeJlES1IzdRdDe5JXN2M2c3JULOh1Vk5CMz0UMVpmT1sGRPFzYU1kNJN0Y0YVbJNXSDJGc1kGZ2RWbMVnRHJ2aG1mY1N2MkNjSp9Ua0cVYoFjMitmS5VmL5oUaOFTS6VVSKl2TpN2RihmS5VmI6IyazJCLi42dvR2XlRXYExWYlRmI6IiclRmcv9VZwlHdiwSM6IiclJWb152XoNGdlZmIsICZJR2bvhmcvJGanlWZuJiOiUWbh52XlNXYiJCLiYzMwATMyUjNiojIkl2XlNXYiJye.9JiN1IzUIJiOicGbhJye"
 
+        return "c6Hc3DbK-oQjY2bUua0B0brvxEEphNB1PVaBeNDqk1n.0nIslmL292Zu4WYsRWYu5yd3dnI6IibpFWbvRmIsMTN1YTO5gTN3EjOiAHelJCLiYGOkFTMmBzN5cjMx0CO2QWOtIzYzQTL5MWZ50SN4EWYyQWYiJiOi4WZr9GdiwiI4gFTUdzRUN1TqpmY3cVYYZENwoUeJlES1IzdRdDe5JXN2M2c3JULOh1Vk5CMz0UMVpmT1sGRPFzYU1kNJN0Y0YVbJNXSDJGc1kGZ2RWbMVnRHJ2aG1mY1N2MkNjSp9Ua0cVYoFjMitmS5VmL5oUaOFTS6VVSKl2TpN2RihmS5VmI6IyazJCLi42dvR2XlRXYExWYlRmI6IiclRmcv9VZwlHdiwSM6IiclJWb152XoNGdlZmIsICZJR2bvhmcvJGanlWZuJiOiUWbh52XlNXYiJCLiYzMwATMyUjNiojIkl2XlNXYiJye.9JiN1IzUIJiOicGbhJye"
 
     def load_config(self) -> Dict[str, Any]:
         """
@@ -368,12 +371,18 @@ class NadlanAPIClient:
                     f"Response is not valid JSON: {response.text[:200]}"
                 )
 
-    def get_deals_by_neighborhood_id(self, base_id: str, limit: int = 20) -> Dict[str, Any]:
+    def get_deals_by_neighborhood_id(
+        self, base_id: str, limit: int = 20
+    ) -> Dict[str, Any]:
         """
         Posts a reversed HS256-signed JWT envelope as text/plain, exactly like the site.
         """
         # 1) Resolve base_name by ID shape
-        base_name = "settlmentID" if (base_id.isdigit() and len(base_id) == 4) else "neighborhoodId"
+        base_name = (
+            "settlmentID"
+            if (base_id.isdigit() and len(base_id) == 4)
+            else "neighborhoodId"
+        )
 
         # 2) Build the *clear* payload (what their _buildRequestData produces)
         clear = {
@@ -383,11 +392,14 @@ class NadlanAPIClient:
             "type_order": "dealDate_down",
             "type_order": "dealDate_down",
             "sk": make_sk(),
-            "token": str(uuid.uuid4()),        }
+            "token": str(uuid.uuid4()),
+        }
 
         # 3) API base from config.json, and derive domain like the browser does
         cfg = self.load_config()
-        api_base = cfg.get("api_base", "https://x4006fhmy5.execute-api.il-central-1.amazonaws.com")
+        api_base = cfg.get(
+            "api_base", "https://x4006fhmy5.execute-api.il-central-1.amazonaws.com"
+        )
         if api_base.endswith("/api"):
             api_base = api_base[:-4]
         url = f"{api_base}/api/deal"
@@ -416,7 +428,9 @@ class NadlanAPIClient:
         try:
             j = resp.json()
         except Exception as e:
-            raise NadlanAPIError(f"Non-JSON response from deal API: {e}; body prefix: {resp.text[:200]}")
+            raise NadlanAPIError(
+                f"Non-JSON response from deal API: {e}; body prefix: {resp.text[:200]}"
+            )
 
         parsed = unwrap_any(j)
         if parsed is not None:

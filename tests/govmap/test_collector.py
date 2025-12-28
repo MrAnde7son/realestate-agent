@@ -23,27 +23,29 @@ def test_collector_initialization_custom_client():
 def test_collect_success():
     """Test successful data collection with address"""
     collector = GovMapCollector()
-    
+
     # Mock API responses
     autocomplete_result = {
-        "results": [{
-            "shape": "POINT(100.0 200.0)",
-            "value": "Test Address"
-        }]
+        "results": [{"shape": "POINT(100.0 200.0)", "value": "Test Address"}]
     }
     parcel_data = {"parcel_id": "12345", "area": 500.0}
-    
+
     def mock_autocomplete(address):
         return autocomplete_result
-    
+
     def mock_get_parcel_data(x, y):
         assert x == 100.0
         assert y == 200.0
         return parcel_data
-    
-    with mock.patch.object(collector.client, 'autocomplete', side_effect=mock_autocomplete), \
-         mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data):
 
+    with (
+        mock.patch.object(
+            collector.client, "autocomplete", side_effect=mock_autocomplete
+        ),
+        mock.patch.object(
+            collector.client, "get_parcel_data", side_effect=mock_get_parcel_data
+        ),
+    ):
         result = collector.collect(LocationQuery(street="Test Address"))
 
         assert result["address"] == "Test Address"
@@ -56,24 +58,26 @@ def test_collect_success():
 def test_collect_with_api_failures():
     """Test collection when API calls fail"""
     collector = GovMapCollector()
-    
+
     # Mock autocomplete to return coordinates
     autocomplete_result = {
-        "results": [{
-            "shape": "POINT(100.0 200.0)",
-            "value": "Test Address"
-        }]
+        "results": [{"shape": "POINT(100.0 200.0)", "value": "Test Address"}]
     }
-    
+
     def mock_autocomplete(address):
         return autocomplete_result
-    
+
     def mock_get_parcel_data(x, y):
         raise Exception("API Error")
-    
-    with mock.patch.object(collector.client, 'autocomplete', side_effect=mock_autocomplete), \
-         mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data):
 
+    with (
+        mock.patch.object(
+            collector.client, "autocomplete", side_effect=mock_autocomplete
+        ),
+        mock.patch.object(
+            collector.client, "get_parcel_data", side_effect=mock_get_parcel_data
+        ),
+    ):
         result = collector.collect(LocationQuery(street="Test Address"))
 
         assert result["address"] == "Test Address"
@@ -87,7 +91,10 @@ def test_collect_with_api_failures():
 def test_validate_parameters_valid():
     """Test parameter validation with valid parameters"""
     collector = GovMapCollector()
-    assert collector.validate_parameters(location=LocationQuery(street="Test Address")) is True
+    assert (
+        collector.validate_parameters(location=LocationQuery(street="Test Address"))
+        is True
+    )
 
 
 def test_validate_parameters_invalid():

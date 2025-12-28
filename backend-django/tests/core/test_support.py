@@ -9,11 +9,15 @@ from core.models import SupportTicket, ConsultationRequest
 @pytest.mark.django_db
 def test_support_contact():
     User = get_user_model()
-    user = User.objects.create_user(username="u1", email="u1@example.com", password="pass")
+    user = User.objects.create_user(
+        username="u1", email="u1@example.com", password="pass"
+    )
     token = RefreshToken.for_user(user)
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
-    resp = client.post("/api/support/contact", {"subject": "s", "message": "m"}, format="json")
+    resp = client.post(
+        "/api/support/contact", {"subject": "s", "message": "m"}, format="json"
+    )
     assert resp.status_code == 201
     assert SupportTicket.objects.filter(user=user, kind="contact").exists()
 
@@ -21,7 +25,9 @@ def test_support_contact():
 @pytest.mark.django_db
 def test_support_bug_with_file(tmp_path):
     User = get_user_model()
-    user = User.objects.create_user(username="u2", email="u2@example.com", password="pass")
+    user = User.objects.create_user(
+        username="u2", email="u2@example.com", password="pass"
+    )
     token = RefreshToken.for_user(user)
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
@@ -39,7 +45,9 @@ def test_support_bug_with_file(tmp_path):
 @pytest.mark.django_db
 def test_support_consultation():
     User = get_user_model()
-    user = User.objects.create_user(username="u3", email="u3@example.com", password="pass")
+    user = User.objects.create_user(
+        username="u3", email="u3@example.com", password="pass"
+    )
     token = RefreshToken.for_user(user)
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")

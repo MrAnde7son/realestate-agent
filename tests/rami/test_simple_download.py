@@ -2,17 +2,17 @@
 
 from unittest.mock import Mock
 
-import pytest
 import requests
 
-import tests.utils.test_utils  # This sets up the Python path
 from gov.rami.rami_client import RamiClient
 
 
 class StubResponse:
     """Lightweight response object to avoid real HTTP calls."""
 
-    def __init__(self, status_code: int, headers: dict | None = None, content: bytes = b"") -> None:
+    def __init__(
+        self, status_code: int, headers: dict | None = None, content: bytes = b""
+    ) -> None:
         self.status_code = status_code
         self.headers = headers or {}
         self._content = content
@@ -37,12 +37,18 @@ def test_direct_vs_client(monkeypatch):
 
     direct_response = StubResponse(
         status_code=200,
-        headers={"content-type": "application/pdf", "content-length": str(len(pdf_payload))},
+        headers={
+            "content-type": "application/pdf",
+            "content-length": str(len(pdf_payload)),
+        },
         content=pdf_payload,
     )
     client_response = StubResponse(
         status_code=200,
-        headers={"content-type": "application/pdf", "content-length": str(len(pdf_payload))},
+        headers={
+            "content-type": "application/pdf",
+            "content-length": str(len(pdf_payload)),
+        },
         content=pdf_payload,
     )
 
@@ -71,12 +77,18 @@ def test_working_download(tmp_path, monkeypatch):
 
     test_url = "https://apps.land.gov.il/IturTabotData/takanonim/telmer/5050330.pdf"
     pdf_payload = b"%PDF-1.4 minimal"
-    response = StubResponse(status_code=200, headers={"content-type": "application/pdf"}, content=pdf_payload)
+    response = StubResponse(
+        status_code=200,
+        headers={"content-type": "application/pdf"},
+        content=pdf_payload,
+    )
 
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-    })
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        }
+    )
     session.get = Mock(return_value=response)
     monkeypatch.setattr(requests, "Session", lambda: session)
 

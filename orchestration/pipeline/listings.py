@@ -46,7 +46,9 @@ def _object_to_payload(obj: Any) -> Dict[str, Any]:
                         data["contact_name"] = contact_info.get("name")
                 if data.get("contact_phone") in (None, ""):
                     if isinstance(contact_info, dict):
-                        data["contact_phone"] = contact_info.get("phone") or contact_info.get("brokerPhone")
+                        data["contact_phone"] = contact_info.get(
+                            "phone"
+                        ) or contact_info.get("brokerPhone")
     except Exception:
         # Do not let best-effort enrichment break payload building
         pass

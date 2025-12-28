@@ -14,6 +14,7 @@ Notes
   We allow providing candidate names to try.
 * Keep layers configurable via constructor args (no environment variables).
 """
+
 from enum import Enum
 import logging
 from dataclasses import dataclass
@@ -34,7 +35,9 @@ try:
 except ImportError:
     # Fallback if import fails (for testing or standalone usage)
     Deal = None
-    logger.warning("Could not import Deal from gov.nadlan.models - will return dicts instead")
+    logger.warning(
+        "Could not import Deal from gov.nadlan.models - will return dicts instead"
+    )
 
 # Default endpoints (no env usage)
 DEFAULT_WMS = "https://open.govmap.gov.il/geoserver/opendata/wms"
@@ -59,8 +62,28 @@ _FROM_WGS84 = Transformer.from_crs(4326, 2039, always_xy=True)
 # 18 גני ילדים
 # 215699 פארקים עירוניים
 ENVIRONMENTAL_LAYER_IDS = [
-    400, 394, 386, 150, 384, 305, 417, 20, 17, 15, 21, 16, 18, 407, 151, 160, 200723, 215699, 178, 388
+    400,
+    394,
+    386,
+    150,
+    384,
+    305,
+    417,
+    20,
+    17,
+    15,
+    21,
+    16,
+    18,
+    407,
+    151,
+    160,
+    200723,
+    215699,
+    178,
+    388,
 ]
+
 
 def itm_to_wgs84(x: float, y: float) -> Tuple[float, float]:
     lon, lat = _TO_WGS84.transform(x, y)
@@ -93,6 +116,7 @@ class DealType(Enum):
     NEIGHBORHOOD = "neighborhood"
     SETTLEMENT = "settlement"
 
+
 class GovMapClient:
     """Thin client for GovMap OpenData and public endpoints."""
 
@@ -109,26 +133,37 @@ class GovMapClient:
     ) -> None:
         self.wms_url = wms_url.rstrip("?")
         self.wfs_url = wfs_url.rstrip("?")
-        self.autocomplete_url = "https://www.govmap.gov.il/api/search-service/autocomplete"
+        self.autocomplete_url = (
+            "https://www.govmap.gov.il/api/search-service/autocomplete"
+        )
         self.layers_catalog_url = "https://www.govmap.gov.il/api/layers-catalog/catalog"
         self.search_types_url = "https://www.govmap.gov.il/api/search-service/getTypes"
-        self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
-        self.base_layers_url = "https://www.govmap.gov.il/api/layers-catalog/baseLayers?language=he"
-        self.entities_by_point_url = "https://www.govmap.gov.il/api/layers-catalog/entitiesByPoint"
-        self.deals_url = "https://www.govmap.gov.il/api/real-estate/deals/{x},{y}/{radius}"
+        self.parcel_search_url = (
+            "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
+        )
+        self.base_layers_url = (
+            "https://www.govmap.gov.il/api/layers-catalog/baseLayers?language=he"
+        )
+        self.entities_by_point_url = (
+            "https://www.govmap.gov.il/api/layers-catalog/entitiesByPoint"
+        )
+        self.deals_url = (
+            "https://www.govmap.gov.il/api/real-estate/deals/{x},{y}/{radius}"
+        )
         self.specific_deals_url = "https://www.govmap.gov.il/api/real-estate/{deal_type}-deals/{polygon_id}?limit={limit}&offset={offset}&startDate={startDate}&endDate={endDate}"
-
 
         self.http = session or requests.Session()
         self.timeout = timeout
-        self.http.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-        })
+        self.http.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+                "Accept": "application/json, text/plain, */*",
+            }
+        )
 
         # Disable SSL warnings (you can set self.http.verify=True if you want strict TLS)
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        self.http.mount('https://', requests.adapters.HTTPAdapter())
+        self.http.mount("https://", requests.adapters.HTTPAdapter())
         self.http.verify = False
 
         # Auth state (no env usage)
@@ -143,7 +178,9 @@ class GovMapClient:
             self.auth_data["token"] = auth_token
 
     # ----------------------------- Search -----------------------------
-    def autocomplete(self, query: str, language: str = "he", max_results: int = 10) -> Dict[str, Any]:
+    def autocomplete(
+        self, query: str, language: str = "he", max_results: int = 10
+    ) -> Dict[str, Any]:
         """Call the public autocomplete endpoint (no token required).
         Returns the raw JSON response from the new GovMap API.
         """
@@ -160,25 +197,29 @@ class GovMapClient:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
 
-        session.headers.update({
-            "Accept": "application/json",
-            "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
-            "Content-Type": "application/json",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-        })
+        session.headers.update(
+            {
+                "Accept": "application/json",
+                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                "Content-Type": "application/json",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+            }
+        )
 
         payload = {
             "searchText": query,
             "language": language,
             "isAccurate": False,
-            "maxResults": max_results
+            "maxResults": max_results,
         }
 
         try:
-            r = session.post(self.autocomplete_url, json=payload, timeout=self.timeout, verify=False)
+            r = session.post(
+                self.autocomplete_url, json=payload, timeout=self.timeout, verify=False
+            )
             if r.status_code != 200:
                 raise GovMapError(f"Autocomplete HTTP {r.status_code}")
             return r.json()
@@ -187,7 +228,9 @@ class GovMapClient:
             raise GovMapError(f"Autocomplete failed: {e}")
 
     @staticmethod
-    def extract_coordinates_from_shapes(result: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+    def extract_coordinates_from_shapes(
+        result: Dict[str, Any],
+    ) -> Optional[Tuple[float, float]]:
         """Extract ITM coordinates from autocomplete response."""
         if "shape" in result and isinstance(result["shape"], str):
             shape = result["shape"]
@@ -197,10 +240,13 @@ class GovMapClient:
                 parts = coords_str.split()
                 if len(parts) >= 2:
                     try:
-                        x = float(parts[0]); y = float(parts[1])
+                        x = float(parts[0])
+                        y = float(parts[1])
                         return x, y
                     except (ValueError, TypeError) as e:
-                        logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
+                        logger.debug(
+                            f"Failed to parse coordinates from shape '{shape}': {e}"
+                        )
         return None
 
     def get_layers_catalog(self, language: str = "he") -> Dict[str, Any]:
@@ -214,7 +260,13 @@ class GovMapClient:
                 "Sec-Fetch-Site": "same-origin",
             }
             params = {"lang": language}
-            r = self.http.get(self.layers_catalog_url, params=params, headers=headers, timeout=self.timeout, verify=False)
+            r = self.http.get(
+                self.layers_catalog_url,
+                params=params,
+                headers=headers,
+                timeout=self.timeout,
+                verify=False,
+            )
             if r.status_code != 200:
                 raise GovMapError(f"Layers catalog HTTP {r.status_code}")
             return r.json()
@@ -234,7 +286,13 @@ class GovMapClient:
                 "Sec-Fetch-Site": "same-origin",
             }
             payload = {"language": language}
-            r = self.http.post(self.search_types_url, json=payload, headers=headers, timeout=self.timeout, verify=False)
+            r = self.http.post(
+                self.search_types_url,
+                json=payload,
+                headers=headers,
+                timeout=self.timeout,
+                verify=False,
+            )
             if r.status_code != 200:
                 raise GovMapError(f"Search types HTTP {r.status_code}")
             return r.json()
@@ -256,24 +314,38 @@ class GovMapClient:
 
         for attempt in range(3):
             try:
-                r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
+                r = self.http.get(
+                    url, headers=headers, timeout=self.timeout, verify=False
+                )
                 if r.status_code == 200:
                     return r.json()
                 elif r.status_code == 500:
                     if attempt < 2:
-                        import time; time.sleep(2 ** attempt)
-                        logger.warning(f"GovMap parcel search HTTP 500, retrying attempt {attempt + 2}/3 for ({x}, {y})")
+                        import time
+
+                        time.sleep(2**attempt)
+                        logger.warning(
+                            f"GovMap parcel search HTTP 500, retrying attempt {attempt + 2}/3 for ({x}, {y})"
+                        )
                         continue
                     raise GovMapError(f"Parcel search HTTP {r.status_code}")
                 else:
-                    logger.warning(f"GovMap parcel search returned HTTP {r.status_code} for ({x}, {y})")
+                    logger.warning(
+                        f"GovMap parcel search returned HTTP {r.status_code} for ({x}, {y})"
+                    )
                     raise GovMapError(f"Parcel search HTTP {r.status_code}")
             except Exception as e:
                 if attempt < 2:
-                    import time; time.sleep(2 ** attempt)
-                    logger.warning(f"GovMap parcel search failed, retrying attempt {attempt + 2}/3 for ({x}, {y}): {e}")
+                    import time
+
+                    time.sleep(2**attempt)
+                    logger.warning(
+                        f"GovMap parcel search failed, retrying attempt {attempt + 2}/3 for ({x}, {y}): {e}"
+                    )
                     continue
-                logger.warning(f"GovMap parcel search failed after 3 attempts for ({x}, {y}): {e}")
+                logger.warning(
+                    f"GovMap parcel search failed after 3 attempts for ({x}, {y}): {e}"
+                )
                 raise GovMapError(f"Parcel search failed: {e}")
 
         raise GovMapError("Parcel search failed after all retry attempts")
@@ -281,26 +353,26 @@ class GovMapClient:
     def get_parcel_addresses(self, objectid: int) -> List[Dict[str, Any]]:
         """Get detailed address information for a parcel using its objectid."""
         logger.info(f"Getting parcel addresses for objectid: {objectid}")
-        
+
         try:
             url = f"https://www.govmap.gov.il/api/layers-catalog/apps/address-search/parcel/{objectid}"
             r = self.http.get(url, timeout=self.timeout, verify=False)
-            
+
             if r.status_code != 200:
                 logger.warning(f"Parcel address API returned HTTP {r.status_code}")
                 return []
-            
+
             data = r.json()
             if not isinstance(data, list) or not data:
                 logger.warning(f"No address data found for objectid {objectid}")
                 return []
-            
+
             addresses = []
             for feature in data:
                 if feature.get("type") == "Feature":
                     props = feature.get("properties", {})
                     geometry = feature.get("geometry", {})
-                    
+
                     # Extract coordinates from geometry
                     coords = None
                     if geometry.get("type") == "MultiPolygon":
@@ -312,8 +384,11 @@ class GovMapClient:
                             if polygon_coords:
                                 x_sum = sum(coord[0] for coord in polygon_coords)
                                 y_sum = sum(coord[1] for coord in polygon_coords)
-                                coords = (x_sum / len(polygon_coords), y_sum / len(polygon_coords))
-                    
+                                coords = (
+                                    x_sum / len(polygon_coords),
+                                    y_sum / len(polygon_coords),
+                                )
+
                     address = {
                         "street": props.get("str_name", ""),
                         "house_number": props.get("house_num"),
@@ -323,76 +398,89 @@ class GovMapClient:
                         "x": coords[0] if coords else None,
                         "y": coords[1] if coords else None,
                     }
-                    
+
                     addresses.append(address)
-            
+
             logger.info(f"Found {len(addresses)} addresses for objectid {objectid}")
             return addresses
-            
+
         except Exception as e:
             logger.error(f"Failed to get parcel addresses for objectid {objectid}: {e}")
             return []
 
-    def get_addresses_by_block_parcel(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+    def get_addresses_by_block_parcel(
+        self, block: str, parcel: str
+    ) -> List[Dict[str, Any]]:
         """Get addresses for a given block and parcel using GovMap autocomplete API."""
         logger.info(f"Looking up addresses by block/parcel in GovMap: {block}/{parcel}")
-        
+
         try:
             # Search for the specific parcel using autocomplete
             parcel_query = f"גוש {block} חלקה {parcel}"
             logger.info(f"Searching for parcel: {parcel_query}")
-            
+
             parcel_result = self.autocomplete(parcel_query, max_results=50)
             parcel_results = parcel_result.get("results", [])
-            
+
             if not parcel_results:
-                logger.warning(f"Parcel not found in GovMap autocomplete: {parcel_query}")
+                logger.warning(
+                    f"Parcel not found in GovMap autocomplete: {parcel_query}"
+                )
                 return []
-            
+
             # Find the exact parcel match
             target_parcel = None
             for result in parcel_results:
-                if result.get("type") == "parcel" and result.get("text") == parcel_query:
+                if (
+                    result.get("type") == "parcel"
+                    and result.get("text") == parcel_query
+                ):
                     target_parcel = result
                     break
-            
+
             if not target_parcel:
                 logger.warning(f"Exact parcel match not found for {parcel_query}")
                 return []
-            
+
             # Extract coordinates from the parcel
             parcel_coords = self.extract_coordinates_from_shapes(target_parcel)
             if not parcel_coords:
-                logger.warning(f"Could not extract coordinates from parcel {parcel_query}")
+                logger.warning(
+                    f"Could not extract coordinates from parcel {parcel_query}"
+                )
                 return []
-            
+
             parcel_x, parcel_y = parcel_coords
-            logger.info(f"Found parcel {parcel_query} at coordinates: {parcel_x}, {parcel_y}")
-            
+            logger.info(
+                f"Found parcel {parcel_query} at coordinates: {parcel_x}, {parcel_y}"
+            )
+
             # Now search for addresses in the same area using the block
             # Use the block number to find nearby addresses
             address_query = f"גוש {block}"
             logger.info(f"Searching for addresses near block: {address_query}")
-            
+
             address_result = self.autocomplete(address_query, max_results=100)
             address_results = address_result.get("results", [])
-            
+
             addresses = []
             for result in address_results:
                 result_type = result.get("type", "")
                 result_text = result.get("text", "")
-                
+
                 # Look for address-related results (streets, settlements, etc.)
                 if result_type in ["address", "settlement", "poi"] and result_text:
                     coords = self.extract_coordinates_from_shapes(result)
                     if coords:
                         addr_x, addr_y = coords
                         # Check if the address is reasonably close to our parcel
-                        distance = ((addr_x - parcel_x) ** 2 + (addr_y - parcel_y) ** 2) ** 0.5
+                        distance = (
+                            (addr_x - parcel_x) ** 2 + (addr_y - parcel_y) ** 2
+                        ) ** 0.5
                         if distance < 2000:  # Within 2km
                             # Parse the address text
                             street_name = result_text
-                            
+
                             # Try to extract house number if present
                             house_number = None
                             if " " in result_text:
@@ -401,33 +489,41 @@ class GovMapClient:
                                     if part.isdigit():
                                         house_number = int(part)
                                         break
-                            
-                            addresses.append({
-                                "street": street_name,
-                                "house_number": house_number,
-                                "city": "",  # Will be extracted from context
-                                "x": addr_x,
-                                "y": addr_y,
-                            })
-            
+
+                            addresses.append(
+                                {
+                                    "street": street_name,
+                                    "house_number": house_number,
+                                    "city": "",  # Will be extracted from context
+                                    "x": addr_x,
+                                    "y": addr_y,
+                                }
+                            )
+
             # If we found addresses, return them
             if addresses:
-                logger.info(f"Found {len(addresses)} addresses for block {block}, parcel {parcel}")
+                logger.info(
+                    f"Found {len(addresses)} addresses for block {block}, parcel {parcel}"
+                )
                 return addresses
-            
+
             # If no specific addresses found, create a generic one based on the parcel
-            logger.info("No specific addresses found, creating generic address from parcel location")
-            addresses.append({
-                "street": f"גוש {block} חלקה {parcel}",
-                "house_number": None,
-                "city": "",
-                "x": parcel_x,
-                "y": parcel_y,
-            })
-            
+            logger.info(
+                "No specific addresses found, creating generic address from parcel location"
+            )
+            addresses.append(
+                {
+                    "street": f"גוש {block} חלקה {parcel}",
+                    "house_number": None,
+                    "city": "",
+                    "x": parcel_x,
+                    "y": parcel_y,
+                }
+            )
+
             logger.info(f"Created generic address for block {block}, parcel {parcel}")
             return addresses
-            
+
         except Exception as e:
             logger.error(f"Failed to lookup addresses by block/parcel in GovMap: {e}")
             return []
@@ -445,9 +541,13 @@ class GovMapClient:
 
     # ----------------------------- Utils -----------------------------
     @staticmethod
-    def extract_block_parcel(search_response: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+    def extract_block_parcel(
+        search_response: Dict[str, Any],
+    ) -> Optional[Tuple[int, int]]:
         """Extract block/parcel identifiers from a SearchAndLocate response."""
-        data = search_response.get("data") if isinstance(search_response, dict) else None
+        data = (
+            search_response.get("data") if isinstance(search_response, dict) else None
+        )
         if not data:
             return None
 
@@ -457,10 +557,13 @@ class GovMapClient:
             return None
 
         try:
-            block = int(values[0]); parcel = int(values[1])
+            block = int(values[0])
+            parcel = int(values[1])
             return block, parcel
         except (TypeError, ValueError):
-            logger.debug("Failed to parse block/parcel from SearchAndLocate values: %s", values)
+            logger.debug(
+                "Failed to parse block/parcel from SearchAndLocate values: %s", values
+            )
             return None
 
     def entities_by_point(
@@ -478,7 +581,9 @@ class GovMapClient:
             "tolerance": float(radius),
         }
 
-        r = self.http.post(self.entities_by_point_url, json=payload, timeout=self.timeout, verify=False)
+        r = self.http.post(
+            self.entities_by_point_url, json=payload, timeout=self.timeout, verify=False
+        )
         if r.status_code != 200:
             raise GovMapError(f"entitiesByPoint HTTP {r.status_code}")
         json_resp = r.json()
@@ -499,11 +604,11 @@ class GovMapClient:
         offset: int = 0,
     ) -> List[Deal]:
         """Get deals for a specific location and radius, returning standardized Deal objects.
-        
+
         This method fetches deals for a location and automatically retrieves detailed
         deal data for each polygon_id found, then converts them to Deal objects
         (same format as Nadlan Deal).
-        
+
         Parameters
         ----------
         x : float
@@ -522,7 +627,7 @@ class GovMapClient:
             Start date in format "YYYY-MM" (e.g., "1998-01")
         end_date : str
             End date in format "YYYY-MM" (e.g., "2025-11")
-            
+
         Returns
         -------
         List[Deal]
@@ -532,7 +637,7 @@ class GovMapClient:
         """
         try:
             url = self.deals_url.format(x=x, y=y, radius=radius)
-            
+
             headers = {
                 "Accept": "application/json, text/plain, */*",
                 "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
@@ -541,24 +646,24 @@ class GovMapClient:
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-origin",
             }
-            
+
             r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
             if r.status_code != 200:
                 raise GovMapError(f"Get deals by location HTTP {r.status_code}")
-            
+
             response = r.json()
             deals_list = []
             if isinstance(response, list):
                 deals_list = response
             elif isinstance(response, dict) and "data" in response:
                 deals_list = response["data"]
-            
+
             # Collect all deals and convert to Deal objects
             deal_objects = []
             for polygon_data in deals_list:
                 polygon_id = polygon_data.get("polygon_id")
                 settlement_name = polygon_data.get("settlementNameHeb", "")
-                
+
                 if polygon_id:
                     try:
                         details = self._get_deal_details(
@@ -570,34 +675,42 @@ class GovMapClient:
                             offset=offset,
                         )
                         deals = details.get("data", [])
-                        
+
                         # Convert each deal to Deal object
                         for deal in deals:
-                            deal_obj = self._convert_deal_to_deal_object(deal, settlement_name)
+                            deal_obj = self._convert_deal_to_deal_object(
+                                deal, settlement_name
+                            )
                             if deal_obj:
                                 deal_objects.append(deal_obj)
                     except Exception as e:
-                        logger.warning(f"Failed to get deal details for polygon_id {polygon_id}: {e}")
-            
+                        logger.warning(
+                            f"Failed to get deal details for polygon_id {polygon_id}: {e}"
+                        )
+
             return deal_objects
-            
+
         except Exception as e:
-            logger.error(f"Failed to get deals by location for ({x}, {y}) with radius {radius}: {e}")
+            logger.error(
+                f"Failed to get deals by location for ({x}, {y}) with radius {radius}: {e}"
+            )
             raise GovMapError(f"Get deals by location failed: {e}")
 
-    def _convert_deal_to_deal_object(self, deal: Dict[str, Any], settlement_name: str = "") -> Optional[Deal]:
+    def _convert_deal_to_deal_object(
+        self, deal: Dict[str, Any], settlement_name: str = ""
+    ) -> Optional[Deal]:
         """Convert GovMap deal format to Deal object (matching Nadlan Deal format).
-        
+
         This method normalizes GovMap deal data to match the format used by Nadlan deals,
         providing a unified interface for transaction data.
-        
+
         Parameters
         ----------
         deal : Dict[str, Any]
             Raw GovMap deal data
         settlement_name : str
             Settlement name from polygon data
-            
+
         Returns
         -------
         Optional[Deal]
@@ -606,7 +719,7 @@ class GovMapClient:
         if Deal is None:
             # Fallback to dict if Deal class is not available
             return self._convert_deal_to_transaction(deal, settlement_name)
-        
+
         try:
             # Extract deal date and convert format
             deal_date = deal.get("dealDate")
@@ -615,47 +728,53 @@ class GovMapClient:
                 try:
                     # Try ISO format first
                     if "T" in deal_date:
-                        date_obj = datetime.fromisoformat(deal_date.replace("Z", "+00:00"))
+                        date_obj = datetime.fromisoformat(
+                            deal_date.replace("Z", "+00:00")
+                        )
                         deal_date = date_obj.strftime("%d/%m/%Y")
                     elif len(deal_date) == 10:  # "YYYY-MM-DD"
                         date_obj = datetime.strptime(deal_date, "%Y-%m-%d")
                         deal_date = date_obj.strftime("%d/%m/%Y")
                     elif len(deal_date) == 7:  # "YYYY-MM"
                         date_obj = datetime.strptime(deal_date, "%Y-%m")
-                        deal_date = date_obj.strftime("01/%m/%Y")  # Use first day of month
+                        deal_date = date_obj.strftime(
+                            "01/%m/%Y"
+                        )  # Use first day of month
                 except (ValueError, TypeError):
                     pass  # Keep original format if parsing fails
-            
+
             # Extract address
             address = f"{deal.get('streetNameHeb') or ''} {deal.get('houseNum') or ''}, {deal.get('settlementNameHeb') or ''}"
             if settlement_name and address and settlement_name not in address:
-                address = f"{address}, {settlement_name}" if address else settlement_name
-            
+                address = (
+                    f"{address}, {settlement_name}" if address else settlement_name
+                )
+
             # Extract and clean deal amount using Deal's helper method
             deal_amount = deal.get("dealAmount")
             if deal_amount:
                 deal_amount = Deal._num(deal_amount)
-            
+
             # Extract area using Deal's helper method
             area = deal.get("assetArea") or deal.get("area")
             if area:
                 area = Deal._parse_number(area)
-            
+
             # Extract rooms (convert to string to match Nadlan format)
             rooms = deal.get("assetRoomNum") or deal.get("rooms")
             if rooms is not None:
                 rooms = str(rooms)
-            
+
             # Extract floor (convert to string to match Nadlan format)
             floor = deal.get("floorNo") or deal.get("floor")
             if floor is not None:
                 floor = str(floor)
-            
+
             # Extract parcel information
             gush_num = deal.get("gushNum")
             parcel_num = deal.get("parcelNum")
             sub_parcel_num = deal.get("subParcelNum")
-            
+
             # Build Deal object matching Nadlan Deal format
             deal_obj = Deal(
                 address=address,
@@ -664,7 +783,9 @@ class GovMapClient:
                 rooms=rooms,
                 floor=floor,
                 asset_type=deal.get("propertyTypeDescription") or deal.get("assetType"),
-                year_built=str(deal.get("yearBuilt")) if deal.get("yearBuilt") else None,
+                year_built=str(deal.get("yearBuilt"))
+                if deal.get("yearBuilt")
+                else None,
                 area=area,
                 neighborhood=deal.get("neighborhood") or settlement_name,
                 # Parcel information (matching Nadlan field names)
@@ -673,16 +794,18 @@ class GovMapClient:
                 parcel_sub_parcel=str(sub_parcel_num) if sub_parcel_num else None,
                 raw=deal,
             )
-            
+
             return deal_obj
-            
+
         except Exception as e:
             logger.warning(f"Failed to convert GovMap deal to Deal object: {e}")
             return None
 
-    def _convert_deal_to_transaction(self, deal: Dict[str, Any], settlement_name: str = "") -> Optional[Dict[str, Any]]:
+    def _convert_deal_to_transaction(
+        self, deal: Dict[str, Any], settlement_name: str = ""
+    ) -> Optional[Dict[str, Any]]:
         """Convert GovMap deal format to dict (fallback when Deal class unavailable).
-        
+
         This is a fallback method used when the Deal class cannot be imported.
         It returns a dictionary with the same structure as Deal.to_dict().
         """
@@ -692,7 +815,9 @@ class GovMapClient:
             if deal_date:
                 try:
                     if "T" in deal_date:
-                        date_obj = datetime.fromisoformat(deal_date.replace("Z", "+00:00"))
+                        date_obj = datetime.fromisoformat(
+                            deal_date.replace("Z", "+00:00")
+                        )
                         deal_date = date_obj.strftime("%d/%m/%Y")
                     elif len(deal_date) == 10:
                         date_obj = datetime.strptime(deal_date, "%Y-%m-%d")
@@ -702,49 +827,72 @@ class GovMapClient:
                         deal_date = date_obj.strftime("01/%m/%Y")
                 except (ValueError, TypeError):
                     pass
-            
+
             # Extract address
             address = deal.get("assetAddress") or deal.get("address") or ""
             if settlement_name and address and settlement_name not in address:
-                address = f"{address}, {settlement_name}" if address else settlement_name
-            
+                address = (
+                    f"{address}, {settlement_name}" if address else settlement_name
+                )
+
             # Extract and clean deal amount
             deal_amount = deal.get("dealAmount")
             if deal_amount:
                 try:
                     if isinstance(deal_amount, str):
-                        deal_amount = deal_amount.replace("₪", "").replace(",", "").replace(" ", "").strip()
+                        deal_amount = (
+                            deal_amount.replace("₪", "")
+                            .replace(",", "")
+                            .replace(" ", "")
+                            .strip()
+                        )
                     deal_amount = float(deal_amount) if deal_amount else None
                 except (ValueError, TypeError):
                     deal_amount = None
-            
+
             # Extract area
             area = deal.get("assetArea") or deal.get("area")
             if area:
                 try:
                     if isinstance(area, str):
-                        area = area.replace("מ²", "").replace("מ'", "").replace(",", "").strip()
+                        area = (
+                            area.replace("מ²", "")
+                            .replace("מ'", "")
+                            .replace(",", "")
+                            .strip()
+                        )
                     area = float(area) if area else None
                 except (ValueError, TypeError):
                     area = None
-            
+
             # Extract rooms and floor
-            rooms = str(deal.get("assetRoomNum") or deal.get("rooms")) if deal.get("assetRoomNum") or deal.get("rooms") else None
-            floor = str(deal.get("floorNo") or deal.get("floor")) if deal.get("floorNo") or deal.get("floor") else None
-            
+            rooms = (
+                str(deal.get("assetRoomNum") or deal.get("rooms"))
+                if deal.get("assetRoomNum") or deal.get("rooms")
+                else None
+            )
+            floor = (
+                str(deal.get("floorNo") or deal.get("floor"))
+                if deal.get("floorNo") or deal.get("floor")
+                else None
+            )
+
             # Extract parcel information
             gush_num = deal.get("gushNum")
             parcel_num = deal.get("parcelNum")
             sub_parcel_num = deal.get("subParcelNum")
-            
+
             return {
                 "address": address,
                 "deal_date": deal_date,
                 "deal_amount": deal_amount,
                 "rooms": rooms,
                 "floor": floor,
-                "asset_type": deal.get("propertyTypeDescription") or deal.get("assetType"),
-                "year_built": str(deal.get("yearBuilt")) if deal.get("yearBuilt") else None,
+                "asset_type": deal.get("propertyTypeDescription")
+                or deal.get("assetType"),
+                "year_built": str(deal.get("yearBuilt"))
+                if deal.get("yearBuilt")
+                else None,
                 "area": area,
                 "neighborhood": deal.get("neighborhood") or settlement_name,
                 "parcel_block": str(gush_num) if gush_num else None,
@@ -752,7 +900,7 @@ class GovMapClient:
                 "parcel_sub_parcel": str(sub_parcel_num) if sub_parcel_num else None,
                 "raw": deal,
             }
-            
+
         except Exception as e:
             logger.warning(f"Failed to convert GovMap deal to dict: {e}")
             return None
@@ -767,10 +915,10 @@ class GovMapClient:
         offset: int = 0,
     ) -> Dict[str, Any]:
         """Get detailed deal data for a specific polygon_id (protected method).
-        
+
         This method is called internally by get_deals_by_location to fetch detailed
         deal information for each polygon_id.
-        
+
         Parameters
         ----------
         polygon_id : str
@@ -785,12 +933,12 @@ class GovMapClient:
             Start date in format "YYYY-MM" (e.g., "1998-01")
         end_date : Optional[str]
             End date in format "YYYY-MM" (e.g., "2025-11")
-            
+
         Returns
         -------
         Dict[str, Any]
             Response containing totalCount, data (list of deals), limit, and offset.
-            Each deal in data contains: objectid, dealAmount, dealDate, assetArea, 
+            Each deal in data contains: objectid, dealAmount, dealDate, assetArea,
             propertyTypeDescription, dealNatureDescription, etc.
         """
         try:
@@ -802,7 +950,7 @@ class GovMapClient:
                 startDate=start_date,
                 endDate=end_date,
             )
-            
+
             headers = {
                 "Accept": "application/json, text/plain, */*",
                 "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
@@ -811,13 +959,13 @@ class GovMapClient:
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-origin",
             }
-            
+
             r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
             if r.status_code != 200:
                 raise GovMapError(f"Get deal details HTTP {r.status_code}")
-            
+
             return r.json()
-            
+
         except Exception as e:
             logger.error(f"Failed to get deal details for polygon_id {polygon_id}: {e}")
             raise GovMapError(f"Get deal details failed: {e}")
@@ -835,5 +983,3 @@ if __name__ == "__main__":
             # print(entities)
             deals = api_client.get_deals_by_location(x, y)
             print(deals)
-
-

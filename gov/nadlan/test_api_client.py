@@ -8,25 +8,22 @@ external dependencies for the test framework.
 
 import asyncio
 import sys
-from typing import List
 
 try:
     from .api_client import NadlanAPIClient
-    from .models import Deal, NeighborhoodInfo
-    from .exceptions import NadlanAPIError, NadlanConfigError
+    from .exceptions import NadlanAPIError
 except ImportError:
     # If running as standalone script
     from api_client import NadlanAPIClient
-    from models import Deal, NeighborhoodInfo
-    from exceptions import NadlanAPIError, NadlanConfigError
+    from exceptions import NadlanAPIError
 
 
 def test_config_loading():
     """Test configuration loading."""
     print("Testing configuration loading...")
-    
+
     client = NadlanAPIClient()
-    
+
     try:
         config = client.get_config_sync()
         print(f"✓ Configuration loaded successfully")
@@ -44,9 +41,9 @@ def test_config_loading():
 def test_neighborhood_info():
     """Test neighborhood information retrieval."""
     print("\nTesting neighborhood information retrieval...")
-    
+
     client = NadlanAPIClient()
-    
+
     try:
         info = client.get_neighborhood_info_sync("65210036")  # רמת החייל
         print(f"✓ Neighborhood info retrieved successfully")
@@ -65,23 +62,27 @@ def test_neighborhood_info():
 def test_deals_retrieval():
     """Test deals retrieval."""
     print("\nTesting deals retrieval...")
-    
+
     client = NadlanAPIClient()
-    
+
     try:
         deals = client.get_deals_by_neighborhood_id_sync("65210036")  # רמת החייל
         print(f"✓ Deals retrieved successfully")
         print(f"  Found {len(deals)} deals")
-        
+
         if deals:
             deal = deals[0]
             print(f"  Sample deal:")
             print(f"    Address: {deal.address}")
-            print(f"    Price: ₪{deal.deal_amount:,.0f}" if deal.deal_amount else "    Price: N/A")
+            print(
+                f"    Price: ₪{deal.deal_amount:,.0f}"
+                if deal.deal_amount
+                else "    Price: N/A"
+            )
             print(f"    Date: {deal.deal_date}")
             print(f"    Rooms: {deal.rooms}")
             print(f"    Area: {deal.area} sqm" if deal.area else "    Area: N/A")
-        
+
         return True
     except Exception as e:
         print(f"✗ Deals retrieval failed: {e}")
@@ -93,20 +94,20 @@ def test_deals_retrieval():
 def test_address_search():
     """Test address search."""
     print("\nTesting address search...")
-    
+
     client = NadlanAPIClient()
-    
+
     try:
         results = client.search_addresses_sync("רמת החייל", limit=3)
         print(f"✓ Address search successful")
         print(f"  Found {len(results)} results")
-        
+
         for i, result in enumerate(results):
-            print(f"  Result {i+1}:")
+            print(f"  Result {i + 1}:")
             print(f"    Address: {result['value']}")
             print(f"    Type: {result['type']}")
             print(f"    Neighborhood ID: {result['neighborhood_id']}")
-        
+
         return True
     except Exception as e:
         print(f"✗ Address search failed: {e}")
@@ -118,23 +119,23 @@ def test_address_search():
 async def test_async_functionality():
     """Test asynchronous functionality."""
     print("\nTesting asynchronous functionality...")
-    
+
     async with NadlanAPIClient() as client:
         try:
             # Test async config loading
             config = await client.get_config()
             print(f"✓ Async configuration loaded successfully")
-            
+
             # Test async deals retrieval
             deals = await client.get_deals_by_neighborhood_id("65210036")
             print(f"✓ Async deals retrieval successful")
             print(f"  Found {len(deals)} deals")
-            
+
             # Test async address search
             results = await client.search_addresses("רמת החייל", limit=2)
             print(f"✓ Async address search successful")
             print(f"  Found {len(results)} results")
-            
+
             return True
         except Exception as e:
             print(f"✗ Async functionality failed: {e}")
@@ -144,13 +145,15 @@ async def test_async_functionality():
 def test_error_handling():
     """Test error handling."""
     print("\nTesting error handling...")
-    
+
     client = NadlanAPIClient(timeout=5.0)  # Short timeout for testing
-    
+
     try:
         # Test with invalid neighborhood ID
         deals = client.get_deals_by_neighborhood_id_sync("99999999")
-        print(f"✗ Expected error for invalid neighborhood ID, but got {len(deals)} deals")
+        print(
+            f"✗ Expected error for invalid neighborhood ID, but got {len(deals)} deals"
+        )
         return False
     except NadlanAPIError as e:
         print(f"✓ Correctly caught API error for invalid neighborhood: {e}")
@@ -159,7 +162,7 @@ def test_error_handling():
         return False
     finally:
         client.close_sync()
-    
+
     return True
 
 
@@ -167,7 +170,7 @@ def run_sync_tests():
     """Run all synchronous tests."""
     print("Running Nadlan API Client Tests")
     print("=" * 50)
-    
+
     tests = [
         test_config_loading,
         test_neighborhood_info,
@@ -175,14 +178,14 @@ def run_sync_tests():
         test_address_search,
         test_error_handling,
     ]
-    
+
     passed = 0
     total = len(tests)
-    
+
     for test in tests:
         if test():
             passed += 1
-    
+
     print(f"\nSynchronous Tests: {passed}/{total} passed")
     return passed == total
 
@@ -191,7 +194,7 @@ async def run_async_tests():
     """Run asynchronous tests."""
     print("\nRunning Asynchronous Tests")
     print("=" * 30)
-    
+
     try:
         if await test_async_functionality():
             print("Asynchronous Tests: 1/1 passed")
@@ -208,11 +211,11 @@ async def main():
     """Run all tests."""
     sync_success = run_sync_tests()
     async_success = await run_async_tests()
-    
+
     print(f"\nOverall Results:")
     print(f"  Synchronous: {'✓ PASSED' if sync_success else '✗ FAILED'}")
     print(f"  Asynchronous: {'✓ PASSED' if async_success else '✗ FAILED'}")
-    
+
     if sync_success and async_success:
         print("\n🎉 All tests passed!")
         return 0

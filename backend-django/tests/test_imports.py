@@ -29,7 +29,13 @@ def test_process_customers_creates_contact(django_user_model):
     )
     batch.customers_csv.save("customers.csv", ContentFile(csv_content))
 
-    results = process_csvs(batch, ImportBatch.MODE_CUSTOMERS, dry_run=False, conflict_policy="update", enable_linking=False)
+    results = process_csvs(
+        batch,
+        ImportBatch.MODE_CUSTOMERS,
+        dry_run=False,
+        conflict_policy="update",
+        enable_linking=False,
+    )
 
     contact = Contact.objects.get(external_id="CUST-1")
     assert contact.owner == user
@@ -56,8 +62,7 @@ def test_process_properties_creates_asset_and_links(django_user_model):
     )
 
     customers_csv = (
-        "CustomerID,DisplayName,PrimaryPhone\n"
-        "CUST-10,רות לוי,050-765-4321\n"
+        "CustomerID,DisplayName,PrimaryPhone\nCUST-10,רות לוי,050-765-4321\n"
     )
     properties_csv = (
         "PropertyID,City,Street,NumHouse,Phone1,Type,Price\n"
@@ -66,7 +71,13 @@ def test_process_properties_creates_asset_and_links(django_user_model):
     batch.customers_csv.save("customers.csv", ContentFile(customers_csv))
     batch.properties_csv.save("properties.csv", ContentFile(properties_csv))
 
-    results = process_csvs(batch, ImportBatch.MODE_PROPERTIES, dry_run=False, conflict_policy="update", enable_linking=True)
+    results = process_csvs(
+        batch,
+        ImportBatch.MODE_PROPERTIES,
+        dry_run=False,
+        conflict_policy="update",
+        enable_linking=True,
+    )
 
     contact = Contact.objects.get(external_id="CUST-10")
     asset = Asset.objects.get(external_id="PROP-22")
@@ -93,10 +104,7 @@ def test_process_customers_dry_run_reports_without_creating(django_user_model):
         conflict_policy="update",
     )
 
-    csv_content = (
-        "CustomerID,DisplayName,PrimaryPhone\n"
-        "DRY-1,בדיקה,0500000000\n"
-    )
+    csv_content = "CustomerID,DisplayName,PrimaryPhone\nDRY-1,בדיקה,0500000000\n"
     batch.customers_csv.save("customers.csv", ContentFile(csv_content))
 
     results = process_csvs(

@@ -13,7 +13,7 @@ import django
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set up Django environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -21,42 +21,46 @@ from django.core.management import execute_from_command_line
 
 User = get_user_model()
 
+
 def setup_database():
     """Set up the database and create initial data."""
     print("Setting up Django database...")
-    
+
     # Run migrations
     print("Running migrations...")
     try:
-        execute_from_command_line(['manage.py', 'makemigrations'])
-        execute_from_command_line(['manage.py', 'migrate'])
+        execute_from_command_line(["manage.py", "makemigrations"])
+        execute_from_command_line(["manage.py", "migrate"])
         print("✓ Migrations completed successfully")
-        print("✓ Initial users created automatically by migration (if database was empty)")
+        print(
+            "✓ Initial users created automatically by migration (if database was empty)"
+        )
     except Exception as e:
         print(f"⚠ Warning: Migration error (this may be normal): {e}")
-    
+
     # Check if users exist
-    admin_exists = User.objects.filter(email='admin@example.com').exists()
-    demo_exists = User.objects.filter(email='demo@example.com').exists()
-    
-    print("\n" + "="*50)
+    admin_exists = User.objects.filter(email="admin@example.com").exists()
+    demo_exists = User.objects.filter(email="demo@example.com").exists()
+
+    print("\n" + "=" * 50)
     print("Database setup complete!")
-    print("="*50)
+    print("=" * 50)
     print("\nUser status:")
     print(f"Admin user: {'✓ Exists' if admin_exists else '✗ Missing'}")
     print(f"Demo user: {'✓ Exists' if demo_exists else '✗ Missing'}")
-    
+
     if admin_exists and demo_exists:
         print("\nTest accounts:")
         print("Admin: admin@example.com")
         print("Demo: demo@example.com")
     else:
         print("\n⚠ Some users are missing. Check the migration output above.")
-    
+
     print("\nNote: Users and their plans are now created automatically by migrations.")
     print("This ensures they exist after every deployment without conflicts.")
     print("\nTo start the server:")
     print("python manage.py runserver")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     setup_database()

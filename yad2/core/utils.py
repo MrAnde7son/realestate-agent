@@ -12,158 +12,172 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 class URLUtils:
     """Utilities for URL handling and parameter extraction."""
-    
+
     @staticmethod
     def extract_url_parameters(url):
         """
         Extract parameters from a Yad2 URL.
-        
+
         Args:
             url (str): The URL to parse
-            
+
         Returns:
             dict: Dictionary of parameters
         """
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
-        
+
         extracted_params = {}
         for key, values in query_params.items():
             if values:
                 extracted_params[key] = unquote(values[0])
-        
+
         return extracted_params
-    
+
     @staticmethod
     def clean_price(price_text):
         """Clean and normalize price text."""
         if not price_text:
             return None
-        
+
         # Remove common Hebrew/English price indicators
-        price_text = price_text.replace('₪', '').replace('NIS', '').replace('שח', '')
-        price_text = price_text.replace(',', '').replace(' ', '')
-        
+        price_text = price_text.replace("₪", "").replace("NIS", "").replace("שח", "")
+        price_text = price_text.replace(",", "").replace(" ", "")
+
         # Extract numeric value
-        numbers = re.findall(r'\d+', price_text)
+        numbers = re.findall(r"\d+", price_text)
         if numbers:
             return int(numbers[0])
-        
+
         # If no numbers found, check for common "price upon request" patterns
         price_lower = price_text.lower().strip()
-        if any(phrase in price_lower for phrase in ['לאצוין', 'price', 'upon', 'request', 'call', 'contact']):
+        if any(
+            phrase in price_lower
+            for phrase in ["לאצוין", "price", "upon", "request", "call", "contact"]
+        ):
             return None  # Return None for "price upon request" listings
-        
+
         # If still no valid price, return the original text (for cases like 'approx')
         return price_text
-    
+
     @staticmethod
     def extract_number(text):
         """Extract the first number from text."""
         if not text:
             return None
-        numbers = re.findall(r'\d+', text)
+        numbers = re.findall(r"\d+", text)
         return float(numbers[0]) if numbers else None
-    
+
     @staticmethod
     def extract_listing_id(url):
         """Extract listing ID from URL."""
         if not url:
             return None
-        match = re.search(r'/(\d+)/?$', url)
+        match = re.search(r"/(\d+)/?$", url)
         return match.group(1) if match else None
-    
+
     @staticmethod
     def parse_floor(floor_text):
         """
         Parse Hebrew floor descriptions to standardized format.
-        
+
         Args:
             floor_text (str): Raw floor text from Yad2 (e.g., "קומה קרקע", "קומה 3")
-            
+
         Returns:
             str: Normalized floor description
         """
         if not floor_text:
             return None
-            
+
         floor_text = floor_text.strip()
-        
+
         # Handle ground floor variations
-        if any(phrase in floor_text.lower() for phrase in ['קרקע', 'ground', 'קומה קרקע']):
-            return '0'
-        
+        if any(
+            phrase in floor_text.lower() for phrase in ["קרקע", "ground", "קומה קרקע"]
+        ):
+            return "0"
+
         # Handle basement variations
-        if any(phrase in floor_text.lower() for phrase in ['מרתף', 'basement', 'קומה מרתף']):
-            return '-1'
-        
+        if any(
+            phrase in floor_text.lower() for phrase in ["מרתף", "basement", "קומה מרתף"]
+        ):
+            return "-1"
+
         # Handle roof/penthouse variations
-        if any(phrase in floor_text.lower() for phrase in ['גג', 'roof', 'קומה גג', 'פנטהאוס', 'penthouse']):
-            return 'roof'
-        
+        if any(
+            phrase in floor_text.lower()
+            for phrase in ["גג", "roof", "קומה גג", "פנטהאוס", "penthouse"]
+        ):
+            return "roof"
+
         # Extract numeric floor number
-        numbers = re.findall(r'\d+', floor_text)
+        numbers = re.findall(r"\d+", floor_text)
         if numbers:
             return numbers[0]
-        
+
         # If no recognizable pattern, return the original text
         return floor_text
 
 
 class DataUtils:
     """Utilities for data processing and analysis."""
-    
+
     @staticmethod
     def calculate_price_stats(assets):
         """Calculate price statistics from assets."""
-        prices = [l.price for l in assets if l.price and isinstance(l.price, (int, float))]
-        
+        prices = [
+            l.price for l in assets if l.price and isinstance(l.price, (int, float))
+        ]
+
         if not prices:
             return None
-        
+
         return {
-            'count': len(prices),
-            'average': sum(prices) / len(prices),
-            'median': sorted(prices)[len(prices) // 2],
-            'min': min(prices),
-            'max': max(prices)
+            "count": len(prices),
+            "average": sum(prices) / len(prices),
+            "median": sorted(prices)[len(prices) // 2],
+            "min": min(prices),
+            "max": max(prices),
         }
-    
+
     @staticmethod
     def group_by_location(assets):
         """Group assets by location."""
         location_groups = {}
-        
+
         for listing in assets:
             if listing.address:
                 # Extract city (simple heuristic - last part after comma)
-                parts = listing.address.split(',')
-                location = parts[-1].strip() if parts else 'Unknown'
-                
+                parts = listing.address.split(",")
+                location = parts[-1].strip() if parts else "Unknown"
+
                 if location not in location_groups:
                     location_groups[location] = []
                 location_groups[location].append(listing)
-        
+
         return location_groups
-    
+
     @staticmethod
-    def filter_by_criteria(assets, min_price=None, max_price=None, min_rooms=None, max_rooms=None):
+    def filter_by_criteria(
+        assets, min_price=None, max_price=None, min_rooms=None, max_rooms=None
+    ):
         """Filter assets by criteria."""
         filtered = []
-        
+
         for listing in assets:
             # Price filter
             if min_price and listing.price and listing.price < min_price:
                 continue
             if max_price and listing.price and listing.price > max_price:
                 continue
-            
+
             # Rooms filter
             if min_rooms and listing.rooms and listing.rooms < min_rooms:
                 continue
             if max_rooms and listing.rooms and listing.rooms > max_rooms:
                 continue
-            
+
             filtered.append(listing)
-        
-        return filtered 
+
+        return filtered

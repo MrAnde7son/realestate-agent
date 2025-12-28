@@ -3,10 +3,5 @@
 This ensures the project root is in the Python path for all test modules.
 """
 
-import os
-import sys
-
-# Add project root to Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# Use the centralized path setup utility
+from tests.utils.test_utils import setup_project_path  # noqa: F401

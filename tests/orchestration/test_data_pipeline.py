@@ -190,7 +190,7 @@ def test_data_pipeline_integration():
     db = SQLAlchemyDatabase("sqlite:///:memory:")
     db.init_db()  # Initialize the database engine first
     db.create_tables()  # Then create tables
-    
+
     pipeline = DataPipeline(
         yad2=FakeYad2Collector(),
         gis=FakeGISCollector(),
@@ -199,36 +199,38 @@ def test_data_pipeline_integration():
         rami=FakeRamiCollector(),
         mavat=FakeMavatCollector(),
         handasa=FakeHandasaCollector(),
-        db_session=db.get_session()
+        db_session=db.get_session(),
     )
 
     # Run the pipeline - it should return collected data, not save to database
     location = LocationQuery(street="Fake", house_number=1, city="תל אביב")
     results = pipeline.run(location=location, asset_id=123)
-    
+
     # Verify that the pipeline returned results
     assert results, "Pipeline did not return any results"
     assert len(results) > 0, "Pipeline should return at least some results"
-    
+
     # Check that we have results from different sources
     sources = set()
     for result in results:
-        if isinstance(result, dict) and 'source' in result:
-            sources.add(result['source'])
-        elif hasattr(result, 'listing_id'):  # Yad2 listing object
-            sources.add('yad2')
-    
+        if isinstance(result, dict) and "source" in result:
+            sources.add(result["source"])
+        elif hasattr(result, "listing_id"):  # Yad2 listing object
+            sources.add("yad2")
+
     # Should have results from multiple sources
     assert len(sources) >= 2, f"Expected results from multiple sources, got: {sources}"
 
-    assert 'handasa' in sources, "Handasa permits should be included in pipeline results"
-    
+    assert "handasa" in sources, (
+        "Handasa permits should be included in pipeline results"
+    )
+
     # Verify specific source data
-    gis_found = any('gis' in str(result) for result in results)
+    gis_found = any("gis" in str(result) for result in results)
     assert gis_found, "GIS data should be included in results"
-    
+
     # Verify Mavat data is included
-    mavat_found = any('mavat' in str(result) for result in results)
+    mavat_found = any("mavat" in str(result) for result in results)
     assert mavat_found, "Mavat data should be included in results"
 
     listing_results = [r for r in results if isinstance(r, RealEstateListing)]
@@ -275,10 +277,10 @@ def test_calculate_market_metrics_skips_invalid_listings():
 
     # Only one valid listing, so asset may or may not be saved depending on implementation.
     # If asset.save() is only called when metrics are calculated, check accordingly:
-    metrics = asset.meta.get('market_metrics', {})
+    metrics = asset.meta.get("market_metrics", {})
     if metrics:
         assert asset.saved is True
-        assert metrics.get('modelPrice') == 900_000
-        assert metrics.get('confidencePct') == 20
+        assert metrics.get("modelPrice") == 900_000
+        assert metrics.get("confidencePct") == 20
     else:
         assert asset.saved is False

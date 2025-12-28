@@ -24,7 +24,7 @@ case $STRATEGY in
         ;;
     "ci")
         echo "Running CI-optimized tests (skips slow/external service tests)..."
-        python3 -m pytest -c pytest-ci.ini tests/
+        python3 -m pytest tests/ -v --tb=short --strict-markers -m "not slow and not external_service" --maxfail=5
         ;;
     "all")
         echo "Running all tests..."

@@ -7,7 +7,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -527,9 +526,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "fees_total",
-                    models.DecimalField(
-                        decimal_places=2, default=0, max_digits=10
-                    ),
+                    models.DecimalField(decimal_places=2, default=0, max_digits=10),
                 ),
                 ("valid_until", models.DateTimeField()),
                 (

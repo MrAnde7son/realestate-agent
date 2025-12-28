@@ -5,43 +5,125 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0026_rename_core_asset_block_dc43e9_idx_core_asset_block_531195_idx_and_more'),
+        (
+            "core",
+            "0026_rename_core_asset_block_dc43e9_idx_core_asset_block_531195_idx_and_more",
+        ),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='PlanningMetrics',
+            name="PlanningMetrics",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('parcel_area_m2', models.FloatField(blank=True, help_text='Total parcel area in square meters', null=True)),
-                ('footprint_area_m2', models.FloatField(blank=True, help_text='Building footprint area in square meters', null=True)),
-                ('coverage_pct', models.FloatField(blank=True, help_text='Coverage percentage (footprint/parcel)', null=True)),
-                ('allowed_envelope_polygon', models.JSONField(blank=True, help_text='GeoJSON polygon of allowed building envelope', null=True)),
-                ('setback_violations', models.JSONField(default=list, help_text='List of setback violations with details')),
-                ('height_current', models.JSONField(default=dict, help_text='Current building height data')),
-                ('height_allowed', models.JSONField(default=dict, help_text='Allowed building height data')),
-                ('height_delta', models.JSONField(default=dict, help_text='Height difference calculations')),
-                ('calc_confidence', models.CharField(choices=[('LOW', 'Low confidence'), ('MEDIUM', 'Medium confidence'), ('HIGH', 'High confidence')], default='LOW', help_text='Confidence level of calculations', max_length=20)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('asset', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='planning_metrics', to='core.asset')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "parcel_area_m2",
+                    models.FloatField(
+                        blank=True,
+                        help_text="Total parcel area in square meters",
+                        null=True,
+                    ),
+                ),
+                (
+                    "footprint_area_m2",
+                    models.FloatField(
+                        blank=True,
+                        help_text="Building footprint area in square meters",
+                        null=True,
+                    ),
+                ),
+                (
+                    "coverage_pct",
+                    models.FloatField(
+                        blank=True,
+                        help_text="Coverage percentage (footprint/parcel)",
+                        null=True,
+                    ),
+                ),
+                (
+                    "allowed_envelope_polygon",
+                    models.JSONField(
+                        blank=True,
+                        help_text="GeoJSON polygon of allowed building envelope",
+                        null=True,
+                    ),
+                ),
+                (
+                    "setback_violations",
+                    models.JSONField(
+                        default=list,
+                        help_text="List of setback violations with details",
+                    ),
+                ),
+                (
+                    "height_current",
+                    models.JSONField(
+                        default=dict, help_text="Current building height data"
+                    ),
+                ),
+                (
+                    "height_allowed",
+                    models.JSONField(
+                        default=dict, help_text="Allowed building height data"
+                    ),
+                ),
+                (
+                    "height_delta",
+                    models.JSONField(
+                        default=dict, help_text="Height difference calculations"
+                    ),
+                ),
+                (
+                    "calc_confidence",
+                    models.CharField(
+                        choices=[
+                            ("LOW", "Low confidence"),
+                            ("MEDIUM", "Medium confidence"),
+                            ("HIGH", "High confidence"),
+                        ],
+                        default="LOW",
+                        help_text="Confidence level of calculations",
+                        max_length=20,
+                    ),
+                ),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "asset",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="planning_metrics",
+                        to="core.asset",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Planning Metrics',
-                'verbose_name_plural': 'Planning Metrics',
+                "verbose_name": "Planning Metrics",
+                "verbose_name_plural": "Planning Metrics",
             },
         ),
         migrations.AddIndex(
-            model_name='planningmetrics',
-            index=models.Index(fields=['asset'], name='core_planni_asset_i_19b536_idx'),
+            model_name="planningmetrics",
+            index=models.Index(fields=["asset"], name="core_planni_asset_i_19b536_idx"),
         ),
         migrations.AddIndex(
-            model_name='planningmetrics',
-            index=models.Index(fields=['calc_confidence'], name='core_planni_calc_co_676d1c_idx'),
+            model_name="planningmetrics",
+            index=models.Index(
+                fields=["calc_confidence"], name="core_planni_calc_co_676d1c_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='planningmetrics',
-            index=models.Index(fields=['updated_at'], name='core_planni_updated_963848_idx'),
+            model_name="planningmetrics",
+            index=models.Index(
+                fields=["updated_at"], name="core_planni_updated_963848_idx"
+            ),
         ),
     ]

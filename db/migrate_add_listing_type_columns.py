@@ -22,7 +22,9 @@ def migrate():
 
     try:
         if database_url.startswith("sqlite"):
-            engine = create_engine(database_url, connect_args={"check_same_thread": False})
+            engine = create_engine(
+                database_url, connect_args={"check_same_thread": False}
+            )
             sqlite = True
         else:
             engine = create_engine(database_url, pool_pre_ping=True, pool_recycle=300)
@@ -43,14 +45,18 @@ def migrate():
         return False
 
     try:
-        existing_columns = {column["name"] for column in inspector.get_columns("listings")}
+        existing_columns = {
+            column["name"] for column in inspector.get_columns("listings")
+        }
     except SQLAlchemyError as exc:
         print(f"Failed to read listings schema: {exc}")
         return False
 
     pending_statements = []
     if "listing_type" not in existing_columns:
-        pending_statements.append("ALTER TABLE listings ADD COLUMN listing_type VARCHAR(50)")
+        pending_statements.append(
+            "ALTER TABLE listings ADD COLUMN listing_type VARCHAR(50)"
+        )
     if "ad_type" not in existing_columns:
         pending_statements.append("ALTER TABLE listings ADD COLUMN ad_type VARCHAR(50)")
 

@@ -94,18 +94,24 @@ class User(AbstractUser):
     notify_urgent = models.BooleanField(default=True)
     notification_time = models.CharField(max_length=5, default="09:00")
     report_sections = models.JSONField(default=list)
-    
+
     # LLM API keys (stored encrypted in production - TODO: implement encryption)
     # These allow users to use their own API keys for the agent
-    openai_api_key = models.TextField(blank=True, null=True, help_text="User's OpenAI API key")
-    gemini_api_key = models.TextField(blank=True, null=True, help_text="User's Gemini/Google API key")
-    groq_api_key = models.TextField(blank=True, null=True, help_text="User's Groq API key")
+    openai_api_key = models.TextField(
+        blank=True, null=True, help_text="User's OpenAI API key"
+    )
+    gemini_api_key = models.TextField(
+        blank=True, null=True, help_text="User's Gemini/Google API key"
+    )
+    groq_api_key = models.TextField(
+        blank=True, null=True, help_text="User's Groq API key"
+    )
     llm_provider_preference = models.CharField(
         max_length=20,
         blank=True,
         null=True,
         choices=[("openai", "OpenAI"), ("gemini", "Gemini"), ("groq", "Groq")],
-        help_text="User's preferred LLM provider for the agent"
+        help_text="User's preferred LLM provider for the agent",
     )
 
     USERNAME_FIELD = "email"
@@ -134,147 +140,145 @@ class User(AbstractUser):
         if not self.current_plan:
             # Default to free plan
             return self.created_assets.count() < 1
-        
+
         plan = self.current_plan.plan_type
         if plan.asset_limit == -1:  # Unlimited
             return True
-        
+
         return self.created_assets.count() < plan.asset_limit
 
 
 class PlanType(models.Model):
     """Plan type model defining different subscription tiers."""
-    
+
     PLAN_CHOICES = [
-        ('free', 'Free'),
-        ('basic', 'Basic'),
-        ('pro', 'Professional'),
+        ("free", "Free"),
+        ("basic", "Basic"),
+        ("pro", "Professional"),
     ]
-    
+
     name = models.CharField(max_length=20, choices=PLAN_CHOICES, unique=True)
     display_name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    currency = models.CharField(max_length=3, default='ILS')
-    billing_period = models.CharField(max_length=20, default='monthly')  # monthly, yearly
-    
+    currency = models.CharField(max_length=3, default="ILS")
+    billing_period = models.CharField(
+        max_length=20, default="monthly"
+    )  # monthly, yearly
+
     # Feature limits
     asset_limit = models.IntegerField(default=5)  # -1 for unlimited
     report_limit = models.IntegerField(default=10)  # -1 for unlimited
     alert_limit = models.IntegerField(default=5)  # -1 for unlimited
-    
+
     # Feature flags
     advanced_analytics = models.BooleanField(default=False)
     data_export = models.BooleanField(default=False)
     api_access = models.BooleanField(default=False)
     priority_support = models.BooleanField(default=False)
     custom_reports = models.BooleanField(default=False)
-    
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         indexes = [
-            models.Index(fields=['name']),
-            models.Index(fields=['is_active']),
+            models.Index(fields=["name"]),
+            models.Index(fields=["is_active"]),
         ]
-    
+
     def __str__(self):
         return f"{self.display_name} ({self.name})"
 
 
 class UserPlan(models.Model):
     """User subscription plan tracking."""
-    
+
     user = models.ForeignKey(
-        get_user_model(),
-        on_delete=models.CASCADE,
-        related_name="user_plans"
+        get_user_model(), on_delete=models.CASCADE, related_name="user_plans"
     )
     plan_type = models.ForeignKey(
-        PlanType,
-        on_delete=models.CASCADE,
-        related_name="user_plans"
+        PlanType, on_delete=models.CASCADE, related_name="user_plans"
     )
-    
+
     # Subscription details
     is_active = models.BooleanField(default=True)
     started_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     auto_renew = models.BooleanField(default=True)
-    
+
     # Payment tracking
     stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
     stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)
     last_payment_at = models.DateTimeField(null=True, blank=True)
     next_payment_at = models.DateTimeField(null=True, blank=True)
-    
+
     # Usage tracking
     assets_used = models.IntegerField(default=0)
     reports_used = models.IntegerField(default=0)
     alerts_used = models.IntegerField(default=0)
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         indexes = [
-            models.Index(fields=['user', 'is_active']),
-            models.Index(fields=['expires_at']),
-            models.Index(fields=['stripe_subscription_id']),
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["expires_at"]),
+            models.Index(fields=["stripe_subscription_id"]),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['user'],
+                fields=["user"],
                 condition=models.Q(is_active=True),
-                name='unique_active_user_plan'
+                name="unique_active_user_plan",
             )
         ]
-    
+
     def __str__(self):
         return f"{self.user.email} - {self.plan_type.display_name}"
-    
+
     def is_expired(self):
         """Check if the plan has expired."""
         if not self.expires_at:
             return False
         return timezone.now() > self.expires_at
-    
+
     def can_use_feature(self, feature_name, amount=1):
         """Check if user can use a specific feature based on their plan."""
         if not self.is_active or self.is_expired():
             return False
-        
+
         # Handle asset limits
-        if feature_name == 'assets':
+        if feature_name == "assets":
             if self.plan_type.asset_limit == -1:  # Unlimited
                 return True
             return (self.assets_used + amount) <= self.plan_type.asset_limit
-        
+
         # Handle report limits
-        if feature_name == 'reports':
+        if feature_name == "reports":
             if self.plan_type.report_limit == -1:  # Unlimited
                 return True
             return (self.reports_used + amount) <= self.plan_type.report_limit
-        
+
         # Handle alert limits
-        if feature_name == 'alerts':
+        if feature_name == "alerts":
             if self.plan_type.alert_limit == -1:  # Unlimited
                 return True
             return (self.alerts_used + amount) <= self.plan_type.alert_limit
-        
+
         # Handle boolean features
         feature_map = {
-            'advanced_analytics': self.plan_type.advanced_analytics,
-            'data_export': self.plan_type.data_export,
-            'api_access': self.plan_type.api_access,
-            'priority_support': self.plan_type.priority_support,
-            'custom_reports': self.plan_type.custom_reports,
+            "advanced_analytics": self.plan_type.advanced_analytics,
+            "data_export": self.plan_type.data_export,
+            "api_access": self.plan_type.api_access,
+            "priority_support": self.plan_type.priority_support,
+            "custom_reports": self.plan_type.custom_reports,
         }
-        
+
         return feature_map.get(feature_name, False)
-    
+
     def get_remaining_assets(self):
         """Get remaining asset slots for the user."""
         if self.plan_type.asset_limit == -1:  # Unlimited
@@ -322,123 +326,108 @@ class Alert(models.Model):
 
 class AlertRule(models.Model):
     """Alert rule model for user-defined notification triggers."""
-    
+
     TRIGGER_TYPE_CHOICES = [
-        ('PRICE_DROP', 'ירידת מחיר'),
-        ('NEW_LISTING', 'נכס חדש'),
-        ('MARKET_TREND', 'שינוי בשוק'),
-        ('DOCS_UPDATE', 'עדכון מסמכים'),
-        ('PERMIT_STATUS', 'סטטוס היתרים'),
-        ('NEW_GOV_TX', 'עסקה חדשה בסביבה'),
-        ('LISTING_REMOVED', 'מודעה הוסרה'),
+        ("PRICE_DROP", "ירידת מחיר"),
+        ("NEW_LISTING", "נכס חדש"),
+        ("MARKET_TREND", "שינוי בשוק"),
+        ("DOCS_UPDATE", "עדכון מסמכים"),
+        ("PERMIT_STATUS", "סטטוס היתרים"),
+        ("NEW_GOV_TX", "עסקה חדשה בסביבה"),
+        ("LISTING_REMOVED", "מודעה הוסרה"),
     ]
-    
+
     FREQUENCY_CHOICES = [
-        ('immediate', 'מיידי'),
-        ('daily', 'יומי'),
+        ("immediate", "מיידי"),
+        ("daily", "יומי"),
     ]
-    
+
     SCOPE_CHOICES = [
-        ('global', 'כללי'),
-        ('asset', 'נכס ספציפי'),
+        ("global", "כללי"),
+        ("asset", "נכס ספציפי"),
     ]
-    
+
     user = models.ForeignKey(
-        get_user_model(), 
-        on_delete=models.CASCADE, 
-        related_name="alert_rules"
+        get_user_model(), on_delete=models.CASCADE, related_name="alert_rules"
     )
-    scope = models.CharField(
-        max_length=20, 
-        choices=SCOPE_CHOICES, 
-        default='global'
-    )
+    scope = models.CharField(max_length=20, choices=SCOPE_CHOICES, default="global")
     asset = models.ForeignKey(
-        'Asset', 
-        on_delete=models.CASCADE, 
+        "Asset",
+        on_delete=models.CASCADE,
         related_name="alert_rules",
-        null=True, 
-        blank=True
+        null=True,
+        blank=True,
     )
-    trigger_type = models.CharField(
-        max_length=20, 
-        choices=TRIGGER_TYPE_CHOICES
-    )
+    trigger_type = models.CharField(max_length=20, choices=TRIGGER_TYPE_CHOICES)
     params = models.JSONField(default=dict)
     channels = models.JSONField(default=list)  # ['email', 'whatsapp']
     frequency = models.CharField(
-        max_length=20, 
-        choices=FREQUENCY_CHOICES, 
-        default='immediate'
+        max_length=20, choices=FREQUENCY_CHOICES, default="immediate"
     )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         indexes = [
-            models.Index(fields=['user', 'active']),
-            models.Index(fields=['scope', 'asset']),
-            models.Index(fields=['trigger_type']),
+            models.Index(fields=["user", "active"]),
+            models.Index(fields=["scope", "asset"]),
+            models.Index(fields=["trigger_type"]),
         ]
-    
+
     def __str__(self):
         return f"AlertRule({self.user.email}, {self.trigger_type}, {self.scope})"
 
 
 class AlertEvent(models.Model):
     """Alert event model for tracking triggered notifications."""
-    
+
     alert_rule = models.ForeignKey(
-        AlertRule, 
-        on_delete=models.CASCADE, 
-        related_name="events"
+        AlertRule, on_delete=models.CASCADE, related_name="events"
     )
     asset = models.ForeignKey(
-        'Asset', 
-        on_delete=models.CASCADE, 
+        "Asset",
+        on_delete=models.CASCADE,
         related_name="alert_events",
-        null=True, 
-        blank=True
+        null=True,
+        blank=True,
     )
     occurred_at = models.DateTimeField(auto_now_add=True)
     payload = models.JSONField(default=dict)
     payload_hash = models.CharField(max_length=64, unique=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
     digest_id = models.CharField(max_length=100, null=True, blank=True)
-    
+
     class Meta:
         indexes = [
-            models.Index(fields=['alert_rule', 'occurred_at']),
-            models.Index(fields=['asset', 'occurred_at']),
-            models.Index(fields=['payload_hash']),
-            models.Index(fields=['delivered_at']),
+            models.Index(fields=["alert_rule", "occurred_at"]),
+            models.Index(fields=["asset", "occurred_at"]),
+            models.Index(fields=["payload_hash"]),
+            models.Index(fields=["delivered_at"]),
         ]
-        ordering = ['-occurred_at']
-    
+        ordering = ["-occurred_at"]
+
     def __str__(self):
         return f"AlertEvent({self.alert_rule.trigger_type}, {self.occurred_at})"
 
 
 class Snapshot(models.Model):
     """Asset snapshot model for tracking changes over time."""
-    
+
     asset = models.ForeignKey(
-        'Asset', 
-        on_delete=models.CASCADE, 
-        related_name="snapshots"
+        "Asset", on_delete=models.CASCADE, related_name="snapshots"
     )
     payload = models.JSONField(default=dict)
     ppsqm = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         indexes = [
-            models.Index(fields=['asset', 'created_at']),
-            models.Index(fields=['ppsqm']),
+            models.Index(fields=["asset", "created_at"]),
+            models.Index(fields=["ppsqm"]),
         ]
-        ordering = ['-created_at']
-    
+        ordering = ["-created_at"]
+
     def __str__(self):
         return f"Snapshot({self.asset_id}, {self.created_at})"
 
@@ -534,7 +523,7 @@ class Asset(models.Model):
     competition_1km = models.CharField(max_length=20, blank=True, null=True)
     risk_flags = models.JSONField(blank=True, null=True, default=list)
     dom_percentile = models.IntegerField(blank=True, null=True)
-    
+
     # Price per square meter metrics
     avg_price_per_sqm = models.FloatField(blank=True, null=True)
     min_price_per_sqm = models.FloatField(blank=True, null=True)
@@ -545,62 +534,130 @@ class Asset(models.Model):
     building_rights = models.CharField(max_length=200, blank=True, null=True)
     permit_status = models.CharField(max_length=50, blank=True, null=True)
     permit_date = models.DateField(blank=True, null=True)
-    
+
     # Planning and Legal Analysis fields
-    rights_usage_pct = models.FloatField(blank=True, null=True, help_text="רמת ניצול זכויות (%)")
-    legal_restrictions = models.TextField(blank=True, null=True, help_text="מגבלות משפטיות")
-    urban_renewal_potential = models.CharField(max_length=200, blank=True, null=True, help_text="פוטנציאל התחדשות")
-    betterment_levy = models.CharField(max_length=200, blank=True, null=True, help_text="היטל השבחה צפוי")
-    
+    rights_usage_pct = models.FloatField(
+        blank=True, null=True, help_text="רמת ניצול זכויות (%)"
+    )
+    legal_restrictions = models.TextField(
+        blank=True, null=True, help_text="מגבלות משפטיות"
+    )
+    urban_renewal_potential = models.CharField(
+        max_length=200, blank=True, null=True, help_text="פוטנציאל התחדשות"
+    )
+    betterment_levy = models.CharField(
+        max_length=200, blank=True, null=True, help_text="היטל השבחה צפוי"
+    )
+
     # Enhanced Planning Metrics
-    building_coverage_pct = models.FloatField(blank=True, null=True, help_text="אחוז כיסוי בנייה (%)")
-    height_analysis = models.JSONField(blank=True, null=True, help_text="ניתוח גובה בניין")
+    building_coverage_pct = models.FloatField(
+        blank=True, null=True, help_text="אחוז כיסוי בנייה (%)"
+    )
+    height_analysis = models.JSONField(
+        blank=True, null=True, help_text="ניתוח גובה בניין"
+    )
     setback_analysis = models.JSONField(blank=True, null=True, help_text="ניתוח נסיגות")
 
     # GIS Collector Data Fields
     # Parcel data
     parcel_area = models.FloatField(blank=True, null=True, help_text="שטח חלקה")
-    parcel_registered_area = models.FloatField(blank=True, null=True, help_text="שטח חלקה רשום")
-    parcel_status = models.CharField(max_length=100, blank=True, null=True, help_text="סטטוס חלקה")
-    parcel_accuracy = models.IntegerField(blank=True, null=True, help_text="דרגת דיוק חלקה")
-    
+    parcel_registered_area = models.FloatField(
+        blank=True, null=True, help_text="שטח חלקה רשום"
+    )
+    parcel_status = models.CharField(
+        max_length=100, blank=True, null=True, help_text="סטטוס חלקה"
+    )
+    parcel_accuracy = models.IntegerField(
+        blank=True, null=True, help_text="דרגת דיוק חלקה"
+    )
+
     # Block data
     block_area = models.FloatField(blank=True, null=True, help_text="שטח גוש")
-    block_registered_area = models.FloatField(blank=True, null=True, help_text="שטח גוש רשום")
-    block_total_parcels = models.IntegerField(blank=True, null=True, help_text="מספר חלקות בגוש")
-    block_status = models.CharField(max_length=100, blank=True, null=True, help_text="סטטוס גוש")
-    block_last_update = models.BigIntegerField(blank=True, null=True, help_text="תאריך עדכון אחרון גוש")
-    
+    block_registered_area = models.FloatField(
+        blank=True, null=True, help_text="שטח גוש רשום"
+    )
+    block_total_parcels = models.IntegerField(
+        blank=True, null=True, help_text="מספר חלקות בגוש"
+    )
+    block_status = models.CharField(
+        max_length=100, blank=True, null=True, help_text="סטטוס גוש"
+    )
+    block_last_update = models.BigIntegerField(
+        blank=True, null=True, help_text="תאריך עדכון אחרון גוש"
+    )
+
     # Address data (using existing fields: street, number, city, lat, lon)
-    
+
     # Permit data
     total_permits = models.IntegerField(blank=True, null=True, help_text="מספר היתרים")
-    permit_request_num = models.CharField(max_length=100, blank=True, null=True, help_text="מספר בקשה")
-    permit_permission_num = models.CharField(max_length=100, blank=True, null=True, help_text="מספר היתר")
-    permit_building_num = models.CharField(max_length=50, blank=True, null=True, help_text="מספר בניין")
-    permit_housing_units = models.IntegerField(blank=True, null=True, help_text="יחידות דיור")
-    permit_commercial_area = models.FloatField(blank=True, null=True, help_text="שטח מסחרי")
-    permit_residential_area = models.FloatField(blank=True, null=True, help_text="שטח מגורים")
-    permit_residential_units = models.IntegerField(blank=True, null=True, help_text="יחידות מגורים")
-    permit_public_area = models.FloatField(blank=True, null=True, help_text="שטח ציבורי")
+    permit_request_num = models.CharField(
+        max_length=100, blank=True, null=True, help_text="מספר בקשה"
+    )
+    permit_permission_num = models.CharField(
+        max_length=100, blank=True, null=True, help_text="מספר היתר"
+    )
+    permit_building_num = models.CharField(
+        max_length=50, blank=True, null=True, help_text="מספר בניין"
+    )
+    permit_housing_units = models.IntegerField(
+        blank=True, null=True, help_text="יחידות דיור"
+    )
+    permit_commercial_area = models.FloatField(
+        blank=True, null=True, help_text="שטח מסחרי"
+    )
+    permit_residential_area = models.FloatField(
+        blank=True, null=True, help_text="שטח מגורים"
+    )
+    permit_residential_units = models.IntegerField(
+        blank=True, null=True, help_text="יחידות מגורים"
+    )
+    permit_public_area = models.FloatField(
+        blank=True, null=True, help_text="שטח ציבורי"
+    )
     permit_parking_area = models.FloatField(blank=True, null=True, help_text="שטח חניה")
-    permit_parking_units = models.IntegerField(blank=True, null=True, help_text="יחידות חניה")
-    permit_small_apartments = models.IntegerField(blank=True, null=True, help_text="דירות קטנות")
-    permit_unified_housing_area = models.FloatField(blank=True, null=True, help_text="שטח דיור מאוחד")
-    permit_unified_housing_units = models.IntegerField(blank=True, null=True, help_text="יחידות דיור מאוחד")
-    permit_accessible_apartments = models.IntegerField(blank=True, null=True, help_text="דירות נגישות")
-    permit_public_built_area = models.FloatField(blank=True, null=True, help_text="שטח ציבורי בנוי")
+    permit_parking_units = models.IntegerField(
+        blank=True, null=True, help_text="יחידות חניה"
+    )
+    permit_small_apartments = models.IntegerField(
+        blank=True, null=True, help_text="דירות קטנות"
+    )
+    permit_unified_housing_area = models.FloatField(
+        blank=True, null=True, help_text="שטח דיור מאוחד"
+    )
+    permit_unified_housing_units = models.IntegerField(
+        blank=True, null=True, help_text="יחידות דיור מאוחד"
+    )
+    permit_accessible_apartments = models.IntegerField(
+        blank=True, null=True, help_text="דירות נגישות"
+    )
+    permit_public_built_area = models.FloatField(
+        blank=True, null=True, help_text="שטח ציבורי בנוי"
+    )
     permit_total_area = models.FloatField(blank=True, null=True, help_text="שטח כולל")
-    permit_mavat_plan_num = models.CharField(max_length=100, blank=True, null=True, help_text="מספר תוכנית מבאו")
-    permit_parking_rooms_calculated = models.IntegerField(blank=True, null=True, help_text="חדרי חניה מחושבים")
+    permit_mavat_plan_num = models.CharField(
+        max_length=100, blank=True, null=True, help_text="מספר תוכנית מבאו"
+    )
+    permit_parking_rooms_calculated = models.IntegerField(
+        blank=True, null=True, help_text="חדרי חניה מחושבים"
+    )
     permit_full_utilization = models.BooleanField(default=False, help_text="ניצול מלא")
-    permit_subject_type = models.CharField(max_length=100, blank=True, null=True, help_text="סוג נושא")
-    permit_process = models.CharField(max_length=100, blank=True, null=True, help_text="מסלול")
-    permit_rights_notification = models.BooleanField(default=False, help_text="הודעה על זכויות")
+    permit_subject_type = models.CharField(
+        max_length=100, blank=True, null=True, help_text="סוג נושא"
+    )
+    permit_process = models.CharField(
+        max_length=100, blank=True, null=True, help_text="מסלול"
+    )
+    permit_rights_notification = models.BooleanField(
+        default=False, help_text="הודעה על זכויות"
+    )
     permit_repartition = models.BooleanField(default=False, help_text="חלוקה מחדש")
     permit_urban_renewal = models.BooleanField(default=False, help_text="חידוש עירוני")
-    permit_open_request_date = models.DateField(blank=True, null=True, help_text="תאריך פתיחת בקשה")
-    permit_construction_start_date = models.DateField(blank=True, null=True, help_text="תאריך התחלת בנייה")
+    permit_open_request_date = models.DateField(
+        blank=True, null=True, help_text="תאריך פתיחת בקשה"
+    )
+    permit_construction_start_date = models.DateField(
+        blank=True, null=True, help_text="תאריך התחלת בנייה"
+    )
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     is_demo = models.BooleanField(default=False)
@@ -651,7 +708,7 @@ class Asset(models.Model):
         null=True,
         blank=True,
         related_name="created_assets",
-        help_text="User who originally created this asset"
+        help_text="User who originally created this asset",
     )
     last_updated_by = models.ForeignKey(
         get_user_model(),
@@ -659,7 +716,7 @@ class Asset(models.Model):
         null=True,
         blank=True,
         related_name="updated_assets",
-        help_text="User who last updated this asset"
+        help_text="User who last updated this asset",
     )
 
     watchers = models.ManyToManyField(
@@ -672,13 +729,13 @@ class Asset(models.Model):
 
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
-    
+
     @property
     def address(self):
         """Return the normalized address or construct from components."""
         if self.normalized_address:
             return self.normalized_address
-        
+
         # Construct address from components
         parts = []
         if self.street:
@@ -689,7 +746,7 @@ class Asset(models.Model):
             parts.append(f"דירה {self.apartment}")
         if self.city:
             parts.append(self.city)
-        
+
         return " ".join(parts) if parts else None
 
     def delete_asset(self):
@@ -706,73 +763,73 @@ class Asset(models.Model):
         """Unified setter that updates both direct fields and metadata."""
         if value is None:
             return
-        
+
         # Initialize meta field if it doesn't exist
         if not self.meta:
             self.meta = {}
-        
+
         # Store the value directly on the asset if the field exists
         if hasattr(self, key):
             try:
                 setattr(self, key, value)
             except Exception as e:
                 logger.debug(f"Could not set asset.{key}: {e}")
-        
+
         # Store metadata for this property
         meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
         self.meta[meta_key] = {
             "value": value,
             "source": source or "unknown",
             "fetched_at": timezone.now().isoformat(),
-            "url": url
+            "url": url,
         }
 
     def set_properties(self, data_dict, source=None, url=None, meta_prefix=""):
         """Bulk setter for multiple properties with unified metadata."""
         for key, value in data_dict.items():
             self.set_property(key, value, source, url, meta_prefix)
-    
+
     def get_property_meta(self, key):
         """Get metadata for a specific property."""
         if not self.meta:
             return None
         return self.meta.get(key)
-    
+
     def get_property_value(self, key, default=None):
         """
         Get the value of a property (from direct field or meta).
         Supports nested access using dot notation.
-        
+
         Examples:
             asset.get_property_value('price')  # Simple field
             asset.get_property_value('government_data.decisive_appraisals', [])  # Nested
             asset.get_property_value('gis_data.rights', [])  # Nested
         """
         # Handle nested access with dot notation
-        if '.' in key:
+        if "." in key:
             return self._get_nested_value(key, default)
-        
+
         # First try direct field
         if hasattr(self, key):
             value = getattr(self, key)
             if value is not None:
                 return value
-        
+
         # Fall back to meta
         if self.meta and key in self.meta:
             meta = self.meta[key]
             if isinstance(meta, dict):
                 return meta.get("value")
             return meta
-        
+
         return default
-    
+
     def _get_nested_value(self, key_path, default=None):
         """Helper method to get nested values from meta."""
         if not self.meta:
             return default
 
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         current = self.meta
 
         for key in keys:
@@ -853,14 +910,19 @@ class SourceRecord(models.Model):
 
 
 class Listing(models.Model):
-    SOURCE_CHOICES = [('yad2', 'Yad2'), ('madlan', 'Madlan'), ('winwin', 'WinWin'), ('michrazim', 'Michrazim')]
+    SOURCE_CHOICES = [
+        ("yad2", "Yad2"),
+        ("madlan", "Madlan"),
+        ("winwin", "WinWin"),
+        ("michrazim", "Michrazim"),
+    ]
 
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES, db_index=True)
     external_id = models.CharField(max_length=100, db_index=True)
     title = models.CharField(max_length=500, blank=True, null=True)
     url = models.URLField(max_length=500, blank=True, null=True)
     raw = models.JSONField(default=dict)
-    status = models.CharField(max_length=30, default='active', db_index=True)
+    status = models.CharField(max_length=30, default="active", db_index=True)
     price = models.IntegerField(blank=True, null=True)
     rooms = models.FloatField(blank=True, null=True)
     area = models.FloatField(blank=True, null=True)
@@ -874,19 +936,17 @@ class Listing(models.Model):
     video_url = models.URLField(max_length=500, blank=True, null=True)
     fetched_at = models.DateTimeField(auto_now_add=True)
     assets = models.ManyToManyField(
-        'Asset',
-        through='AssetListing',
-        related_name='listings_m2m'
+        "Asset", through="AssetListing", related_name="listings_m2m"
     )
 
     class Meta:
-        unique_together = [('source', 'external_id')]
+        unique_together = [("source", "external_id")]
         indexes = [
-            models.Index(fields=['source', 'external_id']),
-            models.Index(fields=['status']),
-            models.Index(fields=['price']),
-            models.Index(fields=['rooms']),
-            models.Index(fields=['area']),
+            models.Index(fields=["source", "external_id"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["price"]),
+            models.Index(fields=["rooms"]),
+            models.Index(fields=["area"]),
         ]
 
     def __str__(self):
@@ -912,59 +972,48 @@ def promote_raw_to_asset(asset: Asset, raw: dict):
 
 class AssetContribution(models.Model):
     """Track detailed contributions to assets by users."""
-    
+
     CONTRIBUTION_TYPE_CHOICES = [
-        ('creation', 'Asset Creation'),
-        ('enrichment', 'Data Enrichment'),
-        ('verification', 'Data Verification'),
-        ('update', 'Field Update'),
-        ('source_add', 'Source Addition'),
-        ('comment', 'Comment/Note'),
+        ("creation", "Asset Creation"),
+        ("enrichment", "Data Enrichment"),
+        ("verification", "Data Verification"),
+        ("update", "Field Update"),
+        ("source_add", "Source Addition"),
+        ("comment", "Comment/Note"),
     ]
-    
+
     asset = models.ForeignKey(
-        Asset, 
-        on_delete=models.CASCADE, 
-        related_name="contributions"
+        Asset, on_delete=models.CASCADE, related_name="contributions"
     )
     user = models.ForeignKey(
-        get_user_model(),
-        on_delete=models.CASCADE,
-        related_name="asset_contributions"
+        get_user_model(), on_delete=models.CASCADE, related_name="asset_contributions"
     )
     contribution_type = models.CharField(
-        max_length=20,
-        choices=CONTRIBUTION_TYPE_CHOICES
+        max_length=20, choices=CONTRIBUTION_TYPE_CHOICES
     )
     field_name = models.CharField(
         max_length=100,
         blank=True,
         null=True,
-        help_text="Specific field that was updated (if applicable)"
+        help_text="Specific field that was updated (if applicable)",
     )
     old_value = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Previous value (if updating existing data)"
+        blank=True, null=True, help_text="Previous value (if updating existing data)"
     )
     new_value = models.TextField(
-        blank=True,
-        null=True,
-        help_text="New value added or updated"
+        blank=True, null=True, help_text="New value added or updated"
     )
     source = models.CharField(
         max_length=50,
         blank=True,
         null=True,
-        help_text="Source of the contribution (yad2, manual, etc.)"
+        help_text="Source of the contribution (yad2, manual, etc.)",
     )
     description = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Optional description of the contribution"
+        blank=True, null=True, help_text="Optional description of the contribution"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=["asset", "user"]),
@@ -972,74 +1021,75 @@ class AssetContribution(models.Model):
             models.Index(fields=["created_at"]),
         ]
         ordering = ["-created_at"]
-    
+
     def __str__(self):
         return f"Contribution({self.user.email}, {self.contribution_type}, Asset {self.asset.id})"
 
 
 class UserProfile(models.Model):
     """Extended user profile with contribution statistics and preferences."""
-    
+
     user = models.OneToOneField(
-        get_user_model(),
-        on_delete=models.CASCADE,
-        related_name="profile"
+        get_user_model(), on_delete=models.CASCADE, related_name="profile"
     )
-    
+
     # Contribution statistics
     assets_created = models.IntegerField(default=0)
     assets_updated = models.IntegerField(default=0)
     contributions_made = models.IntegerField(default=0)
     data_points_added = models.IntegerField(default=0)
     sources_contributed = models.IntegerField(default=0)
-    
+
     # Community reputation
     reputation_score = models.IntegerField(default=0)
     verification_count = models.IntegerField(default=0)
     helpful_votes = models.IntegerField(default=0)
-    
+
     # Preferences
     show_attribution = models.BooleanField(
-        default=True,
-        help_text="Show attribution for this user's contributions"
+        default=True, help_text="Show attribution for this user's contributions"
     )
     public_profile = models.BooleanField(
         default=False,
-        help_text="Allow other users to see this user's contribution history"
+        help_text="Allow other users to see this user's contribution history",
     )
     contribution_notifications = models.BooleanField(
         default=True,
-        help_text="Receive notifications when others contribute to assets you created"
+        help_text="Receive notifications when others contribute to assets you created",
     )
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_contribution_at = models.DateTimeField(null=True, blank=True)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=["reputation_score"]),
             models.Index(fields=["assets_created"]),
             models.Index(fields=["last_contribution_at"]),
         ]
-    
+
     def __str__(self):
         return f"Profile({self.user.email})"
-    
+
     def update_contribution_stats(self, contribution_type: str):
         """Update contribution statistics when user makes a contribution."""
-        if contribution_type == 'creation':
+        if contribution_type == "creation":
             self.assets_created += 1
-        elif contribution_type in ['enrichment', 'update', 'verification']:
+        elif contribution_type in ["enrichment", "update", "verification"]:
             self.assets_updated += 1
-        
+
         self.contributions_made += 1
         self.last_contribution_at = timezone.now()
-        self.save(update_fields=[
-            'assets_created', 'assets_updated', 'contributions_made', 
-            'last_contribution_at'
-        ])
+        self.save(
+            update_fields=[
+                "assets_created",
+                "assets_updated",
+                "contributions_made",
+                "last_contribution_at",
+            ]
+        )
 
 
 class RealEstateTransaction(models.Model):
@@ -1054,9 +1104,7 @@ class RealEstateTransaction(models.Model):
         help_text="(legacy) primary asset link",
     )
     assets = models.ManyToManyField(
-        'Asset',
-        through='AssetTransaction',
-        related_name='transactions_m2m'
+        "Asset", through="AssetTransaction", related_name="transactions_m2m"
     )
     deal_id = models.CharField(max_length=100, blank=True, null=True)
     date = models.DateTimeField(blank=True, null=True)
@@ -1174,7 +1222,7 @@ class Report(models.Model):
         self.status = "failed"
         self.error_message = error_message
         self.save()
-    
+
     def delete_report(self):
         """Delete the report file and database record."""
         try:
@@ -1190,57 +1238,57 @@ class Report(models.Model):
 
 class Document(models.Model):
     """Document model for storing file metadata and managing document uploads."""
-    
+
     DOCUMENT_TYPE_CHOICES = [
         # שומות (Appraisals)
         ("appraisal", "Appraisal"),
         ("appraisal_decisive", "Decisive Appraisal"),
         ("appraisal_rmi", "RAMI Appraisal"),
-        
         # היתרים (Permits)
         ("permit", "Building Permit"),
         ("permit_construction", "Construction Permit"),
         ("permit_renovation", "Renovation Permit"),
-        
         # תוכניות (Plans)
         ("plan", "Planning Document"),
         ("plan_local", "Local Plan"),
         ("plan_citywide", "Citywide Plan"),
         ("plan_detailed", "Detailed Plan"),
-        
         # נסחים (Documents/Deeds)
         ("tabu", "Tabu"),
         ("deed", "Deed"),
         ("contract", "Contract"),
         ("rights", "Rights Document"),
-        
         # תשריטים (Drawings/Blueprints)
         ("condo_plan", "Condominium Plan"),
         ("blueprint", "Blueprint"),
         ("architectural_drawing", "Architectural Drawing"),
         ("technical_drawing", "Technical Drawing"),
-        
         # אחר (Other)
         ("other", "Other"),
     ]
-    
+
     # Hebrew category mapping for UI organization
     DOCUMENT_CATEGORIES = {
         "שומות": ["appraisal", "appraisal_decisive", "appraisal_rmi"],
         "היתרים": ["permit", "permit_construction", "permit_renovation"],
         "תוכניות": ["plan", "plan_local", "plan_citywide", "plan_detailed"],
         "נסחים": ["tabu", "deed", "contract", "rights"],
-        "תשריטים": ["condo_plan", "blueprint", "architectural_drawing", "technical_drawing"],
-        "אחר": ["other"]
+        "תשריטים": [
+            "condo_plan",
+            "blueprint",
+            "architectural_drawing",
+            "technical_drawing",
+        ],
+        "אחר": ["other"],
     }
-    
+
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("approved", "Approved"),
         ("rejected", "Rejected"),
         ("expired", "Expired"),
     ]
-    
+
     # Core fields
     asset = models.ForeignKey(
         Asset,
@@ -1251,69 +1299,63 @@ class Document(models.Model):
         blank=True,
     )
     assets = models.ManyToManyField(
-        'Asset',
-        through='AssetDocument',
-        related_name='documents_m2m'
+        "Asset", through="AssetDocument", related_name="documents_m2m"
     )
     user = models.ForeignKey(
         get_user_model(),
         on_delete=models.CASCADE,
         related_name="uploaded_documents",
-        help_text="User who uploaded this document"
+        help_text="User who uploaded this document",
     )
-    
+
     # Document metadata
     title = models.CharField(max_length=200, help_text="Document title")
-    description = models.TextField(blank=True, null=True, help_text="Document description")
+    description = models.TextField(
+        blank=True, null=True, help_text="Document description"
+    )
     document_type = models.CharField(
-        max_length=50, 
-        choices=DOCUMENT_TYPE_CHOICES, 
+        max_length=50,
+        choices=DOCUMENT_TYPE_CHOICES,
         default="other",
-        help_text="Type of document"
+        help_text="Type of document",
     )
     status = models.CharField(
-        max_length=20, 
-        choices=STATUS_CHOICES, 
+        max_length=20,
+        choices=STATUS_CHOICES,
         default="pending",
-        help_text="Document status"
+        help_text="Document status",
     )
-    
+
     # File information
     filename = models.CharField(max_length=255, help_text="Original filename")
     file_path = models.CharField(max_length=500, help_text="Path to stored file")
     file_size = models.IntegerField(help_text="File size in bytes")
     mime_type = models.CharField(max_length=100, help_text="MIME type of the file")
-    
+
     # External references
     external_id = models.CharField(
-        max_length=100, 
-        blank=True, 
+        max_length=100,
+        blank=True,
         null=True,
-        help_text="External system ID (e.g., permit number)"
+        help_text="External system ID (e.g., permit number)",
     )
     external_url = models.URLField(
-        blank=True, 
-        null=True,
-        help_text="URL to external document"
+        blank=True, null=True, help_text="URL to external document"
     )
     source = models.CharField(
-        max_length=100, 
-        default="user_upload",
-        help_text="Source of the document"
+        max_length=100, default="user_upload", help_text="Source of the document"
     )
-    
+
     # Dates
     document_date = models.DateField(
-        blank=True, 
-        null=True,
-        help_text="Date the document was issued/created"
+        blank=True, null=True, help_text="Date the document was issued/created"
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     # Additional metadata
     meta = models.JSONField(default=dict, help_text="Additional metadata")
-    
+
     class Meta:
         indexes = [
             models.Index(fields=["asset"]),
@@ -1324,10 +1366,10 @@ class Document(models.Model):
             models.Index(fields=["external_id"]),
         ]
         ordering = ["-uploaded_at"]
-    
+
     def __str__(self):
         return f"Document({self.id}, {self.title}, {self.document_type})"
-    
+
     @property
     def file_url(self):
         """Return the API URL to download the document."""
@@ -1335,13 +1377,13 @@ class Document(models.Model):
         if asset_id:
             return f"/api/assets/{asset_id}/documents/{self.id}/download"
         return f"/api/documents/{self.id}/download"
-    
+
     @property
     def is_downloadable(self):
         """Check if document can be downloaded."""
         if not self.file_path:
             return False
-        
+
         # Avoid expensive existence checks on remote storage backends.
         # For local file-system storage we can check existence cheaply.
         if isinstance(default_storage, FileSystemStorage):
@@ -1353,7 +1395,7 @@ class Document(models.Model):
 
         # For remote storage (e.g. S3) assume the file exists to avoid a HEAD call per document.
         return True
-    
+
     @property
     def hebrew_category(self):
         """Get the Hebrew category for this document type."""
@@ -1361,26 +1403,28 @@ class Document(models.Model):
             if self.document_type in types:
                 return category
         return "אחר"
-    
+
     @classmethod
     def get_documents_by_category(cls, asset_id=None):
         """Get documents organized by Hebrew categories."""
-        queryset = cls.objects.select_related('asset', 'user').prefetch_related('assets')
+        queryset = cls.objects.select_related("asset", "user").prefetch_related(
+            "assets"
+        )
         if asset_id:
             queryset = queryset.filter(
                 Q(asset_id=asset_id) | Q(assets__id=asset_id)
             ).distinct()
-        
+
         documents_by_category = {}
         for category in cls.DOCUMENT_CATEGORIES.keys():
             documents_by_category[category] = []
-        
+
         for doc in queryset:
             category = doc.hebrew_category
             documents_by_category[category].append(doc)
-        
+
         return documents_by_category
-    
+
     @classmethod
     def search_documents(cls, query, asset_id=None):
         """Search documents by title, description, or external_id."""
@@ -1389,15 +1433,15 @@ class Document(models.Model):
             queryset = queryset.filter(
                 Q(asset_id=asset_id) | Q(assets__id=asset_id)
             ).distinct()
-        
+
         if query:
             queryset = queryset.filter(
-                Q(title__icontains=query) |
-                Q(description__icontains=query) |
-                Q(external_id__icontains=query) |
-                Q(filename__icontains=query)
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(external_id__icontains=query)
+                | Q(filename__icontains=query)
             )
-        
+
         return queryset
 
     def all_assets(self):
@@ -1406,7 +1450,7 @@ class Document(models.Model):
                 Q(pk=self.asset_id) | Q(document_links__document=self)
             ).distinct()
         return Asset.objects.filter(document_links__document=self).distinct()
-    
+
     def delete_file(self):
         """Delete the physical file from storage."""
         if self.file_path and os.path.exists(self.file_path):
@@ -1446,9 +1490,7 @@ class Permit(models.Model):
         help_text="(legacy) primary asset link",
     )
     assets = models.ManyToManyField(
-        'Asset',
-        through='AssetPermit',
-        related_name='permits_m2m'
+        "Asset", through="AssetPermit", related_name="permits_m2m"
     )
     permit_number = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -1488,9 +1530,7 @@ class Plan(models.Model):
         help_text="(legacy) primary asset link",
     )
     assets = models.ManyToManyField(
-        'Asset',
-        through='AssetPlan',
-        related_name='plans_m2m'
+        "Asset", through="AssetPlan", related_name="plans_m2m"
     )
     plan_number = models.CharField(max_length=100)
     title = models.CharField(max_length=255, blank=True)
@@ -1540,14 +1580,11 @@ class ShareToken(models.Model):
 
 class APIToken(models.Model):
     """API token for programmatic access to the API."""
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="api_tokens"
-    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_tokens")
     name = models.CharField(
         max_length=100,
-        help_text="A descriptive name for this token (e.g., 'MCP Server', 'LangChain Agent')"
+        help_text="A descriptive name for this token (e.g., 'MCP Server', 'LangChain Agent')",
     )
     token = models.CharField(max_length=64, unique=True, db_index=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
@@ -1580,28 +1617,31 @@ class APIToken(models.Model):
     def generate_token(cls):
         """Generate a new secure token."""
         import secrets
+
         return secrets.token_urlsafe(32)
 
 
 class OAuthAuthorizationCode(models.Model):
     """Temporary OAuth authorization code for OAuth 2.0 Authorization Code flow with PKCE support.
-    
+
     Used for OAuth 2.0 authentication flows, including:
     - MCP server authentication (ChatGPT integration)
     - API client authentication
     - Third-party integrations
     - Any OAuth 2.0 Authorization Code flow
-    
+
     Authorization codes are short-lived (10 minutes) and single-use.
     """
-    
+
     code = models.CharField(max_length=128, unique=True, db_index=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     client_id = models.CharField(max_length=255, db_index=True)
     redirect_uri = models.URLField()
     code_challenge = models.CharField(max_length=128, null=True, blank=True)
-    code_challenge_method = models.CharField(max_length=10, default='plain')  # 'plain' or 'S256'
-    scope = models.TextField(default='')  # Space-separated scopes
+    code_challenge_method = models.CharField(
+        max_length=10, default="plain"
+    )  # 'plain' or 'S256'
+    scope = models.TextField(default="")  # Space-separated scopes
     expires_at = models.DateTimeField(db_index=True)
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1617,6 +1657,7 @@ class OAuthAuthorizationCode(models.Model):
     def generate_code(cls):
         """Generate a secure authorization code."""
         import secrets
+
         return secrets.token_urlsafe(32)
 
     def is_expired(self):
@@ -1631,25 +1672,25 @@ class OAuthAuthorizationCode(models.Model):
         """Verify PKCE code verifier against stored challenge."""
         import hashlib
         import base64
-        
+
         if not self.code_challenge:
             # No PKCE challenge, allow plain verification
             return code_verifier == self.code_challenge
-        
-        if self.code_challenge_method == 'S256':
+
+        if self.code_challenge_method == "S256":
             # SHA256 hash of code_verifier should match code_challenge
             verifier_hash = hashlib.sha256(code_verifier.encode()).digest()
-            verifier_b64 = base64.urlsafe_b64encode(verifier_hash).decode().rstrip('=')
+            verifier_b64 = base64.urlsafe_b64encode(verifier_hash).decode().rstrip("=")
             return verifier_b64 == self.code_challenge
-        elif self.code_challenge_method == 'plain':
+        elif self.code_challenge_method == "plain":
             return code_verifier == self.code_challenge
-        
+
         return False
 
     def mark_used(self):
         """Mark the authorization code as used."""
         self.used = True
-        self.save(update_fields=['used'])
+        self.save(update_fields=["used"])
 
     def __str__(self):
         return f"OAuthAuthorizationCode({self.client_id}, {self.user.email}, {'used' if self.used else 'active'})"
@@ -1716,9 +1757,7 @@ class PageView(models.Model):
     """Track individual page views for detailed analytics."""
 
     session = models.ForeignKey(
-        UserSession,
-        on_delete=models.CASCADE,
-        related_name="page_views"
+        UserSession, on_delete=models.CASCADE, related_name="page_views"
     )
     user = models.ForeignKey(
         get_user_model(),
@@ -1826,20 +1865,28 @@ class ConsultationRequest(models.Model):
 
 
 class AssetDocument(models.Model):
-    document = models.ForeignKey('Document', on_delete=models.CASCADE, related_name='asset_links')
-    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='document_links')
+    document = models.ForeignKey(
+        "Document", on_delete=models.CASCADE, related_name="asset_links"
+    )
+    asset = models.ForeignKey(
+        "Asset", on_delete=models.CASCADE, related_name="document_links"
+    )
     role = models.CharField(max_length=50, blank=True, null=True)
     match_score = models.FloatField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('document', 'asset')]
-        indexes = [models.Index(fields=['asset']), models.Index(fields=['document'])]
+        unique_together = [("document", "asset")]
+        indexes = [models.Index(fields=["asset"]), models.Index(fields=["document"])]
 
 
 class AssetTransaction(models.Model):
-    transaction = models.ForeignKey('RealEstateTransaction', on_delete=models.CASCADE, related_name='asset_links')
-    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='transaction_links')
+    transaction = models.ForeignKey(
+        "RealEstateTransaction", on_delete=models.CASCADE, related_name="asset_links"
+    )
+    asset = models.ForeignKey(
+        "Asset", on_delete=models.CASCADE, related_name="transaction_links"
+    )
     role = models.CharField(max_length=50, blank=True, null=True)
     match_score = models.FloatField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1847,84 +1894,98 @@ class AssetTransaction(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['transaction', 'asset'],
-                name='unique_transaction_asset_link',
+                fields=["transaction", "asset"],
+                name="unique_transaction_asset_link",
             )
         ]
-        indexes = [models.Index(fields=['asset']), models.Index(fields=['transaction'])]
+        indexes = [models.Index(fields=["asset"]), models.Index(fields=["transaction"])]
 
 
 class AssetListing(models.Model):
-    listing = models.ForeignKey('Listing', on_delete=models.CASCADE, related_name='asset_links')
-    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='listing_links')
+    listing = models.ForeignKey(
+        "Listing", on_delete=models.CASCADE, related_name="asset_links"
+    )
+    asset = models.ForeignKey(
+        "Asset", on_delete=models.CASCADE, related_name="listing_links"
+    )
     role = models.CharField(max_length=50, blank=True, null=True)
     match_score = models.FloatField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('listing', 'asset')]
-        indexes = [models.Index(fields=['asset']), models.Index(fields=['listing'])]
+        unique_together = [("listing", "asset")]
+        indexes = [models.Index(fields=["asset"]), models.Index(fields=["listing"])]
 
 
 class AssetPermit(models.Model):
-    permit = models.ForeignKey('Permit', on_delete=models.CASCADE, related_name='asset_links')
-    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='permit_links')
+    permit = models.ForeignKey(
+        "Permit", on_delete=models.CASCADE, related_name="asset_links"
+    )
+    asset = models.ForeignKey(
+        "Asset", on_delete=models.CASCADE, related_name="permit_links"
+    )
     role = models.CharField(max_length=50, blank=True, null=True)
     match_score = models.FloatField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('permit', 'asset')]
-        indexes = [models.Index(fields=['asset']), models.Index(fields=['permit'])]
+        unique_together = [("permit", "asset")]
+        indexes = [models.Index(fields=["asset"]), models.Index(fields=["permit"])]
 
 
 class AssetPlan(models.Model):
-    plan = models.ForeignKey('Plan', on_delete=models.CASCADE, related_name='asset_links')
-    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='plan_links')
+    plan = models.ForeignKey(
+        "Plan", on_delete=models.CASCADE, related_name="asset_links"
+    )
+    asset = models.ForeignKey(
+        "Asset", on_delete=models.CASCADE, related_name="plan_links"
+    )
     role = models.CharField(max_length=50, blank=True, null=True)
     match_score = models.FloatField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('plan', 'asset')]
-        indexes = [models.Index(fields=['asset']), models.Index(fields=['plan'])]
+        unique_together = [("plan", "asset")]
+        indexes = [models.Index(fields=["asset"]), models.Index(fields=["plan"])]
 
 
 class AgentChatUsage(models.Model):
     """Track agent chat question usage per user for non-admin users."""
-    
+
     user = models.OneToOneField(
-        get_user_model(),
-        on_delete=models.CASCADE,
-        related_name="agent_chat_usage"
+        get_user_model(), on_delete=models.CASCADE, related_name="agent_chat_usage"
     )
-    questions_count = models.IntegerField(default=0, help_text="Number of questions asked in the current period")
-    last_reset_at = models.DateTimeField(auto_now_add=True, help_text="When the counter was last reset")
+    questions_count = models.IntegerField(
+        default=0, help_text="Number of questions asked in the current period"
+    )
+    last_reset_at = models.DateTimeField(
+        auto_now_add=True, help_text="When the counter was last reset"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         indexes = [
-            models.Index(fields=['user']),
-            models.Index(fields=['questions_count']),
+            models.Index(fields=["user"]),
+            models.Index(fields=["questions_count"]),
         ]
-    
+
     def __str__(self):
         return f"AgentChatUsage({self.user.email}, {self.questions_count} questions)"
-    
+
     @classmethod
     def get_or_create_usage(cls, user):
         """Get or create usage record for user."""
         usage, created = cls.objects.get_or_create(user=user)
         return usage
-    
+
     def increment_question_count(self):
         """Increment the question count."""
         self.questions_count += 1
-        self.save(update_fields=['questions_count', 'updated_at'])
-    
+        self.save(update_fields=["questions_count", "updated_at"])
+
     def reset_count(self):
         """Reset the question count (for future daily/monthly resets)."""
         self.questions_count = 0
         self.last_reset_at = timezone.now()
-        self.save(update_fields=['questions_count', 'last_reset_at', 'updated_at'])
+        self.save(update_fields=["questions_count", "last_reset_at", "updated_at"])

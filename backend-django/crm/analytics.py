@@ -10,7 +10,10 @@ from datetime import datetime
 
 class AnalyticsClient:
     """No-op analytics client."""
-    def track(self, event_name: str, user_id: Optional[int], properties: Dict[str, Any]) -> None:
+
+    def track(
+        self, event_name: str, user_id: Optional[int], properties: Dict[str, Any]
+    ) -> None:
         """No-op - analytics disabled."""
         pass
 
@@ -18,7 +21,9 @@ class AnalyticsClient:
 analytics = AnalyticsClient()
 
 
-def track_event(event_name: str, properties: Dict[str, Any], user_id: Optional[int] = None) -> None:
+def track_event(
+    event_name: str, properties: Dict[str, Any], user_id: Optional[int] = None
+) -> None:
     """No-op - analytics disabled."""
     pass
 
@@ -78,7 +83,9 @@ def track_lead_deleted(lead, user_id: int) -> None:
     pass
 
 
-def track_lead_status_changed(lead, user_id: int, from_status: str, to_status: str) -> None:
+def track_lead_status_changed(
+    lead, user_id: int, from_status: str, to_status: str
+) -> None:
     """No-op - analytics disabled."""
     pass
 
@@ -93,12 +100,16 @@ def track_lead_report_sent(lead, user_id: int, via: str) -> None:
     pass
 
 
-def track_asset_change_notified(asset, user_id: int, leads_count: int, change_summary: str) -> None:
+def track_asset_change_notified(
+    asset, user_id: int, leads_count: int, change_summary: str
+) -> None:
     """No-op - analytics disabled."""
     pass
 
 
-def track_crm_search(user_id: int, search_type: str, search_query: str, results_count: int) -> None:
+def track_crm_search(
+    user_id: int, search_type: str, search_query: str, results_count: int
+) -> None:
     """No-op - analytics disabled."""
     pass
 
@@ -172,13 +183,19 @@ def get_analytics_summary(user_id: int, days: int = 30) -> Dict[str, Any]:
     }
 
 
-def export_analytics_data(user_id: int, start_date: datetime, end_date: datetime) -> str:
+def export_analytics_data(
+    user_id: int, start_date: datetime, end_date: datetime
+) -> str:
     """No-op - analytics disabled."""
     import json
-    return json.dumps({
-        "user_id": user_id,
-        "start_date": start_date.isoformat(),
-        "end_date": end_date.isoformat(),
-        "events": [],
-        "summary": get_analytics_summary(user_id, (end_date - start_date).days),
-    }, indent=2)
+
+    return json.dumps(
+        {
+            "user_id": user_id,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "events": [],
+            "summary": get_analytics_summary(user_id, (end_date - start_date).days),
+        },
+        indent=2,
+    )

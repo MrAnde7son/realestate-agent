@@ -3,7 +3,7 @@ from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import SupportTicket, ConsultationRequest
+from .models import SupportTicket
 from .serializers import ConsultationRequestSerializer
 from .support_notify import notify_ticket, notify_consultation
 

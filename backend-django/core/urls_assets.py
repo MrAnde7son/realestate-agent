@@ -12,87 +12,86 @@ from . import views_documents as vd
 
 urlpatterns = [
     # Declare collection endpoints before ID-based routes to avoid conflicts.
-    path('', views.assets, name='assets'),
-    path('bulk-action', views.assets_bulk_action, name='assets_bulk_action'),
-    path('filter-metadata', views.assets_filter_metadata, name='assets_filter_metadata'),
-
+    path("", views.assets, name="assets"),
+    path("bulk-action", views.assets_bulk_action, name="assets_bulk_action"),
+    path(
+        "filter-metadata", views.assets_filter_metadata, name="assets_filter_metadata"
+    ),
     # Asset detail and enrichment routes
-    path('<int:asset_id>', views.asset_detail, name='asset_detail'),
+    path("<int:asset_id>", views.asset_detail, name="asset_detail"),
     path(
-        '<int:asset_id>/appraisal',
+        "<int:asset_id>/appraisal",
         views.asset_appraisal,
-        name='asset_appraisal',
+        name="asset_appraisal",
     ),
     path(
-        '<int:asset_id>/transactions',
+        "<int:asset_id>/transactions",
         views.asset_transactions,
-        name='asset_transactions',
+        name="asset_transactions",
     ),
-    path('<int:asset_id>/permits', views.asset_permits, name='asset_permits'),
-    path('<int:asset_id>/plans', views.asset_plans, name='asset_plans'),
+    path("<int:asset_id>/permits", views.asset_permits, name="asset_permits"),
+    path("<int:asset_id>/plans", views.asset_plans, name="asset_plans"),
     path(
-        '<int:asset_id>/rights',
+        "<int:asset_id>/rights",
         vd.AssetRightsView.as_view(),
-        name='asset_rights',
+        name="asset_rights",
     ),
     path(
-        '<int:asset_id>/share-message',
+        "<int:asset_id>/share-message",
         views.asset_share_message,
-        name='asset_share_message',
+        name="asset_share_message",
     ),
     path(
-        '<int:asset_id>/landing-page',
+        "<int:asset_id>/landing-page",
         views.asset_landing_page,
-        name='asset_landing_page',
+        name="asset_landing_page",
     ),
     path(
-        '<int:asset_id>/watch',
+        "<int:asset_id>/watch",
         views.asset_watch,
-        name='asset_watch',
+        name="asset_watch",
     ),
     path(
-        '<int:asset_id>/listings',
+        "<int:asset_id>/listings",
         views.asset_listings,
-        name='asset_listings',
+        name="asset_listings",
     ),
-    path('<int:asset_id>/sync', views.sync_asset, name='sync_asset'),
-
+    path("<int:asset_id>/sync", views.sync_asset, name="sync_asset"),
     # Document management
     path(
-        '<int:asset_id>/documents',
+        "<int:asset_id>/documents",
         vd.DocumentListView.as_view(),
-        name='asset_documents',
+        name="asset_documents",
     ),
     path(
-        '<int:asset_id>/documents/upload',
+        "<int:asset_id>/documents/upload",
         vd.DocumentUploadView.as_view(),
-        name='document_upload',
+        name="document_upload",
     ),
     path(
-        '<int:asset_id>/documents/<int:document_id>',
+        "<int:asset_id>/documents/<int:document_id>",
         vd.DocumentDetailView.as_view(),
-        name='document_detail',
+        name="document_detail",
     ),
     path(
-        '<int:asset_id>/documents/<int:document_id>/download',
+        "<int:asset_id>/documents/<int:document_id>/download",
         vd.DocumentDownloadView.as_view(),
-        name='document_download',
+        name="document_download",
     ),
     path(
-        '<int:asset_id>/documents/migrate-meta',
+        "<int:asset_id>/documents/migrate-meta",
         vd.create_document_from_meta,
-        name='migrate_meta_documents',
+        name="migrate_meta_documents",
     ),
-
     # Attribution
     path(
-        '<int:asset_id>/contributions',
+        "<int:asset_id>/contributions",
         views.asset_contributions,
-        name='asset_contributions',
+        name="asset_contributions",
     ),
     path(
-        '<int:asset_id>/add-contribution',
+        "<int:asset_id>/add-contribution",
         views.add_contribution,
-        name='add_contribution',
+        name="add_contribution",
     ),
 ]

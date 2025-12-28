@@ -17,7 +17,7 @@ if PROJECT_ROOT not in sys.path:
 from handasa.client import HandasaClient
 
 mcp = FastMCP(
-    "HandasaTelAviv", 
+    "HandasaTelAviv",
     dependencies=["requests"],
 )
 
@@ -60,7 +60,9 @@ async def handasa_archive(
             await ctx.info(
                 f"Fetching Handasa archive for block={block} parcel={parcel or '-'}"
             )
-            documents = client.get_archive(block=block, parcel=parcel, page_size=int(page_size))
+            documents = client.get_archive(
+                block=block, parcel=parcel, page_size=int(page_size)
+            )
             return {
                 "success": True,
                 "block": block,
@@ -96,7 +98,9 @@ async def download_handasa_document(
     client = _get_client()
     await ctx.info(f"Downloading Handasa document {unique_id}")
 
-    payload = client.download_document(unique_id=unique_id, save_to=save_to, overwrite=overwrite)
+    payload = client.download_document(
+        unique_id=unique_id, save_to=save_to, overwrite=overwrite
+    )
 
     result: Dict[str, Any] = {
         "success": True,

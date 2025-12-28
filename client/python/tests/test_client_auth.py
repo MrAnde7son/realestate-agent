@@ -33,7 +33,9 @@ def test_login_sets_authorization_header(monkeypatch, client):
         captured["method"] = method
         captured["url"] = url
         captured["json"] = kwargs.get("json")
-        return DummyResponse(data={"access_token": "new-token", "refresh_token": "other"})
+        return DummyResponse(
+            data={"access_token": "new-token", "refresh_token": "other"}
+        )
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
@@ -51,7 +53,9 @@ def test_refresh_token_uses_correct_payload(monkeypatch, client):
 
     def fake_request(method, url, **kwargs):  # noqa: ANN001
         captured["json"] = kwargs.get("json")
-        return DummyResponse(data={"access_token": "updated", "refresh_token": "refreshed"})
+        return DummyResponse(
+            data={"access_token": "updated", "refresh_token": "refreshed"}
+        )
 
     monkeypatch.setattr(client.session, "request", fake_request)
 

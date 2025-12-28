@@ -238,7 +238,31 @@ terraform.tfvars
 *.tfvars
 !terraform.tfvars.example
 
+# Redis dumps
+*.rdb
+dump.rdb
 
-**/deal_cache/**
-**/permits/**
-**/privilege_pages/**
+# Cache directories
+deal_cache/
+**/deal_cache/
+
+# Temporary files
+tmp/
+**/tmp/
+
+# Cookie files
+cookies.txt
+*.cookies
+
+# Media files (user uploads) - exclude contents but keep structure
+media/*
+!media/.gitkeep
+**/media/*
+!**/media/.gitkeep
+
+# Local development files - avoid committing local changes
+**/permits/
+**/privilege_pages/
+**/error_modal_*.png
+**/privilege_block*.pdf
+**/test_privilege_pages/

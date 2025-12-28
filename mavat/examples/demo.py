@@ -15,7 +15,7 @@ import os
 import sys
 
 # Add the mavat package to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from mcp_server import (
     get_plan_details,
@@ -26,13 +26,13 @@ from mcp_server import (
 
 class MockContext:
     """Mock context for demo purposes."""
-    
+
     async def info(self, message):
         print(f"INFO: {message}")
-    
+
     async def error(self, message):
         print(f"ERROR: {message}")
-    
+
     async def warning(self, message):
         print(f"WARNING: {message}")
 
@@ -40,15 +40,15 @@ class MockContext:
 async def demo_search_plans():
     """Demonstrate plan search functionality."""
     print("\n=== Demo: Search Plans ===")
-    
+
     context = MockContext()
-    
+
     # Search for plans in a specific area
     result = await search_plans(context, "רמת החייל", limit=5)
-    
+
     if result.get("success"):
         print(f"Found {result['total_results']} plans:")
-        for plan in result['plans'][:3]:  # Show first 3
+        for plan in result["plans"][:3]:  # Show first 3
             print(f"  - {plan['title']} (ID: {plan['plan_id']})")
             print(f"    Status: {plan['status']}")
             print(f"    Authority: {plan['authority']}")
@@ -59,15 +59,15 @@ async def demo_search_plans():
 async def demo_get_plan_details():
     """Demonstrate plan details retrieval."""
     print("\n=== Demo: Get Plan Details ===")
-    
+
     context = MockContext()
-    
+
     # Get details for a specific plan (using a sample ID)
     plan_id = "12345"  # This would be a real plan ID in practice
     result = await get_plan_details(context, plan_id)
-    
+
     if result.get("success"):
-        plan = result['plan']
+        plan = result["plan"]
         print(f"Plan: {plan['plan_name']}")
         print(f"Status: {plan['status']}")
         print(f"Authority: {plan['authority']}")
@@ -79,16 +79,16 @@ async def demo_get_plan_details():
 async def demo_get_plan_documents():
     """Demonstrate document retrieval."""
     print("\n=== Demo: Get Plan Documents ===")
-    
+
     context = MockContext()
-    
+
     # Get documents for a specific plan
     plan_id = "12345"
     result = await get_plan_documents(context, plan_id)
-    
+
     if result.get("success"):
         print(f"Found {result['documents_count']} documents:")
-        for doc in result['documents'][:3]:  # Show first 3
+        for doc in result["documents"][:3]:  # Show first 3
             print(f"  - {doc.get('name', 'Unknown document')}")
     else:
         print(f"Failed to get documents: {result.get('error')}")
@@ -98,12 +98,12 @@ async def main():
     """Run all demos."""
     print("Mavat MCP Server Demo")
     print("=" * 50)
-    
+
     try:
         await demo_search_plans()
         await demo_get_plan_details()
         await demo_get_plan_documents()
-        
+
     except Exception as e:
         print(f"Demo failed with error: {e}")
         print("Note: This demo requires Playwright to be installed.")
@@ -112,4 +112,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

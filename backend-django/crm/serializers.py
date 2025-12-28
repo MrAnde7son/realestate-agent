@@ -67,7 +67,7 @@ class ContactSerializer(serializers.ModelSerializer):
         decimal_places=2,
         required=False,
         allow_null=True,
-        coerce_to_string=False
+        coerce_to_string=False,
     )
     city = serializers.CharField(required=False, allow_blank=True, default="")
     streets = serializers.CharField(required=False, allow_blank=True, default="")
@@ -121,17 +121,15 @@ class ContactSerializer(serializers.ModelSerializer):
 
 class LeadSerializer(serializers.ModelSerializer):
     """Serializer for Lead model."""
-    
+
     contact = ContactSerializer(read_only=True)
     contact_id = serializers.IntegerField(source="contact.id", read_only=True)
     contact_id_write = serializers.PrimaryKeyRelatedField(
-        write_only=True, 
-        queryset=Contact.objects.all(), 
-        source="contact"
+        write_only=True, queryset=Contact.objects.all(), source="contact"
     )
     asset_id = serializers.IntegerField(write_only=True)
     asset_id_read = serializers.IntegerField(source="asset.id", read_only=True)
-    
+
     asset = serializers.SerializerMethodField(read_only=True)
     asset_address = serializers.CharField(source="asset.address", read_only=True)
     asset_price = serializers.IntegerField(source="asset.price", read_only=True)
@@ -199,32 +197,40 @@ class LeadSerializer(serializers.ModelSerializer):
         """Get asset information for the lead."""
         if obj.asset:
             return {
-                'id': obj.asset.id,
-                'address': obj.asset.address,
-                'price': obj.asset.price,
-                'rooms': obj.asset.rooms,
-                'area': obj.asset.area,
-                'city': obj.asset.city,
-                'street': obj.asset.street,
-                'number': obj.asset.number
+                "id": obj.asset.id,
+                "address": obj.asset.address,
+                "price": obj.asset.price,
+                "rooms": obj.asset.rooms,
+                "area": obj.asset.area,
+                "city": obj.asset.city,
+                "street": obj.asset.street,
+                "number": obj.asset.number,
             }
         return None
 
     def validate_contact_id_write(self, value):
         """Validate that the contact exists and user has permission."""
         request = self.context.get("request")
-        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+        if (
+            request
+            and not request.user.is_superuser
+            and value.owner_id != request.user.id
+        ):
             raise serializers.ValidationError("No permission on this contact")
         return value
 
     def validate_asset_id(self, value):
         """Validate that the asset exists and user has permission."""
         from core.models import Asset
+
         try:
             asset = Asset.objects.get(id=value)
             # For now, just check if user created the asset or has access
             # This can be enhanced based on existing permission system
-            if hasattr(self.context.get('request'), 'user') and asset.created_by_id != self.context['request'].user.id:
+            if (
+                hasattr(self.context.get("request"), "user")
+                and asset.created_by_id != self.context["request"].user.id
+            ):
                 raise serializers.ValidationError("No permission on this asset")
         except Asset.DoesNotExist:
             raise serializers.ValidationError("Asset not found")
@@ -234,17 +240,17 @@ class LeadSerializer(serializers.ModelSerializer):
         """Validate lead data."""
         user = self.context["request"].user
         contact = attrs.get("contact")
-        
+
         # Check contact ownership if contact exists
         if contact and contact.owner_id != user.id:
             raise serializers.ValidationError("No permission on this contact")
-        
+
         return attrs
 
 
 class LeadStatusUpdateSerializer(serializers.Serializer):
     """Serializer for updating lead status."""
-    
+
     status = serializers.ChoiceField(choices=LeadStatus.choices)
 
 
@@ -261,7 +267,9 @@ class ContactTaskSerializer(serializers.ModelSerializer):
         queryset=Contact.objects.all(),
         source="contact",
     )
-    lead_id = serializers.IntegerField(source="lead.id", read_only=True, allow_null=True)
+    lead_id = serializers.IntegerField(
+        source="lead.id", read_only=True, allow_null=True
+    )
     lead_id_write = serializers.PrimaryKeyRelatedField(
         write_only=True,
         queryset=Lead.objects.all(),
@@ -290,17 +298,33 @@ class ContactTaskSerializer(serializers.ModelSerializer):
             "lead_id",
             "lead_id_write",
         ]
-        read_only_fields = ["id", "completed_at", "created_at", "updated_at", "contact", "lead"]
+        read_only_fields = [
+            "id",
+            "completed_at",
+            "created_at",
+            "updated_at",
+            "contact",
+            "lead",
+        ]
 
     def validate_contact_id(self, value):
         request = self.context.get("request")
-        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+        if (
+            request
+            and not request.user.is_superuser
+            and value.owner_id != request.user.id
+        ):
             raise serializers.ValidationError("No permission on this contact")
         return value
 
     def validate_lead_id_write(self, value):
         request = self.context.get("request")
-        if value and request and not request.user.is_superuser and value.contact.owner_id != request.user.id:
+        if (
+            value
+            and request
+            and not request.user.is_superuser
+            and value.contact.owner_id != request.user.id
+        ):
             raise serializers.ValidationError("No permission on this lead")
         return value
 
@@ -314,7 +338,9 @@ class ContactMeetingSerializer(serializers.ModelSerializer):
         source="contact",
     )
     contact = ContactSerializer(read_only=True)
-    status = serializers.ChoiceField(choices=ContactMeetingStatus.choices, required=False)
+    status = serializers.ChoiceField(
+        choices=ContactMeetingStatus.choices, required=False
+    )
 
     class Meta:
         model = ContactMeeting
@@ -335,7 +361,11 @@ class ContactMeetingSerializer(serializers.ModelSerializer):
 
     def validate_contact_id(self, value):
         request = self.context.get("request")
-        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+        if (
+            request
+            and not request.user.is_superuser
+            and value.owner_id != request.user.id
+        ):
             raise serializers.ValidationError("No permission on this contact")
         return value
 
@@ -349,7 +379,9 @@ class ContactInteractionSerializer(serializers.ModelSerializer):
         source="contact",
     )
     contact = ContactSerializer(read_only=True)
-    interaction_type = serializers.ChoiceField(choices=InteractionType.choices, required=False)
+    interaction_type = serializers.ChoiceField(
+        choices=InteractionType.choices, required=False
+    )
 
     class Meta:
         model = ContactInteraction
@@ -370,6 +402,10 @@ class ContactInteractionSerializer(serializers.ModelSerializer):
 
     def validate_contact_id(self, value):
         request = self.context.get("request")
-        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+        if (
+            request
+            and not request.user.is_superuser
+            and value.owner_id != request.user.id
+        ):
             raise serializers.ValidationError("No permission on this contact")
         return value

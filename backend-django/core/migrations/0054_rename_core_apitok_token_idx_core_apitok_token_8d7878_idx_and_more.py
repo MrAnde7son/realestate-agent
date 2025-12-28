@@ -102,7 +102,6 @@ def revert_indexes(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0053_add_user_llm_api_keys"),
     ]

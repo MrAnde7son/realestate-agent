@@ -1,2 +1,1 @@
 """Real Estate Agent module."""
-

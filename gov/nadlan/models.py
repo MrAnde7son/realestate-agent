@@ -72,7 +72,9 @@ class Deal:
             return None
 
     @staticmethod
-    def _parse_parcel_num(parcel_num: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    def _parse_parcel_num(
+        parcel_num: str,
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
         """Parse parcel number into block, parcel, and sub-parcel.
 
         Args:
@@ -85,7 +87,7 @@ class Deal:
             return None, None, None
 
         try:
-            parts = str(parcel_num).split('-')
+            parts = str(parcel_num).split("-")
             if len(parts) >= 3:
                 return parts[0], parts[1], parts[2]
             elif len(parts) == 2:
@@ -106,11 +108,21 @@ class Deal:
         return cls(
             address=d.get("address") or d.get("AssetAddress"),
             deal_date=d.get("deal_date") or d.get("dealDate") or d.get("DealDate"),
-            deal_amount=cls._num(d.get("deal_amount") or d.get("dealAmount") or d.get("Price")),
+            deal_amount=cls._num(
+                d.get("deal_amount") or d.get("dealAmount") or d.get("Price")
+            ),
             rooms=(str(d.get("rooms") or d.get("Rooms") or "") or None),
             floor=(str(d.get("floor") or d.get("Floor") or "") or None),
             asset_type=d.get("asset_type") or d.get("assetType") or d.get("AssetType"),
-            year_built=(str(d.get("year_built") or d.get("yearBuilt") or d.get("BuildingYear") or "") or None),
+            year_built=(
+                str(
+                    d.get("year_built")
+                    or d.get("yearBuilt")
+                    or d.get("BuildingYear")
+                    or ""
+                )
+                or None
+            ),
             area=cls._parse_number(d.get("area") or d.get("TotalArea")),
             neighborhood=d.get("neighborhood") or d.get("Neighborhood"),
             # Parcel information
@@ -124,7 +136,7 @@ class Deal:
         """Convert to dictionary, excluding the raw field to prevent recursive nesting."""
         result = asdict(self)
         # Remove the raw field to prevent recursive nesting in cache
-        result.pop('raw', None)
+        result.pop("raw", None)
         return result
 
 

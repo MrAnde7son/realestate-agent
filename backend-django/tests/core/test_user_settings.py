@@ -1,6 +1,5 @@
 """Tests for the user settings API."""
 
-
 import uuid
 import pytest
 
@@ -45,4 +44,3 @@ def test_user_settings_get_and_update():
     assert user.language == "he"
     assert user.notify_email is False
     assert user.report_sections == ["summary", "plans"]
-

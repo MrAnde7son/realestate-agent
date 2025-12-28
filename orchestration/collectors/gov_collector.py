@@ -27,9 +27,7 @@ class GovCollector(BaseCollector):
     ) -> None:
         # Use optimized scraper with caching and date filtering for performance
         self.deals_client = deals_client or NadlanDealsScraper(
-            timeout=120.0, 
-            max_age_days=max_age_days,
-            use_cache=use_cache
+            timeout=120.0, max_age_days=max_age_days, use_cache=use_cache
         )
         self.decisive_client = decisive_client or DecisiveAppraisalClient(timeout=120.0)
         self.govmap_client = govmap_client or GovMapClient()
@@ -56,20 +54,27 @@ class GovCollector(BaseCollector):
         address = query.formatted or query.street or query.city
 
         # Collect Nadlan transactions
-        nadlan_transactions = self._collect_transactions(address, max_age_days, force_refresh)
-        
+        nadlan_transactions = self._collect_transactions(
+            address, max_age_days, force_refresh
+        )
+
         # Collect GovMap deals if coordinates are available in LocationQuery
         govmap_transactions = []
         if query.x_itm is not None and query.y_itm is not None:
-            logger.info(f"📍 GovCollector: Coordinates available - ITM({query.x_itm}, {query.y_itm}), collecting GovMap deals...")
-            govmap_transactions = self._collect_govmap_deals(query.x_itm, query.y_itm, max_age_days)
+            logger.info(
+                f"📍 GovCollector: Coordinates available - ITM({query.x_itm}, {query.y_itm}), collecting GovMap deals..."
+            )
+            govmap_transactions = self._collect_govmap_deals(
+                query.x_itm, query.y_itm, max_age_days
+            )
         else:
-            logger.warning(f"⚠️ GovCollector: No coordinates available (x_itm={query.x_itm}, y_itm={query.y_itm}), skipping GovMap deals collection")
-        
+            logger.warning(
+                f"⚠️ GovCollector: No coordinates available (x_itm={query.x_itm}, y_itm={query.y_itm}), skipping GovMap deals collection"
+            )
+
         # Merge and deduplicate transactions (prefer Nadlan when duplicates exist)
         all_transactions = self._merge_and_deduplicate_transactions(
-            nadlan_transactions, 
-            govmap_transactions
+            nadlan_transactions, govmap_transactions
         )
 
         return {
@@ -81,44 +86,61 @@ class GovCollector(BaseCollector):
         """Collect decisive appraisals for a given block/parcel."""
         # Only collect if block is provided and not empty
         if not block or not str(block).strip():
-            logger.debug(f"Skipping decisive appraisals collection: block is empty or None (block={block}, parcel={parcel})")
+            logger.debug(
+                f"Skipping decisive appraisals collection: block is empty or None (block={block}, parcel={parcel})"
+            )
             return []
-        
+
         try:
             # Block search is enough for decisive appraisals to cover larger area
             appraisals = self.decisive_client.fetch_appraisals(block=block)
-            logger.info(f"Collected {len(appraisals)} decisive appraisals for block {block}")
+            logger.info(
+                f"Collected {len(appraisals)} decisive appraisals for block {block}"
+            )
             return [appraisal.to_dict() for appraisal in appraisals]
         except Exception as e:
             logger.error(f"Error collecting decisive appraisals: {e}")
             return []
 
-    def _collect_transactions(self, address: str, max_age_days: Optional[int] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    def _collect_transactions(
+        self,
+        address: str,
+        max_age_days: Optional[int] = None,
+        force_refresh: bool = False,
+    ) -> List[Dict[str, Any]]:
         """Collect transaction history for a given address with optional date filtering and caching."""
         try:
             logger.info(f"Fetching Nadlan transactions for: {address}")
             # Use optimized scraper with caching, API fallback, and date filtering
-            deals = self.deals_client.get_deals_by_address(address, max_age_days=max_age_days, force_refresh=force_refresh)
+            deals = self.deals_client.get_deals_by_address(
+                address, max_age_days=max_age_days, force_refresh=force_refresh
+            )
             logger.info(f"Found {len(deals)} transactions via optimized scraper")
-            return [deal.to_dict() if hasattr(deal, 'to_dict') else dict(deal) for deal in deals]
+            return [
+                deal.to_dict() if hasattr(deal, "to_dict") else dict(deal)
+                for deal in deals
+            ]
         except Exception as e:
             logger.error(f"Nadlan transaction fetch failed: {e}")
             return []
 
-    def _collect_govmap_deals(self, x_itm: float, y_itm: float, max_age_days: Optional[int] = None) -> List[Dict[str, Any]]:
+    def _collect_govmap_deals(
+        self, x_itm: float, y_itm: float, max_age_days: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """Collect GovMap deals by location (returns Deal objects converted to dicts)."""
         try:
             logger.info(f"Fetching GovMap deals for location: ({x_itm}, {y_itm})")
-            
+
             # Calculate date range if max_age_days is provided
             start_date = "1998-01"  # Default start date
             end_date = datetime.now().strftime("%Y-%m")  # Current month
-            
+
             if max_age_days:
                 from datetime import timedelta
+
                 cutoff_date = datetime.now() - timedelta(days=max_age_days)
                 start_date = cutoff_date.strftime("%Y-%m")
-            
+
             # Fetch deals from GovMap (returns Deal objects)
             deal_objects = self.govmap_client.get_deals_by_location(
                 x=x_itm,
@@ -129,69 +151,71 @@ class GovCollector(BaseCollector):
                 limit=100,  # Get more deals per polygon
                 offset=0,
             )
-            
+
             # Convert Deal objects to dicts for deduplication and processing
             transactions = []
             for deal_obj in deal_objects:
-                if hasattr(deal_obj, 'to_dict'):
+                if hasattr(deal_obj, "to_dict"):
                     # Deal object - convert to dict
                     transaction_dict = deal_obj.to_dict()
                     # Add source identifier
-                    transaction_dict['source'] = 'govmap'
+                    transaction_dict["source"] = "govmap"
                     # Add raw data if available
-                    if hasattr(deal_obj, 'raw') and deal_obj.raw:
-                        transaction_dict['raw'] = deal_obj.raw
+                    if hasattr(deal_obj, "raw") and deal_obj.raw:
+                        transaction_dict["raw"] = deal_obj.raw
                     transactions.append(transaction_dict)
                 elif isinstance(deal_obj, dict):
                     # Already a dict (fallback case)
                     transaction_dict = deal_obj.copy()
-                    transaction_dict['source'] = 'govmap'
+                    transaction_dict["source"] = "govmap"
                     transactions.append(transaction_dict)
-            
+
             logger.info(f"Found {len(transactions)} GovMap transactions")
             return transactions
-            
+
         except Exception as e:
             logger.error(f"GovMap deals fetch failed: {e}")
             return []
 
     def _merge_and_deduplicate_transactions(
-        self, 
-        nadlan_transactions: List[Dict[str, Any]], 
-        govmap_transactions: List[Dict[str, Any]]
+        self,
+        nadlan_transactions: List[Dict[str, Any]],
+        govmap_transactions: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         """Merge transactions from Nadlan and GovMap, removing duplicates.
-        
+
         Deduplication strategy:
         Uses normalized date + amount + area + location (gush/parcel) to identify duplicates.
         Prefers Nadlan data when duplicates are found (more complete).
-        
+
         Handles both Nadlan and GovMap field names:
         - Nadlan: parcel_block, parcel_parcel, parcel_sub_parcel
         - GovMap: gush_num, parcel_num, sub_parcel_num
-        
+
         Args:
             nadlan_transactions: List of transactions from Nadlan
             govmap_transactions: List of transactions from GovMap
-            
+
         Returns:
             Merged and deduplicated list of transactions
         """
         # Track seen transactions by unique key
         seen_keys = set()
         merged_transactions = []
-        
+
         # First, add all Nadlan transactions (preferred source)
         for transaction in nadlan_transactions:
             # Normalize date for Nadlan transactions if not already normalized
-            if "deal_date_normalized" not in transaction and transaction.get("deal_date"):
+            if "deal_date_normalized" not in transaction and transaction.get(
+                "deal_date"
+            ):
                 try:
                     # Try DD/MM/YYYY format (Nadlan)
                     date_obj = datetime.strptime(transaction["deal_date"], "%d/%m/%Y")
                     transaction["deal_date_normalized"] = date_obj.strftime("%Y-%m-%d")
                 except (ValueError, TypeError):
                     pass
-            
+
             unique_key = self._generate_transaction_key(transaction)
             if unique_key and unique_key not in seen_keys:
                 seen_keys.add(unique_key)
@@ -201,7 +225,7 @@ class GovCollector(BaseCollector):
                 merged_transactions.append(transaction)
             elif unique_key:
                 logger.debug(f"Skipping duplicate Nadlan transaction: {unique_key}")
-        
+
         # Then, add GovMap transactions that are not duplicates
         for transaction in govmap_transactions:
             unique_key = self._generate_transaction_key(transaction)
@@ -211,24 +235,24 @@ class GovCollector(BaseCollector):
                 logger.debug(f"Added GovMap transaction: {unique_key}")
             elif unique_key:
                 logger.debug(f"Skipping duplicate GovMap transaction: {unique_key}")
-        
+
         logger.info(
             f"Merged transactions: {len(nadlan_transactions)} Nadlan + "
             f"{len(govmap_transactions)} GovMap -> {len(merged_transactions)} unique"
         )
-        
+
         return merged_transactions
 
     def _generate_transaction_key(self, transaction: Dict[str, Any]) -> Optional[str]:
         """Generate a unique key for a transaction to identify duplicates.
-        
-        Strategy: 
+
+        Strategy:
             Use normalized date + amount + area + location
-        
+
         Handles both Nadlan and GovMap field names:
         - Nadlan: parcel_block, parcel_parcel, parcel_sub_parcel
         - GovMap: gush_num, parcel_num, sub_parcel_num
-        
+
         Returns:
             Unique key string or None if insufficient data
         """
@@ -249,22 +273,24 @@ class GovCollector(BaseCollector):
                         deal_date = date_obj.strftime("%Y-%m-%d")
                     except (ValueError, TypeError):
                         deal_date = None
-        
+
         deal_amount = transaction.get("deal_amount")
         area = transaction.get("area")
-        
+
         # Get location information - handle both Nadlan and GovMap field names
         # Nadlan uses: parcel_block, parcel_parcel, parcel_sub_parcel
         # GovMap uses: gush_num, parcel_num, sub_parcel_num
         block = transaction.get("parcel_block") or transaction.get("gush_num")
         parcel = transaction.get("parcel_parcel") or transaction.get("parcel_num")
-        sub_parcel = transaction.get("parcel_sub_parcel") or transaction.get("sub_parcel_num")
-        
+        sub_parcel = transaction.get("parcel_sub_parcel") or transaction.get(
+            "sub_parcel_num"
+        )
+
         # If we have date, amount, and location, create a key
         if deal_date and deal_amount is not None:
             # Round amount to nearest 1000 for fuzzy matching
             amount_rounded = round(deal_amount / 1000) * 1000 if deal_amount else None
-            
+
             # Prefer location-based key if available (most reliable)
             if block and parcel:
                 # Use location-based key (gush + parcel)
@@ -279,7 +305,7 @@ class GovCollector(BaseCollector):
             else:
                 # Use basic date + amount key (least reliable)
                 return f"date:{deal_date}|amount:{amount_rounded}"
-        
+
         # If we have insufficient data, return None
         logger.debug(
             f"Cannot generate unique key for transaction: date={deal_date}, "
@@ -293,31 +319,31 @@ class GovCollector(BaseCollector):
         location = ensure_location_query(kwargs.get("location"))
         return bool(location.block)
 
+
 if __name__ == "__main__":
     # Example with fully optimized collector
     print("Testing optimized Nadlan transaction collection...")
-    
+
     # Create collector with optimizations enabled
     collector = GovCollector(
         max_age_days=180,  # Only fetch deals from last 180 days
-        use_cache=True,   # Enable caching for better performance
+        use_cache=True,  # Enable caching for better performance
     )
-    
+
     # Test the optimized collection
     result = collector.collect(
         location=LocationQuery("תל אביב-יפו", "רוזוב", 4),
-        max_age_days=180  # Override to 180 days for this specific request
+        max_age_days=180,  # Override to 180 days for this specific request
     )
-    
+
     print(f"Found {len(result['transactions'])} recent transactions")
     print(f"Found {len(result['decisive'])} decisive appraisals")
-    
+
     # Test cache performance - second call should be much faster
     print("\nTesting cache performance...")
     import time
+
     start_time = time.time()
-    result2 = collector.collect(
-        location=LocationQuery("תל אביב-יפו", "רוזוב", 4)
-    )
+    result2 = collector.collect(location=LocationQuery("תל אביב-יפו", "רוזוב", 4))
     cache_time = time.time() - start_time
     print(result2)

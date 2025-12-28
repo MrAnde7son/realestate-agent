@@ -22,9 +22,11 @@ logger = logging.getLogger(__name__)
 # Default API endpoint
 DEFAULT_API_URL = "https://www.madlan.co.il/api2"
 
+
 class DealType(Enum):
     UNIT_BUY = "unitBuy"
     UNIT_RENT = "unitRent"
+
 
 # Default completion types for address autocomplete
 DEFAULT_COMPLETION_TYPES = [
@@ -524,7 +526,7 @@ class MadlanAPIClient:
         self.session = session or self._create_session()
         self.user_token: Optional[str] = user_token
         self._token_fetched = False
-        
+
         if auto_fetch_token and not self.user_token:
             try:
                 self.user_token = self._fetch_user_token()
@@ -560,20 +562,20 @@ class MadlanAPIClient:
     def _fetch_user_token(self) -> Optional[str]:
         """
         Fetch user token from Madlan by visiting the homepage.
-        
+
         The token is stored in cookies as USER_TOKEN_V2. This method visits
         the homepage with browser-like cookies and headers to trigger token
         generation, similar to how a browser would receive the token.
-        
+
         Returns:
             User token (JWT) or None if not found
-            
+
         Raises:
             MadlanAPIError: If fetching fails
         """
         # Desktop user-agent matching the request
         desktop_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-        
+
         # Headers matching the browser request
         headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -591,14 +593,16 @@ class MadlanAPIClient:
             "Priority": "u=0, i",
             "Connection": "keep-alive",
         }
-        
+
         # First, check if token already exists in session cookies
-        if hasattr(self.session, 'cookies') and self.session.cookies.get("USER_TOKEN_V2"):
+        if hasattr(self.session, "cookies") and self.session.cookies.get(
+            "USER_TOKEN_V2"
+        ):
             token = self.session.cookies.get("USER_TOKEN_V2").value
-            if token and len(token) > 50 and token.count('.') == 2:
+            if token and len(token) > 50 and token.count(".") == 2:
                 logger.info("User token already exists in session cookies")
                 return token
-        
+
         # Set initial cookies that help trigger token generation
         # These cookies help establish a session similar to a browser
         initial_cookies = {
@@ -607,12 +611,14 @@ class MadlanAPIClient:
             "_tt_enable_cookie": "1",
             "_ttp": "01K92ME544MMQHAG747T4X2BHX_.tt.2",
         }
-        
+
         # Set cookies in session (don't overwrite existing cookies)
         for cookie_name, cookie_value in initial_cookies.items():
             if not self.session.cookies.get(cookie_name):
-                self.session.cookies.set(cookie_name, cookie_value, domain=".madlan.co.il")
-        
+                self.session.cookies.set(
+                    cookie_name, cookie_value, domain=".madlan.co.il"
+                )
+
         try:
             response = self.session.get(
                 "https://www.madlan.co.il/",
@@ -626,17 +632,23 @@ class MadlanAPIClient:
             raise MadlanAPIError(f"Failed to fetch user token: {e}")
 
         # Check session cookies after request (server may have set it)
-        if hasattr(self.session, 'cookies') and self.session.cookies.get("USER_TOKEN_V2"):
+        if hasattr(self.session, "cookies") and self.session.cookies.get(
+            "USER_TOKEN_V2"
+        ):
             token = self.session.cookies.get("USER_TOKEN_V2").value
-            if token and len(token) > 50 and token.count('.') == 2:
+            if token and len(token) > 50 and token.count(".") == 2:
                 logger.info("Successfully extracted user token from session cookies")
                 return token
 
         # Check response cookies
         cookies = response.cookies
         if cookies.get("USER_TOKEN_V2"):
-            token = cookies.get("USER_TOKEN_V2").value if hasattr(cookies.get("USER_TOKEN_V2"), 'value') else str(cookies.get("USER_TOKEN_V2"))
-            if token and len(token) > 50 and token.count('.') == 2:
+            token = (
+                cookies.get("USER_TOKEN_V2").value
+                if hasattr(cookies.get("USER_TOKEN_V2"), "value")
+                else str(cookies.get("USER_TOKEN_V2"))
+            )
+            if token and len(token) > 50 and token.count(".") == 2:
                 logger.info("Successfully extracted user token from response cookies")
                 # Store in session for future requests
                 self.session.cookies.set("USER_TOKEN_V2", token, domain=".madlan.co.il")
@@ -649,13 +661,17 @@ class MadlanAPIClient:
 
         if "USER_TOKEN_V2=" in set_cookie_headers:
             # Extract token from Set-Cookie header
-            match = re.search(r'USER_TOKEN_V2=([^;]+)', set_cookie_headers)
+            match = re.search(r"USER_TOKEN_V2=([^;]+)", set_cookie_headers)
             if match:
                 token = match.group(1)
-                if token and len(token) > 50 and token.count('.') == 2:
-                    logger.info("Successfully extracted user token from Set-Cookie header")
+                if token and len(token) > 50 and token.count(".") == 2:
+                    logger.info(
+                        "Successfully extracted user token from Set-Cookie header"
+                    )
                     # Store in session for future requests
-                    self.session.cookies.set("USER_TOKEN_V2", token, domain=".madlan.co.il")
+                    self.session.cookies.set(
+                        "USER_TOKEN_V2", token, domain=".madlan.co.il"
+                    )
                     return token
 
         # Fallback: Check HTML content for userToken
@@ -671,10 +687,16 @@ class MadlanAPIClient:
         for pattern in patterns:
             matches = re.findall(pattern, html_content, re.IGNORECASE)
             for token in matches:
-                if len(token) > 50 and token.count('.') == 2 and token.startswith('eyJ'):
+                if (
+                    len(token) > 50
+                    and token.count(".") == 2
+                    and token.startswith("eyJ")
+                ):
                     logger.info("Successfully extracted user token from HTML content")
                     # Store in session for future requests
-                    self.session.cookies.set("USER_TOKEN_V2", token, domain=".madlan.co.il")
+                    self.session.cookies.set(
+                        "USER_TOKEN_V2", token, domain=".madlan.co.il"
+                    )
                     return token
 
         logger.warning(
@@ -688,7 +710,7 @@ class MadlanAPIClient:
     def set_user_token(self, token: str) -> None:
         """
         Set the user token manually.
-        
+
         Args:
             token: User token (JWT) to use for authentication
         """
@@ -732,22 +754,21 @@ class MadlanAPIClient:
 
         # Prepare headers with token if available
         headers = {
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-Source': 'web',
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
-          'Referer': 'https://www.madlan.co.il/',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Content-Type': 'application/json',
-          'Origin': 'https://www.madlan.co.il',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-origin',
+            "X-Requested-With": "XMLHttpRequest",
+            "X-Source": "web",
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+            "Referer": "https://www.madlan.co.il/",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Content-Type": "application/json",
+            "Origin": "https://www.madlan.co.il",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
         }
-        
-        if self.user_token:
-            headers["Authorization"] = f"Bearer {self.user_token}"        
 
+        if self.user_token:
+            headers["Authorization"] = f"Bearer {self.user_token}"
 
         try:
             response = self.session.post(
@@ -766,7 +787,9 @@ class MadlanAPIClient:
 
             # Check for GraphQL errors
             if "errors" in data:
-                error_messages = [err.get("message", "Unknown error") for err in data["errors"]]
+                error_messages = [
+                    err.get("message", "Unknown error") for err in data["errors"]
+                ]
                 raise MadlanAPIError(f"GraphQL errors: {'; '.join(error_messages)}")
 
             return data
@@ -1091,6 +1114,7 @@ class MadlanAPIClient:
             logger.error(f"Failed to fetch listings: {e}")
             raise MadlanAPIError(f"Failed to fetch listings: {e}")
 
+
 if __name__ == "__main__":
     client = MadlanAPIClient()
     addresses = client.get_addresses("רמת החייל")
@@ -1106,4 +1130,4 @@ if __name__ == "__main__":
                 )
                 print(listings)
             except MadlanAPIError as e:
-              pass
+                pass

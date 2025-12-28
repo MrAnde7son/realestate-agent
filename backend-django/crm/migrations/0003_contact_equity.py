@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("crm", "0002_contact_crm_contact_name_e9345e_idx_and_more"),
     ]

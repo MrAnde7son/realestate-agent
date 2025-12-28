@@ -19,6 +19,7 @@ from core.models import (
 )
 from core.constants import DEFAULT_REPORT_SECTIONS
 
+
 class HebrewPDFGenerationTest(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -35,50 +36,50 @@ class HebrewPDFGenerationTest(TestCase):
         # Insert a mock asset into the database so the endpoint can fetch real
         # data instead of relying solely on in-memory mocks.
         self.asset = Asset.objects.create(
-            scope_type='address',
-            city='תל אביב',
-            neighborhood='מרכז העיר',
-            street='הרצל',
+            scope_type="address",
+            city="תל אביב",
+            neighborhood="מרכז העיר",
+            street="הרצל",
             number=123,
-            status='done',
-            normalized_address='רחוב הרצל 123, תל אביב',
+            status="done",
+            normalized_address="רחוב הרצל 123, תל אביב",
             meta={
-                'address': 'רחוב הרצל 123, תל אביב',
-                'city': 'תל אביב',
-                'neighborhood': 'מרכז העיר',
-                'type': 'דירה',
-                'price': 2850000,
-                'bedrooms': 3,
-                'bathrooms': 2,
-                'netSqm': 85,
-                'area': 85,
-                'pricePerSqm': 33529,
-                'remainingRightsSqm': 45,
-                'program': 'תמ״א 38',
-                'lastPermitQ': 'Q2/24',
-                'noiseLevel': 2,
-                'competition1km': 'בינוני',
-                'zoning': 'מגורים א׳',
-                'priceGapPct': -5.2,
-                'expectedPriceRange': '2.7M - 3.0M',
-                'modelPrice': 3000000,
-                'confidencePct': 85,
-                'capRatePct': 3.2,
-                'rentEstimate': 9500,
-                'riskFlags': [],
-                'features': ['מעלית', 'חניה', 'מרפסת', 'משופצת'],
-                'contactInfo': {
-                    'agent': 'יוסי כהן',
-                    'phone': '050-1234567',
-                    'email': 'yossi@example.com'
+                "address": "רחוב הרצל 123, תל אביב",
+                "city": "תל אביב",
+                "neighborhood": "מרכז העיר",
+                "type": "דירה",
+                "price": 2850000,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "netSqm": 85,
+                "area": 85,
+                "pricePerSqm": 33529,
+                "remainingRightsSqm": 45,
+                "program": "תמ״א 38",
+                "lastPermitQ": "Q2/24",
+                "noiseLevel": 2,
+                "competition1km": "בינוני",
+                "zoning": "מגורים א׳",
+                "priceGapPct": -5.2,
+                "expectedPriceRange": "2.7M - 3.0M",
+                "modelPrice": 3000000,
+                "confidencePct": 85,
+                "capRatePct": 3.2,
+                "rentEstimate": 9500,
+                "riskFlags": [],
+                "features": ["מעלית", "חניה", "מרפסת", "משופצת"],
+                "contactInfo": {
+                    "agent": "יוסי כהן",
+                    "phone": "050-1234567",
+                    "email": "yossi@example.com",
                 },
-                'documents': [
-                    {'name': 'נסח טאבו', 'type': 'tabu'},
-                    {'name': 'תשריט בית משותף', 'type': 'condo_plan'},
-                    {'name': 'היתר בנייה', 'type': 'permit'},
-                    {'name': 'זכויות בנייה', 'type': 'rights'},
-                    {'name': 'שומת מכרעת', 'type': 'appraisal_decisive'},
-                    {'name': 'שומת רמ״י', 'type': 'appraisal_rmi'},
+                "documents": [
+                    {"name": "נסח טאבו", "type": "tabu"},
+                    {"name": "תשריט בית משותף", "type": "condo_plan"},
+                    {"name": "היתר בנייה", "type": "permit"},
+                    {"name": "זכויות בנייה", "type": "rights"},
+                    {"name": "שומת מכרעת", "type": "appraisal_decisive"},
+                    {"name": "שומת רמ״י", "type": "appraisal_rmi"},
                 ],
             },
         )
@@ -97,9 +98,9 @@ class HebrewPDFGenerationTest(TestCase):
             document_date=date(2023, 7, 1),
             external_id="PER-123",
             meta={
-                'stage': 'היתר בתוקף',
-                'permission_date': '2023-07-01',
-                'expiry_date': '2024-07-01',
+                "stage": "היתר בתוקף",
+                "permission_date": "2023-07-01",
+                "expiry_date": "2024-07-01",
             },
         )
 
@@ -163,7 +164,9 @@ class HebrewPDFGenerationTest(TestCase):
         # Ensure custom sections only include requested content
         req = self.factory.post(
             "/api/reports",
-            data=json.dumps({"assetId": self.asset.id, "sections": ["summary", "plans"]}),
+            data=json.dumps(
+                {"assetId": self.asset.id, "sections": ["summary", "plans"]}
+            ),
             content_type="application/json",
         )
         resp = views.reports(req)
@@ -212,23 +215,24 @@ class HebrewPDFGenerationTest(TestCase):
         # Create a PDF generator instance to test font registration
         from core.pdf_generator import HebrewPDFGenerator
         from pathlib import Path
-        
+
         # Since the test is now in backend-django/tests/core/, we need to go up to backend-django root
         base_dir = Path(__file__).resolve().parent.parent.parent
         pdf_generator = HebrewPDFGenerator(base_dir)
-        
+
         # Check if the Hebrew font is registered
         self.assertNotEqual(
-            pdf_generator.report_font, "Helvetica",
-            "Hebrew font should be registered and report_font should not be Helvetica"
+            pdf_generator.report_font,
+            "Helvetica",
+            "Hebrew font should be registered and report_font should not be Helvetica",
         )
-        
+
         # Check if the font file exists
         self.assertTrue(
             os.path.exists(pdf_generator.font_path),
-            f"Hebrew font file should exist at {pdf_generator.font_path}"
+            f"Hebrew font file should exist at {pdf_generator.font_path}",
         )
-        
+
         # Print current font status for debugging
         print(f"Current REPORT_FONT: {pdf_generator.report_font}")
         print(f"Font file exists: {os.path.exists(pdf_generator.font_path)}")

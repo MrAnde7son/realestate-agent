@@ -119,18 +119,43 @@ cd ..
 print_info "Setting up database..."
 cd backend-django
 
-# Create database if it doesn't exist
-if [ ! -f "db.sqlite3" ]; then
-    print_info "Creating database..."
-    python manage.py migrate
-    print_status "Database created"
+# Create .env if it doesn't exist
+if [ ! -f ".env" ]; then
+    print_info "Creating .env from development template..."
+    if [ -f "../env.development" ]; then
+        cp ../env.development .env
+        print_status ".env file created from development template"
+    else
+        print_warning "env.development not found - you may need to create .env manually"
+    fi
+fi
+
+# Initialize database and create default users
+print_info "Initializing database and creating default users..."
+if [ -f "setup_auth.py" ]; then
+    python setup_auth.py
+    print_status "Database initialized with default users"
 else
-    print_status "Database already exists"
+    print_warning "setup_auth.py not found - running migrations manually..."
+    python manage.py makemigrations
+    python manage.py migrate
 fi
 
 # Initialize plan types
 print_info "Initializing plan types..."
-python manage.py init_plans
+if python manage.py init_plans 2>/dev/null; then
+    print_status "Plan types initialized"
+else
+    print_warning "init_plans command not available (non-critical)"
+fi
+
+# Create sample assets (optional, non-critical)
+print_info "Creating sample assets..."
+if python manage.py create_sample_assets 2>/dev/null; then
+    print_status "Sample assets created"
+else
+    print_warning "create_sample_assets command not available (non-critical)"
+fi
 
 cd ..
 

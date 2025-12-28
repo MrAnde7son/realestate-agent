@@ -21,26 +21,25 @@ codes (e.g. תמ\"א/70) are canonicalised.
 
 from __future__ import annotations
 
-import argparse
-import json
 import os
 import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pdfplumber
 
 
 DATE_RE = re.compile(r"\d{2}/\d{2}/\d{4}")
 HEBREW_RE = re.compile(r"[\u0590-\u05FF]")
-PLAN_PREFIXES = ("תמ\"א", "תמא", "תת\"ל", "תתל")
+PLAN_PREFIXES = ('תמ"א', "תמא", 'תת"ל', "תתל")
 
 
 # --------------------------------------------------------------------------- #
 # helpers for bidi/hebrew token clean-up
 # --------------------------------------------------------------------------- #
+
 
 def _reverse_digits(value: str) -> str:
     """Reverse every numeric sequence in the token."""
@@ -76,7 +75,7 @@ def _looks_like_plan_number(token: str) -> bool:
     """Heuristic that recognises common plan number formats."""
     if token.startswith(PLAN_PREFIXES):
         return True
-    if token.startswith("תמ\"א") or token.startswith("תמא"):
+    if token.startswith('תמ"א') or token.startswith("תמא"):
         return True
     if re.fullmatch(r"[א-ת]\d{1,4}", token):
         return True
@@ -112,6 +111,7 @@ def _format_date(value: Optional[str]) -> Optional[str]:
 # --------------------------------------------------------------------------- #
 # line extraction & normalisation
 # --------------------------------------------------------------------------- #
+
 
 class LineExtractor:
     """Extracts and normalises PDF text into a simple list of lines."""
@@ -168,6 +168,7 @@ class LineExtractor:
 # data classes
 # --------------------------------------------------------------------------- #
 
+
 @dataclass
 class PlanEntry:
     plan_number: str
@@ -195,6 +196,7 @@ class PlanEntry:
 # core parser
 # --------------------------------------------------------------------------- #
 
+
 class ZchuyotParser:
     """High level orchestrator."""
 
@@ -212,7 +214,7 @@ class ZchuyotParser:
     }
 
     TABLE_HEADER_KEYWORDS = (
-        "מס\"",
+        'מס"',
         "שם תוכנית",
         "שם תכנית",
         "תאריך",
@@ -220,7 +222,7 @@ class ZchuyotParser:
         "הפקדה",
         "פירסומים",
         "פרסום",
-        "מבא\"\"ת",
+        'מבא""ת',
         "י.פ.",
         "סעיף",
     )
@@ -260,7 +262,10 @@ class ZchuyotParser:
 
         plans_in_planning = {
             "citywide": self._parse_city_planning(
-                lines, section_index, "plans_in_planning_citywide", ["plans_in_planning_natreg", "policy"]
+                lines,
+                section_index,
+                "plans_in_planning_citywide",
+                ["plans_in_planning_natreg", "policy"],
             ),
             "national_regional": self._parse_plan_table(
                 lines,
@@ -288,11 +293,15 @@ class ZchuyotParser:
                 "in_force": {
                     "local": [p.as_dict() for p in plans_in_force["local"]],
                     "citywide": [p.as_dict() for p in plans_in_force["citywide"]],
-                    "national_regional": [p.as_dict() for p in plans_in_force["national_regional"]],
+                    "national_regional": [
+                        p.as_dict() for p in plans_in_force["national_regional"]
+                    ],
                 },
                 "in_planning": {
                     "citywide": [p.as_dict() for p in plans_in_planning["citywide"]],
-                    "national_regional": [p.as_dict() for p in plans_in_planning["national_regional"]],
+                    "national_regional": [
+                        p.as_dict() for p in plans_in_planning["national_regional"]
+                    ],
                 },
             },
             "policies": policies,
@@ -361,7 +370,11 @@ class ZchuyotParser:
         for idx, line in enumerate(lines):
             if "שטח לחישוב זכויות" in line:
                 if idx + 1 < len(lines):
-                    parts = [p for p in lines[idx + 1].split() if p.replace(".", "", 1).isdigit()]
+                    parts = [
+                        p
+                        for p in lines[idx + 1].split()
+                        if p.replace(".", "", 1).isdigit()
+                    ]
                     if parts:
                         try:
                             basic["parcel_area_sqm"] = float(parts[0])
@@ -379,7 +392,11 @@ class ZchuyotParser:
                 for candidate in lines[idx + 1 : idx + 6]:
                     if not candidate:
                         break
-                    if candidate.startswith("תכניות") or candidate.startswith("מסמכי") or candidate.startswith("פירוט"):
+                    if (
+                        candidate.startswith("תכניות")
+                        or candidate.startswith("מסמכי")
+                        or candidate.startswith("פירוט")
+                    ):
                         break
                     if candidate.startswith("זכות "):
                         break
@@ -393,8 +410,12 @@ class ZchuyotParser:
         return None
 
     # -- alerts ------------------------------------------------------------- #
-    def _parse_alerts(self, lines: Sequence[str], section_index: Dict[str, int]) -> List[str]:
-        alerts = self._slice_section(lines, section_index, "alerts", ["plans_header", "plans_local"])
+    def _parse_alerts(
+        self, lines: Sequence[str], section_index: Dict[str, int]
+    ) -> List[str]:
+        alerts = self._slice_section(
+            lines, section_index, "alerts", ["plans_header", "plans_local"]
+        )
         cleaned: List[str] = []
         for line in alerts:
             if not line or line.startswith("תכניות"):
@@ -446,7 +467,9 @@ class ZchuyotParser:
             return True
         return False
 
-    def _parse_plan_row(self, line: str, name_buffer: Sequence[str]) -> Optional[PlanEntry]:
+    def _parse_plan_row(
+        self, line: str, name_buffer: Sequence[str]
+    ) -> Optional[PlanEntry]:
         tokens = line.split()
         if not tokens:
             return None
@@ -466,7 +489,9 @@ class ZchuyotParser:
             publication = remainder.pop()
 
         inline_name = " ".join(remainder).strip()
-        full_name_parts = [part for part in name_buffer if part and not self._is_table_header(part)]
+        full_name_parts = [
+            part for part in name_buffer if part and not self._is_table_header(part)
+        ]
         if inline_name:
             full_name_parts.append(inline_name)
 
@@ -514,7 +539,9 @@ class ZchuyotParser:
         return plans
 
     # -- policies ----------------------------------------------------------- #
-    def _parse_policies(self, lines: Sequence[str], section_index: Dict[str, int]) -> List[Dict[str, Any]]:
+    def _parse_policies(
+        self, lines: Sequence[str], section_index: Dict[str, int]
+    ) -> List[Dict[str, Any]]:
         policy_lines = self._slice_section(lines, section_index, "policy", ["rights"])
         policies: List[Dict[str, Any]] = []
         for line in policy_lines:
@@ -528,20 +555,28 @@ class ZchuyotParser:
             decision_candidate = tokens[-2] if len(tokens) >= 2 else None
             if decision_candidate and not re.search(r"\d", decision_candidate):
                 decision_candidate = None
-            name_tokens = tokens[1 : -2 if (date_candidate and decision_candidate) else -1]
+            name_tokens = tokens[
+                1 : -2 if (date_candidate and decision_candidate) else -1
+            ]
             name = " ".join(name_tokens).strip() if name_tokens else None
             policies.append(
                 {
                     "policy_number": number,
                     "name": name,
-                    "decision_number": decision_candidate if decision_candidate and decision_candidate != number else None,
-                    "approval_date": _format_date(date_candidate) if date_candidate else None,
+                    "decision_number": decision_candidate
+                    if decision_candidate and decision_candidate != number
+                    else None,
+                    "approval_date": _format_date(date_candidate)
+                    if date_candidate
+                    else None,
                 }
             )
         return policies
 
     # -- rights ------------------------------------------------------------- #
-    def _parse_rights(self, lines: Sequence[str], section_index: Dict[str, int]) -> Dict[str, Any]:
+    def _parse_rights(
+        self, lines: Sequence[str], section_index: Dict[str, int]
+    ) -> Dict[str, Any]:
         section_lines = self._slice_section(lines, section_index, "rights")
         if not section_lines:
             return {"text": None}
@@ -613,7 +648,8 @@ class ZchuyotParser:
         if "minmax_values" in result:
             # ensure min/max entries keep consistent structure
             result["minmax_values"] = [
-                {k: v for k, v in entry.items() if k != "bound"} for entry in result["minmax_values"]
+                {k: v for k, v in entry.items() if k != "bound"}
+                for entry in result["minmax_values"]
             ]
 
         return result
@@ -771,7 +807,9 @@ class ZchuyotParser:
                 if not any(item.get("raw_text") == line for item in entries):
                     entries.append(record)
             if entry_type == "percentage":
-                if any(term in line for term in ["אחוז משטח", "אחוז בנייה", "אחוזי בניה"]):
+                if any(
+                    term in line for term in ["אחוז משטח", "אחוז בנייה", "אחוזי בניה"]
+                ):
                     rights["building_coverage_percentage"] = value
             break
 
@@ -827,7 +865,7 @@ class ZchuyotParser:
         # Guard: only treat as qualitative if there is no nearby explicit numeric count.
         numeric_hint = re.search(
             r"(?:\d+\s*(?:מקומות|מקום)\s+חניה)|(?:חניה\s*(?:מותר(?:ת)?|מינימום|מקסימום)\s*\d)",
-            line
+            line,
         )
 
         qual = re.search(
@@ -836,7 +874,8 @@ class ZchuyotParser:
                 (?:\s*(?:בתכנית|עפ(?:י)?|לפי)?)\s*     # optional "per plan/according to"
                 (?P<plan>(?:[א-ת"\/\-\s]?\d[\w"\/\-\s]*)?)\s*$   # optional plan ref (e.g., א2550, תמ"א/38)
             """,
-            line, re.VERBOSE
+            line,
+            re.VERBOSE,
         )
 
         if qual and not numeric_hint:
@@ -846,13 +885,15 @@ class ZchuyotParser:
             plan_ref = re.sub(r"\s+", "", plan_ref) if plan_ref else None
 
             if not any(item.get("raw_text") == line for item in entries):
-                entries.append({
-                    "type": "qualitative",
-                    "status": status,  # "permitted" | "forbidden"
-                    "source_plan": plan_ref,  # e.g., "א2550" (optional)
-                    "value": None,  # keep schema tolerant for callers expecting "value"
-                    "raw_text": line,
-                })
+                entries.append(
+                    {
+                        "type": "qualitative",
+                        "status": status,  # "permitted" | "forbidden"
+                        "source_plan": plan_ref,  # e.g., "א2550" (optional)
+                        "value": None,  # keep schema tolerant for callers expecting "value"
+                        "raw_text": line,
+                    }
+                )
             return
 
         # --- 2) Quantitative: your existing patterns ---
@@ -867,12 +908,14 @@ class ZchuyotParser:
                 if value is None:
                     continue
                 if not any(item.get("raw_text") == line for item in entries):
-                    entries.append({
-                        "type": "quantitative",
-                        "value": value,
-                        "unit": "spaces",
-                        "raw_text": line,
-                    })
+                    entries.append(
+                        {
+                            "type": "quantitative",
+                            "value": value,
+                            "unit": "spaces",
+                            "raw_text": line,
+                        }
+                    )
                 return
 
     def _extract_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
@@ -892,7 +935,9 @@ class ZchuyotParser:
     def _coerce_number(self, token: Optional[str]) -> Optional[float]:
         if token is None:
             return None
-        clean = token.replace(",", "").replace("'", "").replace("״", "").replace("”", "")
+        clean = (
+            token.replace(",", "").replace("'", "").replace("״", "").replace("”", "")
+        )
         try:
             value = float(clean)
         except ValueError:
@@ -913,7 +958,12 @@ class ZchuyotParser:
         text = line.replace(" ", "")
         lower = line.lower()
 
-        if re.search(r"מספר\s+קומות", line) or re.search(r"קומות\s*מספר", line) or "מספרקומות" in text or "תומוקרפסמ" in text:
+        if (
+            re.search(r"מספר\s+קומות", line)
+            or re.search(r"קומות\s*מספר", line)
+            or "מספרקומות" in text
+            or "תומוקרפסמ" in text
+        ):
             return "floors"
 
         dwelling_keywords = ["יחידותדיור", "דיור", "דירות", "יחידות"]
@@ -932,7 +982,7 @@ class ZchuyotParser:
         if any(kw in line or kw in lower for kw in percent_keywords):
             return "percentage"
 
-        area_keywords = ["מ\"ר", "מ״ר", "ר\"מ", "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
+        area_keywords = ['מ"ר', "מ״ר", 'ר"מ', "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
         if any(kw in line or kw in text or kw in lower for kw in area_keywords):
             return "building_area"
 
@@ -943,13 +993,16 @@ class ZchuyotParser:
 # public convenience functions
 # --------------------------------------------------------------------------- #
 
+
 def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
     parser = ZchuyotParser()
     return parser.parse(pdf_path)
-    
+
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    data = parse_zchuyot("backend-django/privilege_pages/privilege_block_6638_parcel_392.pdf")
+    data = parse_zchuyot(
+        "backend-django/privilege_pages/privilege_block_6638_parcel_392.pdf"
+    )
     print(data)
 
 

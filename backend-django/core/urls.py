@@ -31,144 +31,158 @@ class OpenApiYamlView(SpectacularAPIView):
 
 
 router = DefaultRouter(trailing_slash=False)
-router.register(r'permits', PermitViewSet)
-router.register(r'plans', PlanViewSet)
-router.register(r'documents', DocumentViewSet)
+router.register(r"permits", PermitViewSet)
+router.register(r"plans", PlanViewSet)
+router.register(r"documents", DocumentViewSet)
 
 # Admin router for user management
 admin_router = DefaultRouter(trailing_slash=False)
-admin_router.register(r'admin/users', AdminUserViewSet, basename='admin-users')
+admin_router.register(r"admin/users", AdminUserViewSet, basename="admin-users")
 
 urlpatterns = [
     # Core endpoints
-    path('mortgage-analyze', views.mortgage_analyze, name='mortgage_analyze'),
-    path('sync-address', views.sync_address, name='sync_address'),
-    path('tabu', views.tabu, name='tabu'),
-    path('reports', views.reports, name='reports'),
+    path("mortgage-analyze", views.mortgage_analyze, name="mortgage_analyze"),
+    path("sync-address", views.sync_address, name="sync_address"),
+    path("tabu", views.tabu, name="tabu"),
+    path("reports", views.reports, name="reports"),
     path(
-        'reports/file/<str:filename>',
+        "reports/file/<str:filename>",
         views.report_file,
-        name='report_file',
+        name="report_file",
     ),
-    path('settings', views.user_settings, name='user_settings'),
-    path('alerts', views.alerts, name='alerts'),
-    path('alert-events', views.alert_events, name='alert_events'),
-    path('alert-test', views.alert_test, name='alert_test'),
-    path('analytics/timeseries', va.analytics_timeseries),
-    path('analytics/top-failures', va.analytics_top_failures),
-    path('analytics/track', va.analytics_track),
-    path('analytics/page-view', va.analytics_page_view),
-    path('analytics/session-end', va.analytics_session_end),
+    path("settings", views.user_settings, name="user_settings"),
+    path("alerts", views.alerts, name="alerts"),
+    path("alert-events", views.alert_events, name="alert_events"),
+    path("alert-test", views.alert_test, name="alert_test"),
+    path("analytics/timeseries", va.analytics_timeseries),
+    path("analytics/top-failures", va.analytics_top_failures),
+    path("analytics/track", va.analytics_track),
+    path("analytics/page-view", va.analytics_page_view),
+    path("analytics/session-end", va.analytics_session_end),
     path(
-        'onboarding-status',
+        "onboarding-status",
         views.onboarding_status,
-        name='onboarding_status',
+        name="onboarding_status",
     ),
-    path('connect-payment', views.connect_payment, name='connect_payment'),
-    path('demo/start', views.demo_start, name='demo_start'),
-    path('support/contact', vs.support_contact),
-    path('support/bug', vs.support_bug),
-    path('support/consultation', vs.support_consultation),
-    path('agent/chat', views.agent_chat, name='agent_chat'),
-    path('agent/chat/stream', views.agent_chat_stream, name='agent_chat_stream'),
-    path('agent/feedback', views.agent_feedback, name='agent_feedback'),
-    path('agent/recommendations', views.agent_recommendations, name='agent_recommendations'),
-
+    path("connect-payment", views.connect_payment, name="connect_payment"),
+    path("demo/start", views.demo_start, name="demo_start"),
+    path("support/contact", vs.support_contact),
+    path("support/bug", vs.support_bug),
+    path("support/consultation", vs.support_consultation),
+    path("agent/chat", views.agent_chat, name="agent_chat"),
+    path("agent/chat/stream", views.agent_chat_stream, name="agent_chat_stream"),
+    path("agent/feedback", views.agent_feedback, name="agent_feedback"),
+    path(
+        "agent/recommendations",
+        views.agent_recommendations,
+        name="agent_recommendations",
+    ),
     # Asset enrichment endpoints
-    path('assets/', include(asset_urlpatterns)),
-    path('assets', views.assets),
+    path("assets/", include(asset_urlpatterns)),
+    path("assets", views.assets),
     path(
-        'dashboard/market-data',
+        "dashboard/market-data",
         views.dashboard_market_data,
-        name='dashboard_market_data',
+        name="dashboard_market_data",
     ),
     path(
-        'contributions',
+        "contributions",
         views.user_contributions,
-        name='user_contributions',
+        name="user_contributions",
     ),
-    path('profile', views.user_profile, name='user_profile'),
+    path("profile", views.user_profile, name="user_profile"),
     path(
-        'profile/update',
+        "profile/update",
         views.update_user_profile,
-        name='update_user_profile',
+        name="update_user_profile",
     ),
-    path('api-tokens', views_api_tokens.list_api_tokens, name='list_api_tokens'),
-    path('api-tokens/create', views_api_tokens.create_api_token, name='create_api_token'),
-    path('api-tokens/<int:token_id>', views_api_tokens.update_api_token, name='update_api_token'),
-    path('api-tokens/<int:token_id>/delete', views_api_tokens.delete_api_token, name='delete_api_token'),
-    path('top-contributors', views.top_contributors, name='top_contributors'),
-
+    path("api-tokens", views_api_tokens.list_api_tokens, name="list_api_tokens"),
+    path(
+        "api-tokens/create", views_api_tokens.create_api_token, name="create_api_token"
+    ),
+    path(
+        "api-tokens/<int:token_id>",
+        views_api_tokens.update_api_token,
+        name="update_api_token",
+    ),
+    path(
+        "api-tokens/<int:token_id>/delete",
+        views_api_tokens.delete_api_token,
+        name="delete_api_token",
+    ),
+    path("top-contributors", views.top_contributors, name="top_contributors"),
     # Plan endpoints
-    path('plans/info', views.user_plan_info, name='user_plan_info'),
-    path('plans/types', views.plan_types, name='plan_types'),
-    path('plans/upgrade', views.upgrade_plan, name='upgrade_plan'),
-
+    path("plans/info", views.user_plan_info, name="user_plan_info"),
+    path("plans/types", views.plan_types, name="plan_types"),
+    path("plans/upgrade", views.upgrade_plan, name="upgrade_plan"),
     # Cost estimation endpoints
     path(
-        'cost/estimate/build',
+        "cost/estimate/build",
         estimate_build_cost,
-        name='estimate_build_cost',
+        name="estimate_build_cost",
     ),
-    path('cost/options', get_cost_options, name='get_cost_options'),
-    
+    path("cost/options", get_cost_options, name="get_cost_options"),
     # Deal expenses endpoint
     path(
-        'deal-expenses/calculate',
+        "deal-expenses/calculate",
         calculate_deal_expenses,
-        name='calculate_deal_expenses',
+        name="calculate_deal_expenses",
     ),
-
-
     # Authentication endpoints
-    path('auth/login', views.auth_login, name='auth_login'),
-    path('auth/register', views.auth_register, name='auth_register'),
-    path('auth/establish-session', views.auth_establish_session, name='auth_establish_session'),
-    path('auth/logout', views.auth_logout, name='auth_logout'),
-    path('auth/profile', views.auth_profile, name='auth_profile'),
+    path("auth/login", views.auth_login, name="auth_login"),
+    path("auth/register", views.auth_register, name="auth_register"),
     path(
-        'auth/update-profile',
+        "auth/establish-session",
+        views.auth_establish_session,
+        name="auth_establish_session",
+    ),
+    path("auth/logout", views.auth_logout, name="auth_logout"),
+    path("auth/profile", views.auth_profile, name="auth_profile"),
+    path(
+        "auth/update-profile",
         views.auth_update_profile,
-        name='auth_update_profile',
+        name="auth_update_profile",
     ),
     path(
-        'auth/change-password',
+        "auth/change-password",
         views.change_password,
-        name='change_password',
+        name="change_password",
     ),
-    path('auth/refresh', views.auth_refresh, name='auth_refresh'),
+    path("auth/refresh", views.auth_refresh, name="auth_refresh"),
     path(
-        'auth/google/login',
+        "auth/google/login",
         views.auth_google_login,
-        name='auth_google_login',
+        name="auth_google_login",
     ),
     path(
-        'auth/google/callback',
+        "auth/google/callback",
         views.auth_google_callback,
-        name='auth_google_callback',
+        name="auth_google_callback",
     ),
     # OAuth 2.0 endpoints (for MCP, API clients, and other integrations)
-    path('oauth/authorize', oauth_views.oauth_authorize, name='oauth_authorize'),
-    path('oauth/token', oauth_views.oauth_token, name='oauth_token'),
-    path('oauth/register', oauth_views.oauth_register, name='oauth_register'),  # RFC 7591 Dynamic Client Registration
-    path('oauth/metadata', oauth_views.oauth_metadata, name='oauth_metadata'),
-    path('schema', SpectacularAPIView.as_view(), name='schema'),
+    path("oauth/authorize", oauth_views.oauth_authorize, name="oauth_authorize"),
+    path("oauth/token", oauth_views.oauth_token, name="oauth_token"),
     path(
-        'docs',
-        SpectacularSwaggerView.as_view(url_name='schema'),
-        name='swagger-ui',
+        "oauth/register", oauth_views.oauth_register, name="oauth_register"
+    ),  # RFC 7591 Dynamic Client Registration
+    path("oauth/metadata", oauth_views.oauth_metadata, name="oauth_metadata"),
+    path("schema", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "docs",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
     ),
     path(
-        'docs/redoc',
-        SpectacularRedocView.as_view(url_name='schema'),
-        name='redoc',
+        "docs/redoc",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc",
     ),
     path(
-        'docs/openapi.yaml',
+        "docs/openapi.yaml",
         OpenApiYamlView.as_view(),
-        name='openapi-yaml',
+        name="openapi-yaml",
     ),
-    path('me', views.me),
-    path('', include(router.urls)),
-    path('', include(admin_router.urls)),
+    path("me", views.me),
+    path("", include(router.urls)),
+    path("", include(admin_router.urls)),
 ]

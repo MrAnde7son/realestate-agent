@@ -10,16 +10,18 @@ from gis.proxy_gis_client import ProxyGISClient
 
 class RamatGanGIS(ProxyGISClient):
     """Client for Ramat Gan municipal GIS."""
-    
+
     def get_service_url(self) -> str:
-        return "http://arcgis006/arcgis/rest/services/RamatGan/RamatGan_maindata/MapServer"
-    
+        return (
+            "http://arcgis006/arcgis/rest/services/RamatGan/RamatGan_maindata/MapServer"
+        )
+
     def get_referer(self) -> str:
         return "https://v5.gis-net.co.il/v5/ramat_gan"
-    
+
     def get_cookies(self) -> Dict[str, str]:
         """Return cookies for Ramat Gan authentication.
-        
+
         Note: These cookies may expire. In production, you may want to:
         1. Fetch them dynamically from the main page
         2. Store them in a session
@@ -38,21 +40,17 @@ class RamatGanGIS(ProxyGISClient):
             "_gat": "1",
             "_ga_3HDGMVD29Z": "GS2.1.s1766091145$o1$g1$t1766091213$j52$l0$h0",
         }
-    
+
     def get_layer_id_for_blocks(self) -> int:
         """Layer ID for blocks (גושים) in Ramat Gan."""
         return 212  # Based on the simulation script
-    
+
     def get_layer_id_for_parcels(self) -> int:
         """Layer ID for parcels (חלקות) in Ramat Gan.
-        
+
         Note: This may need to be determined by inspecting the service.
         Using a placeholder value for now.
         """
         # You may need to find the correct layer ID by inspecting the service
         # For now, returning a placeholder
         return 213  # This should be verified
-
-
-
-

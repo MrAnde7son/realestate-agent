@@ -1,4 +1,5 @@
 """Views handling notification webhooks and delivery updates."""
+
 from __future__ import annotations
 
 import hmac
@@ -33,7 +34,9 @@ def _verify_signature(request: HttpRequest) -> bool:
             parts[key.strip()] = value.strip()
     signature = parts.get("v1", header.strip())
 
-    expected = hmac.new(secret.encode("utf-8"), msg=request.body, digestmod=sha256).hexdigest()
+    expected = hmac.new(
+        secret.encode("utf-8"), msg=request.body, digestmod=sha256
+    ).hexdigest()
     if not hmac.compare_digest(signature, expected):
         logger.warning("Invalid Resend webhook signature")
         return False
@@ -82,12 +85,22 @@ def resend_webhook(request: HttpRequest) -> HttpResponse:
             or event.get("to")
         )
 
-        logger.info("Resend webhook received", extra={"event": event_type, "email": email})
+        logger.info(
+            "Resend webhook received", extra={"event": event_type, "email": email}
+        )
 
-        if event_type in {"bounce", "complaint", "delivery.attempt_failed", "hard_bounce"} and email:
-            updated = User.objects.filter(email__iexact=email).update(notify_email=False)
+        if (
+            event_type
+            in {"bounce", "complaint", "delivery.attempt_failed", "hard_bounce"}
+            and email
+        ):
+            updated = User.objects.filter(email__iexact=email).update(
+                notify_email=False
+            )
             if updated:
-                logger.info("Disabled email notifications for %s due to %s", email, event_type)
+                logger.info(
+                    "Disabled email notifications for %s due to %s", email, event_type
+                )
         processed += 1
 
     return JsonResponse({"status": "ok", "processed": processed})

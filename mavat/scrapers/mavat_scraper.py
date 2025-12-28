@@ -155,7 +155,10 @@ class MavatScraper:
                     try:
                         url = response.url
                         if "/api/" in url and response.status == 200:
-                            if any(key in url.lower() for key in ["search", "find", "query"]):
+                            if any(
+                                key in url.lower()
+                                for key in ["search", "find", "query"]
+                            ):
                                 try:
                                     # Read response body as text first to avoid double consumption
                                     # In Playwright, you can only read the response body once
@@ -260,6 +263,7 @@ class MavatScraper:
             browser = p.chromium.launch(headless=self.headless)
             try:
                 page = browser.new_page()
+
                 # Capture various API responses while the page loads
                 def on_response(resp):
                     try:
@@ -274,7 +278,10 @@ class MavatScraper:
                                     return
                             # Categorise the response roughly
                             url_lower = resp.url.lower()
-                            if any(k in url_lower for k in ["detail", "plandetails", "plan"]):
+                            if any(
+                                k in url_lower
+                                for k in ["detail", "plandetails", "plan"]
+                            ):
                                 payloads.setdefault("details", data)
                             elif any(k in url_lower for k in ["document", "file"]):
                                 docs = payloads.setdefault("documents", [])
@@ -297,18 +304,28 @@ class MavatScraper:
                 )
                 page.wait_for_timeout(5000)
                 details = payloads.get("details", {})
+
                 # Extract fields with fallbacks
                 def _get(d: Dict[str, Any], *keys: str) -> Optional[str]:
                     for k in keys:
                         if isinstance(d.get(k), str):
                             return d[k]
                     return None
+
                 return MavatPlan(
                     plan_id=plan_id,
-                    plan_name=_get(details, "planName", "PlanName", "name", "Plan") or None,
-                    status=_get(details, "status", "StatusDesc", "PlanStatusDesc") or None,
-                    authority=_get(details, "authority", "InstitutionName", "AuthorityName") or None,
-                    jurisdiction=_get(details, "jurisdiction", "LocalGovName", "LocalAuthorityName") or None,
+                    plan_name=_get(details, "planName", "PlanName", "name", "Plan")
+                    or None,
+                    status=_get(details, "status", "StatusDesc", "PlanStatusDesc")
+                    or None,
+                    authority=_get(
+                        details, "authority", "InstitutionName", "AuthorityName"
+                    )
+                    or None,
+                    jurisdiction=_get(
+                        details, "jurisdiction", "LocalGovName", "LocalAuthorityName"
+                    )
+                    or None,
                     last_update=_get(details, "lastUpdate", "LastUpdateDate") or None,
                 )
             finally:

@@ -164,30 +164,20 @@ class DealWorkspaceAPITests(TestCase):
         counter_response = self.seller_client.post(
             counter_url, counter_payload, format="json"
         )
-        self.assertEqual(
-            counter_response.status_code, 201, counter_response.content
-        )
+        self.assertEqual(counter_response.status_code, 201, counter_response.content)
         counter_id = counter_response.data["id"]
 
         # Original offer should be marked as countered
         original_offer = workspace_models.Offer.objects.get(pk=offer_id)
-        self.assertEqual(
-            original_offer.status, workspace_models.Offer.Status.COUNTERED
-        )
+        self.assertEqual(original_offer.status, workspace_models.Offer.Status.COUNTERED)
 
         accept_url = f"/api/deal-workspace/offers/{counter_id}/accept"
         accept_response = self.buyer_client.post(accept_url, {}, format="json")
-        self.assertEqual(
-            accept_response.status_code, 200, accept_response.content
-        )
+        self.assertEqual(accept_response.status_code, 200, accept_response.content)
         self.assertEqual(accept_response.data["status"], "accepted")
 
-        negotiation = workspace_models.Negotiation.objects.get(
-            pk=self.negotiation_id
-        )
-        self.assertEqual(
-            negotiation.status, workspace_models.Negotiation.Status.CLOSED
-        )
+        negotiation = workspace_models.Negotiation.objects.get(pk=self.negotiation_id)
+        self.assertEqual(negotiation.status, workspace_models.Negotiation.Status.CLOSED)
         deal = workspace_models.Deal.objects.get(pk=self.deal_id)
         self.assertEqual(deal.stage, workspace_models.Deal.Stage.LEGAL)
         self.assertTrue(
@@ -224,18 +214,14 @@ class DealWorkspaceAPITests(TestCase):
         self.assertEqual(len(search_data), 1)
         self.assertEqual(search_data[0]["asset_summary"]["city"], "Jerusalem")
 
-        seller_view = self.seller_client.get(
-            "/api/deal-workspace/deals", format="json"
-        )
+        seller_view = self.seller_client.get("/api/deal-workspace/deals", format="json")
         self.assertEqual(seller_view.status_code, 200)
         seller_data = seller_view.json()
         self.assertEqual(len(seller_data), 2)
 
         third_user_client = APIClient()
         third_user_client.force_authenticate(self.third_user)
-        third_view = third_user_client.get(
-            "/api/deal-workspace/deals", format="json"
-        )
+        third_view = third_user_client.get("/api/deal-workspace/deals", format="json")
         self.assertEqual(third_view.status_code, 200)
         third_data = third_view.json()
         self.assertEqual(len(third_data), 1)
@@ -307,9 +293,7 @@ class DealWorkspaceAPITests(TestCase):
             mortgage_payload,
             format="json",
         )
-        self.assertEqual(
-            create_response.status_code, 201, create_response.content
-        )
+        self.assertEqual(create_response.status_code, 201, create_response.content)
         application_id = create_response.data["id"]
 
         forbidden_response = self.seller_client.post(
@@ -337,9 +321,7 @@ class DealWorkspaceAPITests(TestCase):
             offer_payload,
             format="json",
         )
-        self.assertEqual(
-            offer_response.status_code, 201, offer_response.content
-        )
+        self.assertEqual(offer_response.status_code, 201, offer_response.content)
         offers_list = self.buyer_client.get(
             "/api/deal-workspace/mortgage-offers?"
             f"mortgageapplication_id={application_id}",

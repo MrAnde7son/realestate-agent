@@ -116,7 +116,9 @@ def auto_expand_related_assets(
     candidates: List[AddressCandidate] = []
     seen_candidate_keys: set[Tuple[str, ...]] = set()
     for source_name, payload in datasets:
-        for candidate in _extract_candidates(payload, source_name, fallback_city=fallback_city):
+        for candidate in _extract_candidates(
+            payload, source_name, fallback_city=fallback_city
+        ):
             key = candidate.key()
             if key in seen_candidate_keys:
                 continue
@@ -268,14 +270,14 @@ def _candidate_keys_from_asset(asset: Any) -> List[Tuple[str, ...]]:
 
 def _asset_exists(candidate: AddressCandidate, AssetModel: Any) -> bool:
     """Check if an asset matching the candidate already exists.
-    
+
     Uses the centralized deduplication service for consistent matching logic.
     """
     try:
         # Try to use the centralized deduplication service
         try:
             from core.services.asset_deduplication import find_existing_asset
-            
+
             # Use LocationQuery directly for cleaner API
             existing = find_existing_asset(
                 location=candidate.location,
@@ -292,7 +294,9 @@ def _asset_exists(candidate: AddressCandidate, AssetModel: Any) -> bool:
                 if candidate.location.parcel:
                     queryset = queryset.filter(parcel__iexact=candidate.location.parcel)
                 if candidate.location.subparcel:
-                    queryset = queryset.filter(subparcel__iexact=candidate.location.subparcel)
+                    queryset = queryset.filter(
+                        subparcel__iexact=candidate.location.subparcel
+                    )
                 if candidate.city:
                     queryset = queryset.filter(city__iexact=candidate.city.strip())
                 return queryset.exists()
@@ -390,29 +394,37 @@ def _extract_address_components(
     number_value = _find_first_by_token(mapping, _NUMBER_TOKENS)
     city_value = _find_first_by_token(mapping, _CITY_TOKENS) or fallback_city
     address_value = _find_first_by_token(mapping, _ADDRESS_TOKENS)
-    block_value = (
-        _find_first_by_token(mapping, {"gushnumber", "blocknumber", "block_id"})
-        or _find_first_by_token(mapping, {"gush", "block"})
-    )
-    parcel_value = (
-        _find_first_by_token(mapping, {"parcelnumber", "parcel_id", "helka"})
-        or _find_first_by_token(mapping, {"parcel"})
-    )
+    block_value = _find_first_by_token(
+        mapping, {"gushnumber", "blocknumber", "block_id"}
+    ) or _find_first_by_token(mapping, {"gush", "block"})
+    parcel_value = _find_first_by_token(
+        mapping, {"parcelnumber", "parcel_id", "helka"}
+    ) or _find_first_by_token(mapping, {"parcel"})
 
     if isinstance(block_value, dict):
-        props = block_value.get("properties") if isinstance(block_value.get("properties"), dict) else None
+        props = (
+            block_value.get("properties")
+            if isinstance(block_value.get("properties"), dict)
+            else None
+        )
         if props and props.get("gushnumber") is not None:
             block_value = props.get("gushnumber")
         elif block_value.get("gush") is not None:
             block_value = block_value.get("gush")
 
     if isinstance(parcel_value, dict):
-        props = parcel_value.get("properties") if isinstance(parcel_value.get("properties"), dict) else None
+        props = (
+            parcel_value.get("properties")
+            if isinstance(parcel_value.get("properties"), dict)
+            else None
+        )
         if props and props.get("parcelnumber") is not None:
             parcel_value = props.get("parcelnumber")
         elif parcel_value.get("helka") is not None:
             parcel_value = parcel_value.get("helka")
-    subparcel_value = _find_first_by_token(mapping, {"subparcel", "tathelka", "sub_parcel"})
+    subparcel_value = _find_first_by_token(
+        mapping, {"subparcel", "tathelka", "sub_parcel"}
+    )
 
     street = _normalize_text(street_value)
     city = _normalize_text(city_value) or _normalize_text(fallback_city)
@@ -487,7 +499,9 @@ def _find_in_structure(obj: Any, token_set: set[str]) -> Optional[Any]:
     return None
 
 
-def _parse_address_string(address: str, fallback_city: str = "") -> Optional[Tuple[str, int, str]]:
+def _parse_address_string(
+    address: str, fallback_city: str = ""
+) -> Optional[Tuple[str, int, str]]:
     if not address or not isinstance(address, str):
         return None
     cleaned = address.replace(",", " ").strip()
@@ -606,7 +620,9 @@ def _link_existing_data_to_asset(
 ) -> None:
     try:
         from django.utils import timezone
-        from orchestration.pipeline.asset_enrichment import update_asset_with_collected_data
+        from orchestration.pipeline.asset_enrichment import (
+            update_asset_with_collected_data,
+        )
     except Exception:  # pragma: no cover - requires Django context
         logger.debug(
             "Skipping auto-linking for asset %s; Django enrichment unavailable",
@@ -641,15 +657,20 @@ def _link_existing_data_to_asset(
     y_itm = (govmap_data or {}).get("y")
     lon_wgs84 = None
     lat_wgs84 = None
-    
+
     if x_itm is not None and y_itm is not None:
         try:
             from govmap.api_client import itm_to_wgs84
+
             lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-            logger.debug(f"Converted ITM({x_itm}, {y_itm}) to WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) for asset {asset.id}")
+            logger.debug(
+                f"Converted ITM({x_itm}, {y_itm}) to WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) for asset {asset.id}"
+            )
         except Exception as e:
-            logger.warning(f"Failed to convert ITM coordinates for asset {asset.id}: {e}")
-    
+            logger.warning(
+                f"Failed to convert ITM coordinates for asset {asset.id}: {e}"
+            )
+
     update_asset_with_collected_data(
         asset.id,
         block,
@@ -682,7 +703,9 @@ def _link_existing_data_to_asset(
     asset.meta.setdefault("scope_type", candidate.scope_type)
     if candidate.raw_address and "raw_address" not in asset.meta:
         asset.meta["raw_address"] = candidate.raw_address
-    parent_id = asset.meta.get("auto_linked_from_parent") or asset.meta.get("auto_created_from")
+    parent_id = asset.meta.get("auto_linked_from_parent") or asset.meta.get(
+        "auto_created_from"
+    )
     if parent_id:
         asset.meta["auto_linked_from_parent"] = parent_id
     asset.save(update_fields=["meta"])
@@ -788,7 +811,11 @@ def _trigger_pipeline_for_asset(asset_id: int) -> None:
             except Exception:
                 logger.exception("Auto-created asset %s enrichment failed", asset_id)
 
-        thread = threading.Thread(target=_run_sync, name=f"auto-enrich-{asset_id}", daemon=True)
+        thread = threading.Thread(
+            target=_run_sync, name=f"auto-enrich-{asset_id}", daemon=True
+        )
         thread.start()
     except Exception:  # pragma: no cover - best effort scheduling
-        logger.exception("Failed to schedule enrichment for auto-created asset %s", asset_id)
+        logger.exception(
+            "Failed to schedule enrichment for auto-created asset %s", asset_id
+        )

@@ -1,4 +1,5 @@
 """Tests for agent token budgeting and compression helpers."""
+
 import sys
 import types
 from importlib import util

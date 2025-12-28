@@ -30,6 +30,7 @@ mcp = FastMCP(
 # Persistent client for this server process
 _client: Optional[GovMapClient] = None
 
+
 def _get_client() -> GovMapClient:
     global _client
     if _client is None:
@@ -38,7 +39,9 @@ def _get_client() -> GovMapClient:
 
 
 @mcp.tool()
-async def autocomplete(ctx: Context, query: str, language: str = "he", max_results: int = 10) -> Dict[str, Any]:
+async def autocomplete(
+    ctx: Context, query: str, language: str = "he", max_results: int = 10
+) -> Dict[str, Any]:
     """GovMap public autocomplete (no token). Returns raw JSON buckets."""
     client = _get_client()
     await ctx.info(f"Searching GovMap autocomplete for: {query}")
@@ -46,17 +49,19 @@ async def autocomplete(ctx: Context, query: str, language: str = "he", max_resul
 
 
 @mcp.tool()
-async def extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]) -> Dict[str, Any]:
+async def extract_coordinates_from_shapes(
+    ctx: Context, result: Dict[str, Any]
+) -> Dict[str, Any]:
     """Extract ITM coordinates from an autocomplete result.
-    
+
     Use this tool to extract coordinates from a result returned by the autocomplete tool.
     This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.
-    
+
     Parameters:
     -----------
     result : Dict[str, Any]
         A single result dictionary from the autocomplete API response (e.g., autocomplete_result["results"][0])
-        
+
     Returns:
     --------
     Dict[str, Any]
@@ -69,11 +74,15 @@ async def extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]) 
         await ctx.info(f"Extracted coordinates: ({x}, {y})")
         return {"x": x, "y": y, "crs": "EPSG:2039"}
     else:
-        return {"error": "Could not extract coordinates from result. Make sure the result contains a 'shape' field with POINT format."}
+        return {
+            "error": "Could not extract coordinates from result. Make sure the result contains a 'shape' field with POINT format."
+        }
 
 
 @mcp.tool()
-async def coordinate_conversion(ctx: Context, x: float, y: float, from_crs: str = "ITM", to_crs: str = "WGS84") -> Dict[str, Any]:
+async def coordinate_conversion(
+    ctx: Context, x: float, y: float, from_crs: str = "ITM", to_crs: str = "WGS84"
+) -> Dict[str, Any]:
     """Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326)."""
     if from_crs.upper() == "ITM" and to_crs.upper() == "WGS84":
         lon, lat = itm_to_wgs84(x, y)
@@ -102,7 +111,9 @@ async def get_parcel_addresses(ctx: Context, objectid: int) -> List[Dict[str, An
 
 
 @mcp.tool()
-async def get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str) -> List[Dict[str, Any]]:
+async def get_addresses_by_block_parcel(
+    ctx: Context, block: str, parcel: str
+) -> List[Dict[str, Any]]:
     """Get addresses for a given block and parcel using GovMap autocomplete API."""
     client = _get_client()
     await ctx.info(f"Looking up addresses by block/parcel: {block}/{parcel}")
@@ -115,7 +126,7 @@ async def entities_by_point(
     x: float,
     y: float,
     layer_ids: List[Union[str, int]],
-    radius: float = 30.0
+    radius: float = 30.0,
 ) -> Dict[str, Any]:
     """Get entities by point with specified layer IDs (EPSG:2039)."""
     client = _get_client()
@@ -136,15 +147,15 @@ async def get_deals_by_location(
     offset: int = 0,
 ) -> List[Dict[str, Any]]:
     """Get real estate deals for a specific location and radius.
-    
-    Returns standardized Deal objects with address, deal_date, deal_amount, rooms, 
+
+    Returns standardized Deal objects with address, deal_date, deal_amount, rooms,
     floor, asset_type, area, neighborhood, parcel information, etc.
-    
+
     This function supports three levels of deal aggregation:
     - "street" (רמת הרחוב): Deals aggregated by street level
     - "neighborhood" (רמת השכונה): Deals aggregated by neighborhood level
     - "settlement" (רמת היישוב): Deals aggregated by settlement level
-    
+
     Parameters:
     -----------
     x : float
@@ -158,13 +169,13 @@ async def get_deals_by_location(
     radius : float
         Radius in meters to search for deals (default: 100.0)
     deal_type : str
-        Type of deals: "street" (רמת הרחוב), "neighborhood" (רמת השכונה), 
+        Type of deals: "street" (רמת הרחוב), "neighborhood" (רמת השכונה),
         or "settlement" (רמת היישוב). Default: "street"
     limit : int
         Maximum number of deals to return per polygon (default: 9)
     offset : int
         Offset for pagination (default: 0)
-    
+
     Returns:
     --------
     List[Dict[str, Any]]
@@ -183,16 +194,16 @@ async def get_deals_by_location(
         - raw: Raw data from the API
     """
     client = _get_client()
-    
+
     # Convert deal_type string to DealType enum
     deal_type_enum = DealType.STREET
     if deal_type.lower() == "neighborhood":
         deal_type_enum = DealType.NEIGHBORHOOD
     elif deal_type.lower() == "settlement":
         deal_type_enum = DealType.SETTLEMENT
-    
+
     await ctx.info(f"Getting deals by location at ({x}, {y}) with radius {radius}m")
-    
+
     # Get deals from GovMap
     deals = client.get_deals_by_location(
         x=x,
@@ -204,7 +215,7 @@ async def get_deals_by_location(
         limit=limit,
         offset=offset,
     )
-    
+
     # Convert Deal objects to dictionaries
     result = []
     for deal in deals:
@@ -223,7 +234,7 @@ async def get_deals_by_location(
             "sub_parcel": deal.parcel_sub_parcel,
         }
         result.append(deal_dict)
-    
+
     await ctx.info(f"Found {len(result)} deals")
     return result
 

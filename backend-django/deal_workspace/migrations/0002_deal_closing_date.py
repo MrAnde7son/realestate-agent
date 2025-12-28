@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("deal_workspace", "0001_initial"),
     ]
@@ -17,4 +16,3 @@ class Migration(migrations.Migration):
             field=models.DateField(blank=True, null=True),
         ),
     ]
-

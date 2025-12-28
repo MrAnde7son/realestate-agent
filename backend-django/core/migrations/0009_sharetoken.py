@@ -5,7 +5,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0008_merge_0007_onboardingprogress_0007_plan_permit"),
     ]

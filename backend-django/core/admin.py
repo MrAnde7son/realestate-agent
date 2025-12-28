@@ -20,31 +20,31 @@ from .models import (
 class AssetDocumentInline(admin.TabularInline):
     model = AssetDocument
     extra = 0
-    autocomplete_fields = ['asset', 'document']
+    autocomplete_fields = ["asset", "document"]
 
 
 class AssetTransactionInline(admin.TabularInline):
     model = AssetTransaction
     extra = 0
-    autocomplete_fields = ['asset', 'transaction']
+    autocomplete_fields = ["asset", "transaction"]
 
 
 class AssetListingInline(admin.TabularInline):
     model = AssetListing
     extra = 0
-    autocomplete_fields = ['asset', 'listing']
+    autocomplete_fields = ["asset", "listing"]
 
 
 class AssetPermitInline(admin.TabularInline):
     model = AssetPermit
     extra = 0
-    autocomplete_fields = ['asset', 'permit']
+    autocomplete_fields = ["asset", "permit"]
 
 
 class AssetPlanInline(admin.TabularInline):
     model = AssetPlan
     extra = 0
-    autocomplete_fields = ['asset', 'plan']
+    autocomplete_fields = ["asset", "plan"]
 
 
 @admin.register(SupportTicket)
@@ -56,7 +56,15 @@ class SupportTicketAdmin(admin.ModelAdmin):
 
 @admin.register(ConsultationRequest)
 class ConsultationRequestAdmin(admin.ModelAdmin):
-    list_display = ("id", "full_name", "email", "phone", "channel", "status", "created_at")
+    list_display = (
+        "id",
+        "full_name",
+        "email",
+        "phone",
+        "channel",
+        "status",
+        "created_at",
+    )
     list_filter = ("channel", "status", "created_at")
     search_fields = ("full_name", "email", "phone", "topic")
 
@@ -70,31 +78,31 @@ class AssetAdmin(admin.ModelAdmin):
         AssetPlanInline,
         AssetListingInline,
     ]
-    search_fields = ('id', 'address', 'city', 'street', 'parcel')
+    search_fields = ("id", "address", "city", "street", "parcel")
 
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
     inlines = [AssetDocumentInline]
-    search_fields = ('id', 'title', 'external_id')
+    search_fields = ("id", "title", "external_id")
 
 
 @admin.register(RealEstateTransaction)
 class RealEstateTransactionAdmin(admin.ModelAdmin):
     inlines = [AssetTransactionInline]
-    search_fields = ('id', 'deal_id')
+    search_fields = ("id", "deal_id")
 
 
 @admin.register(Permit)
 class PermitAdmin(admin.ModelAdmin):
     inlines = [AssetPermitInline]
-    search_fields = ('id', 'permit_number')
+    search_fields = ("id", "permit_number")
 
 
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
     inlines = [AssetPlanInline]
-    search_fields = ('id', 'plan_number', 'title')
+    search_fields = ("id", "plan_number", "title")
 
 
 @admin.register(Listing)

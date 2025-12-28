@@ -162,19 +162,13 @@ class AssetFilterExtensionTests(TestCase):
         self.assertEqual(balcony_range["max"], 25)
 
         self.assertIn("yearBuiltRange", filters)
-        self.assertEqual(
-            filters["yearBuiltRange"], {"min": 1995, "max": 2012}
-        )
+        self.assertEqual(filters["yearBuiltRange"], {"min": 1995, "max": 2012})
 
         self.assertIn("rentEstimateRange", filters)
-        self.assertEqual(
-            filters["rentEstimateRange"], {"min": 4200, "max": 9800}
-        )
+        self.assertEqual(filters["rentEstimateRange"], {"min": 4200, "max": 9800})
 
         self.assertIn("priceGapPctRange", filters)
-        self.assertEqual(
-            filters["priceGapPctRange"], {"min": -2.3, "max": 6.8}
-        )
+        self.assertEqual(filters["priceGapPctRange"], {"min": -2.3, "max": 6.8})
 
         self.assertIn("capRatePctRange", filters)
         self.assertEqual(filters["capRatePctRange"], {"min": 2.5, "max": 4.9})
@@ -196,6 +190,4 @@ class AssetFilterExtensionTests(TestCase):
         data = response.json()
         ids = {row["id"] for row in data.get("rows", [])}
         self.assertEqual(ids, {self.asset_mid.id, self.asset_premium.id})
-        self.assertTrue(
-            all(row.get("isWatched") for row in data.get("rows", []))
-        )
+        self.assertTrue(all(row.get("isWatched") for row in data.get("rows", [])))

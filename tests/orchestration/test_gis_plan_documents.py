@@ -21,7 +21,7 @@ class TestGISPlanDocumentCreation:
             "id_taba": 641,
             "plan_number": "641",
             "taba": "ג                   ",
-            "shem_taba": "תכנית \"ג\" - גגות - בניה על גגות בתים",
+            "shem_taba": 'תכנית "ג" - גגות - בניה על גגות בתים',
             "k_status": 11,
             "t_status": "בתוקף",
             "k_status_klali": 1,

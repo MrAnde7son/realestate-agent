@@ -4,26 +4,27 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('crm', '0001_initial'),
+        ("crm", "0001_initial"),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='contact',
-            index=models.Index(fields=['name'], name='crm_contact_name_e9345e_idx'),
+            model_name="contact",
+            index=models.Index(fields=["name"], name="crm_contact_name_e9345e_idx"),
         ),
         migrations.AddIndex(
-            model_name='contact',
-            index=models.Index(fields=['email'], name='crm_contact_email_240305_idx'),
+            model_name="contact",
+            index=models.Index(fields=["email"], name="crm_contact_email_240305_idx"),
         ),
         migrations.AddIndex(
-            model_name='lead',
-            index=models.Index(fields=['status'], name='crm_lead_status_2c1bc7_idx'),
+            model_name="lead",
+            index=models.Index(fields=["status"], name="crm_lead_status_2c1bc7_idx"),
         ),
         migrations.AddIndex(
-            model_name='lead',
-            index=models.Index(fields=['last_activity_at'], name='crm_lead_last_ac_cf6e47_idx'),
+            model_name="lead",
+            index=models.Index(
+                fields=["last_activity_at"], name="crm_lead_last_ac_cf6e47_idx"
+            ),
         ),
     ]

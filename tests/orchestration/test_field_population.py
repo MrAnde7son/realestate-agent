@@ -8,7 +8,8 @@ import pytest
 import sys
 import types
 
-if 'pyproj' not in sys.modules:
+if "pyproj" not in sys.modules:
+
     class _DummyTransformer:
         """Minimal stub for pyproj.Transformer used in unit tests."""
 
@@ -19,10 +20,10 @@ if 'pyproj' not in sys.modules:
         def transform(self, x, y, *args, **kwargs):
             return x, y
 
-    sys.modules['pyproj'] = types.SimpleNamespace(Transformer=_DummyTransformer)
+    sys.modules["pyproj"] = types.SimpleNamespace(Transformer=_DummyTransformer)
 
-if 'selenium' not in sys.modules:
-    selenium_module = types.ModuleType('selenium')
+if "selenium" not in sys.modules:
+    selenium_module = types.ModuleType("selenium")
     selenium_module.__path__ = []
 
     class _DummyChromeOptions:
@@ -43,49 +44,49 @@ if 'selenium' not in sys.modules:
         Chrome=_DummyChromeDriver,
         ChromeOptions=_DummyChromeOptions,
     )
-    sys.modules['selenium'] = selenium_module
+    sys.modules["selenium"] = selenium_module
 
-    webdriver_module = types.ModuleType('selenium.webdriver')
+    webdriver_module = types.ModuleType("selenium.webdriver")
     webdriver_module.__path__ = []
     webdriver_module.Chrome = _DummyChromeDriver
     webdriver_module.ChromeOptions = _DummyChromeOptions
-    sys.modules['selenium.webdriver'] = webdriver_module
+    sys.modules["selenium.webdriver"] = webdriver_module
 
-    common_module = types.ModuleType('selenium.webdriver.common')
+    common_module = types.ModuleType("selenium.webdriver.common")
     common_module.__path__ = []
-    sys.modules['selenium.webdriver.common'] = common_module
+    sys.modules["selenium.webdriver.common"] = common_module
 
     class _DummyBy:
         XPATH = "xpath"
         CSS_SELECTOR = "css"
         ID = "id"
 
-    by_module = types.ModuleType('selenium.webdriver.common.by')
+    by_module = types.ModuleType("selenium.webdriver.common.by")
     by_module.By = _DummyBy
-    sys.modules['selenium.webdriver.common.by'] = by_module
+    sys.modules["selenium.webdriver.common.by"] = by_module
 
     class _DummyKeys:
         ENTER = "ENTER"
 
-    keys_module = types.ModuleType('selenium.webdriver.common.keys')
+    keys_module = types.ModuleType("selenium.webdriver.common.keys")
     keys_module.Keys = _DummyKeys
-    sys.modules['selenium.webdriver.common.keys'] = keys_module
+    sys.modules["selenium.webdriver.common.keys"] = keys_module
 
-    chrome_module = types.ModuleType('selenium.webdriver.chrome')
+    chrome_module = types.ModuleType("selenium.webdriver.chrome")
     chrome_module.__path__ = []
-    sys.modules['selenium.webdriver.chrome'] = chrome_module
+    sys.modules["selenium.webdriver.chrome"] = chrome_module
 
     class _DummyService:
         def __init__(self, *args, **kwargs):
             pass
 
-    service_module = types.ModuleType('selenium.webdriver.chrome.service')
+    service_module = types.ModuleType("selenium.webdriver.chrome.service")
     service_module.Service = _DummyService
-    sys.modules['selenium.webdriver.chrome.service'] = service_module
+    sys.modules["selenium.webdriver.chrome.service"] = service_module
 
-    support_module = types.ModuleType('selenium.webdriver.support')
+    support_module = types.ModuleType("selenium.webdriver.support")
     support_module.__path__ = []
-    sys.modules['selenium.webdriver.support'] = support_module
+    sys.modules["selenium.webdriver.support"] = support_module
 
     class _DummyWebDriverWait:
         def __init__(self, driver, timeout, *args, **kwargs):
@@ -95,9 +96,9 @@ if 'selenium' not in sys.modules:
         def until(self, method, *args, **kwargs):
             return True
 
-    support_ui_module = types.ModuleType('selenium.webdriver.support.ui')
+    support_ui_module = types.ModuleType("selenium.webdriver.support.ui")
     support_ui_module.WebDriverWait = _DummyWebDriverWait
-    sys.modules['selenium.webdriver.support.ui'] = support_ui_module
+    sys.modules["selenium.webdriver.support.ui"] = support_ui_module
 
     class _DummyExpectedConditions:
         @staticmethod
@@ -109,11 +110,16 @@ if 'selenium' not in sys.modules:
             return lambda driver: True
 
     support_module.expected_conditions = _DummyExpectedConditions
-    support_ec_module = types.ModuleType('selenium.webdriver.support.expected_conditions')
-    support_ec_module.presence_of_element_located = _DummyExpectedConditions.presence_of_element_located
-    support_ec_module.element_to_be_clickable = _DummyExpectedConditions.element_to_be_clickable
-    sys.modules['selenium.webdriver.support.expected_conditions'] = support_ec_module
-
+    support_ec_module = types.ModuleType(
+        "selenium.webdriver.support.expected_conditions"
+    )
+    support_ec_module.presence_of_element_located = (
+        _DummyExpectedConditions.presence_of_element_located
+    )
+    support_ec_module.element_to_be_clickable = (
+        _DummyExpectedConditions.element_to_be_clickable
+    )
+    sys.modules["selenium.webdriver.support.expected_conditions"] = support_ec_module
 
 
 from orchestration.pipeline.asset_enrichment import _populate_asset_fields_from_listings
@@ -121,6 +127,7 @@ from orchestration.pipeline.asset_enrichment import _populate_asset_fields_from_
 
 class MockAsset:
     """Simple mock asset class for testing."""
+
     def __init__(self):
         self.id = 1
         self.price = None
@@ -140,32 +147,32 @@ class MockAsset:
         self.meta = {}
         self.save_called = False
         self.is_commercial = False
-    
+
     def save(self, update_fields=None):
         self.save_called = True
-    
+
     def set_property(self, key, value, source=None, url=None, meta_prefix=""):
         """Unified setter that updates both direct fields and metadata."""
         if value is None:
             return
-        
+
         # Initialize meta field if it doesn't exist
         if not self.meta:
             self.meta = {}
-        
+
         # Store the value directly on the asset if the field exists
         if hasattr(self, key):
             try:
                 setattr(self, key, value)
             except Exception as e:
                 pass
-        
+
         # Store metadata for this property
         meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
         self.meta[meta_key] = {
             "value": value,
             "source": source or "unknown",
-            "url": url
+            "url": url,
         }
 
 
@@ -178,40 +185,36 @@ class TestAssetFieldPopulation:
         asset = MockAsset()
         asset.normalized_address = "רחוב הרצל 15, תל אביב"
         asset.street = "הרצל"
-        
+
         # Mock listings with exact address match
         listings = [
             {
-                'price': 2500000,
-                'area': 100,
-                'address': 'רחוב הרצל 15, תל אביב',
-                'rooms': 4,
-                'bedrooms': 3,
-                'floor': 2,
-                'listing_id': '12345',
-                'url': 'https://yad2.co.il/item/12345',
-                'meta': {
-                    'neighborhood': 'רמת החייל',
-                    'raw': {
-                        'address': {
-                            'neighborhood': {'text': 'רמת החייל'}
-                        }
-                    }
-                }
+                "price": 2500000,
+                "area": 100,
+                "address": "רחוב הרצל 15, תל אביב",
+                "rooms": 4,
+                "bedrooms": 3,
+                "floor": 2,
+                "listing_id": "12345",
+                "url": "https://yad2.co.il/item/12345",
+                "meta": {
+                    "neighborhood": "רמת החייל",
+                    "raw": {"address": {"neighborhood": {"text": "רמת החייל"}}},
+                },
             },
             {
-                'price': 3000000,
-                'area': 120,
-                'address': 'רחוב הרצל 20, תל אביב',
-                'rooms': 5,
-                'bedrooms': 4,
-                'floor': 3
-            }
+                "price": 3000000,
+                "area": 120,
+                "address": "רחוב הרצל 20, תל אביב",
+                "rooms": 5,
+                "bedrooms": 4,
+                "floor": 3,
+            },
         ]
-        
+
         # Test population
         _populate_asset_fields_from_listings(asset, listings)
-        
+
         # Verify exact match was used (first listing)
         assert asset.price == 2500000
         assert asset.area == 100  # area field is populated
@@ -219,14 +222,16 @@ class TestAssetFieldPopulation:
         assert asset.rooms == 4
         assert asset.bedrooms == 3
         assert asset.floor == 2
-        assert asset.neighborhood == 'רמת החייל'
-        
+        assert asset.neighborhood == "רמת החייל"
+
         # Verify source tracking
-        assert 'primary_listing_source' in asset.meta
-        assert asset.meta['primary_listing_source']['source'] == 'yad2'
-        assert asset.meta['primary_listing_source']['listing_id'] == '12345'
-        assert asset.meta['primary_listing_source']['address'] == 'רחוב הרצל 15, תל אביב'
-        assert asset.meta['listing_prices']['sale'] == 2500000
+        assert "primary_listing_source" in asset.meta
+        assert asset.meta["primary_listing_source"]["source"] == "yad2"
+        assert asset.meta["primary_listing_source"]["listing_id"] == "12345"
+        assert (
+            asset.meta["primary_listing_source"]["address"] == "רחוב הרצל 15, תל אביב"
+        )
+        assert asset.meta["listing_prices"]["sale"] == 2500000
 
         # Verify save was called
         assert asset.save_called
@@ -238,13 +243,13 @@ class TestAssetFieldPopulation:
 
         listings = [
             {
-                'price': 7800,
-                'size': 80,
-                'address': 'רחוב הרצל 30, תל אביב',
-                'rooms': 3,
-                'listing_type': 'rent',
-                'listing_id': 'rent-123',
-                'url': 'https://yad2.co.il/item/rent-123',
+                "price": 7800,
+                "size": 80,
+                "address": "רחוב הרצל 30, תל אביב",
+                "rooms": 3,
+                "listing_type": "rent",
+                "listing_id": "rent-123",
+                "url": "https://yad2.co.il/item/rent-123",
             }
         ]
 
@@ -254,11 +259,11 @@ class TestAssetFieldPopulation:
         assert asset.area == 80
         assert asset.price_per_sqm is None
         assert asset.rent_price == 7800
-        assert asset.meta['listing_prices']['rent'] == 7800
-        primary_source = asset.meta['primary_listing_source']
-        assert primary_source['listing_type'] == 'rent'
-        assert primary_source['rent_price'] == 7800
-        assert 'price' not in primary_source
+        assert asset.meta["listing_prices"]["rent"] == 7800
+        primary_source = asset.meta["primary_listing_source"]
+        assert primary_source["listing_type"] == "rent"
+        assert primary_source["rent_price"] == 7800
+        assert "price" not in primary_source
         assert asset.save_called
 
     def test_sets_commercial_flag_from_listings(self):
@@ -267,13 +272,13 @@ class TestAssetFieldPopulation:
 
         listings = [
             {
-                'price': 100000,
-                'area': 40,
-                'address': 'דרך השלום 10, תל אביב',
-                'listing_type': 'commercial',
-                'ad_type': 'private',
-                'meta': {
-                    'category_id': 2,
+                "price": 100000,
+                "area": 40,
+                "address": "דרך השלום 10, תל אביב",
+                "listing_type": "commercial",
+                "ad_type": "private",
+                "meta": {
+                    "category_id": 2,
                 },
             }
         ]
@@ -288,28 +293,28 @@ class TestAssetFieldPopulation:
         asset = MockAsset()
         asset.normalized_address = None  # No exact address
         asset.street = "הרצל"
-        
+
         # Mock listings with street match but no exact match
         listings = [
             {
-                'price': 2800000,
-                'area': 110,
-                'address': 'רחוב הרצל 25, תל אביב',  # Different address
-                'rooms': 4,
-                'bedrooms': 3
+                "price": 2800000,
+                "area": 110,
+                "address": "רחוב הרצל 25, תל אביב",  # Different address
+                "rooms": 4,
+                "bedrooms": 3,
             },
             {
-                'price': 3000000,
-                'area': 120,
-                'address': 'רחוב דיזנגוף 10, תל אביב',
-                'rooms': 5,
-                'bedrooms': 4
-            }
+                "price": 3000000,
+                "area": 120,
+                "address": "רחוב דיזנגוף 10, תל אביב",
+                "rooms": 5,
+                "bedrooms": 4,
+            },
         ]
-        
+
         # Test population
         _populate_asset_fields_from_listings(asset, listings)
-        
+
         # Verify no fields were populated since there's no exact match
         assert asset.price is None
         assert asset.area is None
@@ -317,7 +322,7 @@ class TestAssetFieldPopulation:
         assert asset.rooms is None
         assert asset.bedrooms is None
         assert asset.neighborhood is None
-        
+
         # Verify save was not called
         assert not asset.save_called
 
@@ -327,28 +332,28 @@ class TestAssetFieldPopulation:
         asset = MockAsset()
         asset.normalized_address = None
         asset.street = None  # No address info
-        
+
         # Mock listings
         listings = [
             {
-                'price': 2000000,
-                'area': 80,
-                'address': 'רחוב אחר 10, תל אביב',
-                'rooms': 3,
-                'bedrooms': 2
+                "price": 2000000,
+                "area": 80,
+                "address": "רחוב אחר 10, תל אביב",
+                "rooms": 3,
+                "bedrooms": 2,
             },
             {
-                'price': 3000000,
-                'area': 120,
-                'address': 'רחוב אחר 20, תל אביב',
-                'rooms': 5,
-                'bedrooms': 4
-            }
+                "price": 3000000,
+                "area": 120,
+                "address": "רחוב אחר 20, תל אביב",
+                "rooms": 5,
+                "bedrooms": 4,
+            },
         ]
-        
+
         # Test population
         _populate_asset_fields_from_listings(asset, listings)
-        
+
         # Verify no fields were populated since there's no exact match
         assert asset.price is None
         assert asset.area is None
@@ -356,7 +361,7 @@ class TestAssetFieldPopulation:
         assert asset.rooms is None
         assert asset.bedrooms is None
         assert asset.neighborhood is None
-        
+
         # Verify save was not called
         assert not asset.save_called
 
@@ -365,42 +370,47 @@ class TestAssetFieldPopulation:
         # Create mock asset with existing data
         asset = MockAsset()
         asset.price = 2000000  # Already has price
-        asset.area = 90   # Already has area (changed from total_area to area)
-        asset.rooms = 3        # Already has rooms
-        asset.normalized_address = "רחוב הרצל 15, תל אביב"  # Add exact address for matching
-        asset.neighborhood = 'קיים'
-        
+        asset.area = 90  # Already has area (changed from total_area to area)
+        asset.rooms = 3  # Already has rooms
+        asset.normalized_address = (
+            "רחוב הרצל 15, תל אביב"  # Add exact address for matching
+        )
+        asset.neighborhood = "קיים"
+
         # Mock listings
         listings = [
             {
-                'price': 3000000,  # Different price
-                'area': 120,      # Different area
-                'address': 'רחוב הרצל 15, תל אביב',  # Exact match
-                'rooms': 5,       # Different rooms
-                'bedrooms': 4,
-                'floor': 2,
-                'url': 'https://yad2.co.il/item/12345',  # Add URL to identify as Yad2 listing
-                'meta': {
-                    'neighborhood': 'רמת החייל',
-                }
+                "price": 3000000,  # Different price
+                "area": 120,  # Different area
+                "address": "רחוב הרצל 15, תל אביב",  # Exact match
+                "rooms": 5,  # Different rooms
+                "bedrooms": 4,
+                "floor": 2,
+                "url": "https://yad2.co.il/item/12345",  # Add URL to identify as Yad2 listing
+                "meta": {
+                    "neighborhood": "רמת החייל",
+                },
             }
         ]
-        
+
         # Test population
         _populate_asset_fields_from_listings(asset, listings)
-        
+
         # Verify existing fields were not overwritten
         assert asset.price == 2000000  # Original value preserved
-        assert asset.area == 90   # Original value preserved (changed from total_area to area)
-        assert asset.rooms == 3        # Original value preserved
-        assert asset.neighborhood == 'קיים'
-        
+        assert (
+            asset.area == 90
+        )  # Original value preserved (changed from total_area to area)
+        assert asset.rooms == 3  # Original value preserved
+        assert asset.neighborhood == "קיים"
+
         # Verify new fields were populated
         assert asset.bedrooms == 4
         assert asset.floor == 2
-        
+
         # Verify price_per_sqm was calculated from existing data
         assert asset.price_per_sqm == 22222  # 2000000 / 90
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

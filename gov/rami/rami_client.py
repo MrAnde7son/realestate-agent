@@ -31,7 +31,7 @@ class RamiClient:
         "Accept-Language": "he,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1"
+        "Upgrade-Insecure-Requests": "1",
     }
 
     def __init__(
@@ -59,7 +59,9 @@ class RamiClient:
         self.delay = delay
         self.endpoint = endpoint or self.ENDPOINT
         # Ensure a User-Agent header exists on the session for some picky APIs
-        self.session.headers.update({"User-Agent": self.headers.get("User-Agent", "Mozilla/5.0")})
+        self.session.headers.update(
+            {"User-Agent": self.headers.get("User-Agent", "Mozilla/5.0")}
+        )
 
     def _one_page(self, search_params: Dict[str, Any], page: int) -> Dict[str, Any]:
         """Fetch a single page of search results."""
@@ -77,7 +79,9 @@ class RamiClient:
             timeout=60,
         )
         if response.status_code == 401:
-            raise RuntimeError("401 Unauthorized – missing Cookie/Authorization headers?")
+            raise RuntimeError(
+                "401 Unauthorized – missing Cookie/Authorization headers?"
+            )
         return response.json()
 
     @staticmethod
@@ -125,10 +129,10 @@ class RamiClient:
         plan_types: Optional[List[int]] = None,
         from_status_date: Optional[str] = None,
         to_status_date: Optional[str] = None,
-        plan_types_used: bool = False
+        plan_types_used: bool = False,
     ) -> Dict[str, Any]:
         """Create search parameters in the correct format for RAMI API.
-        
+
         Args:
             plan_number: Plan number to search for
             city: City code (e.g., 5000 for Tel Aviv)
@@ -139,13 +143,50 @@ class RamiClient:
             from_status_date: Start date for status filter (YYYY-MM-DD)
             to_status_date: End date for status filter (YYYY-MM-DD)
             plan_types_used: Whether plan types filter is being used
-            
+
         Returns:
             Dictionary with search parameters in the correct format
         """
         if plan_types is None:
-            plan_types = [72, 21, 1, 8, 9, 10, 12, 20, 62, 31, 41, 25, 22, 2, 11, 13, 61, 32, 74, 78, 77, 73, 76, 75, 80, 79, 40, 60, 71, 70, 67, 68, 69, 30, 50, 3]
-        
+            plan_types = [
+                72,
+                21,
+                1,
+                8,
+                9,
+                10,
+                12,
+                20,
+                62,
+                31,
+                41,
+                25,
+                22,
+                2,
+                11,
+                13,
+                61,
+                32,
+                74,
+                78,
+                77,
+                73,
+                76,
+                75,
+                80,
+                79,
+                40,
+                60,
+                71,
+                70,
+                67,
+                68,
+                69,
+                30,
+                50,
+                3,
+            ]
+
         return {
             "planNumber": plan_number,
             "gush": block,
@@ -154,7 +195,7 @@ class RamiClient:
             "planTypes": plan_types,
             "fromStatusDate": from_status_date,
             "toStatusDate": to_status_date,
-            "planTypesUsed": plan_types_used
+            "planTypesUsed": plan_types_used,
         }
 
     def fetch_plans(self, search_params: Dict[str, Any]) -> pd.DataFrame:
@@ -170,7 +211,9 @@ class RamiClient:
             timeout=60,
         )
         if response.status_code == 401:
-            raise RuntimeError("401 Unauthorized – missing Cookie/Authorization headers?")
+            raise RuntimeError(
+                "401 Unauthorized – missing Cookie/Authorization headers?"
+            )
 
         data = response.json()
         return list(self._extract_results(data))
@@ -178,64 +221,72 @@ class RamiClient:
     def _extract_document_urls(self, plan: Dict[str, Any]) -> List[Dict[str, str]]:
         """Extract document URLs from a plan's documentsSet."""
         documents = []
-        documents_set = plan.pop('documentsSet', {})
-        
+        documents_set = plan.pop("documentsSet", {})
+
         if not documents_set:
             return documents
-        
+
         def clean_path(path: str) -> str:
             """Clean and normalize a file path for URL construction."""
             if not path:
                 return path
             # Replace backslashes with forward slashes
-            path = path.replace('\\', '/')
+            path = path.replace("\\", "/")
             # Ensure path starts with /
-            if not path.startswith('/'):
-                path = '/' + path
+            if not path.startswith("/"):
+                path = "/" + path
             return path
-            
+
         # Extract takanon (regulations)
-        takanon = documents_set.get('takanon')
-        if takanon and takanon.get('path'):
-            clean_path_str = clean_path(takanon['path'])
-            documents.append({
-                'type': 'takanon',
-                'name': takanon.get('info', 'תקנון סרוק'),
-                'url': self.BASE_URL + clean_path_str
-            })
-        
+        takanon = documents_set.get("takanon")
+        if takanon and takanon.get("path"):
+            clean_path_str = clean_path(takanon["path"])
+            documents.append(
+                {
+                    "type": "takanon",
+                    "name": takanon.get("info", "תקנון סרוק"),
+                    "url": self.BASE_URL + clean_path_str,
+                }
+            )
+
         # Extract tasritim (drawings/blueprints)
-        tasritim = documents_set.get('tasritim', [])
+        tasritim = documents_set.get("tasritim", [])
         for tasrit in tasritim:
-            if tasrit.get('path'):
-                clean_path_str = clean_path(tasrit['path'])
-                documents.append({
-                    'type': 'tasrit',
-                    'name': tasrit.get('info', 'תשריט'),
-                    'url': self.BASE_URL + clean_path_str
-                })
-        
+            if tasrit.get("path"):
+                clean_path_str = clean_path(tasrit["path"])
+                documents.append(
+                    {
+                        "type": "tasrit",
+                        "name": tasrit.get("info", "תשריט"),
+                        "url": self.BASE_URL + clean_path_str,
+                    }
+                )
+
         # Extract nispachim (appendices)
-        nispachim = documents_set.get('nispachim', [])
+        nispachim = documents_set.get("nispachim", [])
         for nispach in nispachim:
-            if nispach.get('path'):
-                clean_path_str = clean_path(nispach['path'])
-                documents.append({
-                    'type': 'nispach',
-                    'name': nispach.get('info', 'נספח'),
-                    'url': self.BASE_URL + clean_path_str
-                })
-        
+            if nispach.get("path"):
+                clean_path_str = clean_path(nispach["path"])
+                documents.append(
+                    {
+                        "type": "nispach",
+                        "name": nispach.get("info", "נספח"),
+                        "url": self.BASE_URL + clean_path_str,
+                    }
+                )
+
         # Extract MMG files
-        mmg = documents_set.get('mmg')
-        if mmg and mmg.get('path'):
-            clean_path_str = clean_path(mmg['path'])
-            documents.append({
-                'type': 'mmg',
-                'name': mmg.get('info', 'קבצי ממג'),
-                'url': self.BASE_URL + clean_path_str
-            })
-        
+        mmg = documents_set.get("mmg")
+        if mmg and mmg.get("path"):
+            clean_path_str = clean_path(mmg["path"])
+            documents.append(
+                {
+                    "type": "mmg",
+                    "name": mmg.get("info", "קבצי ממג"),
+                    "url": self.BASE_URL + clean_path_str,
+                }
+            )
+
         return documents
 
     def extract_document_urls(self, plan: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -244,38 +295,41 @@ class RamiClient:
             return []
         return self._extract_document_urls(plan)
 
-    def download_document(self, url: str, save_path: Union[str, Path], 
-                         overwrite: bool = False) -> bool:
+    def download_document(
+        self, url: str, save_path: Union[str, Path], overwrite: bool = False
+    ) -> bool:
         """Download a single document from the given URL.
-        
+
         Args:
             url: The document URL to download
             save_path: Local path to save the file
             overwrite: Whether to overwrite existing files
-            
+
         Returns:
             True if downloaded successfully, False otherwise
         """
         save_path = Path(save_path)
-        
+
         if save_path.exists() and not overwrite:
             self.logger.info(f"File already exists, skipping: {save_path}")
             return True
-            
+
         try:
             # Create directory if it doesn't exist
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Simple but effective headers for file downloads
             download_headers = {
                 "Accept": "application/pdf,application/octet-stream,*/*",
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-                "Referer": "https://apps.land.gov.il/TabaSearch/"
+                "Referer": "https://apps.land.gov.il/TabaSearch/",
             }
-            
+
             # Download with a longer timeout for large files
-            response = self.session.get(url, headers=download_headers, timeout=120, stream=True)
-            
+            response = self.session.get(
+                url, headers=download_headers, timeout=120, stream=True
+            )
+
             # Check status code first
             if response.status_code == 404:
                 self.logger.warning(f"File not found (404): {url}")
@@ -286,124 +340,141 @@ class RamiClient:
             elif response.status_code != 200:
                 self.logger.warning(f"HTTP error {response.status_code} for {url}")
                 return False
-            
+
             # Check if it's actually a PDF/document (not HTML error page)
-            content_type = response.headers.get('content-type', '').lower()
-            if 'text/html' in content_type:
+            content_type = response.headers.get("content-type", "").lower()
+            if "text/html" in content_type:
                 self.logger.warning(f"Got HTML response instead of document for {url}")
                 # Log some of the HTML to understand the error
                 # Read text for preview (this consumes the body, but we're returning anyway)
                 try:
-                    html_preview = response.text[:200] if hasattr(response, 'text') else "Cannot read HTML"
+                    html_preview = (
+                        response.text[:200]
+                        if hasattr(response, "text")
+                        else "Cannot read HTML"
+                    )
                 except Exception:
                     html_preview = "Cannot read HTML"
                 self.logger.warning(f"HTML preview: {html_preview}...")
                 return False
-            
+
             # Write file in chunks
             # Note: response.iter_content() can only be used if response.text hasn't been accessed
             total_size = 0
-            with open(save_path, 'wb') as f:
+            with open(save_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
                         total_size += len(chunk)
-                        
+
             self.logger.info(f"Downloaded: {save_path} ({total_size} bytes)")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to download {url}: {e}")
             return False
 
-    def download_plan_documents(self, plan: Dict[str, Any], base_dir: Union[str, Path] = "plans",
-                              doc_types: Optional[List[str]] = None, 
-                              overwrite: bool = False) -> Dict[str, List[str]]:
+    def download_plan_documents(
+        self,
+        plan: Dict[str, Any],
+        base_dir: Union[str, Path] = "plans",
+        doc_types: Optional[List[str]] = None,
+        overwrite: bool = False,
+    ) -> Dict[str, List[str]]:
         """Download all documents for a single plan.
-        
+
         Args:
             plan: Plan dictionary containing documentsSet
             base_dir: Base directory to save documents
             doc_types: List of document types to download (default: all)
             overwrite: Whether to overwrite existing files
-            
+
         Returns:
             Dict with 'success' and 'failed' lists of file paths
         """
         base_dir = Path(base_dir)
-        plan_number = plan.get('planNumber', 'unknown_plan')
-        plan_id = plan.get('planId', 'unknown_id')
-        
+        plan_number = plan.get("planNumber", "unknown_plan")
+        plan_id = plan.get("planId", "unknown_id")
+
         # Create safe directory name
-        safe_plan_name = "".join(c for c in plan_number if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_plan_name = "".join(
+            c for c in plan_number if c.isalnum() or c in (" ", "-", "_")
+        ).strip()
         plan_dir = base_dir / f"{safe_plan_name}_{plan_id}"
-        
+
         documents = self._extract_document_urls(plan)
-        
+
         if doc_types:
-            documents = [doc for doc in documents if doc['type'] in doc_types]
-            
-        results = {'success': [], 'failed': []}
-        
+            documents = [doc for doc in documents if doc["type"] in doc_types]
+
+        results = {"success": [], "failed": []}
+
         for doc in documents:
             # Create filename from path
-            file_path = Path(doc['path'])
+            file_path = Path(doc["path"])
             filename = file_path.name
-            save_path = plan_dir / doc['type'] / filename
-            
-            if self.download_document(doc['url'], save_path, overwrite):
-                results['success'].append(str(save_path))
+            save_path = plan_dir / doc["type"] / filename
+
+            if self.download_document(doc["url"], save_path, overwrite):
+                results["success"].append(str(save_path))
             else:
-                results['failed'].append(doc['url'])
-                
+                results["failed"].append(doc["url"])
+
             # Small delay between downloads
             time.sleep(self.delay)
-        
+
         return results
 
-    def download_multiple_plans_documents(self, plans: List[Dict[str, Any]], 
-                                        base_dir: Union[str, Path] = "plans",
-                                        doc_types: Optional[List[str]] = None,
-                                        overwrite: bool = False) -> Dict[str, Any]:
+    def download_multiple_plans_documents(
+        self,
+        plans: List[Dict[str, Any]],
+        base_dir: Union[str, Path] = "plans",
+        doc_types: Optional[List[str]] = None,
+        overwrite: bool = False,
+    ) -> Dict[str, Any]:
         """Download documents for multiple plans.
-        
+
         Args:
             plans: List of plan dictionaries
             base_dir: Base directory to save documents
             doc_types: List of document types to download (default: all)
             overwrite: Whether to overwrite existing files
-            
+
         Returns:
             Summary of download results
         """
         total_success = 0
         total_failed = 0
         plan_results = {}
-        
+
         for i, plan in enumerate(plans, 1):
-            plan_number = plan.get('planNumber', f'plan_{i}')
-            self.logger.info(f"Downloading documents for plan {i}/{len(plans)}: {plan_number}")
-            
+            plan_number = plan.get("planNumber", f"plan_{i}")
+            self.logger.info(
+                f"Downloading documents for plan {i}/{len(plans)}: {plan_number}"
+            )
+
             results = self.download_plan_documents(plan, base_dir, doc_types, overwrite)
             plan_results[plan_number] = results
-            
-            total_success += len(results['success'])
-            total_failed += len(results['failed'])
-            
-            self.logger.info(f"  ✓ {len(results['success'])} files downloaded, ✗ {len(results['failed'])} failed")
-        
+
+            total_success += len(results["success"])
+            total_failed += len(results["failed"])
+
+            self.logger.info(
+                f"  ✓ {len(results['success'])} files downloaded, ✗ {len(results['failed'])} failed"
+            )
+
         summary = {
-            'total_plans': len(plans),
-            'total_files_downloaded': total_success,
-            'total_files_failed': total_failed,
-            'plan_results': plan_results
+            "total_plans": len(plans),
+            "total_files_downloaded": total_success,
+            "total_files_failed": total_failed,
+            "plan_results": plan_results,
         }
-        
+
         self.logger.info("\nDownload Summary:")
         self.logger.info(f"Plans processed: {summary['total_plans']}")
         self.logger.info(f"Files downloaded: {summary['total_files_downloaded']}")
         self.logger.info(f"Files failed: {summary['total_files_failed']}")
-        
+
         return summary
 
 

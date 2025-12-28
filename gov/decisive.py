@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DecisiveAppraisal:
     """Data class representing a decisive appraisal decision."""
-    
+
     title: str
     date: str
     appraiser: str
@@ -28,13 +28,13 @@ class DecisiveAppraisal:
     block: str = ""
     plot: str = ""
     publicity_date: str = ""
-    
+
     def get_pdf_urls(self) -> List[str]:
         """Get list of individual PDF URLs."""
         if not self.pdf_url:
             return []
         return [url.strip() for url in self.pdf_url.split(";") if url.strip()]
-    
+
     def to_dict(self) -> Dict[str, str]:
         """Convert the appraisal to a dictionary."""
         return {
@@ -54,7 +54,7 @@ class DecisiveAppraisal:
 
 class DecisiveAppraisalParser(ABC):
     """Abstract base class for parsing decisive appraisal data."""
-    
+
     @abstractmethod
     def parse(self, data: Dict) -> List[DecisiveAppraisal]:
         """Parse raw data into DecisiveAppraisal objects."""
@@ -63,24 +63,24 @@ class DecisiveAppraisalParser(ABC):
 
 class APIDecisiveAppraisalParser(DecisiveAppraisalParser):
     """Parser for API response data."""
-    
+
     def parse(self, response_data: Dict) -> List[DecisiveAppraisal]:
         """Parse API response data into DecisiveAppraisal objects."""
         appraisals = []
-        
+
         if "Results" not in response_data:
             return appraisals
-        
+
         for result in response_data["Results"]:
             if "Data" not in result:
                 continue
-                
+
             data = result["Data"]
             appraisal = self._create_appraisal_from_data(data)
             appraisals.append(appraisal)
-        
+
         return appraisals
-    
+
     def _create_appraisal_from_data(self, data: Dict) -> DecisiveAppraisal:
         """Create a DecisiveAppraisal object from API data."""
         # Extract all document URLs
@@ -90,13 +90,13 @@ class APIDecisiveAppraisalParser(DecisiveAppraisalParser):
                 url = document.get("FileName", "")
                 if url:
                     pdf_urls.append(url)
-        
+
         # Join all URLs with semicolon separator for backward compatibility
         pdf_url = "; ".join(pdf_urls)
-        
+
         # Format the date from ISO format to DD.MM.YYYY
         decision_date = self._format_date(data.get("DecisionDate", ""))
-        
+
         return DecisiveAppraisal(
             title=data.get("AppraisalHeader", ""),
             date=decision_date,
@@ -110,12 +110,12 @@ class APIDecisiveAppraisalParser(DecisiveAppraisalParser):
             plot=data.get("Plot", ""),
             publicity_date=data.get("PublicityDate", ""),
         )
-    
+
     def _format_date(self, iso_date: str) -> str:
         """Format ISO date to DD.MM.YYYY format."""
         if not iso_date:
             return ""
-        
+
         try:
             # Parse ISO date format: "2025-09-01T00:00:00+03:00"
             date_part = iso_date.split("T")[0]  # "2025-09-01"
@@ -127,11 +127,11 @@ class APIDecisiveAppraisalParser(DecisiveAppraisalParser):
 
 class DecisiveAppraisalClient:
     """Client for fetching decisive appraisal decisions from gov.il API."""
-    
+
     def __init__(
-        self, 
+        self,
         parser: Optional[DecisiveAppraisalParser] = None,
-        timeout: float = DEFAULT_TIMEOUT
+        timeout: float = DEFAULT_TIMEOUT,
     ):
         self.api_endpoint = (
             "https://pub-justice.openapi.gov.il/pub/moj/portal/rest/searchpredefinedapi/v1/"
@@ -144,77 +144,74 @@ class DecisiveAppraisalClient:
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "cross-site",
-            "x-client-id": "149a5bad-edde-49a6-9fb9-188bd17d4788"
+            "x-client-id": "149a5bad-edde-49a6-9fb9-188bd17d4788",
         }
         self.parser = parser or APIDecisiveAppraisalParser()
         self.timeout = timeout
-    
+
     def fetch_appraisals(
-        self, 
-        block: str = "", 
-        plot: str = "", 
-        max_pages: int = 1
+        self, block: str = "", plot: str = "", max_pages: int = 1
     ) -> List[DecisiveAppraisal]:
         """
         Fetch decisive appraisal decisions from the gov.il API.
-        
+
         Args:
             block: Block number to search for
-            plot: Plot number to search for  
+            plot: Plot number to search for
             max_pages: Maximum number of pages to fetch (each page has 10 results)
-            
+
         Returns:
             List of DecisiveAppraisal objects
         """
         all_appraisals: List[DecisiveAppraisal] = []
-        
+
         for page in range(max_pages):
             # Calculate skip value (10 results per page)
             skip = page * 10
-            
+
             # Prepare request body
-            request_body = {
-                "skip": skip,
-                "Block": block,
-                "Plot": plot
-            }
-            
+            request_body = {"skip": skip, "Block": block, "Plot": plot}
+
             try:
                 # Make API request
                 response = requests.post(
                     self.api_endpoint,
                     headers=self.headers,
                     json=request_body,
-                    timeout=self.timeout
+                    timeout=self.timeout,
                 )
-                
+
                 # Handle HTTP errors gracefully
                 if response.status_code >= 500:
-                    logger.warning(f"Error fetching decisive appraisals: {response.status_code} Server Error for url: {self.api_endpoint}")
+                    logger.warning(
+                        f"Error fetching decisive appraisals: {response.status_code} Server Error for url: {self.api_endpoint}"
+                    )
                     # Continue with other pages if available, but log the error
                     if page == 0:
                         # If first page fails, return what we have
                         break
                     continue
                 elif response.status_code >= 400:
-                    logger.warning(f"Error fetching decisive appraisals: {response.status_code} Client Error for url: {self.api_endpoint}")
+                    logger.warning(
+                        f"Error fetching decisive appraisals: {response.status_code} Client Error for url: {self.api_endpoint}"
+                    )
                     break
-                
+
                 # Parse response
                 response_data = response.json()
                 appraisals = self.parser.parse(response_data)
-                
+
                 # If no appraisals returned, break the loop
                 if not appraisals:
                     break
-                    
+
                 all_appraisals.extend(appraisals)
-                
+
                 # Check if we've reached the total results
                 total_results = response_data.get("TotalResults", 0)
                 if len(all_appraisals) >= total_results:
                     break
-                    
+
             except requests.exceptions.HTTPError as e:
                 logger.warning(f"HTTP error fetching decisive appraisals: {e}")
                 # For HTTP errors, break to avoid retrying invalid requests
@@ -226,13 +223,8 @@ class DecisiveAppraisalClient:
             except json.JSONDecodeError as e:
                 logger.warning(f"Error parsing API response: {e}")
                 break
-        
+
         return all_appraisals
-
-
-
-
-
 
 
 if __name__ == "__main__":

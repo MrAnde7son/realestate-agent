@@ -40,9 +40,7 @@ class ConversationMemory:
         """Add a message to the memory, trimming the buffer if needed."""
         safe_role = (role or "user").strip() or "user"
         safe_content = (content or "").strip()
-        self._messages.append(
-            ConversationMessage(role=safe_role, content=safe_content)
-        )
+        self._messages.append(ConversationMessage(role=safe_role, content=safe_content))
         self._trim_to_limit()
 
     def add_user_message(self, content: Optional[str]) -> None:

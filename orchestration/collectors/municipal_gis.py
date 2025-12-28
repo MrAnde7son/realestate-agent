@@ -32,22 +32,22 @@ class MunicipalGisAdapter(ABC):
 
     def supports(self, city: str) -> bool:
         """Return True if the adapter supports the provided city name.
-        
+
         Checks exact matches first, then checks if city name contains any
         of the supported city names for broader support of variations.
         """
         normalized = self._normalize(city)
         supported = {self._normalize(name) for name in self.supported_cities}
-        
+
         # First check exact match
         if normalized in supported or normalized in self._aliases:
             return True
-        
+
         # Then check if city name contains any of the supported city names
         for supported_city in supported:
             if supported_city in normalized:
                 return True
-        
+
         return False
 
     @staticmethod
@@ -62,7 +62,14 @@ class MunicipalGisAdapter(ABC):
 class TelAvivMunicipalGisAdapter(MunicipalGisAdapter):
     """Adapter that delegates to the Tel Aviv municipal GIS collector."""
 
-    supported_cities = ["תל אביב", "תל אביב - יפו", "תל אביב-יפו", "tel aviv", "tel aviv-yafo", "tel aviv yafo"]
+    supported_cities = [
+        "תל אביב",
+        "תל אביב - יפו",
+        "תל אביב-יפו",
+        "tel aviv",
+        "tel aviv-yafo",
+        "tel aviv yafo",
+    ]
 
     def __init__(self, collector: Optional[GISCollector] = None) -> None:
         super().__init__()
@@ -149,7 +156,12 @@ class MultiCityGISCollector(BaseCollector):
             if adapter.supports(normalized_city):
                 return adapter
 
-        available = ", ".join({c for adapter in self.adapters for c in adapter.supported_cities}) or "none"
+        available = (
+            ", ".join(
+                {c for adapter in self.adapters for c in adapter.supported_cities}
+            )
+            or "none"
+        )
         raise ValueError(
             f"No municipal GIS adapter available for city '{normalized_city}'. "
             f"Supported cities: {available}"

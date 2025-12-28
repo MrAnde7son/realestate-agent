@@ -103,14 +103,10 @@ def revert_indexes(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         (
             "core",
-            (
-                "0054_rename_core_apitok_token_idx_"
-                "core_apitok_token_8d7878_idx_and_more"
-            ),
+            ("0054_rename_core_apitok_token_idx_core_apitok_token_8d7878_idx_and_more"),
         ),
     ]
 

@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0019_add_attribution_system'),
+        ("core", "0019_add_attribution_system"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='asset',
-            name='apartment_number',
+            model_name="asset",
+            name="apartment_number",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
     ]

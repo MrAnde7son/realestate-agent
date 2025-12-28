@@ -4,252 +4,295 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0031_user_equity'),
+        ("core", "0031_user_equity"),
     ]
 
     operations = [
         # Add all the new GIS permit fields
         migrations.AddField(
-            model_name='permit',
-            name='request_num',
-            field=models.CharField(blank=True, help_text='מספר בקשה', max_length=100, null=True),
+            model_name="permit",
+            name="request_num",
+            field=models.CharField(
+                blank=True, help_text="מספר בקשה", max_length=100, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='permission_date',
-            field=models.DateField(blank=True, help_text='תאריך אישור', null=True),
+            model_name="permit",
+            name="permission_date",
+            field=models.DateField(blank=True, help_text="תאריך אישור", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tr_hathalat_bniya',
-            field=models.DateField(blank=True, help_text='תאריך התחלת בנייה', null=True),
+            model_name="permit",
+            name="tr_hathalat_bniya",
+            field=models.DateField(
+                blank=True, help_text="תאריך התחלת בנייה", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='date_import',
-            field=models.DateField(blank=True, help_text='תאריך ייבוא', null=True),
+            model_name="permit",
+            name="date_import",
+            field=models.DateField(blank=True, help_text="תאריך ייבוא", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='oid_permit',
-            field=models.IntegerField(blank=True, help_text='Object ID', null=True),
+            model_name="permit",
+            name="oid_permit",
+            field=models.IntegerField(blank=True, help_text="Object ID", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='open_request',
-            field=models.BooleanField(default=False, help_text='בקשה פתוחה'),
+            model_name="permit",
+            name="open_request",
+            field=models.BooleanField(default=False, help_text="בקשה פתוחה"),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='building_num',
-            field=models.CharField(blank=True, help_text='מספר בניין', max_length=50, null=True),
+            model_name="permit",
+            name="building_num",
+            field=models.CharField(
+                blank=True, help_text="מספר בניין", max_length=50, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='yechidot_diyur',
-            field=models.IntegerField(blank=True, help_text='יחידות דיור', null=True),
+            model_name="permit",
+            name="yechidot_diyur",
+            field=models.IntegerField(blank=True, help_text="יחידות דיור", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='sw_tama_38',
+            model_name="permit",
+            name="sw_tama_38",
             field=models.BooleanField(default=False, help_text='תמ"א 38'),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='sw_tama_38_chadash',
+            model_name="permit",
+            name="sw_tama_38_chadash",
             field=models.BooleanField(default=False, help_text='תמ"א 38 חדש'),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='sw_tama_38_tosefet',
+            model_name="permit",
+            name="sw_tama_38_tosefet",
             field=models.BooleanField(default=False, help_text='תמ"א 38 תוספת'),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='sug_bakasha',
-            field=models.CharField(blank=True, help_text='סוג בקשה', max_length=200, null=True),
+            model_name="permit",
+            name="sug_bakasha",
+            field=models.CharField(
+                blank=True, help_text="סוג בקשה", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tochen_bakasha',
-            field=models.TextField(blank=True, help_text='תוכן בקשה', null=True),
+            model_name="permit",
+            name="tochen_bakasha",
+            field=models.TextField(blank=True, help_text="תוכן בקשה", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='request_stage',
-            field=models.CharField(blank=True, help_text='שלב בקשה', max_length=100, null=True),
+            model_name="permit",
+            name="request_stage",
+            field=models.CharField(
+                blank=True, help_text="שלב בקשה", max_length=100, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='building_stage',
-            field=models.CharField(blank=True, help_text='שלב בנייה', max_length=100, null=True),
+            model_name="permit",
+            name="building_stage",
+            field=models.CharField(
+                blank=True, help_text="שלב בנייה", max_length=100, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='maslul_rishuy',
-            field=models.CharField(blank=True, help_text='מסלול רישוי', max_length=200, null=True),
+            model_name="permit",
+            name="maslul_rishuy",
+            field=models.CharField(
+                blank=True, help_text="מסלול רישוי", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='finished',
-            field=models.BooleanField(default=False, help_text='הושלם'),
+            model_name="permit",
+            name="finished",
+            field=models.BooleanField(default=False, help_text="הושלם"),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='occupation',
-            field=models.CharField(blank=True, help_text='אכלוס', max_length=100, null=True),
+            model_name="permit",
+            name="occupation",
+            field=models.CharField(
+                blank=True, help_text="אכלוס", max_length=100, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='progress',
-            field=models.CharField(blank=True, help_text='התקדמות', max_length=100, null=True),
+            model_name="permit",
+            name="progress",
+            field=models.CharField(
+                blank=True, help_text="התקדמות", max_length=100, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='protected',
-            field=models.BooleanField(default=False, help_text='מוגן'),
+            model_name="permit",
+            name="protected",
+            field=models.BooleanField(default=False, help_text="מוגן"),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='koteret',
-            field=models.CharField(blank=True, help_text='כותרת', max_length=500, null=True),
+            model_name="permit",
+            name="koteret",
+            field=models.CharField(
+                blank=True, help_text="כותרת", max_length=500, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='ms_klali',
-            field=models.CharField(blank=True, help_text='כללי', max_length=200, null=True),
+            model_name="permit",
+            name="ms_klali",
+            field=models.CharField(
+                blank=True, help_text="כללי", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='heara_teudat_gmar',
-            field=models.TextField(blank=True, help_text='הערה תעודת גמר', null=True),
+            model_name="permit",
+            name="heara_teudat_gmar",
+            field=models.TextField(blank=True, help_text="הערה תעודת גמר", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='k_sivug_makor',
-            field=models.IntegerField(blank=True, help_text='קוד סיווג מקור', null=True),
+            model_name="permit",
+            name="k_sivug_makor",
+            field=models.IntegerField(
+                blank=True, help_text="קוד סיווג מקור", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='sivug_makor',
-            field=models.CharField(blank=True, help_text='סיווג מקור', max_length=200, null=True),
+            model_name="permit",
+            name="sivug_makor",
+            field=models.CharField(
+                blank=True, help_text="סיווג מקור", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='ms_tik_binyan',
-            field=models.CharField(blank=True, help_text='תיק בנין', max_length=100, null=True),
+            model_name="permit",
+            name="ms_tik_binyan",
+            field=models.CharField(
+                blank=True, help_text="תיק בנין", max_length=100, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='addresses',
-            field=models.TextField(blank=True, help_text='כתובות', null=True),
+            model_name="permit",
+            name="addresses",
+            field=models.TextField(blank=True, help_text="כתובות", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='hakala_tosefet_achuz_shetach',
-            field=models.FloatField(blank=True, help_text='הקלה תוספת אחוז שטח', null=True),
+            model_name="permit",
+            name="hakala_tosefet_achuz_shetach",
+            field=models.FloatField(
+                blank=True, help_text="הקלה תוספת אחוז שטח", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='hakala_yd_hagdala_achuz',
-            field=models.FloatField(blank=True, help_text='הקלה יד הגדלה אחוז', null=True),
+            model_name="permit",
+            name="hakala_yd_hagdala_achuz",
+            field=models.FloatField(
+                blank=True, help_text="הקלה יד הגדלה אחוז", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='hakala_yd_mevukash',
-            field=models.FloatField(blank=True, help_text='הקלה יד מבוקש', null=True),
+            model_name="permit",
+            name="hakala_yd_mevukash",
+            field=models.FloatField(blank=True, help_text="הקלה יד מבוקש", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='hakala_yd_mutar',
-            field=models.FloatField(blank=True, help_text='הקלה יד מותר', null=True),
+            model_name="permit",
+            name="hakala_yd_mutar",
+            field=models.FloatField(blank=True, help_text="הקלה יד מותר", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='hakala_melel',
-            field=models.TextField(blank=True, help_text='הקלה מלל', null=True),
+            model_name="permit",
+            name="hakala_melel",
+            field=models.TextField(blank=True, help_text="הקלה מלל", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='hakala_nimuk',
-            field=models.TextField(blank=True, help_text='הקלה נימוק', null=True),
+            model_name="permit",
+            name="hakala_nimuk",
+            field=models.TextField(blank=True, help_text="הקלה נימוק", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tik_tipul_1',
-            field=models.CharField(blank=True, help_text='תיק טיפול 1', max_length=200, null=True),
+            model_name="permit",
+            name="tik_tipul_1",
+            field=models.CharField(
+                blank=True, help_text="תיק טיפול 1", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tik_tipul_2',
-            field=models.CharField(blank=True, help_text='תיק טיפול 2', max_length=200, null=True),
+            model_name="permit",
+            name="tik_tipul_2",
+            field=models.CharField(
+                blank=True, help_text="תיק טיפול 2", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tik_tipul_3',
-            field=models.CharField(blank=True, help_text='תיק טיפול 3', max_length=200, null=True),
+            model_name="permit",
+            name="tik_tipul_3",
+            field=models.CharField(
+                blank=True, help_text="תיק טיפול 3", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tik_tipul_4',
-            field=models.CharField(blank=True, help_text='תיק טיפול 4', max_length=200, null=True),
+            model_name="permit",
+            name="tik_tipul_4",
+            field=models.CharField(
+                blank=True, help_text="תיק טיפול 4", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='tik_tipul_5',
-            field=models.CharField(blank=True, help_text='תיק טיפול 5', max_length=200, null=True),
+            model_name="permit",
+            name="tik_tipul_5",
+            field=models.CharField(
+                blank=True, help_text="תיק טיפול 5", max_length=200, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='url_hadmaya',
-            field=models.URLField(blank=True, help_text='קישור הדמיה', null=True),
+            model_name="permit",
+            name="url_hadmaya",
+            field=models.URLField(blank=True, help_text="קישור הדמיה", null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='source',
-            field=models.CharField(default='gis', help_text='מקור הנתונים', max_length=50),
+            model_name="permit",
+            name="source",
+            field=models.CharField(
+                default="gis", help_text="מקור הנתונים", max_length=50
+            ),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='created_at',
+            model_name="permit",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, null=True),
         ),
         migrations.AddField(
-            model_name='permit',
-            name='updated_at',
+            model_name="permit",
+            name="updated_at",
             field=models.DateTimeField(auto_now=True, null=True),
         ),
         # Update existing fields
         migrations.AlterField(
-            model_name='permit',
-            name='permit_number',
-            field=models.CharField(help_text='היתר מספר', max_length=100),
+            model_name="permit",
+            name="permit_number",
+            field=models.CharField(help_text="היתר מספר", max_length=100),
         ),
         migrations.AlterField(
-            model_name='permit',
-            name='description',
-            field=models.TextField(blank=True, help_text='תיאור היתר'),
+            model_name="permit",
+            name="description",
+            field=models.TextField(blank=True, help_text="תיאור היתר"),
         ),
         migrations.AlterField(
-            model_name='permit',
-            name='status',
-            field=models.CharField(blank=True, help_text='סטטוס', max_length=50),
+            model_name="permit",
+            name="status",
+            field=models.CharField(blank=True, help_text="סטטוס", max_length=50),
         ),
         migrations.AlterField(
-            model_name='permit',
-            name='issued_date',
-            field=models.DateField(blank=True, help_text='תאריך מתן היתר', null=True),
+            model_name="permit",
+            name="issued_date",
+            field=models.DateField(blank=True, help_text="תאריך מתן היתר", null=True),
         ),
         migrations.AlterField(
-            model_name='permit',
-            name='expiry_date',
-            field=models.DateField(blank=True, help_text='תאריך פקיעה', null=True),
+            model_name="permit",
+            name="expiry_date",
+            field=models.DateField(blank=True, help_text="תאריך פקיעה", null=True),
         ),
         migrations.AlterField(
-            model_name='permit',
-            name='file_url',
-            field=models.CharField(blank=True, help_text='קישור לקובץ', max_length=500),
+            model_name="permit",
+            name="file_url",
+            field=models.CharField(blank=True, help_text="קישור לקובץ", max_length=500),
         ),
     ]

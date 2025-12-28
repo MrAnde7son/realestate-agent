@@ -19,7 +19,7 @@ def analytics_timeseries(request):
     today = timezone.now().date()
     start = today - timedelta(days=29)
     daily = AnalyticsDaily.objects.filter(date__gte=start).order_by("date")
-    
+
     series = [
         {
             "date": d.date.isoformat(),
@@ -46,7 +46,7 @@ def analytics_timeseries(request):
         }
         for d in daily
     ]
-    
+
     return Response({"series": series})
 
 
@@ -57,7 +57,12 @@ def analytics_top_failures(request):
     start = today - timedelta(days=29)
     rows = list(
         AnalyticsEvent.objects.filter(
-            event__in=["collector_fail", "report_fail", "alert_fail", "asset_sync_fail"],
+            event__in=[
+                "collector_fail",
+                "report_fail",
+                "alert_fail",
+                "asset_sync_fail",
+            ],
             created_at__date__gte=start,
         )
         .values("source", "error_code")
@@ -74,7 +79,7 @@ def analytics_track(request):
     """Track analytics events from frontend."""
     try:
         data = json.loads(request.body)
-        
+
         track(
             event=data.get("event"),
             user=request.user if request.user.is_authenticated else None,
@@ -83,7 +88,7 @@ def analytics_track(request):
             error_code=data.get("error_code"),
             meta=data.get("meta", {}),
         )
-        
+
         return Response({"status": "success"})
     except Exception as e:
         return Response({"error": str(e)}, status=400)
@@ -96,7 +101,7 @@ def analytics_page_view(request):
     """Track page views from frontend."""
     try:
         data = json.loads(request.body)
-        
+
         track_page_view(
             session_id=data.get("session_id"),
             page_path=data.get("page_path"),
@@ -106,7 +111,7 @@ def analytics_page_view(request):
             duration=data.get("duration", 0.0),
             meta=data.get("meta", {}),
         )
-        
+
         return Response({"status": "success"})
     except Exception as e:
         return Response({"error": str(e)}, status=400)
@@ -119,12 +124,12 @@ def analytics_session_end(request):
     """Track session end from frontend."""
     try:
         data = json.loads(request.body)
-        
+
         track_session_end(
             session_id=data.get("session_id"),
             duration=data.get("duration", 0.0),
         )
-        
+
         return Response({"status": "success"})
     except Exception as e:
         return Response({"error": str(e)}, status=400)

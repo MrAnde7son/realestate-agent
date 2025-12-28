@@ -39,11 +39,15 @@ def test_assets_post_triggers_pipeline(monkeypatch):
 
     # Mock find_existing_asset to return None (no existing asset found)
     from core.services import asset_deduplication
-    monkeypatch.setattr(asset_deduplication, "find_existing_asset", lambda *args, **kwargs: None)
+
+    monkeypatch.setattr(
+        asset_deduplication, "find_existing_asset", lambda *args, **kwargs: None
+    )
 
     # Mock Celery settings to make it appear available
     from django.conf import settings
-    monkeypatch.setattr(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0')
+
+    monkeypatch.setattr(settings, "CELERY_BROKER_URL", "redis://localhost:6379/0")
 
     dummy = DummyTask()
     monkeypatch.setattr(views, "run_data_pipeline", dummy)
@@ -70,7 +74,9 @@ def test_assets_delete_requires_admin_user():
         role="broker",
     )
     request = factory.delete(
-        "/api/assets", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+        "/api/assets",
+        data=json.dumps({"assetId": asset.id}),
+        content_type="application/json",
     )
     force_authenticate(request, user=user)
 
@@ -93,7 +99,9 @@ def test_assets_delete_removes_asset_for_admin():
         is_staff=True,
     )
     request = factory.delete(
-        "/api/assets", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+        "/api/assets",
+        data=json.dumps({"assetId": asset.id}),
+        content_type="application/json",
     )
     force_authenticate(request, user=admin_user)
 

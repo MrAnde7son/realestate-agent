@@ -16,7 +16,6 @@ from handasa.tikbinyan_client import (
     BatYamTikbinyanClient,
     HerzliyaTikbinyanClient,
     RamatGanTikbinyanClient,
-    TikbinyanClient,
 )
 
 from orchestration.collectors.base_collector import BaseCollector
@@ -35,22 +34,22 @@ class TikbinyanAdapter(ABC):
 
     def supports(self, city: str) -> bool:
         """Return True if the adapter supports the provided city name.
-        
+
         Checks exact matches first, then checks if city name contains any
         of the supported city names for broader support of variations.
         """
         normalized = self._normalize(city)
         supported = {self._normalize(name) for name in self.supported_cities}
-        
+
         # First check exact match
         if normalized in supported or normalized in self._aliases:
             return True
-        
+
         # Then check if city name contains any of the supported city names
         for supported_city in supported:
             if supported_city in normalized:
                 return True
-        
+
         return False
 
     @staticmethod
@@ -75,14 +74,14 @@ class BatYamTikbinyanAdapter(TikbinyanAdapter):
         """Collect tikbinyan data for Bat Yam."""
         block = str(location.block) if location.block else None
         parcel = str(location.parcel) if location.parcel else None
-        
+
         address = kwargs.get("address")
         if not address and location.street:
             address_parts = [location.street]
             if location.house_number:
                 address_parts.append(str(location.house_number))
             address = " ".join(address_parts)
-        
+
         return self.client.get_building_info(
             block=block,
             parcel=parcel,
@@ -103,14 +102,14 @@ class HerzliyaTikbinyanAdapter(TikbinyanAdapter):
         """Collect tikbinyan data for Herzliya."""
         block = str(location.block) if location.block else None
         parcel = str(location.parcel) if location.parcel else None
-        
+
         address = kwargs.get("address")
         if not address and location.street:
             address_parts = [location.street]
             if location.house_number:
                 address_parts.append(str(location.house_number))
             address = " ".join(address_parts)
-        
+
         return self.client.get_building_info(
             block=block,
             parcel=parcel,
@@ -131,14 +130,14 @@ class RamatGanTikbinyanAdapter(TikbinyanAdapter):
         """Collect tikbinyan data for Ramat Gan."""
         block = str(location.block) if location.block else None
         parcel = str(location.parcel) if location.parcel else None
-        
+
         address = kwargs.get("address")
         if not address and location.street:
             address_parts = [location.street]
             if location.house_number:
                 address_parts.append(str(location.house_number))
             address = " ".join(address_parts)
-        
+
         return self.client.get_building_info(
             block=block,
             parcel=parcel,
@@ -163,11 +162,7 @@ class MultiCityTikbinyanCollector(BaseCollector):
         else:
             self.adapters = adapters
 
-    def collect(
-        self,
-        location: Optional[LocationQuery] = None,
-        **kwargs
-    ) -> List[Dict]:
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs) -> List[Dict]:
         """Collect tikbinyan data for the given location."""
         query = ensure_location_query(location)
         adapter = self._select_adapter(query.city)
@@ -185,7 +180,12 @@ class MultiCityTikbinyanCollector(BaseCollector):
             if adapter.supports(normalized_city):
                 return adapter
 
-        available = ", ".join({c for adapter in self.adapters for c in adapter.supported_cities}) or "none"
+        available = (
+            ", ".join(
+                {c for adapter in self.adapters for c in adapter.supported_cities}
+            )
+            or "none"
+        )
         raise ValueError(
             f"No tikbinyan adapter available for city '{normalized_city}'. "
             f"Supported cities: {available}"
@@ -196,7 +196,7 @@ class MultiCityTikbinyanCollector(BaseCollector):
         location = ensure_location_query(kwargs.get("location"))
         block = location.block
         address = kwargs.get("address") or location.street
-        
+
         return bool(block or address)
 
 
@@ -210,5 +210,7 @@ __all__ = [
 
 if __name__ == "__main__":
     adapter = MultiCityTikbinyanCollector()
-    result = adapter.collect(location=LocationQuery(city="בת ים", street="הצפירה", house_number=8))
+    result = adapter.collect(
+        location=LocationQuery(city="בת ים", street="הצפירה", house_number=8)
+    )
     print(result)

@@ -14,95 +14,119 @@ class Yad2SearchParameters:
     """
     Comprehensive data class for Yad2 search parameters.
     """
-    
+
     def __init__(self, **kwargs):
         # Initialize all known parameters
         self.parameters = {
             # Price parameters
-            'maxPrice': None,
-            'minPrice': None,
-            
+            "maxPrice": None,
+            "minPrice": None,
             # Property type parameters
-            'property': None,  # Comma-separated property type IDs
-            
+            "property": None,  # Comma-separated property type IDs
             # Location parameters
-            'topArea': None,      # Regional area (1=North, 2=Center, 3=South, etc.)
-            'area': None,         # Sub-area within region
-            'city': None,         # City ID
-            'neighborhood': None, # Neighborhood ID
-            'street': None,       # Street name
-            
+            "topArea": None,  # Regional area (1=North, 2=Center, 3=South, etc.)
+            "area": None,  # Sub-area within region
+            "city": None,  # City ID
+            "neighborhood": None,  # Neighborhood ID
+            "street": None,  # Street name
             # Property details
-            'rooms': None,        # Number of rooms (e.g., "3-4", "4+")
-            'minRooms': None,     # Minimum number of rooms
-            'maxRooms': None,     # Maximum number of rooms
-            'floor': None,        # Floor range (e.g., "1-3", "4+")
-            'size': None,         # Property size in sqm
-            'minSize': None,      # Minimum size
-            'maxSize': None,      # Maximum size
-            
+            "rooms": None,  # Number of rooms (e.g., "3-4", "4+")
+            "minRooms": None,  # Minimum number of rooms
+            "maxRooms": None,  # Maximum number of rooms
+            "floor": None,  # Floor range (e.g., "1-3", "4+")
+            "size": None,  # Property size in sqm
+            "minSize": None,  # Minimum size
+            "maxSize": None,  # Maximum size
             # Features
-            'parking': None,      # Number of parking spaces
-            'elevator': None,     # Has elevator (1/0)
-            'balcony': None,      # Has balcony (1/0)
-            'renovated': None,    # Is renovated (1/0)
-            'accessibility': None, # Accessibility features (1/0)
-            'airCondition': None, # Has air conditioning (1/0)
-            'bars': None,         # Has security bars (1/0)
-            'shelter': None,        # Has safe room (1/0)
-            'storage': None,      # Has storage (1/0)
-            'terrace': None,      # Has terrace (1/0)
-            'garden': None,       # Has garden (1/0)
-            'pets': None,         # Pets allowed (1/0)
-            'furniture': None,    # Is furnished (1/0)
-            
+            "parking": None,  # Number of parking spaces
+            "elevator": None,  # Has elevator (1/0)
+            "balcony": None,  # Has balcony (1/0)
+            "renovated": None,  # Is renovated (1/0)
+            "accessibility": None,  # Accessibility features (1/0)
+            "airCondition": None,  # Has air conditioning (1/0)
+            "bars": None,  # Has security bars (1/0)
+            "shelter": None,  # Has safe room (1/0)
+            "storage": None,  # Has storage (1/0)
+            "terrace": None,  # Has terrace (1/0)
+            "garden": None,  # Has garden (1/0)
+            "pets": None,  # Pets allowed (1/0)
+            "furniture": None,  # Is furnished (1/0)
             # Building details
-            'buildingFloors': None,   # Total building floors
-            'entranceDate': None,     # Move-in date
-            'propertyCondition': None, # Property condition
-            
+            "buildingFloors": None,  # Total building floors
+            "entranceDate": None,  # Move-in date
+            "propertyCondition": None,  # Property condition
             # Search parameters
-            'page': None,         # Page number
-            'order': None,        # Sort order
-            'dealType': None,     # Deal type (sale/rent)
-            'priceOnly': None,    # Show price only assets (1/0)
-            'priceDropped': None, # Show only properties with price drops (1/0)
-            'saleType': None,     # Sale type
-            'exclusive': None,    # Exclusive assets only (1/0)
-            'publishedDays': None, # Published within X days
-            
+            "page": None,  # Page number
+            "order": None,  # Sort order
+            "dealType": None,  # Deal type (sale/rent)
+            "priceOnly": None,  # Show price only assets (1/0)
+            "priceDropped": None,  # Show only properties with price drops (1/0)
+            "saleType": None,  # Sale type
+            "exclusive": None,  # Exclusive assets only (1/0)
+            "publishedDays": None,  # Published within X days
             # Advanced filters
-            'fromFloor': None,    # From floor
-            'toFloor': None,      # To floor
-            'yearBuilt': None,    # Year built
-            'minYear': None,      # Minimum year built
-            'maxYear': None,      # Maximum year built
+            "fromFloor": None,  # From floor
+            "toFloor": None,  # To floor
+            "yearBuilt": None,  # Year built
+            "minYear": None,  # Minimum year built
+            "maxYear": None,  # Maximum year built
         }
-        
+
         # Update with provided kwargs
         for key, value in kwargs.items():
             if key in self.parameters:
                 self.parameters[key] = value
-    
+
     def set_parameter(self, key, value):
         """Set a parameter value with validation."""
         if key in self.parameters:
             # Basic validation
-            if value is not None and value != '':
-                if key in ['maxPrice', 'minPrice', 'topArea', 'area', 'city', 'neighborhood', 
-                          'parking', 'minSize', 'maxSize', 'minRooms', 'maxRooms', 'buildingFloors', 'fromFloor', 
-                          'toFloor', 'yearBuilt', 'minYear', 'maxYear', 'page']:
+            if value is not None and value != "":
+                if key in [
+                    "maxPrice",
+                    "minPrice",
+                    "topArea",
+                    "area",
+                    "city",
+                    "neighborhood",
+                    "parking",
+                    "minSize",
+                    "maxSize",
+                    "minRooms",
+                    "maxRooms",
+                    "buildingFloors",
+                    "fromFloor",
+                    "toFloor",
+                    "yearBuilt",
+                    "minYear",
+                    "maxYear",
+                    "page",
+                ]:
                     try:
                         self.parameters[key] = int(value)
                     except ValueError:
                         raise ValueError("Parameter '{}' must be a number".format(key))
-                elif key in ['elevator', 'balcony', 'renovated', 'accessibility', 
-                           'airCondition', 'bars', 'shelter', 'storage', 'terrace', 
-                           'garden', 'pets', 'furniture', 'priceOnly', 'priceDropped', 'exclusive']:
+                elif key in [
+                    "elevator",
+                    "balcony",
+                    "renovated",
+                    "accessibility",
+                    "airCondition",
+                    "bars",
+                    "shelter",
+                    "storage",
+                    "terrace",
+                    "garden",
+                    "pets",
+                    "furniture",
+                    "priceOnly",
+                    "priceDropped",
+                    "exclusive",
+                ]:
                     # Boolean parameters
-                    if str(value).lower() in ['true', '1', 'yes', 'y']:
+                    if str(value).lower() in ["true", "1", "yes", "y"]:
                         self.parameters[key] = 1
-                    elif str(value).lower() in ['false', '0', 'no', 'n']:
+                    elif str(value).lower() in ["false", "0", "no", "n"]:
                         self.parameters[key] = 0
                     else:
                         self.parameters[key] = int(value)  # Allow direct 1/0
@@ -112,214 +136,211 @@ class Yad2SearchParameters:
                 self.parameters[key] = None
         else:
             raise ValueError("Unknown parameter: {}".format(key))
-    
+
     def get_active_parameters(self):
         """Get only parameters that have values."""
         return {k: v for k, v in self.parameters.items() if v is not None}
-    
+
     def to_dict(self):
         """Convert to dictionary."""
         return self.get_active_parameters()
-    
+
     def to_json(self):
         """Convert to JSON string."""
         return json.dumps(self.get_active_parameters(), indent=2)
-    
+
     def build_url(self, base_url="https://www.yad2.co.il/realestate/forsale"):
         """Build complete Yad2 URL with parameters."""
         active_params = self.get_active_parameters()
         if active_params:
             return "{}?{}".format(base_url, urlencode(active_params))
         return base_url
-    
+
     def keys(self):
         """Return an iterable of parameter keys (for dict unpacking support with **)."""
         return self.get_active_parameters().keys()
-    
+
     def __getitem__(self, key):
         """Allow dictionary-style access (for dict unpacking support with **)."""
         active_params = self.get_active_parameters()
         if key in active_params:
             return active_params[key]
         raise KeyError(f"Parameter '{key}' not found or not set")
-    
+
     def __iter__(self):
         """Allow iteration over active parameters (for dict unpacking support with **)."""
         return iter(self.get_active_parameters())
-    
+
     def __contains__(self, key):
         """Check if a parameter is set (for 'in' operator support)."""
         return key in self.get_active_parameters()
+
 
 class Yad2ParameterReference:
     """
     Reference guide for Yad2 parameters with descriptions and examples.
     """
-    
+
     PARAMETER_INFO = {
-        'maxPrice': {
-            'description': 'Maximum price in NIS',
-            'example': 5000000,
-            'type': 'integer'
+        "maxPrice": {
+            "description": "Maximum price in NIS",
+            "example": 5000000,
+            "type": "integer",
         },
-        'minPrice': {
-            'description': 'Minimum price in NIS',
-            'example': 2000000,
-            'type': 'integer'
+        "minPrice": {
+            "description": "Minimum price in NIS",
+            "example": 2000000,
+            "type": "integer",
         },
-        'property': {
-            'description': 'Property types (comma-separated IDs)',
-            'example': 1,
-            'type': 'string',
-            'options': {
-                1: 'Apartment',
-                3: 'Apartment with Garden',
-                6: 'Penthouse',
-                7: 'Duplex',
-                25: 'Hotel',
-                49: 'Basement',
-                51: 'Triplex',
-                11: 'Sub-apartment',
-                4: 'Studio',
-                5: 'Cottage',
-                39: 'Two-family house',
-                32: 'Agricultural farm',
-                52: 'farm',
-                33: 'Land',
-                61: 'Safe house',
-                44: 'Building',
-                45: 'Garage',
-                30: 'Parking',
-                50: 'Future apartment',
-            }
+        "property": {
+            "description": "Property types (comma-separated IDs)",
+            "example": 1,
+            "type": "string",
+            "options": {
+                1: "Apartment",
+                3: "Apartment with Garden",
+                6: "Penthouse",
+                7: "Duplex",
+                25: "Hotel",
+                49: "Basement",
+                51: "Triplex",
+                11: "Sub-apartment",
+                4: "Studio",
+                5: "Cottage",
+                39: "Two-family house",
+                32: "Agricultural farm",
+                52: "farm",
+                33: "Land",
+                61: "Safe house",
+                44: "Building",
+                45: "Garage",
+                30: "Parking",
+                50: "Future apartment",
+            },
         },
-        'topArea': {
-            'description': 'Regional area',
-            'example': 2,
-            'type': 'integer',
-            'options': {
-                1: 'North',
-                2: 'Center', 
-                3: 'South',
-                4: 'Jerusalem Area',
-                5: 'West Bank'
-            }
+        "topArea": {
+            "description": "Regional area",
+            "example": 2,
+            "type": "integer",
+            "options": {
+                1: "North",
+                2: "Center",
+                3: "South",
+                4: "Jerusalem Area",
+                5: "West Bank",
+            },
         },
-        'area': {
-            'description': 'Sub-area within region (1=TLV, 3=RamatGan,Givataim)',
-            'example': 1,
-            'type': 'integer',
-            'options': {
-                1: 'Tel Aviv',
-                3: 'Ramat Gan, Givatayim'
-            }
+        "area": {
+            "description": "Sub-area within region (1=TLV, 3=RamatGan,Givataim)",
+            "example": 1,
+            "type": "integer",
+            "options": {1: "Tel Aviv", 3: "Ramat Gan, Givatayim"},
         },
-        'city': {
-            'description': 'City ID',
-            'example': 5000,
-            'type': 'integer',
-            'options': {
-                5000: 'Tel Aviv',
-                6200: 'Jerusalem',
-                6300: 'Haifa'
-            }
+        "city": {
+            "description": "City ID",
+            "example": 5000,
+            "type": "integer",
+            "options": {5000: "Tel Aviv", 6200: "Jerusalem", 6300: "Haifa"},
         },
-        'neighborhood': {
-            'description': 'Neighborhood ID within city (e.g., 203=Ramat HaHayal)',
-            'example': 203,
-            'type': 'integer',
-            'options': {
-                203: 'Ramat HaHayal',
-                199: 'City Center',
-                200: 'Neve Tzedek',
-                312: 'Florentin'
-            }
+        "neighborhood": {
+            "description": "Neighborhood ID within city (e.g., 203=Ramat HaHayal)",
+            "example": 203,
+            "type": "integer",
+            "options": {
+                203: "Ramat HaHayal",
+                199: "City Center",
+                200: "Neve Tzedek",
+                312: "Florentin",
+            },
         },
-        'rooms': {
-            'description': 'Number of rooms',
-            'example': '3-4, 4+, 2.5-3.5',
-            'type': 'string'
+        "rooms": {
+            "description": "Number of rooms",
+            "example": "3-4, 4+, 2.5-3.5",
+            "type": "string",
         },
-        'minRooms': {
-            'description': 'Minimum number of rooms',
-            'example': 3,
-            'type': 'integer'
+        "minRooms": {
+            "description": "Minimum number of rooms",
+            "example": 3,
+            "type": "integer",
         },
-        'maxRooms': {
-            'description': 'Maximum number of rooms',
-            'example': 5,
-            'type': 'integer'
+        "maxRooms": {
+            "description": "Maximum number of rooms",
+            "example": 5,
+            "type": "integer",
         },
-        'floor': {
-            'description': 'Floor range',
-            'example': '1-3, 4+, 0 (ground)',
-            'type': 'string'
+        "floor": {
+            "description": "Floor range",
+            "example": "1-3, 4+, 0 (ground)",
+            "type": "string",
         },
-        'size': {
-            'description': 'Property size in square meters',
-            'example': '80-120',
-            'type': 'string'
+        "size": {
+            "description": "Property size in square meters",
+            "example": "80-120",
+            "type": "string",
         },
-        'minSize': {
-            'description': 'Minimum size in square meters',
-            'example': 80,
-            'type': 'integer'
+        "minSize": {
+            "description": "Minimum size in square meters",
+            "example": 80,
+            "type": "integer",
         },
-        'maxSize': {
-            'description': 'Maximum size in square meters',
-            'example': 120,
-            'type': 'integer'
+        "maxSize": {
+            "description": "Maximum size in square meters",
+            "example": 120,
+            "type": "integer",
         },
-        'parking': {
-            'description': 'Number of parking spaces',
-            'example': 1,
-            'type': 'integer'
+        "parking": {
+            "description": "Number of parking spaces",
+            "example": 1,
+            "type": "integer",
         },
-        'elevator': {
-            'description': 'Has elevator',
-            'example': '1 (yes), 0 (no)',
-            'type': 'boolean'
+        "elevator": {
+            "description": "Has elevator",
+            "example": "1 (yes), 0 (no)",
+            "type": "boolean",
         },
-        'balcony': {
-            'description': 'Has balcony',
-            'example': '1 (yes), 0 (no)',
-            'type': 'boolean'
+        "balcony": {
+            "description": "Has balcony",
+            "example": "1 (yes), 0 (no)",
+            "type": "boolean",
         },
-        'renovated': {
-            'description': 'Is renovated',
-            'example': '1 (yes), 0 (no)',
-            'type': 'boolean'
+        "renovated": {
+            "description": "Is renovated",
+            "example": "1 (yes), 0 (no)",
+            "type": "boolean",
         },
-        'priceDropped': {
-            'description': 'Show only properties with price drops',
-            'example': '1 (yes), 0 (no)',
-            'type': 'boolean'
+        "priceDropped": {
+            "description": "Show only properties with price drops",
+            "example": "1 (yes), 0 (no)",
+            "type": "boolean",
         },
-        'order': {
-            'description': 'Sort order',
-            'example': 'date, price_asc, price_desc, size_asc, size_desc',
-            'type': 'string',
-            'options': {
-                'date': 'By date (newest first)',
-                'price_asc': 'Price low to high',
-                'price_desc': 'Price high to low', 
-                'size_asc': 'Size small to large',
-                'size_desc': 'Size large to small'
-            }
-        }
+        "order": {
+            "description": "Sort order",
+            "example": "date, price_asc, price_desc, size_asc, size_desc",
+            "type": "string",
+            "options": {
+                "date": "By date (newest first)",
+                "price_asc": "Price low to high",
+                "price_desc": "Price high to low",
+                "size_asc": "Size small to large",
+                "size_desc": "Size large to small",
+            },
+        },
     }
-    
+
     @classmethod
     def get_parameter_info(cls, param_name):
         """Get information about a specific parameter."""
-        return cls.PARAMETER_INFO.get(param_name, {'description': 'Unknown parameter', 'example': '', 'type': 'string'})
-    
+        return cls.PARAMETER_INFO.get(
+            param_name,
+            {"description": "Unknown parameter", "example": "", "type": "string"},
+        )
+
     @classmethod
     def list_all_parameters(cls):
         """List all available parameters with descriptions."""
         return cls.PARAMETER_INFO
-    
+
     @classmethod
     def get_property_types(cls):
         """Get all property type options."""
-        return cls.PARAMETER_INFO['property']['options'] 
+        return cls.PARAMETER_INFO["property"]["options"]

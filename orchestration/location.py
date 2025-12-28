@@ -13,7 +13,7 @@ class LocationQuery:
     The query keeps street, city and house number as structured fields while
     also providing convenient derived representations (e.g. a formatted
     address string) for collectors that still operate on free text.
-    
+
     Coordinates (x_itm, y_itm) are optional and can be added when discovered
     from geocoding services like GovMap.
     """
@@ -76,8 +76,10 @@ class LocationQuery:
             "x_itm": self.x_itm,
             "y_itm": self.y_itm,
         }
-    
-    def with_coordinates(self, x_itm: Optional[float] = None, y_itm: Optional[float] = None) -> "LocationQuery":
+
+    def with_coordinates(
+        self, x_itm: Optional[float] = None, y_itm: Optional[float] = None
+    ) -> "LocationQuery":
         """Create a new LocationQuery with updated coordinates."""
         return LocationQuery(
             city=self.city,
@@ -109,7 +111,9 @@ def ensure_location_query(
         return LocationQuery(
             city=city or location.city,
             street=street or location.street,
-            house_number=house_number if house_number is not None else location.house_number,
+            house_number=house_number
+            if house_number is not None
+            else location.house_number,
             block=block or location.block,
             parcel=parcel or location.parcel,
             subparcel=subparcel or location.subparcel,

@@ -1,4 +1,5 @@
 """Custom Django email backend powered by Resend."""
+
 from __future__ import annotations
 
 """Django email backend that delivers mail via Resend."""
@@ -24,9 +25,13 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 RESEND_FROM = os.getenv("RESEND_FROM", "")
 RESEND_REPLY_TO = os.getenv("RESEND_REPLY_TO", "")
 RESEND_SANDBOX = os.getenv("RESEND_SANDBOX", "false").lower() == "true"
-EMAIL_FALLBACK_TO_CONSOLE = os.getenv("EMAIL_FALLBACK_TO_CONSOLE", "false").lower() == "true"
+EMAIL_FALLBACK_TO_CONSOLE = (
+    os.getenv("EMAIL_FALLBACK_TO_CONSOLE", "false").lower() == "true"
+)
 RESEND_ENDPOINT = "https://api.resend.com/emails"
-ATTACHMENT_LIMIT_BYTES = int(os.getenv("RESEND_ATTACHMENT_LIMIT_BYTES", str(20 * 1024 * 1024)))
+ATTACHMENT_LIMIT_BYTES = int(
+    os.getenv("RESEND_ATTACHMENT_LIMIT_BYTES", str(20 * 1024 * 1024))
+)
 
 
 def _to_str_list(values: Optional[Iterable[str]]) -> List[str]:
@@ -58,7 +63,9 @@ def _attachments(dj_email: EmailMessage) -> List[Dict[str, Any]]:
         if isinstance(attachment, tuple) and len(attachment) >= 2:
             filename = attachment[0]
             content = attachment[1]
-            mimetype = attachment[2] if len(attachment) >= 3 else "application/octet-stream"
+            mimetype = (
+                attachment[2] if len(attachment) >= 3 else "application/octet-stream"
+            )
             if isinstance(content, str):
                 content_bytes = content.encode("utf-8")
             else:
@@ -66,16 +73,23 @@ def _attachments(dj_email: EmailMessage) -> List[Dict[str, Any]]:
         else:
             payload = attachment.get_payload(decode=True)
             content_bytes = payload or b""
-            filename = getattr(attachment, "get_filename", lambda: "attachment")() or "attachment"
+            filename = (
+                getattr(attachment, "get_filename", lambda: "attachment")()
+                or "attachment"
+            )
             mimetype = (
-                attachment.get_content_type() if hasattr(attachment, "get_content_type") else "application/octet-stream"
+                attachment.get_content_type()
+                if hasattr(attachment, "get_content_type")
+                else "application/octet-stream"
             )
         total_size += len(content_bytes)
-        attachments.append({
-            "filename": filename,
-            "content": content_bytes,
-            "content_type": mimetype or "application/octet-stream",
-        })
+        attachments.append(
+            {
+                "filename": filename,
+                "content": content_bytes,
+                "content_type": mimetype or "application/octet-stream",
+            }
+        )
     if total_size > ATTACHMENT_LIMIT_BYTES:
         logger.warning(
             "Attachment payload (%s bytes) exceeds limit (%s). Sending without attachments.",
@@ -87,23 +101,33 @@ def _attachments(dj_email: EmailMessage) -> List[Dict[str, Any]]:
 
 
 def _deliver_via_rest(payload: Dict[str, Any]) -> bool:
-    headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json",
+    }
     prepared = dict(payload)
     if prepared.get("attachments"):
         converted: List[Dict[str, str]] = []
         for att in prepared["attachments"]:
-            converted.append({
-                "filename": att["filename"],
-                "content": base64.b64encode(att["content"]).decode("ascii"),
-                "content_type": att.get("content_type") or "application/octet-stream",
-            })
+            converted.append(
+                {
+                    "filename": att["filename"],
+                    "content": base64.b64encode(att["content"]).decode("ascii"),
+                    "content_type": att.get("content_type")
+                    or "application/octet-stream",
+                }
+            )
         prepared["attachments"] = converted
-    response = requests.post(RESEND_ENDPOINT, headers=headers, data=json.dumps(prepared), timeout=20)
+    response = requests.post(
+        RESEND_ENDPOINT, headers=headers, data=json.dumps(prepared), timeout=20
+    )
     if response.ok:
         body = response.json()
         if body.get("id"):
             return True
-    logger.error("Resend REST delivery failed: %s %s", response.status_code, response.text)
+    logger.error(
+        "Resend REST delivery failed: %s %s", response.status_code, response.text
+    )
     return False
 
 
@@ -124,10 +148,21 @@ class ResendEmailBackend(BaseEmailBackend):
         sent_count = 0
         for message in email_messages:
             if RESEND_SANDBOX:
-                allowed_fragments = {"@example.", "@test.", "@localhost", "@local", "@nadlaner.local"}
+                allowed_fragments = {
+                    "@example.",
+                    "@test.",
+                    "@localhost",
+                    "@local",
+                    "@nadlaner.local",
+                }
                 recipients = _to_str_list(message.to)
-                if not any(any(fragment in recipient for fragment in allowed_fragments) for recipient in recipients):
-                    logger.info("RESEND_SANDBOX active - blocking send to %s", recipients)
+                if not any(
+                    any(fragment in recipient for fragment in allowed_fragments)
+                    for recipient in recipients
+                ):
+                    logger.info(
+                        "RESEND_SANDBOX active - blocking send to %s", recipients
+                    )
                     continue
 
             payload = self._build_payload(message)
@@ -137,7 +172,9 @@ class ResendEmailBackend(BaseEmailBackend):
                     self._log_to_console(message)
                     sent_count += 1
                 else:
-                    logger.error("RESEND_API_KEY missing and EMAIL_FALLBACK_TO_CONSOLE disabled. Email dropped.")
+                    logger.error(
+                        "RESEND_API_KEY missing and EMAIL_FALLBACK_TO_CONSOLE disabled. Email dropped."
+                    )
                 continue
 
             try:

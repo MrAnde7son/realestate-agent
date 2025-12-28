@@ -5,6 +5,7 @@ Yad2 API Client
 
 Client for interacting with Yad2's public API endpoints (map feeds, contacts, autocomplete, etc.)
 """
+
 import logging
 from enum import Enum
 
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class ListingType(Enum):
     """Listing type constants."""
+
     SALE = "sale"
     RENT = "rent"
     COMMERCIAL = "commercial"
@@ -30,27 +32,27 @@ class ListingType(Enum):
 
 class Yad2APIClient:
     """Client for Yad2 API endpoints."""
-    
+
     def __init__(self, search_params=None, headers=None):
         """
         Initialize the API client.
-        
+
         Args:
             headers: Custom headers for requests
         """
         self.api_base_url = "https://gw.yad2.co.il"
-        
+
         # Default headers to mimic a real browser
         self.headers = headers or {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36",
             "Accept": "application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Connection": "keep-alive"
+            "Connection": "keep-alive",
         }
-        
+
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-        
+
         # Initialize search parameters
         if isinstance(search_params, dict):
             self.search_params = Yad2SearchParameters(**search_params)
@@ -58,20 +60,26 @@ class Yad2APIClient:
             self.search_params = search_params
         else:
             self.search_params = Yad2SearchParameters()
-        
+
         # Parameter reference for validation
         self.param_reference = Yad2ParameterReference()
 
         # Contact fetching config (rate limit/backoff)
-        self.contacts_per_run_limit = int(os.getenv("YAD2_CONTACTS_PER_RUN_LIMIT", "50"))
-        self.contacts_min_interval_s = float(os.getenv("YAD2_CONTACTS_MIN_INTERVAL_S", "0.5"))
+        self.contacts_per_run_limit = int(
+            os.getenv("YAD2_CONTACTS_PER_RUN_LIMIT", "50")
+        )
+        self.contacts_min_interval_s = float(
+            os.getenv("YAD2_CONTACTS_MIN_INTERVAL_S", "0.5")
+        )
         self.contacts_retries = int(os.getenv("YAD2_CONTACTS_RETRIES", "1"))
-        
+
         # Simple in-memory cache for project autocomplete lookups
         self._project_autocomplete_cache: Dict[str, Dict[str, Any]] = {}
         self._project_autocomplete_fetcher = None  # Will be set by scraper if needed
 
-    def _get_active_params(self, search_params: Optional[Yad2SearchParameters] = None) -> Dict[str, Any]:
+    def _get_active_params(
+        self, search_params: Optional[Yad2SearchParameters] = None
+    ) -> Dict[str, Any]:
         if search_params:
             return search_params.get_active_parameters()
         elif self.search_params:
@@ -81,7 +89,6 @@ class Yad2APIClient:
     def set_search_parameters(self, search_params: Yad2SearchParameters):
         """Set or update search parameters."""
         self.search_params = search_params
-    
 
     def fetch_listings(
         self,
@@ -90,7 +97,7 @@ class Yad2APIClient:
         listing_type: str = ListingType.ALL,
         pull_contacts: bool = False,
         project_autocomplete_fetcher=None,
-        **overrides
+        **overrides,
     ) -> List[RealEstateListing]:
         """
         Fetch active listings via Yad2's public map feed API.
@@ -135,7 +142,9 @@ class Yad2APIClient:
                 logger.info("Fetching map listings with params: %s", params)
                 response = self.session.get(url, params=params, timeout=30)
                 if response.status_code != 200:
-                    logger.warning("Failed to fetch map listings: %s", response.status_code)
+                    logger.warning(
+                        "Failed to fetch map listings: %s", response.status_code
+                    )
                     continue
 
                 # Check if response is empty before parsing JSON
@@ -146,7 +155,11 @@ class Yad2APIClient:
                 try:
                     payload = response.json()
                 except json.JSONDecodeError as e:
-                    logger.error("Failed to decode map listings response as JSON: %s. Response: %s", e, response.text[:200])
+                    logger.error(
+                        "Failed to decode map listings response as JSON: %s. Response: %s",
+                        e,
+                        response.text[:200],
+                    )
                     continue
 
                 result = payload.get("data", {})
@@ -155,7 +168,7 @@ class Yad2APIClient:
                         marker,
                         listing_type=current_listing_type,
                         marker_type="yad2",
-                        project_autocomplete_fetcher=project_autocomplete_fetcher
+                        project_autocomplete_fetcher=project_autocomplete_fetcher,
                     )
                     if listing:
                         listings.append(listing)
@@ -165,7 +178,7 @@ class Yad2APIClient:
                         marker,
                         listing_type=current_listing_type,
                         marker_type="yad1",
-                        project_autocomplete_fetcher=project_autocomplete_fetcher
+                        project_autocomplete_fetcher=project_autocomplete_fetcher,
                     )
                     if listing:
                         listings.append(listing)
@@ -175,7 +188,7 @@ class Yad2APIClient:
                         marker,
                         listing_type=current_listing_type,
                         marker_type="yad2",
-                        project_autocomplete_fetcher=project_autocomplete_fetcher
+                        project_autocomplete_fetcher=project_autocomplete_fetcher,
                     )
                     if listing:
                         listings.append(listing)
@@ -191,7 +204,11 @@ class Yad2APIClient:
                         try:
                             token = listing.url.rstrip("/").split("/")[-1]
                         except Exception as e:
-                            logger.error("Failed to extract token from listing URL: %s; %s", listing.url, e)
+                            logger.error(
+                                "Failed to extract token from listing URL: %s; %s",
+                                listing.url,
+                                e,
+                            )
                             continue
 
                         # seems like integers are irrelevant
@@ -199,7 +216,9 @@ class Yad2APIClient:
                             if int(token):
                                 continue
                         except (TypeError, ValueError) as parse_error:
-                            logger.debug("Token %s is not numeric: %s", token, parse_error)
+                            logger.debug(
+                                "Token %s is not numeric: %s", token, parse_error
+                            )
 
                         token_to_listings.setdefault(token, []).append(listing)
 
@@ -210,7 +229,11 @@ class Yad2APIClient:
                         limit = self.contacts_per_run_limit
                         tokens_to_fetch = tokens[:limit]
                         if len(tokens) > limit:
-                            logger.info("Capping contact fetches at %s of %s tokens", limit, len(tokens))
+                            logger.info(
+                                "Capping contact fetches at %s of %s tokens",
+                                limit,
+                                len(tokens),
+                            )
 
                         for idx, token in enumerate(tokens_to_fetch, 1):
                             contact_info = self.fetch_contact_info(token)
@@ -238,61 +261,109 @@ class Yad2APIClient:
                     # Check if response is empty before parsing JSON
                     response_text = response.text.strip() if response.text else ""
                     if not response_text:
-                        logger.debug("Empty response from contact API for token %s (attempt %d/%d)", 
-                                   token, attempt + 1, self.contacts_retries)
+                        logger.debug(
+                            "Empty response from contact API for token %s (attempt %d/%d)",
+                            token,
+                            attempt + 1,
+                            self.contacts_retries,
+                        )
                         last_exception = Exception("Empty response from API")
                         continue
 
                     # Check if response looks like HTML (common error page)
-                    if response_text.startswith('<') or response_text.lower().startswith('<!doctype'):
-                        logger.debug("Received HTML instead of JSON from contact API for token %s (attempt %d/%d)", 
-                                   token, attempt + 1, self.contacts_retries)
+                    if response_text.startswith(
+                        "<"
+                    ) or response_text.lower().startswith("<!doctype"):
+                        logger.debug(
+                            "Received HTML instead of JSON from contact API for token %s (attempt %d/%d)",
+                            token,
+                            attempt + 1,
+                            self.contacts_retries,
+                        )
                         last_exception = Exception("Received HTML instead of JSON")
                         continue
 
                     try:
                         payload = response.json()
                     except json.JSONDecodeError as e:
-                        logger.debug("Failed to parse JSON from contact API for token %s (attempt %d/%d): %s. Response preview: %s", 
-                                   token, attempt + 1, self.contacts_retries, e, response_text[:200])
+                        logger.debug(
+                            "Failed to parse JSON from contact API for token %s (attempt %d/%d): %s. Response preview: %s",
+                            token,
+                            attempt + 1,
+                            self.contacts_retries,
+                            e,
+                            response_text[:200],
+                        )
                         last_exception = e
                         continue
 
                     result = payload.get("data")
                     if not result:
-                        logger.debug("No data field in contact API response for token %s", token)
+                        logger.debug(
+                            "No data field in contact API response for token %s", token
+                        )
                         return None
                     return Contact(**result)
                 if response.status_code == 429:
                     # Rate limited
-                    logger.debug("Rate limited from Yad2 contacts API for token %s (attempt %d/%d)", 
-                               token, attempt + 1, self.contacts_retries)
+                    logger.debug(
+                        "Rate limited from Yad2 contacts API for token %s (attempt %d/%d)",
+                        token,
+                        attempt + 1,
+                        self.contacts_retries,
+                    )
                     continue
                 if 500 <= response.status_code < 600:
                     # transient server errors
-                    logger.debug("Server error %s from Yad2 contacts API for token %s (attempt %d/%d)", 
-                               response.status_code, token, attempt + 1, self.contacts_retries)
+                    logger.debug(
+                        "Server error %s from Yad2 contacts API for token %s (attempt %d/%d)",
+                        response.status_code,
+                        token,
+                        attempt + 1,
+                        self.contacts_retries,
+                    )
                     continue
                 # Other status codes considered non-retryable
-                logger.debug("Non-retryable status %s from contact API for token %s", response.status_code, token)
+                logger.debug(
+                    "Non-retryable status %s from contact API for token %s",
+                    response.status_code,
+                    token,
+                )
                 return None
             except requests.exceptions.RequestException as e:
                 last_exception = e
-                logger.debug("Network error fetching contact for token %s (attempt %d/%d): %s", 
-                           token, attempt + 1, self.contacts_retries, e)
+                logger.debug(
+                    "Network error fetching contact for token %s (attempt %d/%d): %s",
+                    token,
+                    attempt + 1,
+                    self.contacts_retries,
+                    e,
+                )
                 continue
             except json.JSONDecodeError as e:
                 last_exception = e
-                logger.debug("JSON decode error fetching contact for token %s (attempt %d/%d): %s", 
-                           token, attempt + 1, self.contacts_retries, e)
+                logger.debug(
+                    "JSON decode error fetching contact for token %s (attempt %d/%d): %s",
+                    token,
+                    attempt + 1,
+                    self.contacts_retries,
+                    e,
+                )
                 continue
         # Exhausted retries
         if last_exception:
-            logger.warning("Contact fetch failed after %d retries for token %s: %s", 
-                         self.contacts_retries, token, last_exception)
+            logger.warning(
+                "Contact fetch failed after %d retries for token %s: %s",
+                self.contacts_retries,
+                token,
+                last_exception,
+            )
             return None
-        logger.warning("Contact fetch failed after %d retries for token %s: unknown error", 
-                     self.contacts_retries, token)
+        logger.warning(
+            "Contact fetch failed after %d retries for token %s: unknown error",
+            self.contacts_retries,
+            token,
+        )
         return None
 
     def fetch_project_autocomplete(self, phrase: str) -> Optional[Dict[str, Any]]:
@@ -315,30 +386,46 @@ class Yad2APIClient:
             url = f"{self.api_base_url}/yad1/projects-developers/autocomplete"
             params = {"phrase": phrase}
             response = self.session.get(url, params=params, timeout=30)
-            
+
             if response.status_code != 200:
-                logger.debug("Project autocomplete API returned status %s for phrase '%s'", response.status_code, phrase)
+                logger.debug(
+                    "Project autocomplete API returned status %s for phrase '%s'",
+                    response.status_code,
+                    phrase,
+                )
                 return None
 
             # Check if response is empty before parsing JSON
             response_text = response.text.strip() if response.text else ""
             if not response_text:
-                logger.debug("Empty response from project autocomplete API for phrase '%s'", phrase)
+                logger.debug(
+                    "Empty response from project autocomplete API for phrase '%s'",
+                    phrase,
+                )
                 return None
 
             # Check if response looks like HTML (common error page)
-            if response_text.startswith('<') or response_text.lower().startswith('<!doctype'):
-                logger.debug("Received HTML instead of JSON from project autocomplete API for phrase '%s'", phrase)
+            if response_text.startswith("<") or response_text.lower().startswith(
+                "<!doctype"
+            ):
+                logger.debug(
+                    "Received HTML instead of JSON from project autocomplete API for phrase '%s'",
+                    phrase,
+                )
                 return None
 
             try:
                 data = response.json()
             except json.JSONDecodeError as e:
-                logger.debug("Failed to parse JSON from project autocomplete API for phrase '%s': %s. Response preview: %s", 
-                           phrase, e, response_text[:200])
+                logger.debug(
+                    "Failed to parse JSON from project autocomplete API for phrase '%s': %s. Response preview: %s",
+                    phrase,
+                    e,
+                    response_text[:200],
+                )
                 return None
 
-            entries: List[str, Any] = data.get("data", {}).get('projects', [])
+            entries: List[str, Any] = data.get("data", {}).get("projects", [])
 
             best: Optional[Dict[str, Any]] = None
             for entry in entries:
@@ -350,28 +437,42 @@ class Yad2APIClient:
             self._project_autocomplete_cache[phrase] = best
             return best
         except requests.exceptions.RequestException as e:
-            logger.debug("Network error fetching project autocomplete for phrase '%s': %s", phrase, e)
+            logger.debug(
+                "Network error fetching project autocomplete for phrase '%s': %s",
+                phrase,
+                e,
+            )
             return None
         except json.JSONDecodeError as e:
-            logger.debug("JSON decode error fetching project autocomplete for phrase '%s': %s", phrase, e)
+            logger.debug(
+                "JSON decode error fetching project autocomplete for phrase '%s': %s",
+                phrase,
+                e,
+            )
             return None
         except Exception as e:
-            logger.debug("Unexpected error fetching project autocomplete for phrase '%s': %s", phrase, e)
+            logger.debug(
+                "Unexpected error fetching project autocomplete for phrase '%s': %s",
+                phrase,
+                e,
+            )
             return None
 
-    def fetch_location_autocomplete(self, search_text: str) -> Optional[Yad2SearchParameters]:
+    def fetch_location_autocomplete(
+        self, search_text: str
+    ) -> Optional[Yad2SearchParameters]:
         """Fetch location data from Yad2 address autocomplete API and return prepared search parameters.
-        
+
         Args:
             search_text: Address text to search for
-            
+
         Returns:
             Dict with prepared search parameters (city, area, neighborhood, street, etc.)
             or None if the request failed
         """
         try:
             url = f"{self.api_base_url}/address-autocomplete/realestate/v2"
-            params = {'text': search_text}
+            params = {"text": search_text}
 
             response = self.session.get(url, params=params, timeout=30)
 
@@ -384,7 +485,11 @@ class Yad2APIClient:
                 try:
                     data = response.json()
                 except json.JSONDecodeError as e:
-                    logger.error("Failed to parse JSON from location autocomplete API: %s. Response: %s", e, response.text[:200])
+                    logger.error(
+                        "Failed to parse JSON from location autocomplete API: %s. Response: %s",
+                        e,
+                        response.text[:200],
+                    )
                     return None
 
                 hoods = data.get("hoods", [])
@@ -407,7 +512,9 @@ class Yad2APIClient:
 
                     # Top areas
                     if not top_areas:
-                        top_area_ids = {s.get("topAreaId") for s in streets if s.get("topAreaId")}
+                        top_area_ids = {
+                            s.get("topAreaId") for s in streets if s.get("topAreaId")
+                        }
                         top_areas = [{"topAreaId": tid} for tid in top_area_ids]
 
                 location_data = {
@@ -420,7 +527,9 @@ class Yad2APIClient:
                 }
 
                 # Prepare and return search parameters
-                return Yad2SearchParameters(**self._prepare_location_parameters(location_data))
+                return Yad2SearchParameters(
+                    **self._prepare_location_parameters(location_data)
+                )
             else:
                 logger.warning(f"Failed to fetch location data: {response.status_code}")
                 return None
@@ -439,7 +548,7 @@ class Yad2APIClient:
         city: int = None,
         neighborhood: int = None,
         coords="10.0,10.0",
-        max_pages: int = 1
+        max_pages: int = 1,
     ):
         """
         Fetch completed deal records from Yad2's latest-deals endpoint.
@@ -486,7 +595,9 @@ class Yad2APIClient:
 
             coords_val = coords if coords is not None else active.get("coords")
             if isinstance(coords_val, (list, tuple)) and len(coords_val) == 2:
-                coords_val = "{:.6f},{:.6f}".format(float(coords_val[0]), float(coords_val[1]))
+                coords_val = "{:.6f},{:.6f}".format(
+                    float(coords_val[0]), float(coords_val[1])
+                )
             if coords_val:
                 params["coords"] = coords_val
 
@@ -500,20 +611,30 @@ class Yad2APIClient:
                 logger.info(f"Fetching latest deals (page {page_to_fetch}): {params}")
                 response = self.session.get(url, params=params, timeout=30)
                 if response.status_code != 200:
-                    logger.warning("Failed to fetch latest deals (page {}): {}".format(
-                        page_to_fetch, response.status_code))
+                    logger.warning(
+                        "Failed to fetch latest deals (page {}): {}".format(
+                            page_to_fetch, response.status_code
+                        )
+                    )
                     break
 
                 # Check if response is empty before parsing JSON
                 if not response.text or not response.text.strip():
-                    logger.warning("Empty response from latest deals API (page {})".format(page_to_fetch))
+                    logger.warning(
+                        "Empty response from latest deals API (page {})".format(
+                            page_to_fetch
+                        )
+                    )
                     break
 
                 try:
                     data = response.json()
                 except json.JSONDecodeError as e:
-                    logger.error("Failed to parse JSON from latest deals API (page {}): {}. Response: {}".format(
-                        page_to_fetch, e, response.text[:200]))
+                    logger.error(
+                        "Failed to parse JSON from latest deals API (page {}): {}. Response: {}".format(
+                            page_to_fetch, e, response.text[:200]
+                        )
+                    )
                     break
 
                 data = data.get("data", [])
@@ -523,7 +644,10 @@ class Yad2APIClient:
                 if not page_results:
                     break
 
-                converted = [self._convert_latest_deal_to_listing(entry) for entry in page_results]
+                converted = [
+                    self._convert_latest_deal_to_listing(entry)
+                    for entry in page_results
+                ]
                 collected_results.extend(converted)
 
                 pages_fetched += 1
@@ -568,7 +692,9 @@ class Yad2APIClient:
                 return int(digits)
         return None
 
-    def _prepare_location_parameters(self, location: Dict[str, Any]) -> Dict[str, object]:
+    def _prepare_location_parameters(
+        self, location: Dict[str, Any]
+    ) -> Dict[str, object]:
         """Translate autocomplete response into search parameters."""
         if not location:
             return {}
@@ -596,7 +722,9 @@ class Yad2APIClient:
         )
         if top_area_id is None and top_areas:
             top_area_id = self._coerce_numeric(
-                self._extract_first_value(top_areas[0], ["topAreaId", "id", "value", "code"])
+                self._extract_first_value(
+                    top_areas[0], ["topAreaId", "id", "value", "code"]
+                )
             )
         if top_area_id is not None:
             params["topArea"] = top_area_id
@@ -661,7 +789,7 @@ class Yad2APIClient:
         marker: Dict[str, Any],
         listing_type: ListingType = ListingType.RENT,
         marker_type: str = "yad2",
-        project_autocomplete_fetcher=None
+        project_autocomplete_fetcher=None,
     ) -> Optional[RealEstateListing]:
         """Convert a map marker response entry into a :class:`RealEstateListing`."""
 
@@ -717,7 +845,11 @@ class Yad2APIClient:
 
             additional = marker.get("additionalDetails") or {}
             property_details = additional.get("property") or {}
-            listing.property_type = property_details.get("text") or property_details.get("name") or marker.get("propertyType")
+            listing.property_type = (
+                property_details.get("text")
+                or property_details.get("name")
+                or marker.get("propertyType")
+            )
             listing.rooms = additional.get("roomsCount") or marker.get("rooms")
             listing.total_size = additional.get("squareMeter") or marker.get("size")
 
@@ -750,7 +882,12 @@ class Yad2APIClient:
                         listing.previous_price = price_before_tag
                     elif isinstance(price_before_tag, str):
                         # Clean the string: remove currency symbols, commas, spaces
-                        cleaned = price_before_tag.replace("₪", "").replace(",", "").replace(" ", "").strip()
+                        cleaned = (
+                            price_before_tag.replace("₪", "")
+                            .replace(",", "")
+                            .replace(" ", "")
+                            .strip()
+                        )
                         if cleaned:
                             listing.previous_price = int(cleaned)
                 except (ValueError, TypeError):
@@ -779,7 +916,9 @@ class Yad2APIClient:
 
             tags = marker.get("tags") or []
             if tags:
-                listing.features["tags"] = [tag.get("name") for tag in tags if tag.get("name")]
+                listing.features["tags"] = [
+                    tag.get("name") for tag in tags if tag.get("name")
+                ]
 
             customer = marker.get("customer") or {}
             has_agency = bool(customer.get("agencyName"))
@@ -810,17 +949,19 @@ class Yad2APIClient:
             if video_url:
                 listing.meta["video"] = video_url
 
-            listing.meta.update({
-                "source": "yad2_map",
-                "marker_type": marker_type,
-                "token": token,
-                "order_id": order_id,
-                "ad_type": marker.get("adType"),
-                "category_id": marker.get("categoryId"),
-                "subcategory_id": marker.get("subcategoryId"),
-                "customer": customer or None,
-                "raw": marker,
-            })
+            listing.meta.update(
+                {
+                    "source": "yad2_map",
+                    "marker_type": marker_type,
+                    "token": token,
+                    "order_id": order_id,
+                    "ad_type": marker.get("adType"),
+                    "category_id": marker.get("categoryId"),
+                    "subcategory_id": marker.get("subcategoryId"),
+                    "customer": customer or None,
+                    "raw": marker,
+                }
+            )
 
             if marker_type == "yad1":
                 listing.meta["project_id"] = marker.get("projectId")
@@ -831,7 +972,7 @@ class Yad2APIClient:
                 elif project_name:
                     project_entry = self.fetch_project_autocomplete(project_name)
 
-                token = ''
+                token = ""
                 if isinstance(project_entry, dict):
                     token = project_entry.get("token")
                 project_id = marker.get("projectId")
@@ -858,14 +999,20 @@ class Yad2APIClient:
     def _convert_latest_deal_to_listing(self, deal_entry):
         """Convert a latest-deal payload entry into a RealEstateListing."""
         listing = RealEstateListing()
-        
+
         address = deal_entry.get("address") or {}
-        street = (address.get("street") or {}).get("text") or (address.get("street") or {}).get("name")
+        street = (address.get("street") or {}).get("text") or (
+            address.get("street") or {}
+        ).get("name")
         house_number = address.get("houseNumber")
         neighborhood = (address.get("neighborhood") or {}).get("text")
         city = (address.get("city") or {}).get("text")
 
-        street_line_parts = [part for part in [street, str(house_number) if house_number else None] if part]
+        street_line_parts = [
+            part
+            for part in [street, str(house_number) if house_number else None]
+            if part
+        ]
         street_line = " ".join(street_line_parts) if street_line_parts else None
 
         address_parts = [part for part in [street_line, city] if part]
@@ -893,21 +1040,26 @@ class Yad2APIClient:
         listing.recent_deal = True
 
         # Preserve supporting data for downstream consumers.
-        listing.meta.update({
-            "source": "yad2_latest_deals",
-            "sale_date": deal_entry.get("saleDate"),
-            "number_of_floors": deal_entry.get("numberOfFloors"),
-            "build_year": deal_entry.get("buildYear"),
-            "address_master_id": address.get("addressMasterId"),
-            "raw": deal_entry,
-        })
+        listing.meta.update(
+            {
+                "source": "yad2_latest_deals",
+                "sale_date": deal_entry.get("saleDate"),
+                "number_of_floors": deal_entry.get("numberOfFloors"),
+                "build_year": deal_entry.get("buildYear"),
+                "address_master_id": address.get("addressMasterId"),
+                "raw": deal_entry,
+            }
+        )
 
         return listing
+
 
 if __name__ == "__main__":
     client = Yad2APIClient()
     search_params = client.fetch_location_autocomplete("רמת החייל תל אביב")
-    client.set_search_parameters({"maxPrice": 9000000, "topArea": 2, "area": 3, "neighborhood": 8600, "zoom": 15})
+    client.set_search_parameters(
+        {"maxPrice": 9000000, "topArea": 2, "area": 3, "neighborhood": 8600, "zoom": 15}
+    )
     # listings = client.fetch_listings(search_params)
     # print(listings)
     latest_deals = client.fetch_latest_deals(search_params)

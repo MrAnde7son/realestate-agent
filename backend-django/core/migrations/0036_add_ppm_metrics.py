@@ -12,8 +12,7 @@ def _fetch_existing_indexes(schema_editor, table_name):
         if vendor == "sqlite":
             safe_table_name = table_name.replace("'", "''")
             query = (
-                "SELECT name FROM sqlite_master "
-                "WHERE type='index' AND tbl_name='{}'"
+                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='{}'"
             ).format(safe_table_name)
             cursor.execute(query)
         elif vendor == "postgresql":
@@ -118,7 +117,6 @@ def restore_asset_ppm_index_names(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0035_asset_market_metrics"),
     ]

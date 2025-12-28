@@ -33,6 +33,7 @@ mcp = FastMCP(
 # Persistent client for this server process
 _client: Optional[TelAvivGS] = None
 
+
 def _get_client() -> TelAvivGS:
     global _client
     if _client is None:
@@ -41,7 +42,9 @@ def _get_client() -> TelAvivGS:
 
 
 @mcp.tool()
-async def geocode_address(ctx: Context, street: str, house_number: int, like: bool = True):
+async def geocode_address(
+    ctx: Context, street: str, house_number: int, like: bool = True
+):
     """Return (x,y) EPSG:2039 for a given street and house number."""
     gs = _get_client()
     await ctx.info(f"Geocoding address: {street} {house_number} (like={like})")
@@ -61,8 +64,17 @@ async def get_building_permits(
 ):
     """Search for building permits near a point (x,y) in meters. Optionally download PDFs."""
     gs = _get_client()
-    await ctx.info(f"Fetching permits near point ({x},{y}) radius={radius}m; download_pdfs={download_pdfs}")
-    results = gs.get_building_permits(x, y, radius=radius, fields=fields, download_pdfs=download_pdfs, save_dir=save_dir)
+    await ctx.info(
+        f"Fetching permits near point ({x},{y}) radius={radius}m; download_pdfs={download_pdfs}"
+    )
+    results = gs.get_building_permits(
+        x,
+        y,
+        radius=radius,
+        fields=fields,
+        download_pdfs=download_pdfs,
+        save_dir=save_dir,
+    )
     return {"count": len(results), "permits": results}
 
 
@@ -145,10 +157,7 @@ async def get_shelters(ctx: Context, x: float, y: float, radius: int = 200):
 
 @mcp.tool()
 async def get_building_privilege_page(
-    ctx: Context,
-    x: float,
-    y: float,
-    save_dir: Optional[str] = "privilege_pages"
+    ctx: Context, x: float, y: float, save_dir: Optional[str] = "privilege_pages"
 ):
     """Download the building privilege ("zchuyot") page for a location."""
     gs = _get_client()
@@ -157,7 +166,9 @@ async def get_building_privilege_page(
     result = gs.get_building_privilege_page(x, y, save_dir=save_dir)
 
     if not result:
-        await ctx.warning("Failed to download building privilege page - block/parcel values not found")
+        await ctx.warning(
+            "Failed to download building privilege page - block/parcel values not found"
+        )
         return {
             "success": False,
             "file_path": None,
@@ -175,7 +186,9 @@ async def get_building_privilege_page(
 
 
 @mcp.tool()
-async def get_affordable_housing_projects(ctx: Context, x: float, y: float, radius: int = 500):
+async def get_affordable_housing_projects(
+    ctx: Context, x: float, y: float, radius: int = 500
+):
     """Get affordable housing projects within a radius (meters) from point (x,y).
     Pipeline of affordable housing; indicates supply pressure and long-term demographic mix.
     """
@@ -209,14 +222,18 @@ async def get_metro_stations_red(ctx: Context, x: float, y: float, radius: int =
 
 
 @mcp.tool()
-async def get_metro_stations_green(ctx: Context, x: float, y: float, radius: int = 1000):
+async def get_metro_stations_green(
+    ctx: Context, x: float, y: float, radius: int = 1000
+):
     """Get Green Line metro stations within a radius (meters) from point (x,y)."""
     gs = _get_client()
     return gs.get_metro_stations_green(x, y, radius=radius)
 
 
 @mcp.tool()
-async def get_metro_stations_purple(ctx: Context, x: float, y: float, radius: int = 1000):
+async def get_metro_stations_purple(
+    ctx: Context, x: float, y: float, radius: int = 1000
+):
     """Get Purple Line metro stations within a radius (meters) from point (x,y)."""
     gs = _get_client()
     return gs.get_metro_stations_purple(x, y, radius=radius)
@@ -264,7 +281,9 @@ async def get_schools(ctx: Context, x: float, y: float, radius: int = 500):
 
 
 @mcp.tool()
-async def get_schools_kindergartens(ctx: Context, x: float, y: float, radius: int = 500):
+async def get_schools_kindergartens(
+    ctx: Context, x: float, y: float, radius: int = 500
+):
     """Get kindergartens within a radius (meters) from point (x,y)."""
     gs = _get_client()
     return gs.get_schools_kindergartens(x, y, radius=radius)
@@ -354,7 +373,9 @@ async def get_community_centers(ctx: Context, x: float, y: float, radius: int = 
 
 
 @mcp.tool()
-async def get_youth_entrepreneurship_centers(ctx: Context, x: float, y: float, radius: int = 400):
+async def get_youth_entrepreneurship_centers(
+    ctx: Context, x: float, y: float, radius: int = 400
+):
     """Get youth and entrepreneurship centers within a radius (meters) from point (x,y)."""
     gs = _get_client()
     return gs.get_youth_entrepreneurship_centers(x, y, radius=radius)
@@ -402,4 +423,4 @@ async def get_night_works_public(ctx: Context, x: float, y: float, radius: int =
 
 
 if __name__ == "__main__":
-    mcp.run() 
+    mcp.run()

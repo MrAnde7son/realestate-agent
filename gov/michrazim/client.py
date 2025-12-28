@@ -76,7 +76,9 @@ class MichrazimClient:
         self.logger.debug("Unexpected search response format: %s", type(data))
         return []
 
-    def get_details(self, michraz_id: int, timeout: Optional[float] = None) -> Dict[str, Any]:
+    def get_details(
+        self, michraz_id: int, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
         """Fetch detailed tender information by ID."""
         response = request_with_retry(
             self.session.get,
@@ -89,12 +91,14 @@ class MichrazimClient:
         data = response.json()
         if isinstance(data, dict):
             return data
-        self.logger.debug("Unexpected details response format for %s: %s", michraz_id, type(data))
+        self.logger.debug(
+            "Unexpected details response format for %s: %s", michraz_id, type(data)
+        )
         return {}
 
     def get_yishuvim(self, timeout: Optional[float] = None) -> List[Dict[str, Any]]:
         """Fetch list of all settlements (yishuvim) with their codes and names.
-        
+
         Returns a list of settlement objects, each containing fields like:
         - mtysvSemelYishuv: settlement code (int) - used for filtering searches
         - mtysvShemYishuv: settlement name (str)
@@ -116,13 +120,13 @@ class MichrazimClient:
     @staticmethod
     def _normalize_duplicate_letters(text: str) -> str:
         """Normalize Hebrew text by removing consecutive duplicate letters.
-        
+
         This handles spelling variations like הרצלייה vs הרצליה (double yod),
         and other cases where duplicate letters may appear.
-        
+
         Args:
             text: Hebrew text to normalize
-            
+
         Returns:
             Normalized text with consecutive duplicate letters removed
         """
@@ -130,22 +134,26 @@ class MichrazimClient:
             return text
         # Remove consecutive duplicate characters using regex
         # This matches any character followed by one or more of the same character
-        return re.sub(r'(.)\1+', r'\1', text)
-    
-    def find_yishuv_code(self, yishuv_name: str, timeout: Optional[float] = None) -> Optional[int]:
+        return re.sub(r"(.)\1+", r"\1", text)
+
+    def find_yishuv_code(
+        self, yishuv_name: str, timeout: Optional[float] = None
+    ) -> Optional[int]:
         """Find settlement code (mtysvSemelYishuv) by settlement name.
-        
+
         Args:
             yishuv_name: Settlement name to search for (e.g., "תל אביב יפו")
             timeout: Optional request timeout
-            
+
         Returns:
             Settlement code (mtysvSemelYishuv) if found, None otherwise
         """
         yishuvim = self.get_yishuvim(timeout=timeout)
         yishuv_name_normalized = yishuv_name.strip()
-        yishuv_name_normalized_no_dups = self._normalize_duplicate_letters(yishuv_name_normalized)
-        
+        yishuv_name_normalized_no_dups = self._normalize_duplicate_letters(
+            yishuv_name_normalized
+        )
+
         for yishuv in yishuvim:
             name = yishuv.get("mtysvShemYishuv", "").strip()
             # Try exact match first
@@ -172,4 +180,4 @@ __all__ = ["MichrazimClient"]
 
 if __name__ == "__main__":
     client = MichrazimClient()
-    print(client.search(extra_payload={'mtysvShemYishuv': 'פתח תקווה'}))
+    print(client.search(extra_payload={"mtysvShemYishuv": "פתח תקווה"}))

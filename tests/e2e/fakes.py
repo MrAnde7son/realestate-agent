@@ -20,12 +20,16 @@ class FakeNadlanScraper:
     a predictable list of deal-like objects.
     """
 
-    def __init__(self, deals: Sequence[object] | None = None, fail: bool = False) -> None:
+    def __init__(
+        self, deals: Sequence[object] | None = None, fail: bool = False
+    ) -> None:
         self._deals = list(deals or [])
         self.fail = fail
         self.calls: List[str] = []
 
-    def get_deals_by_address(self, address: str, max_age_days: int = None, force_refresh: bool = False) -> List[object]:
+    def get_deals_by_address(
+        self, address: str, max_age_days: int = None, force_refresh: bool = False
+    ) -> List[object]:
         self.calls.append(address)
         if self.fail:
             raise RuntimeError("forced nadlan failure")
@@ -50,7 +54,9 @@ class FakeDecisiveClient:
             else:
                 self._appraisals.append(DecisiveAppraisal(**appraisal))
 
-    def fetch_appraisals(self, block: str = "", plot: str = "", max_pages: int = 1) -> List[DecisiveAppraisal]:
+    def fetch_appraisals(
+        self, block: str = "", plot: str = "", max_pages: int = 1
+    ) -> List[DecisiveAppraisal]:
         self.calls.append((block, plot, max_pages))
         if self.fail:
             raise RuntimeError("forced decisive failure")
@@ -63,8 +69,12 @@ class FakeNotifier:
 
     listing_ids: Sequence[str]
 
-    def matches(self, listing_snapshot) -> bool:  # pragma: no cover - helper used in tests
+    def matches(
+        self, listing_snapshot
+    ) -> bool:  # pragma: no cover - helper used in tests
         return getattr(listing_snapshot, "listing_id", None) in set(self.listing_ids)
 
-    def notify(self, listing_snapshot) -> None:  # pragma: no cover - helper used in tests
+    def notify(
+        self, listing_snapshot
+    ) -> None:  # pragma: no cover - helper used in tests
         self.last_notified = getattr(listing_snapshot, "listing_id", None)

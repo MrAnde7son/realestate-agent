@@ -6,6 +6,7 @@ def _safe_get(d: dict | None, key: str, default=None):
     v = d.get(key, default)
     return v
 
+
 def _first_nonempty(*vals):
     for v in vals:
         if v:

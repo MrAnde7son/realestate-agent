@@ -10,16 +10,16 @@ from gis.proxy_gis_client import ProxyGISClient
 
 class HerzliyaGIS(ProxyGISClient):
     """Client for Herzliya municipal GIS."""
-    
+
     def get_service_url(self) -> str:
         return "http://arcgis005/arcgis/rest/services/Herzliya/herzliya_main_date1/MapServer"
-    
+
     def get_referer(self) -> str:
         return "https://v5.gis-net.co.il/v5/Hertzeliya?minisite=public"
-    
+
     def get_cookies(self) -> Dict[str, str]:
         """Return cookies for Herzliya authentication.
-        
+
         Note: These cookies may expire. In production, you may want to:
         1. Fetch them dynamically from the main page
         2. Store them in a session
@@ -34,21 +34,17 @@ class HerzliyaGIS(ProxyGISClient):
             "_gat": "1",
             "_ga_8QML5PBNRE": "GS2.1.s1766089555$o3$g1$t1766090236$j48$l0$h0",
         }
-    
+
     def get_layer_id_for_blocks(self) -> int:
         """Layer ID for blocks (גושים) in Herzliya."""
         return 24
-    
+
     def get_layer_id_for_parcels(self) -> int:
         """Layer ID for parcels (חלקות) in Herzliya.
-        
+
         Note: This may need to be determined by inspecting the service.
         Using a placeholder value for now.
         """
         # You may need to find the correct layer ID by inspecting the service
         # For now, returning a placeholder
         return 25  # This should be verified
-
-
-
-

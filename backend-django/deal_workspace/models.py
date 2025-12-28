@@ -175,9 +175,7 @@ class Offer(models.Model):
     )
     amount = models.DecimalField(max_digits=12, decimal_places=0)
     currency = models.CharField(max_length=8, default="ILS")
-    financing_type = models.CharField(
-        max_length=10, choices=FinancingType.choices
-    )
+    financing_type = models.CharField(max_length=10, choices=FinancingType.choices)
     down_payment_pct = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True
     )
@@ -198,8 +196,7 @@ class Offer(models.Model):
 
     def is_expired(self) -> bool:
         return (
-            self.status == self.Status.ACTIVE
-            and timezone.now() >= self.expiration_at
+            self.status == self.Status.ACTIVE and timezone.now() >= self.expiration_at
         )
 
     def mark_expired(self) -> None:
@@ -255,9 +252,7 @@ class Document(models.Model):
         null=True,
         blank=True,
     )
-    kind = models.CharField(
-        max_length=20, choices=Kind.choices, default=Kind.GENERIC
-    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.GENERIC)
     title = models.CharField(max_length=255)
     storage_url = models.URLField(max_length=500)
     hash = models.CharField(max_length=128, blank=True)
@@ -462,9 +457,7 @@ class MortgageApplication(models.Model):
         max_length=20, choices=Status.choices, default=Status.DRAFT
     )
     requested_amount = models.DecimalField(max_digits=12, decimal_places=0)
-    ltv_pct = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
-    )
+    ltv_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     income_json = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -492,13 +485,9 @@ class MortgageOffer(models.Model):
         max_digits=5, decimal_places=2, null=True, blank=True
     )
     monthly_payment = models.DecimalField(max_digits=10, decimal_places=2)
-    fees_total = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
-    )
+    fees_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     valid_until = models.DateTimeField()
-    score = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True
-    )
+    score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     source = models.CharField(max_length=20, default="manual")
     raw_json = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -34,7 +34,9 @@ if "selenium" not in sys.modules:
     support_module = ModuleType("selenium.webdriver.support")
     support_module.__path__ = []
     support_ui_module = ModuleType("selenium.webdriver.support.ui")
-    expected_conditions_module = ModuleType("selenium.webdriver.support.expected_conditions")
+    expected_conditions_module = ModuleType(
+        "selenium.webdriver.support.expected_conditions"
+    )
 
     class _DummyBy:
         ID = "id"
@@ -91,6 +93,7 @@ if "selenium" not in sys.modules:
 
     sys.modules["selenium"] = selenium_module
     sys.modules["selenium.webdriver"] = webdriver_module
+
     class _DummyActionChains:
         def __init__(self, *args, **kwargs):
             pass
@@ -114,10 +117,11 @@ if "selenium" not in sys.modules:
     sys.modules["selenium.webdriver.chrome.service"] = chrome_service_module
     sys.modules["selenium.webdriver.support"] = support_module
     sys.modules["selenium.webdriver.support.ui"] = support_ui_module
-    sys.modules["selenium.webdriver.support.expected_conditions"] = expected_conditions_module
+    sys.modules["selenium.webdriver.support.expected_conditions"] = (
+        expected_conditions_module
+    )
     sys.modules["selenium.common"] = selenium_common_module
     sys.modules["selenium.common.exceptions"] = selenium_common_exceptions_module
-
 
 
 if "pandas" not in sys.modules:
@@ -223,8 +227,12 @@ if "opentelemetry" not in sys.modules:
     exporter_module = ModuleType("opentelemetry.exporter")
     exporter_otlp_module = ModuleType("opentelemetry.exporter.otlp")
     exporter_otlp_proto_module = ModuleType("opentelemetry.exporter.otlp.proto")
-    exporter_otlp_proto_http_module = ModuleType("opentelemetry.exporter.otlp.proto.http")
-    exporter_otlp_proto_http_trace_module = ModuleType("opentelemetry.exporter.otlp.proto.http.trace_exporter")
+    exporter_otlp_proto_http_module = ModuleType(
+        "opentelemetry.exporter.otlp.proto.http"
+    )
+    exporter_otlp_proto_http_trace_module = ModuleType(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter"
+    )
 
     class _DummyOTLPSpanExporter:
         def __init__(self, *args, **kwargs):
@@ -246,5 +254,9 @@ if "opentelemetry" not in sys.modules:
     sys.modules["opentelemetry.exporter"] = exporter_module
     sys.modules["opentelemetry.exporter.otlp"] = exporter_otlp_module
     sys.modules["opentelemetry.exporter.otlp.proto"] = exporter_otlp_proto_module
-    sys.modules["opentelemetry.exporter.otlp.proto.http"] = exporter_otlp_proto_http_module
-    sys.modules["opentelemetry.exporter.otlp.proto.http.trace_exporter"] = exporter_otlp_proto_http_trace_module
+    sys.modules["opentelemetry.exporter.otlp.proto.http"] = (
+        exporter_otlp_proto_http_module
+    )
+    sys.modules["opentelemetry.exporter.otlp.proto.http.trace_exporter"] = (
+        exporter_otlp_proto_http_trace_module
+    )

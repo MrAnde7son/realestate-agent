@@ -4,159 +4,162 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0005_report'),
+        ("core", "0005_report"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='asset',
-            name='air_conditioning',
+            model_name="asset",
+            name="air_conditioning",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='area',
+            model_name="asset",
+            name="area",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='balcony_area',
+            model_name="asset",
+            name="balcony_area",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='bathrooms',
+            model_name="asset",
+            name="bathrooms",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='bedrooms',
+            model_name="asset",
+            name="bedrooms",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='building_rights',
+            model_name="asset",
+            name="building_rights",
             field=models.CharField(blank=True, max_length=200, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='building_type',
+            model_name="asset",
+            name="building_type",
             field=models.CharField(blank=True, max_length=50, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='elevator',
+            model_name="asset",
+            name="elevator",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='floor',
+            model_name="asset",
+            name="floor",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='furnished',
+            model_name="asset",
+            name="furnished",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='last_renovation',
+            model_name="asset",
+            name="last_renovation",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='parking_spaces',
+            model_name="asset",
+            name="parking_spaces",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='permit_date',
+            model_name="asset",
+            name="permit_date",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='permit_status',
+            model_name="asset",
+            name="permit_status",
             field=models.CharField(blank=True, max_length=50, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='price',
+            model_name="asset",
+            name="price",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='price_per_sqm',
+            model_name="asset",
+            name="price_per_sqm",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='renovated',
+            model_name="asset",
+            name="renovated",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='rent_estimate',
+            model_name="asset",
+            name="rent_estimate",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='rooms',
+            model_name="asset",
+            name="rooms",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='storage_room',
+            model_name="asset",
+            name="storage_room",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='subparcel',
+            model_name="asset",
+            name="subparcel",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='total_area',
+            model_name="asset",
+            name="total_area",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='total_floors',
+            model_name="asset",
+            name="total_floors",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='year_built',
+            model_name="asset",
+            name="year_built",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='asset',
-            name='zoning',
+            model_name="asset",
+            name="zoning",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddIndex(
-            model_name='asset',
-            index=models.Index(fields=['subparcel'], name='core_asset_subhelk_ec1101_idx'),
+            model_name="asset",
+            index=models.Index(
+                fields=["subparcel"], name="core_asset_subhelk_ec1101_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='asset',
-            index=models.Index(fields=['building_type'], name='core_asset_buildin_3fe7e9_idx'),
+            model_name="asset",
+            index=models.Index(
+                fields=["building_type"], name="core_asset_buildin_3fe7e9_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='asset',
-            index=models.Index(fields=['price'], name='core_asset_price_c27586_idx'),
+            model_name="asset",
+            index=models.Index(fields=["price"], name="core_asset_price_c27586_idx"),
         ),
         migrations.AddIndex(
-            model_name='asset',
-            index=models.Index(fields=['area'], name='core_asset_area_8211c2_idx'),
+            model_name="asset",
+            index=models.Index(fields=["area"], name="core_asset_area_8211c2_idx"),
         ),
         migrations.AddIndex(
-            model_name='asset',
-            index=models.Index(fields=['rooms'], name='core_asset_rooms_91b8aa_idx'),
+            model_name="asset",
+            index=models.Index(fields=["rooms"], name="core_asset_rooms_91b8aa_idx"),
         ),
         migrations.AddIndex(
-            model_name='asset',
-            index=models.Index(fields=['zoning'], name='core_asset_zoning_6ebc7c_idx'),
+            model_name="asset",
+            index=models.Index(fields=["zoning"], name="core_asset_zoning_6ebc7c_idx"),
         ),
     ]

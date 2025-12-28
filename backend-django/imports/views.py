@@ -22,19 +22,29 @@ class NadlanOneImportView(APIView):
     def post(self, request):
         mode = request.data.get("mode")
         if mode not in {ImportBatch.MODE_CUSTOMERS, ImportBatch.MODE_PROPERTIES}:
-            return Response({"error": "Invalid mode"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid mode"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         customers_file = request.FILES.get("customers_csv")
         properties_file = request.FILES.get("properties_csv")
 
         if mode == ImportBatch.MODE_CUSTOMERS and not customers_file:
-            return Response({"error": "customers_csv is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "customers_csv is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if mode == ImportBatch.MODE_PROPERTIES and not properties_file:
-            return Response({"error": "properties_csv is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "properties_csv is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         conflict_policy = request.data.get("conflict_policy", "update")
         if conflict_policy not in {"update", "skip"}:
-            return Response({"error": "Invalid conflict_policy"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid conflict_policy"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         dry_run = _parse_bool(request.data.get("dry_run"))
         enable_linking = _parse_bool(request.data.get("enable_linking"))
@@ -50,13 +60,22 @@ class NadlanOneImportView(APIView):
         )
 
         if customers_file:
-            batch.customers_csv.save(customers_file.name or "customers.csv", customers_file, save=True)
+            batch.customers_csv.save(
+                customers_file.name or "customers.csv", customers_file, save=True
+            )
         if properties_file:
-            batch.properties_csv.save(properties_file.name or "properties.csv", properties_file, save=True)
+            batch.properties_csv.save(
+                properties_file.name or "properties.csv", properties_file, save=True
+            )
 
-        run_nadlanone_import.delay(str(batch.id), mode, dry_run, conflict_policy, enable_linking)
+        run_nadlanone_import.delay(
+            str(batch.id), mode, dry_run, conflict_policy, enable_linking
+        )
 
-        return Response({"batch_id": str(batch.id), "status": batch.status}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"batch_id": str(batch.id), "status": batch.status},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ImportBatchDetailView(APIView):
@@ -81,14 +100,19 @@ class ImportBatchDetailView(APIView):
     def post(self, request, batch_id):
         action = request.data.get("action")
         if action != "cancel":
-            return Response({"error": "Unsupported action"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Unsupported action"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         batch = self.get_object(request.user, batch_id)
         if not batch:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
         if batch.status not in {ImportBatch.STATUS_PENDING, ImportBatch.STATUS_RUNNING}:
-            return Response({"error": "Cannot cancel in current status"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Cannot cancel in current status"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         batch.mark_cancelled()
         serializer = ImportBatchSerializer(batch, context={"request": request})

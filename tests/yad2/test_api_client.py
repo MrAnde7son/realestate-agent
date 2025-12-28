@@ -14,46 +14,47 @@ def test_build_search_url_and_from_url():
     assert "page=2" in url
 
     cloned = Yad2Scraper.from_url(url)
-    original = {k: str(v) for k, v in scraper.search_params.get_active_parameters().items()}
+    original = {
+        k: str(v) for k, v in scraper.search_params.get_active_parameters().items()
+    }
     assert cloned.search_params.get_active_parameters() == original
-
 
 
 def test_fetch_listings_converts_markers(monkeypatch):
     payload = {
         "data": {
-        "markers": [
-            {
-                "address": {
-                    "city": {"text": "תל אביב יפו"},
-                    "neighborhood": {"text": "רמת החייל"},
-                    "street": {"text": "ליפא קרפל"},
-                    "house": {"number": 15, "floor": 0},
-                    "coords": {"lon": 34.832671, "lat": 32.111408},
-                },
-                "subcategoryId": 1,
-                "categoryId": 2,
-                "adType": "private",
-                "price": 8_500_000,
-                "token": "j1l4opy9",
-                "orderId": 56008383,
-                "additionalDetails": {
-                    "property": {"text": "דו משפחתי"},
-                    "roomsCount": 3.5,
-                    "squareMeter": 336,
-                },
-                "metaData": {
-                    "coverImage": "https://example.com/cover.jpg",
-                    "images": [
-                        "https://example.com/cover.jpg",
-                        "https://example.com/extra.jpg",
-                    ],
-                    "squareMeterBuild": 120,
-                },
-                "tags": [{"name": "חניה"}],
-            }
-        ],
-        "yad1Markers": [],
+            "markers": [
+                {
+                    "address": {
+                        "city": {"text": "תל אביב יפו"},
+                        "neighborhood": {"text": "רמת החייל"},
+                        "street": {"text": "ליפא קרפל"},
+                        "house": {"number": 15, "floor": 0},
+                        "coords": {"lon": 34.832671, "lat": 32.111408},
+                    },
+                    "subcategoryId": 1,
+                    "categoryId": 2,
+                    "adType": "private",
+                    "price": 8_500_000,
+                    "token": "j1l4opy9",
+                    "orderId": 56008383,
+                    "additionalDetails": {
+                        "property": {"text": "דו משפחתי"},
+                        "roomsCount": 3.5,
+                        "squareMeter": 336,
+                    },
+                    "metaData": {
+                        "coverImage": "https://example.com/cover.jpg",
+                        "images": [
+                            "https://example.com/cover.jpg",
+                            "https://example.com/extra.jpg",
+                        ],
+                        "squareMeterBuild": 120,
+                    },
+                    "tags": [{"name": "חניה"}],
+                }
+            ],
+            "yad1Markers": [],
         }
     }
 
@@ -71,11 +72,12 @@ def test_fetch_listings_converts_markers(monkeypatch):
             return self._payload
 
     scraper = Yad2APIClient(Yad2SearchParameters(city=5000, neighborhood=203))
+
     # fetch_listings calls the API 3 times (sale, rent, commercial) when listing_type is ALL
     # So we need to return the same response for all 3 calls
     def mock_get(url, params, timeout):
         return DummyResponse(payload)
-    
+
     monkeypatch.setattr(scraper.session, "get", mock_get)
 
     listings = scraper.fetch_listings()

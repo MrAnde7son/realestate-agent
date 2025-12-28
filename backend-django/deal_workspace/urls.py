@@ -9,19 +9,11 @@ router.register(
     r"negotiations", views.NegotiationViewSet, basename="workspace-negotiation"
 )
 router.register(r"offers", views.OfferViewSet, basename="workspace-offer")
-router.register(
-    r"documents", views.DocumentViewSet, basename="workspace-document"
-)
-router.register(
-    r"legal/cases", views.LegalCaseViewSet, basename="workspace-legalcase"
-)
+router.register(r"documents", views.DocumentViewSet, basename="workspace-document")
+router.register(r"legal/cases", views.LegalCaseViewSet, basename="workspace-legalcase")
 router.register(r"tasks", views.TaskViewSet, basename="workspace-task")
-router.register(
-    r"appraisals", views.AppraisalViewSet, basename="workspace-appraisal"
-)
-router.register(
-    r"plan-sets", views.PlanSetViewSet, basename="workspace-planset"
-)
+router.register(r"appraisals", views.AppraisalViewSet, basename="workspace-appraisal")
+router.register(r"plan-sets", views.PlanSetViewSet, basename="workspace-planset")
 router.register(
     r"mortgages",
     views.MortgageApplicationViewSet,
@@ -32,9 +24,7 @@ router.register(
     views.MortgageOfferViewSet,
     basename="workspace-mortgageoffer",
 )
-router.register(
-    r"audit-logs", views.AuditLogViewSet, basename="workspace-auditlog"
-)
+router.register(r"audit-logs", views.AuditLogViewSet, basename="workspace-auditlog")
 
 urlpatterns = [
     # Custom paths must come before router URLs to avoid routing conflicts

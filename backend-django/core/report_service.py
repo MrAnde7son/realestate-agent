@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, List
 from .models import Asset, Report
 from .pdf_generator import HebrewPDFGenerator
 from .constants import DEFAULT_REPORT_SECTIONS
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class ReportService:
     """Service class for handling report operations."""
-    
+
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
 
@@ -22,30 +22,36 @@ class ReportService:
         # available in production.
 
         backend_reports_dir = base_dir / "reports"
-        self.reports_dir = os.environ.get("REPORTS_DIR", str(backend_reports_dir.resolve()))
+        self.reports_dir = os.environ.get(
+            "REPORTS_DIR", str(backend_reports_dir.resolve())
+        )
         logger.info("Reports directory set to %s", self.reports_dir)
         self.pdf_generator = HebrewPDFGenerator(base_dir)
-    
-    def create_report(self, asset_id: int, sections: Optional[List[str]] = None) -> Optional[Report]:
+
+    def create_report(
+        self, asset_id: int, sections: Optional[List[str]] = None
+    ) -> Optional[Report]:
         """Create a new report for an asset."""
         asset: Optional[Asset]
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
             asset = None
-            logger.warning("Asset %s not found, generating placeholder report", asset_id)
+            logger.warning(
+                "Asset %s not found, generating placeholder report", asset_id
+            )
 
         try:
             listing = self.pdf_generator.create_asset_listing(asset)
             address = listing.get("address", f"Asset {asset_id}")
             report = Report.objects.create(
                 asset=asset,
-                report_type='asset',
-                status='generating',
-                filename='',
-                file_path='',
+                report_type="asset",
+                status="generating",
+                filename="",
+                file_path="",
                 title=address,
-                description=f'Asset report for {address}',
+                description=f"Asset report for {address}",
                 pages=1,
                 sections=sections or DEFAULT_REPORT_SECTIONS,
             )
@@ -58,12 +64,14 @@ class ReportService:
             report.file_path = file_path
             report.save()
 
-            logger.info("Created report %s for asset %s at %s", report.id, asset_id, file_path)
+            logger.info(
+                "Created report %s for asset %s at %s", report.id, asset_id, file_path
+            )
             return report
         except Exception:
             logger.exception("Error creating report for asset %s", asset_id)
             return None
-    
+
     def generate_pdf(self, report: Report) -> bool:
         """Generate the PDF file for a report."""
         try:
@@ -83,24 +91,26 @@ class ReportService:
             logger.exception("Error generating PDF for report %s", report.id)
             report.mark_failed(str(e))
             return False
-    
+
     def get_reports_list(self) -> list:
         """Get list of all reports."""
         reports_list = []
-        for report in Report.objects.all().order_by('-generated_at'):
-            reports_list.append({
-                'id': report.id,
-                'assetId': report.asset.id if report.asset else None,
-                'address': report.title or 'N/A',
-                'filename': report.filename,
-                'createdAt': report.generated_at.isoformat(),
-                'status': report.status,
-                'pages': report.pages,
-                'fileSize': report.file_size,
-                'url': report.file_url,
-            })
+        for report in Report.objects.all().order_by("-generated_at"):
+            reports_list.append(
+                {
+                    "id": report.id,
+                    "assetId": report.asset.id if report.asset else None,
+                    "address": report.title or "N/A",
+                    "filename": report.filename,
+                    "createdAt": report.generated_at.isoformat(),
+                    "status": report.status,
+                    "pages": report.pages,
+                    "fileSize": report.file_size,
+                    "url": report.file_url,
+                }
+            )
         return reports_list
-    
+
     def delete_report(self, report_id: int) -> bool:
         """Delete a specific report."""
         try:
@@ -112,14 +122,14 @@ class ReportService:
         except Exception:
             logger.exception("Error deleting report %s", report_id)
             return False
-    
+
     def get_report_by_id(self, report_id: int) -> Optional[Report]:
         """Get a report by ID."""
         try:
             return Report.objects.get(id=report_id)
         except Report.DoesNotExist:
             return None
-    
+
     def get_report_by_filename(self, filename: str) -> Optional[Report]:
         """Get a report by filename."""
         try:

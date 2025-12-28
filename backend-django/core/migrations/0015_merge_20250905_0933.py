@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0012_supportticket_consultationrequest"),
         ("core", "0014_merge_0011_report_sections_0013_promote_admin"),

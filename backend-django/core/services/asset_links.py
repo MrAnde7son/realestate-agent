@@ -6,17 +6,18 @@ from django.db.models import Q
 def asset_documents_all(asset):
     from ..models import Document
 
-    return Document.objects.select_related('asset', 'user').prefetch_related('assets').filter(
-        Q(asset=asset) | Q(assets=asset)
-    ).distinct()
+    return (
+        Document.objects.select_related("asset", "user")
+        .prefetch_related("assets")
+        .filter(Q(asset=asset) | Q(assets=asset))
+        .distinct()
+    )
 
 
 def asset_transactions_all(asset):
     from ..models import RealEstateTransaction
 
-    return RealEstateTransaction.objects.filter(
-        assets=asset
-    ).distinct()
+    return RealEstateTransaction.objects.filter(assets=asset).distinct()
 
 
 def asset_permits_all(asset):

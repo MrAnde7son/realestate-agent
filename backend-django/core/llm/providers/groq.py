@@ -68,4 +68,3 @@ class GroqAdapter(LLMClient):
             temperature=opts.temperature,
         )
         return response.choices[0].message.content or ""
-

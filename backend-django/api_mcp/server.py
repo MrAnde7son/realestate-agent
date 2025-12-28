@@ -81,7 +81,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Create an MCP server
-mcp = FastMCP("RealEstateAPI", instructions="Real-estate API tools.", dependencies=["requests"])
+mcp = FastMCP(
+    "RealEstateAPI", instructions="Real-estate API tools.", dependencies=["requests"]
+)
 
 # Module-level state
 _api_base_url: Optional[str] = None
@@ -92,12 +94,13 @@ logger = logging.getLogger(__name__)
 
 def _assign_to_module(**kwargs):
     """Helper function to assign attributes to the module namespace.
-    
+
     This is cleaner than using globals() directly and makes the intent explicit.
     Works correctly even when module is loaded via importlib.
     """
     # Get the module's namespace - works for both regular imports and importlib
     import inspect
+
     frame = inspect.currentframe()
     try:
         # Get the caller's globals (the module namespace)
@@ -107,30 +110,36 @@ def _assign_to_module(**kwargs):
         del frame
 
 
-def prune_json(obj: Any, max_chars: int = 15_000, list_limit: int = 20, str_limit: int = 300, depth: int = 0) -> Any:
+def prune_json(
+    obj: Any,
+    max_chars: int = 15_000,
+    list_limit: int = 20,
+    str_limit: int = 300,
+    depth: int = 0,
+) -> Any:
     """
     Prune JSON objects to limit size before sending to model.
-    
+
     Recursively limits:
     - Lists to list_limit items
     - Strings to str_limit characters
     - Total JSON size to max_chars
     - Deep nesting (max depth 3)
-    
+
     Args:
         obj: Object to prune
         max_chars: Maximum total JSON string length (default: 15k)
         list_limit: Maximum items per list (default: 20)
         str_limit: Maximum characters per string (default: 300)
         depth: Current nesting depth (internal use)
-        
+
     Returns:
         Pruned object
     """
     # Limit nesting depth to prevent deep recursion
     if depth > 3:
         return "..."
-    
+
     def _prune(x: Any, d: int = 0) -> Any:
         if isinstance(x, dict):
             # Limit dict size at deeper levels
@@ -150,33 +159,29 @@ def prune_json(obj: Any, max_chars: int = 15_000, list_limit: int = 20, str_limi
         if isinstance(x, (int, float)) and abs(x) > 1e10:
             return str(x)[:20] + "…"
         return x
-    
+
     pruned = _prune(obj, depth)
     s = json.dumps(pruned, ensure_ascii=False)
-    
+
     if len(s) <= max_chars:
         return pruned
-    
+
     # Second pass: shrink lists harder
     pruned = prune_json(
         pruned,
         max_chars=max_chars,
         list_limit=max(3, list_limit // 3),
         str_limit=max(100, str_limit // 2),
-        depth=depth
+        depth=depth,
     )
-    
+
     # Third pass if still too large: very aggressive
     s = json.dumps(pruned, ensure_ascii=False)
     if len(s) > max_chars:
         return prune_json(
-            pruned,
-            max_chars=max_chars,
-            list_limit=5,
-            str_limit=50,
-            depth=depth
+            pruned, max_chars=max_chars, list_limit=5, str_limit=50, depth=depth
         )
-    
+
     return pruned
 
 
@@ -188,36 +193,36 @@ def process_list_result(
 ) -> Dict[str, Any]:
     """
     Process list/collection API results with field projection, limiting, and compaction.
-    
+
     Args:
         raw: Raw API response with success/data structure
         fields: Optional list of field names to keep (projection)
         limit: Maximum number of items to return (default: 5)
         compact: If True, drop bulky nested fields automatically
-        
+
     Returns:
         Processed response dict
     """
     # Handle case where raw is a list directly (shouldn't happen but defensive)
     if isinstance(raw, list):
         raw = {"success": True, "data": raw}
-    
+
     if not isinstance(raw, dict) or not raw.get("success"):
         return raw if isinstance(raw, dict) else {"success": True, "data": raw}
-    
+
     data = raw.get("data", {})
-    
+
     # Extract items from various response formats
     # API returns "rows" for assets list, "results" for other endpoints, or direct list
     if isinstance(data, list):
         items = data
     else:
         items = data.get("rows") or data.get("results") or data.get("data") or []
-    
+
     if not isinstance(items, list):
         # Not a list response, return as-is
         return raw
-    
+
     def project(item: Dict[str, Any], keep: List[str]) -> Dict[str, Any]:
         """Project only specified fields from item."""
         # Include all requested fields, even if they're None or missing
@@ -232,7 +237,7 @@ def process_list_result(
             elif k in ("id", "address", "price"):
                 result[k] = None
         return result
-    
+
     def compact_item(item: Dict[str, Any]) -> Dict[str, Any]:
         """Aggressively compact a single item."""
         bulky = {
@@ -268,28 +273,30 @@ def process_list_result(
             "photos",
             "media",
         }
-        
+
         result = {}
         for k, v in item.items():
             if k in bulky:
                 continue
-            
+
             # Skip very large nested structures
             if isinstance(v, (dict, list)):
                 v_str = json.dumps(v, ensure_ascii=False)
                 if len(v_str) > 500:
-                    result[k] = f"[{type(v).__name__} with {len(v) if isinstance(v, list) else len(v)} items]"
+                    result[k] = (
+                        f"[{type(v).__name__} with {len(v) if isinstance(v, list) else len(v)} items]"
+                    )
                     continue
-            
+
             # Truncate very long strings even in non-bulky fields
             if isinstance(v, str) and len(v) > 200:
                 result[k] = v[:200] + "…"
                 continue
-            
+
             result[k] = v
-        
+
         return result
-    
+
     # Apply field projection if specified
     if fields:
         # Debug: Check if requested fields exist in raw data
@@ -299,18 +306,21 @@ def process_list_result(
             missing_fields = [f for f in fields if f not in sample_item]
             if missing_fields:
                 import logging
+
                 logger = logging.getLogger(__name__)
-                logger.debug(f"Fields requested but not in API response: {missing_fields}. Available fields: {list(sample_item.keys())[:20]}")
-        
+                logger.debug(
+                    f"Fields requested but not in API response: {missing_fields}. Available fields: {list(sample_item.keys())[:20]}"
+                )
+
         items = [project(x, fields) for x in items]
-    
+
     # Apply compaction (drop bulky nested fields)
     if compact:
         items = [compact_item(x) for x in items]
-    
+
     # Apply limit
     items = items[:limit]
-    
+
     return {"success": True, "data": items}
 
 
@@ -352,36 +362,46 @@ def _make_request(
     """Make an HTTP request to the API."""
     import requests
     import logging
-    
+
     logger = logging.getLogger(__name__)
 
     url = f"{_get_api_base_url()}{endpoint}"
     headers = {"Content-Type": "application/json"}
-    
+
     token = _get_api_token()
     if token:
         headers["Authorization"] = f"Bearer {token}"
         logger.debug(f"MCP request to {url} with token: {token[:20]}...")
     else:
-        logger.warning(f"MCP request to {url} without token - REALESTATE_API_TOKEN not set")
-    
+        logger.warning(
+            f"MCP request to {url} without token - REALESTATE_API_TOKEN not set"
+        )
+
     try:
         if method == "GET":
             response = requests.get(url, headers=headers, params=params, timeout=30)
         elif method == "POST":
-            response = requests.post(url, headers=headers, json=data, params=params, timeout=30)
+            response = requests.post(
+                url, headers=headers, json=data, params=params, timeout=30
+            )
         elif method == "PUT":
-            response = requests.put(url, headers=headers, json=data, params=params, timeout=30)
+            response = requests.put(
+                url, headers=headers, json=data, params=params, timeout=30
+            )
         elif method == "PATCH":
-            response = requests.patch(url, headers=headers, json=data, params=params, timeout=30)
+            response = requests.patch(
+                url, headers=headers, json=data, params=params, timeout=30
+            )
         elif method == "DELETE":
             response = requests.delete(url, headers=headers, params=params, timeout=30)
         else:
             return {"success": False, "error": f"Unsupported method: {method}"}
-        
+
         # Log response status for debugging
         if response.status_code == 401:
-            logger.warning(f"401 Unauthorized for {url}. Token present: {bool(token)}, Token preview: {token[:20] if token else 'None'}...")
+            logger.warning(
+                f"401 Unauthorized for {url}. Token present: {bool(token)}, Token preview: {token[:20] if token else 'None'}..."
+            )
             # Try to get error details
             try:
                 error_data = response.json()
@@ -389,24 +409,26 @@ def _make_request(
             except Exception:
                 error_text = response.text[:200]
                 logger.warning(f"Error text: {error_text}")
-        
+
         response.raise_for_status()
-        
+
         # Handle empty responses
         if response.status_code == 204 or not response.content:
             return {"success": True, "data": None}
-        
+
         raw_data = response.json()
         # Prune JSON before returning to model
         pruned_data = prune_json(raw_data)
         return {"success": True, "data": pruned_data}
     except requests.exceptions.HTTPError as e:
-        status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+        status_code = (
+            e.response.status_code if hasattr(e, "response") and e.response else None
+        )
         error_msg = str(e)
         try:
-            if hasattr(e, 'response') and e.response:
+            if hasattr(e, "response") and e.response:
                 error_data = e.response.json()
-                error_msg = error_data.get('error', error_msg)
+                error_msg = error_data.get("error", error_msg)
         except Exception:
             pass
         return {
@@ -418,7 +440,9 @@ def _make_request(
         return {
             "success": False,
             "error": str(e),
-            "status_code": getattr(e.response, "status_code", None) if hasattr(e, "response") else None,
+            "status_code": getattr(e.response, "status_code", None)
+            if hasattr(e, "response")
+            else None,
         }
 
 
@@ -426,9 +450,10 @@ def _make_request(
 # ASSETS TOOLS
 # ============================================================================
 
+
 def register_assets_tools():
     """Register asset-related tools."""
-    
+
     @mcp.tool(description="List assets (filters + pagination).")
     async def list_assets(
         ctx: Context,
@@ -462,7 +487,7 @@ def register_assets_tools():
                 return int(value)
             except (TypeError, ValueError):
                 return None
-        
+
         def _to_float(value):
             """Convert value to float, handling both float and string inputs."""
             if value is None:
@@ -471,7 +496,7 @@ def register_assets_tools():
                 return float(value)
             except (TypeError, ValueError):
                 return None
-        
+
         params = {}
         if city:
             params["city"] = city
@@ -521,16 +546,18 @@ def register_assets_tools():
         # Send both limit and page_size for compatibility
         params["limit"] = final_limit
         params["page_size"] = final_limit
-        
+
         raw = _make_request(ctx, "GET", "/assets", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
-    @mcp.tool(description="Get available filter options (cities, types, neighborhoods, etc.) from the API.")
+    @mcp.tool(
+        description="Get available filter options (cities, types, neighborhoods, etc.) from the API."
+    )
     async def get_asset_filters(
         ctx: Context,
     ) -> Dict[str, Any]:
         """Get available filter options including cities, property types, neighborhoods, etc.
-        
+
         This is useful to get the exact city names available in the system.
         For example, if you're looking for Tel Aviv properties, check the 'cities' list
         to see the exact name format (e.g., 'תל אביב יפו', 'תל אביב-יפו', etc.)
@@ -538,11 +565,11 @@ def register_assets_tools():
         # Make a request with page_size=1 to get filters without fetching many assets
         params = {"page_size": 1}
         raw = _make_request(ctx, "GET", "/assets", params=params)
-        
+
         if raw.get("success") and isinstance(raw.get("data"), dict):
             filters = raw.get("data", {}).get("filters", {})
             return {"success": True, "filters": filters}
-        
+
         return raw
 
     @mcp.tool(description="Get asset details.")
@@ -554,23 +581,41 @@ def register_assets_tools():
         params = {}
         if include_documents:
             params["include_documents"] = "true"
-        
+
         raw = _make_request(ctx, "GET", f"/assets/{asset_id}", params=params)
-        
+
         # If documents are not requested, strip them from response
         if not include_documents and raw.get("success"):
             data = raw.get("data", {})
             if isinstance(data, dict):
                 # Aggressively strip bulky fields
                 bulky_fields = {
-                    "documents", "plans", "appraisal", "listings", "history",
-                    "raw_html", "raw_text", "transactions", "permits",
-                    "description", "content", "body", "html_content", "text_content",
-                    "raw_data", "full_data", "details", "extended_info",
-                    "attachments", "files", "images", "photos", "media",
+                    "documents",
+                    "plans",
+                    "appraisal",
+                    "listings",
+                    "history",
+                    "raw_html",
+                    "raw_text",
+                    "transactions",
+                    "permits",
+                    "description",
+                    "content",
+                    "body",
+                    "html_content",
+                    "text_content",
+                    "raw_data",
+                    "full_data",
+                    "details",
+                    "extended_info",
+                    "attachments",
+                    "files",
+                    "images",
+                    "photos",
+                    "media",
                 }
                 data = {k: v for k, v in data.items() if k not in bulky_fields}
-                
+
                 # Truncate remaining long strings
                 for k, v in data.items():
                     if isinstance(v, str) and len(v) > 200:
@@ -578,10 +623,12 @@ def register_assets_tools():
                     elif isinstance(v, (dict, list)):
                         v_str = json.dumps(v, ensure_ascii=False)
                         if len(v_str) > 500:
-                            data[k] = f"[{type(v).__name__} with {len(v) if isinstance(v, list) else 'many'} items]"
-                
+                            data[k] = (
+                                f"[{type(v).__name__} with {len(v) if isinstance(v, list) else 'many'} items]"
+                            )
+
                 return {"success": True, "data": data}
-        
+
         return raw
 
     @mcp.tool(description="Create asset.")
@@ -613,7 +660,7 @@ def register_assets_tools():
             data["parcel"] = parcel
         if radius:
             data["radius"] = radius
-        
+
         return _make_request(ctx, "POST", "/assets", data=data)
 
     @mcp.tool(description="Sync asset.")
@@ -623,7 +670,9 @@ def register_assets_tools():
     ) -> Dict[str, Any]:
         return _make_request(ctx, "POST", f"/assets/{asset_id}/sync")
 
-    @mcp.tool(description="Get asset subresource (transactions/permits/plans/appraisal/listings/documents).")
+    @mcp.tool(
+        description="Get asset subresource (transactions/permits/plans/appraisal/listings/documents)."
+    )
     async def get_asset_data(
         ctx: Context,
         asset_id: int,
@@ -634,36 +683,43 @@ def register_assets_tools():
     ) -> Dict[str, Any]:
         """
         Get asset subresource data.
-        
+
         Args:
             asset_id: The ID of the asset
             kind: Type of data to retrieve - one of: transactions, permits, plans, appraisal, listings, documents
             fields: Optional list of field names to return
             limit: Maximum number of items to return (default: 10)
             compact: If True, drop bulky nested fields automatically
-        
+
         Returns:
             Dictionary with success status and requested data
         """
-        valid_kinds = ["transactions", "permits", "plans", "appraisal", "listings", "documents"]
+        valid_kinds = [
+            "transactions",
+            "permits",
+            "plans",
+            "appraisal",
+            "listings",
+            "documents",
+        ]
         if kind not in valid_kinds:
             return {
                 "success": False,
-                "error": f"Invalid kind '{kind}'. Must be one of: {', '.join(valid_kinds)}"
+                "error": f"Invalid kind '{kind}'. Must be one of: {', '.join(valid_kinds)}",
             }
-        
+
         raw = _make_request(ctx, "GET", f"/assets/{asset_id}/{kind}")
-        
+
         # Special handling for documents: return metadata + chunk ids only
         if kind == "documents":
             if not raw.get("success"):
                 return raw
-            
+
             data = raw.get("data", {})
             items = data.get("results") or data.get("data") or []
             if isinstance(data, list):
                 items = data
-            
+
             if isinstance(items, list):
                 # Return only metadata for documents, not full content
                 processed = []
@@ -680,9 +736,9 @@ def register_assets_tools():
                     if fields:
                         doc_meta = {k: v for k, v in doc_meta.items() if k in fields}
                     processed.append(doc_meta)
-                
+
                 return {"success": True, "data": processed}
-        
+
         # For other kinds, use standard list processing
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -694,13 +750,13 @@ def register_assets_tools():
     ) -> Dict[str, Any]:
         """
         Generate a PDF report for a specific asset.
-        
+
         Args:
             asset_id: The ID of the asset to generate a report for
             sections: Optional list of sections to include in the report.
                      Available sections: summary, permits, plans, planning, environment, comparables, mortgage, appendix.
                      If not provided, all default sections will be included.
-        
+
         Returns:
             Dictionary with success status and report information including:
             - id: Report ID
@@ -717,9 +773,9 @@ def register_assets_tools():
         data = {"assetId": asset_id}
         if sections:
             data["sections"] = sections
-        
+
         return _make_request(ctx, "POST", "/reports", data=data)
-    
+
     # Assign functions to module namespace for direct access (after registration)
     _assign_to_module(
         list_assets=list_assets,
@@ -736,9 +792,10 @@ def register_assets_tools():
 # DEAL MANAGEMENT TOOLS
 # ============================================================================
 
+
 def register_deals_tools():
     """Register deal-related tools."""
-    
+
     @mcp.tool(description="List deals.")
     async def list_deals(
         ctx: Context,
@@ -768,7 +825,7 @@ def register_deals_tools():
             params["page"] = page
         # Clamp page_size to limit and max 20
         params["page_size"] = min(page_size or limit, 20)
-        
+
         raw = _make_request(ctx, "GET", "/deal-workspace/deals", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -794,8 +851,10 @@ def register_deals_tools():
             data["confidentiality_level"] = confidentiality_level
         if parties:
             data["parties"] = parties
-        
-        return _make_request(ctx, "POST", f"/deal-workspace/deals/{asset_id}", data=data)
+
+        return _make_request(
+            ctx, "POST", f"/deal-workspace/deals/{asset_id}", data=data
+        )
 
     @mcp.tool(description="List negotiations.")
     async def list_negotiations(
@@ -811,7 +870,7 @@ def register_deals_tools():
             params["deal_id"] = deal_id
         if status:
             params["status"] = status
-        
+
         raw = _make_request(ctx, "GET", "/deal-workspace/negotiations", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -820,7 +879,9 @@ def register_deals_tools():
         ctx: Context,
         negotiation_id: int,
     ) -> Dict[str, Any]:
-        return _make_request(ctx, "GET", f"/deal-workspace/negotiations/{negotiation_id}")
+        return _make_request(
+            ctx, "GET", f"/deal-workspace/negotiations/{negotiation_id}"
+        )
 
     @mcp.tool(description="List offers.")
     async def list_offers(
@@ -836,7 +897,7 @@ def register_deals_tools():
             params["negotiation_id"] = negotiation_id
         if status:
             params["status"] = status
-        
+
         raw = _make_request(ctx, "GET", "/deal-workspace/offers", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -846,7 +907,7 @@ def register_deals_tools():
         offer_id: int,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", f"/deal-workspace/offers/{offer_id}")
-    
+
     # Assign functions to module namespace for direct access (after registration)
     _assign_to_module(
         list_deals=list_deals,
@@ -863,9 +924,10 @@ def register_deals_tools():
 # EXPENSE CALCULATION TOOLS
 # ============================================================================
 
+
 def register_cost_tools():
     """Register cost calculation tools."""
-    
+
     @mcp.tool(description="Estimate build cost.")
     async def estimate_build_cost(
         ctx: Context,
@@ -881,16 +943,20 @@ def register_cost_tools():
             data["region"] = region
         if quality:
             data["quality"] = quality
-        
+
         return _make_request(ctx, "POST", "/cost/estimate/build", data=data)
 
-    @mcp.tool(description="Get cost options for construction cost estimation only. Only relevant for land properties (מגרשים) when estimating building costs. Not needed for regular deal expense calculations.")
+    @mcp.tool(
+        description="Get cost options for construction cost estimation only. Only relevant for land properties (מגרשים) when estimating building costs. Not needed for regular deal expense calculations."
+    )
     async def get_cost_options(
         ctx: Context,
     ) -> Dict[str, Any]:
         return _make_request(ctx, "GET", "/cost/options")
 
-    @mcp.tool(description="Calculate deal expenses including purchase tax, service costs, and construction costs.")
+    @mcp.tool(
+        description="Calculate deal expenses including purchase tax, service costs, and construction costs."
+    )
     async def calculate_deal_expenses(
         ctx: Context,
         price: float,
@@ -905,7 +971,7 @@ def register_cost_tools():
     ) -> Dict[str, Any]:
         """
         Calculate complete deal expenses for a property purchase.
-        
+
         Args:
             price: Property price (required)
             buyers: List of buyer dictionaries with sharePct and optional flags (optional).
@@ -929,7 +995,7 @@ def register_cost_tools():
             construction_area: Construction area in sqm (for land purchases only)
             construction_cost_per_sqm: Construction cost per sqm (for land purchases only)
             construction_includes_vat: Whether construction cost includes VAT (default: True)
-            
+
         Returns:
             Dictionary with complete expense breakdown including:
             - totalTax: Total purchase tax
@@ -956,7 +1022,7 @@ def register_cost_tools():
             else:
                 # Fallback if user profile cannot be retrieved
                 buyers = [{"name": "User", "sharePct": 100}]
-        
+
         data = {
             "price": price,
             "buyers": buyers,
@@ -975,9 +1041,9 @@ def register_cost_tools():
             data["constructionCostPerSqm"] = construction_cost_per_sqm
         if construction_includes_vat is not None:
             data["constructionIncludesVat"] = construction_includes_vat
-        
+
         return _make_request(ctx, "POST", "/deal-expenses/calculate", data=data)
-    
+
     # Assign functions to module namespace for direct access (after registration)
     _assign_to_module(
         estimate_build_cost=estimate_build_cost,
@@ -990,9 +1056,10 @@ def register_cost_tools():
 # MORTGAGE CALCULATION TOOLS
 # ============================================================================
 
+
 def register_mortgage_tools():
     """Register mortgage calculation tools."""
-    
+
     @mcp.tool(description="Analyze mortgage.")
     async def analyze_mortgage(
         ctx: Context,
@@ -1005,7 +1072,7 @@ def register_mortgage_tools():
         # Ensure proper type conversion for parameters that might come as strings
         property_price = float(property_price)
         savings_total = float(savings_total)
-        
+
         data = {
             "property_price": property_price,
             "savings_total": savings_total,
@@ -1016,9 +1083,9 @@ def register_mortgage_tools():
             data["term_years"] = int(term_years)
         if transactions:
             data["transactions"] = transactions
-        
+
         return _make_request(ctx, "POST", "/mortgage-analyze", data=data)
-    
+
     # Assign functions to module namespace for direct access (after registration)
     _assign_to_module(analyze_mortgage=analyze_mortgage)
 
@@ -1027,9 +1094,10 @@ def register_mortgage_tools():
 # CRM TOOLS
 # ============================================================================
 
+
 def register_crm_tools():
     """Register CRM-related tools."""
-    
+
     @mcp.tool(description="List contacts.")
     async def list_contacts(
         ctx: Context,
@@ -1044,16 +1112,16 @@ def register_crm_tools():
             params["page"] = page
         # Clamp page_size to limit and max 20
         params["page_size"] = min(page_size or limit, 20)
-        
+
         raw = _make_request(ctx, "GET", "/crm/contacts", params=params)
         result = process_list_result(raw, fields=fields, limit=limit, compact=compact)
-        
+
         # Preserve pagination metadata (count) from paginated responses
         if isinstance(raw, dict) and raw.get("success"):
             data = raw.get("data", {})
             if isinstance(data, dict) and "count" in data:
                 result["count"] = data["count"]
-        
+
         return result
 
     @mcp.tool(description="Get contact.")
@@ -1084,7 +1152,7 @@ def register_crm_tools():
             data["tags"] = tags
         if notes:
             data["notes"] = notes
-        
+
         return _make_request(ctx, "POST", "/crm/contacts", data=data)
 
     @mcp.tool(description="Search contacts.")
@@ -1121,7 +1189,7 @@ def register_crm_tools():
             params["page"] = page
         # Clamp page_size to limit and max 20
         params["page_size"] = min(page_size or limit, 20)
-        
+
         raw = _make_request(ctx, "GET", "/crm/leads", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -1148,7 +1216,7 @@ def register_crm_tools():
             data["status"] = status
         if notes:
             data["notes"] = notes
-        
+
         return _make_request(ctx, "POST", "/crm/leads", data=data)
 
     @mcp.tool(description="Update lead status.")
@@ -1157,7 +1225,9 @@ def register_crm_tools():
         lead_id: int,
         status: str,
     ) -> Dict[str, Any]:
-        return _make_request(ctx, "POST", f"/crm/leads/{lead_id}/set_status", data={"status": status})
+        return _make_request(
+            ctx, "POST", f"/crm/leads/{lead_id}/set_status", data={"status": status}
+        )
 
     @mcp.tool(description="Add lead note.")
     async def add_lead_note(
@@ -1165,9 +1235,13 @@ def register_crm_tools():
         lead_id: int,
         text: str,
     ) -> Dict[str, Any]:
-        return _make_request(ctx, "POST", f"/crm/leads/{lead_id}/add_note", data={"text": text})
+        return _make_request(
+            ctx, "POST", f"/crm/leads/{lead_id}/add_note", data={"text": text}
+        )
 
-    @mcp.tool(description="List tasks. Status options: 'pending' (open tasks), 'completed', 'cancelled'.")
+    @mcp.tool(
+        description="List tasks. Status options: 'pending' (open tasks), 'completed', 'cancelled'."
+    )
     async def list_tasks(
         ctx: Context,
         contact_id: Optional[int] = None,
@@ -1190,7 +1264,7 @@ def register_crm_tools():
             params["page"] = page
         # Clamp page_size to limit and max 20
         params["page_size"] = min(page_size or limit, 20)
-        
+
         raw = _make_request(ctx, "GET", "/crm/tasks", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -1216,7 +1290,7 @@ def register_crm_tools():
             data["lead"] = lead_id
         if status:
             data["status"] = status
-        
+
         return _make_request(ctx, "POST", "/crm/tasks", data=data)
 
     @mcp.tool(description="Complete task.")
@@ -1249,7 +1323,7 @@ def register_crm_tools():
             params["page"] = page
         # Clamp page_size to limit and max 20
         params["page_size"] = min(page_size or limit, 20)
-        
+
         raw = _make_request(ctx, "GET", "/crm/meetings", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -1275,7 +1349,7 @@ def register_crm_tools():
             data["notes"] = notes
         if status:
             data["status"] = status
-        
+
         return _make_request(ctx, "POST", "/crm/meetings", data=data)
 
     @mcp.tool(description="List interactions.")
@@ -1301,7 +1375,7 @@ def register_crm_tools():
             params["page"] = page
         # Clamp page_size to limit and max 20
         params["page_size"] = min(page_size or limit, 20)
-        
+
         raw = _make_request(ctx, "GET", "/crm/interactions", params=params)
         return process_list_result(raw, fields=fields, limit=limit, compact=compact)
 
@@ -1323,9 +1397,9 @@ def register_crm_tools():
             data["notes"] = notes
         if metadata:
             data["metadata"] = metadata
-        
+
         return _make_request(ctx, "POST", "/crm/interactions", data=data)
-    
+
     # Assign functions to module namespace for direct access (after registration)
     _assign_to_module(
         list_contacts=list_contacts,
@@ -1351,6 +1425,7 @@ def register_crm_tools():
 # EXTERNAL MCP TOOLS REGISTRATION
 # ============================================================================
 
+
 def register_yad2_tools():
     """Register Yad2 real estate search tools."""
     try:
@@ -1360,8 +1435,10 @@ def register_yad2_tools():
             get_all_property_types as _yad2_get_all_property_types,
             fetch_location_autocomplete as _yad2_fetch_location_autocomplete,
         )
-        
-        @mcp.tool(description="Fetch active listings via Yad2's public map feed API. Supports all Yad2 search parameters.")
+
+        @mcp.tool(
+            description="Fetch active listings via Yad2's public map feed API. Supports all Yad2 search parameters."
+        )
         async def yad2_fetch_listings(
             ctx: Context,
             # Price parameters
@@ -1472,18 +1549,24 @@ def register_yad2_tools():
                 pull_contacts=pull_contacts,
             )
 
-        @mcp.tool(description="Get a comprehensive reference of available Yad2 search parameters.")
+        @mcp.tool(
+            description="Get a comprehensive reference of available Yad2 search parameters."
+        )
         async def yad2_get_search_parameters_reference(ctx: Context):
             return await _yad2_get_search_parameters_reference(ctx)
-        
-        @mcp.tool(description="Get all available Yad2 property type codes with Hebrew and English names.")
+
+        @mcp.tool(
+            description="Get all available Yad2 property type codes with Hebrew and English names."
+        )
         async def yad2_get_all_property_types(ctx: Context):
             return await _yad2_get_all_property_types(ctx)
-        
-        @mcp.tool(description="Fetch location data from Yad2 address autocomplete API and return prepared search parameters.")
+
+        @mcp.tool(
+            description="Fetch location data from Yad2 address autocomplete API and return prepared search parameters."
+        )
         async def yad2_fetch_location_autocomplete(ctx: Context, search_text: str):
             return await _yad2_fetch_location_autocomplete(ctx, search_text)
-        
+
         logger.info("Yad2 tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Yad2 tools: {e}")
@@ -1497,7 +1580,7 @@ def register_mavat_tools():
             get_plan_details as _mavat_get_plan_details,
             get_plan_documents as _mavat_get_plan_documents,
         )
-        
+
         @mcp.tool(description="Search for plans using various criteria.")
         async def mavat_search_plans(
             ctx: Context,
@@ -1510,21 +1593,32 @@ def register_mavat_tools():
             parcel_number: Optional[str] = None,
             status: Optional[str] = None,
             limit: int = 20,
-            page: int = 1
+            page: int = 1,
         ):
             return await _mavat_search_plans(
-                ctx, query, city, district, plan_area, street,
-                block_number, parcel_number, status, limit, page
+                ctx,
+                query,
+                city,
+                district,
+                plan_area,
+                street,
+                block_number,
+                parcel_number,
+                status,
+                limit,
+                page,
             )
-        
+
         @mcp.tool(description="Retrieve detailed information for a specific plan.")
         async def mavat_get_plan_details(ctx: Context, plan_id: str):
             return await _mavat_get_plan_details(ctx, plan_id)
-        
+
         @mcp.tool(description="Get documents associated with a specific plan.")
-        async def mavat_get_plan_documents(ctx: Context, plan_id: str, entity_name: Optional[str] = None):
+        async def mavat_get_plan_documents(
+            ctx: Context, plan_id: str, entity_name: Optional[str] = None
+        ):
             return await _mavat_get_plan_documents(ctx, plan_id, entity_name)
-        
+
         logger.info("Mavat tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Mavat tools: {e}")
@@ -1543,48 +1637,64 @@ def register_govmap_tools():
             entities_by_point as _govmap_entities_by_point,
             get_deals_by_location as _govmap_get_deals_by_location,
         )
-        
-        @mcp.tool(description="GovMap public autocomplete (no token). Returns raw JSON buckets.")
-        async def govmap_autocomplete(ctx: Context, query: str, language: str = "he", max_results: int = 10):
+
+        @mcp.tool(
+            description="GovMap public autocomplete (no token). Returns raw JSON buckets."
+        )
+        async def govmap_autocomplete(
+            ctx: Context, query: str, language: str = "he", max_results: int = 10
+        ):
             return await _govmap_autocomplete(ctx, query, language, max_results)
-        
-        @mcp.tool(description="Extract ITM coordinates from an autocomplete result. Use this tool to extract coordinates from a result returned by the autocomplete tool. This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location.")
-        async def govmap_extract_coordinates_from_shapes(ctx: Context, result: Dict[str, Any]):
+
+        @mcp.tool(
+            description="Extract ITM coordinates from an autocomplete result. Use this tool to extract coordinates from a result returned by the autocomplete tool. This enables the workflow: autocomplete -> extract_coordinates_from_shapes -> get_deals_by_location."
+        )
+        async def govmap_extract_coordinates_from_shapes(
+            ctx: Context, result: Dict[str, Any]
+        ):
             return await _govmap_extract_coordinates_from_shapes(ctx, result)
-        
-        @mcp.tool(description="Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326).")
+
+        @mcp.tool(
+            description="Convert coordinates between ITM (EPSG:2039) and WGS84 (EPSG:4326)."
+        )
         async def govmap_coordinate_conversion(
             ctx: Context,
             x: float,
             y: float,
             from_crs: str = "ITM",
-            to_crs: str = "WGS84"
+            to_crs: str = "WGS84",
         ):
             return await _govmap_coordinate_conversion(ctx, x, y, from_crs, to_crs)
-        
+
         @mcp.tool(description="Get parcel data for specific coordinates (EPSG:2039).")
         async def govmap_get_parcel_data(ctx: Context, x: float, y: float):
             return await _govmap_get_parcel_data(ctx, x, y)
-        
-        @mcp.tool(description="Get detailed address information for a parcel using its objectid.")
+
+        @mcp.tool(
+            description="Get detailed address information for a parcel using its objectid."
+        )
         async def govmap_get_parcel_addresses(ctx: Context, objectid: int):
             return await _govmap_get_parcel_addresses(ctx, objectid)
-        
-        @mcp.tool(description="Get addresses for a given block and parcel using GovMap autocomplete API.")
-        async def govmap_get_addresses_by_block_parcel(ctx: Context, block: str, parcel: str):
+
+        @mcp.tool(
+            description="Get addresses for a given block and parcel using GovMap autocomplete API."
+        )
+        async def govmap_get_addresses_by_block_parcel(
+            ctx: Context, block: str, parcel: str
+        ):
             return await _govmap_get_addresses_by_block_parcel(ctx, block, parcel)
-        
-        @mcp.tool(description="Get entities by point with specified layer IDs (EPSG:2039).")
+
+        @mcp.tool(
+            description="Get entities by point with specified layer IDs (EPSG:2039)."
+        )
         async def govmap_entities_by_point(
-            ctx: Context,
-            x: float,
-            y: float,
-            layer_ids: List[Any],
-            radius: float = 30.0
+            ctx: Context, x: float, y: float, layer_ids: List[Any], radius: float = 30.0
         ):
             return await _govmap_entities_by_point(ctx, x, y, layer_ids, radius)
-        
-        @mcp.tool(description="Get real estate deals for a specific location and radius. Returns standardized Deal objects with address, deal_date, deal_amount, rooms, floor, asset_type, area, neighborhood, parcel information, etc.")
+
+        @mcp.tool(
+            description="Get real estate deals for a specific location and radius. Returns standardized Deal objects with address, deal_date, deal_amount, rooms, floor, asset_type, area, neighborhood, parcel information, etc."
+        )
         async def govmap_get_deals_by_location(
             ctx: Context,
             x: float,
@@ -1599,7 +1709,7 @@ def register_govmap_tools():
             return await _govmap_get_deals_by_location(
                 ctx, x, y, start_date, end_date, radius, deal_type, limit, offset
             )
-        
+
         logger.info("GovMap tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register GovMap tools: {e}")
@@ -1614,12 +1724,16 @@ def register_gov_tools():
             download_rami_plan_documents as _gov_download_rami_plan_documents,
             get_rami_document_types_info as _gov_get_rami_document_types_info,
         )
-        
+
         @mcp.tool(description="Fetch decisive appraisal decisions from gov.il.")
-        async def gov_decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_pages: int = 1):
+        async def gov_decisive_appraisal(
+            ctx: Context, block: str = "", plot: str = "", max_pages: int = 1
+        ):
             return await _gov_decisive_appraisal(ctx, block, plot, max_pages)
-        
-        @mcp.tool(description="Search for planning documents using RAMI TabaSearch API.")
+
+        @mcp.tool(
+            description="Search for planning documents using RAMI TabaSearch API."
+        )
         async def gov_search_rami_plans(
             ctx: Context,
             plan_number: str = "",
@@ -1630,13 +1744,21 @@ def register_gov_tools():
             plan_types: Optional[List[int]] = None,
             from_status_date: Optional[str] = None,
             to_status_date: Optional[str] = None,
-            plan_types_used: bool = False
+            plan_types_used: bool = False,
         ):
             return await _gov_search_rami_plans(
-                ctx, plan_number, city, block, parcel, statuses,
-                plan_types, from_status_date, to_status_date, plan_types_used
+                ctx,
+                plan_number,
+                city,
+                block,
+                parcel,
+                statuses,
+                plan_types,
+                from_status_date,
+                to_status_date,
+                plan_types_used,
             )
-        
+
         @mcp.tool(description="Download documents for a specific plan.")
         async def gov_download_rami_plan_documents(
             ctx: Context,
@@ -1644,16 +1766,16 @@ def register_gov_tools():
             plan_number: str,
             base_dir: str = "rami_plans",
             doc_types: Optional[List[str]] = None,
-            overwrite: bool = False
+            overwrite: bool = False,
         ):
             return await _gov_download_rami_plan_documents(
                 ctx, plan_id, plan_number, base_dir, doc_types, overwrite
             )
-        
+
         @mcp.tool(description="Get information about available document types.")
         async def gov_get_rami_document_types_info(ctx: Context):
             return await _gov_get_rami_document_types_info(ctx)
-        
+
         logger.info("Gov (DataGovIL) tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Gov tools: {e}")
@@ -1666,16 +1788,20 @@ def register_madlan_tools():
             get_addresses as _madlan_get_addresses,
             madlan_search_real_estate as _madlan_search_real_estate,
         )
-        
-        @mcp.tool(description="Autocomplete addresses and get address details from Madlan.")
+
+        @mcp.tool(
+            description="Autocomplete addresses and get address details from Madlan."
+        )
         async def madlan_get_addresses(
             ctx: Context,
             text: str,
             completion_types: Optional[List[str]] = None,
         ):
             return await _madlan_get_addresses(ctx, text, completion_types)
-        
-        @mcp.tool(description="Search for real estate listings on Madlan with optional filters.")
+
+        @mcp.tool(
+            description="Search for real estate listings on Madlan with optional filters."
+        )
         async def madlan_search_real_estate(
             ctx: Context,
             location_doc_id: Optional[str] = None,
@@ -1704,14 +1830,33 @@ def register_madlan_tools():
             is_commercial_real_estate: bool = False,
         ):
             return await _madlan_search_real_estate(
-                ctx, location_doc_id, deal_type, min_price, max_price,
-                min_rooms, max_rooms, min_area, max_area, min_floor,
-                max_floor, min_baths, max_baths, building_class,
-                general_condition, seller_type, amenities, limit, offset,
-                no_fee, price_drop, under_price_estimation, discounted_projects,
-                only_immediate, is_commercial_real_estate
+                ctx,
+                location_doc_id,
+                deal_type,
+                min_price,
+                max_price,
+                min_rooms,
+                max_rooms,
+                min_area,
+                max_area,
+                min_floor,
+                max_floor,
+                min_baths,
+                max_baths,
+                building_class,
+                general_condition,
+                seller_type,
+                amenities,
+                limit,
+                offset,
+                no_fee,
+                price_drop,
+                under_price_estimation,
+                discounted_projects,
+                only_immediate,
+                is_commercial_real_estate,
             )
-        
+
     except ImportError as e:
         logger.warning(f"Failed to register Madlan tools: {e}")
 
@@ -1764,13 +1909,19 @@ def register_gis_tools():
             get_road_works_only as _gis_get_road_works_only,
             get_night_works_public as _gis_get_night_works_public,
         )
-        
+
         # Register all GIS tools with wrappers
-        @mcp.tool(description="Return (x,y) EPSG:2039 for a given street and house number.")
-        async def gis_geocode_address(ctx: Context, street: str, house_number: int, like: bool = True):
+        @mcp.tool(
+            description="Return (x,y) EPSG:2039 for a given street and house number."
+        )
+        async def gis_geocode_address(
+            ctx: Context, street: str, house_number: int, like: bool = True
+        ):
             return await _gis_geocode_address(ctx, street, house_number, like)
-        
-        @mcp.tool(description="Search for building permits near a point (x,y) in meters. Optionally download PDFs.")
+
+        @mcp.tool(
+            description="Search for building permits near a point (x,y) in meters. Optionally download PDFs."
+        )
         async def gis_get_building_permits(
             ctx: Context,
             x: float,
@@ -1780,177 +1931,309 @@ def register_gis_tools():
             download_pdfs: bool = False,
             save_dir: Optional[str] = "permits",
         ):
-            return await _gis_get_building_permits(ctx, x, y, radius, fields, download_pdfs, save_dir)
-        
+            return await _gis_get_building_permits(
+                ctx, x, y, radius, fields, download_pdfs, save_dir
+            )
+
         @mcp.tool(description="Get main land-use categories intersecting point (x,y).")
         async def gis_get_land_use_main(ctx: Context, x: float, y: float):
             return await _gis_get_land_use_main(ctx, x, y)
-        
-        @mcp.tool(description="Get detailed land-use categories intersecting point (x,y).")
+
+        @mcp.tool(
+            description="Get detailed land-use categories intersecting point (x,y)."
+        )
         async def gis_get_land_use_detailed(ctx: Context, x: float, y: float):
             return await _gis_get_land_use_detailed(ctx, x, y)
-        
+
         @mcp.tool(description="Get local/parcel-level plans intersecting point (x,y).")
         async def gis_get_plans_local(ctx: Context, x: float, y: float):
             return await _gis_get_plans_local(ctx, x, y)
-        
+
         @mcp.tool(description="Get city-wide plans intersecting point (x,y).")
         async def gis_get_plans_citywide(ctx: Context, x: float, y: float):
             return await _gis_get_plans_citywide(ctx, x, y)
-        
+
         @mcp.tool(description="Get parcels intersecting point (x,y).")
         async def gis_get_parcels(ctx: Context, x: float, y: float):
             return await _gis_get_parcels(ctx, x, y)
-        
+
         @mcp.tool(description="Get blocks intersecting point (x,y).")
         async def gis_get_blocks(ctx: Context, x: float, y: float):
             return await _gis_get_blocks(ctx, x, y)
-        
-        @mcp.tool(description="Get dangerous buildings within a radius (meters) from point (x,y).")
-        async def gis_get_dangerous_buildings(ctx: Context, x: float, y: float, radius: int = 80):
+
+        @mcp.tool(
+            description="Get dangerous buildings within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_dangerous_buildings(
+            ctx: Context, x: float, y: float, radius: int = 80
+        ):
             return await _gis_get_dangerous_buildings(ctx, x, y, radius)
-        
+
         @mcp.tool(description="Get noise levels intersecting point (x,y).")
         async def gis_get_noise_levels(ctx: Context, x: float, y: float):
             return await _gis_get_noise_levels(ctx, x, y)
-        
-        @mcp.tool(description="Get existing and under-construction cell antennas near point (x,y).")
-        async def gis_get_cell_antennas(ctx: Context, x: float, y: float, radius: int = 120):
+
+        @mcp.tool(
+            description="Get existing and under-construction cell antennas near point (x,y)."
+        )
+        async def gis_get_cell_antennas(
+            ctx: Context, x: float, y: float, radius: int = 120
+        ):
             return await _gis_get_cell_antennas(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get green areas within a radius (meters) from point (x,y).")
-        async def gis_get_green_areas(ctx: Context, x: float, y: float, radius: int = 150):
+
+        @mcp.tool(
+            description="Get green areas within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_green_areas(
+            ctx: Context, x: float, y: float, radius: int = 150
+        ):
             return await _gis_get_green_areas(ctx, x, y, radius)
-        
+
         @mcp.tool(description="Get shelters within a radius (meters) from point (x,y).")
         async def gis_get_shelters(ctx: Context, x: float, y: float, radius: int = 200):
             return await _gis_get_shelters(ctx, x, y, radius)
-        
-        @mcp.tool(description="Download the building privilege (\"zchuyot\") page for a location.")
+
+        @mcp.tool(
+            description='Download the building privilege ("zchuyot") page for a location.'
+        )
         async def gis_get_building_privilege_page(
             ctx: Context,
             x: float,
             y: float,
-            save_dir: Optional[str] = "privilege_pages"
+            save_dir: Optional[str] = "privilege_pages",
         ):
             return await _gis_get_building_privilege_page(ctx, x, y, save_dir)
-        
-        @mcp.tool(description="Get affordable housing projects within a radius (meters) from point (x,y).")
-        async def gis_get_affordable_housing_projects(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get affordable housing projects within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_affordable_housing_projects(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_affordable_housing_projects(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get bicycle paths within a radius (meters) from point (x,y).")
-        async def gis_get_bike_paths(ctx: Context, x: float, y: float, radius: int = 300):
+
+        @mcp.tool(
+            description="Get bicycle paths within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_bike_paths(
+            ctx: Context, x: float, y: float, radius: int = 300
+        ):
             return await _gis_get_bike_paths(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get metro stations (all lines: Red, Green, Purple) within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations(ctx: Context, x: float, y: float, radius: int = 1000):
+
+        @mcp.tool(
+            description="Get metro stations (all lines: Red, Green, Purple) within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_metro_stations(
+            ctx: Context, x: float, y: float, radius: int = 1000
+        ):
             return await _gis_get_metro_stations(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get Red Line metro stations within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations_red(ctx: Context, x: float, y: float, radius: int = 1000):
+
+        @mcp.tool(
+            description="Get Red Line metro stations within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_metro_stations_red(
+            ctx: Context, x: float, y: float, radius: int = 1000
+        ):
             return await _gis_get_metro_stations_red(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get Green Line metro stations within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations_green(ctx: Context, x: float, y: float, radius: int = 1000):
+
+        @mcp.tool(
+            description="Get Green Line metro stations within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_metro_stations_green(
+            ctx: Context, x: float, y: float, radius: int = 1000
+        ):
             return await _gis_get_metro_stations_green(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get Purple Line metro stations within a radius (meters) from point (x,y).")
-        async def gis_get_metro_stations_purple(ctx: Context, x: float, y: float, radius: int = 1000):
+
+        @mcp.tool(
+            description="Get Purple Line metro stations within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_metro_stations_purple(
+            ctx: Context, x: float, y: float, radius: int = 1000
+        ):
             return await _gis_get_metro_stations_purple(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get public and private parking lots within a radius (meters) from point (x,y).")
-        async def gis_get_parking_lots(ctx: Context, x: float, y: float, radius: int = 300):
+
+        @mcp.tool(
+            description="Get public and private parking lots within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_parking_lots(
+            ctx: Context, x: float, y: float, radius: int = 300
+        ):
             return await _gis_get_parking_lots(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get public parking lots within a radius (meters) from point (x,y).")
-        async def gis_get_parking_public(ctx: Context, x: float, y: float, radius: int = 300):
+
+        @mcp.tool(
+            description="Get public parking lots within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_parking_public(
+            ctx: Context, x: float, y: float, radius: int = 300
+        ):
             return await _gis_get_parking_public(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get private parking lots within a radius (meters) from point (x,y).")
-        async def gis_get_parking_private(ctx: Context, x: float, y: float, radius: int = 300):
+
+        @mcp.tool(
+            description="Get private parking lots within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_parking_private(
+            ctx: Context, x: float, y: float, radius: int = 300
+        ):
             return await _gis_get_parking_private(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get soil contamination sites within a radius (meters) from point (x,y).")
-        async def gis_get_soil_contamination(ctx: Context, x: float, y: float, radius: int = 200):
+
+        @mcp.tool(
+            description="Get soil contamination sites within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_soil_contamination(
+            ctx: Context, x: float, y: float, radius: int = 200
+        ):
             return await _gis_get_soil_contamination(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get schools and kindergartens within a radius (meters) from point (x,y).")
+
+        @mcp.tool(
+            description="Get schools and kindergartens within a radius (meters) from point (x,y)."
+        )
         async def gis_get_schools(ctx: Context, x: float, y: float, radius: int = 500):
             return await _gis_get_schools(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get kindergartens within a radius (meters) from point (x,y).")
-        async def gis_get_schools_kindergartens(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get kindergartens within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_schools_kindergartens(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_schools_kindergartens(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get schools (excluding kindergartens) within a radius (meters) from point (x,y).")
-        async def gis_get_schools_only(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get schools (excluding kindergartens) within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_schools_only(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_schools_only(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get green amenities (playgrounds, dog parks, public gardens) within a radius (meters) from point (x,y).")
-        async def gis_get_green_amenities(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get green amenities (playgrounds, dog parks, public gardens) within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_green_amenities(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_green_amenities(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get playgrounds within a radius (meters) from point (x,y).")
-        async def gis_get_playgrounds(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get playgrounds within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_playgrounds(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_playgrounds(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get dog parks within a radius (meters) from point (x,y).")
-        async def gis_get_dog_parks(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get dog parks within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_dog_parks(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_dog_parks(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get public gardens within a radius (meters) from point (x,y).")
-        async def gis_get_public_gardens(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get public gardens within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_public_gardens(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_public_gardens(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get medical facilities (medical centers, health funds, pharmacies) within a radius (meters) from point (x,y).")
-        async def gis_get_medical_facilities(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get medical facilities (medical centers, health funds, pharmacies) within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_medical_facilities(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_medical_facilities(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get medical centers within a radius (meters) from point (x,y).")
-        async def gis_get_medical_centers(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get medical centers within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_medical_centers(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_medical_centers(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get health fund clinics within a radius (meters) from point (x,y).")
-        async def gis_get_health_funds(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get health fund clinics within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_health_funds(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_health_funds(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get pharmacies within a radius (meters) from point (x,y).")
-        async def gis_get_pharmacies(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get pharmacies within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_pharmacies(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_pharmacies(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get community facilities (community centers, youth and entrepreneurship centers) within a radius (meters) from point (x,y).")
-        async def gis_get_community_facilities(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get community facilities (community centers, youth and entrepreneurship centers) within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_community_facilities(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_community_facilities(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get community centers within a radius (meters) from point (x,y).")
-        async def gis_get_community_centers(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get community centers within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_community_centers(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_community_centers(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get youth and entrepreneurship centers within a radius (meters) from point (x,y).")
-        async def gis_get_youth_entrepreneurship_centers(ctx: Context, x: float, y: float, radius: int = 400):
+
+        @mcp.tool(
+            description="Get youth and entrepreneurship centers within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_youth_entrepreneurship_centers(
+            ctx: Context, x: float, y: float, radius: int = 400
+        ):
             return await _gis_get_youth_entrepreneurship_centers(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get construction sites within a radius (meters) from point (x,y).")
-        async def gis_get_construction_sites(ctx: Context, x: float, y: float, radius: int = 300):
+
+        @mcp.tool(
+            description="Get construction sites within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_construction_sites(
+            ctx: Context, x: float, y: float, radius: int = 300
+        ):
             return await _gis_get_construction_sites(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get TAMA 38 policy key areas within a radius (meters) from point (x,y).")
-        async def gis_get_tama38_key_areas(ctx: Context, x: float, y: float, radius: int = 500):
+
+        @mcp.tool(
+            description="Get TAMA 38 policy key areas within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_tama38_key_areas(
+            ctx: Context, x: float, y: float, radius: int = 500
+        ):
             return await _gis_get_tama38_key_areas(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get road works and night works in public space within a radius (meters) from point (x,y).")
-        async def gis_get_road_works(ctx: Context, x: float, y: float, radius: int = 200):
+
+        @mcp.tool(
+            description="Get road works and night works in public space within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_road_works(
+            ctx: Context, x: float, y: float, radius: int = 200
+        ):
             return await _gis_get_road_works(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get road works within a radius (meters) from point (x,y).")
-        async def gis_get_road_works_only(ctx: Context, x: float, y: float, radius: int = 200):
+
+        @mcp.tool(
+            description="Get road works within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_road_works_only(
+            ctx: Context, x: float, y: float, radius: int = 200
+        ):
             return await _gis_get_road_works_only(ctx, x, y, radius)
-        
-        @mcp.tool(description="Get night works in public space within a radius (meters) from point (x,y).")
-        async def gis_get_night_works_public(ctx: Context, x: float, y: float, radius: int = 200):
+
+        @mcp.tool(
+            description="Get night works in public space within a radius (meters) from point (x,y)."
+        )
+        async def gis_get_night_works_public(
+            ctx: Context, x: float, y: float, radius: int = 200
+        ):
             return await _gis_get_night_works_public(ctx, x, y, radius)
-        
+
         logger.info("GIS (Tel Aviv) tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register GIS tools: {e}")
@@ -1963,8 +2246,10 @@ def register_handasa_tools():
             handasa_archive as _handasa_handasa_archive,
             download_handasa_document as _handasa_download_handasa_document,
         )
-        
-        @mcp.tool(description="Fetch the Handasa permit archive for a given block/parcel.")
+
+        @mcp.tool(
+            description="Fetch the Handasa permit archive for a given block/parcel."
+        )
         async def handasa_archive(
             ctx: Context,
             block: str,
@@ -1972,7 +2257,7 @@ def register_handasa_tools():
             page_size: int = 50,
         ):
             return await _handasa_handasa_archive(ctx, block, parcel, page_size)
-        
+
         @mcp.tool(description="Download a document from the Handasa portal.")
         async def handasa_download_document(
             ctx: Context,
@@ -1981,8 +2266,10 @@ def register_handasa_tools():
             overwrite: bool = False,
             return_content: bool = False,
         ):
-            return await _handasa_download_handasa_document(ctx, unique_id, save_to, overwrite, return_content)
-        
+            return await _handasa_download_handasa_document(
+                ctx, unique_id, save_to, overwrite, return_content
+            )
+
         logger.info("Handasa tools registered successfully")
     except ImportError as e:
         logger.warning(f"Failed to register Handasa tools: {e}")
@@ -1992,10 +2279,13 @@ def register_handasa_tools():
 # FILE READING TOOLS
 # ============================================================================
 
+
 def register_file_reading_tools():
     """Register file reading tools for permits, zchuyot, tabu, etc."""
-    
-    @mcp.tool(description="Read a file (PDF, image, or text) from the filesystem. Read-only, for uploads/data pipeline only. Supports permits, zchuyot, tabu documents, etc.")
+
+    @mcp.tool(
+        description="Read a file (PDF, image, or text) from the filesystem. Read-only, for uploads/data pipeline only. Supports permits, zchuyot, tabu documents, etc."
+    )
     async def read_file(
         ctx: Context,
         file_path: str,
@@ -2005,16 +2295,16 @@ def register_file_reading_tools():
     ) -> Dict[str, Any]:
         """
         Read a file from the filesystem and extract its content.
-        
+
         This is a read-only tool designed for reading uploaded documents and data pipeline files.
         Supports reading permits, zchuyot (building privilege pages), tabu documents, and other real estate documents.
-        
+
         Args:
             file_path: Path to the file to read (relative to workspace root or absolute path)
             max_size_mb: Maximum file size in MB (default: 10 MB). Can be expanded with expand_limits=True
             max_pages: Maximum number of pages to read for PDFs (default: 10). Can be expanded with expand_limits=True
             expand_limits: If True, allows reading larger files (up to 50 MB, 50 pages). Requires explicit request.
-        
+
         Returns:
             Dictionary with:
             - success: Boolean indicating if read was successful
@@ -2030,23 +2320,34 @@ def register_file_reading_tools():
         import mimetypes
         import base64
         from pathlib import Path
-        
+
         # Allowed file types for security
-        ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.json', '.xml', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
-        ALLOWED_MIME_TYPES = {
-            'application/pdf',
-            'text/plain',
-            'text/json',
-            'application/json',
-            'text/xml',
-            'application/xml',
-            'image/png',
-            'image/jpeg',
-            'image/gif',
-            'image/bmp',
-            'image/tiff',
+        ALLOWED_EXTENSIONS = {
+            ".pdf",
+            ".txt",
+            ".json",
+            ".xml",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".bmp",
+            ".tiff",
         }
-        
+        ALLOWED_MIME_TYPES = {
+            "application/pdf",
+            "text/plain",
+            "text/json",
+            "application/json",
+            "text/xml",
+            "application/xml",
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/bmp",
+            "image/tiff",
+        }
+
         # Expand limits if requested
         if expand_limits:
             max_size_mb = max(max_size_mb or 10.0, 50.0)
@@ -2054,9 +2355,9 @@ def register_file_reading_tools():
         else:
             max_size_mb = max_size_mb or 10.0
             max_pages = max_pages or 10
-        
+
         max_size_bytes = int(max_size_mb * 1024 * 1024)
-        
+
         try:
             # Resolve file path
             file_path_obj = Path(file_path)
@@ -2066,31 +2367,31 @@ def register_file_reading_tools():
                 file_path_obj = workspace_root / file_path_obj
             else:
                 file_path_obj = file_path_obj.resolve()
-            
+
             # Security check: ensure file exists and is readable
             if not file_path_obj.exists():
                 return {
                     "success": False,
                     "error": f"File not found: {file_path}",
                 }
-            
+
             if not file_path_obj.is_file():
                 return {
                     "success": False,
                     "error": f"Path is not a file: {file_path}",
                 }
-            
+
             # Check file extension
             if file_path_obj.suffix.lower() not in ALLOWED_EXTENSIONS:
                 return {
                     "success": False,
                     "error": f"File type not allowed. Allowed extensions: {', '.join(ALLOWED_EXTENSIONS)}",
                 }
-            
+
             # Get file size
             file_size = file_path_obj.stat().st_size
             file_size_mb = file_size / (1024 * 1024)
-            
+
             # Check size limit
             if file_size > max_size_bytes:
                 return {
@@ -2099,51 +2400,51 @@ def register_file_reading_tools():
                     "file_size_mb": file_size_mb,
                     "max_size_mb": max_size_mb,
                 }
-            
+
             # Detect MIME type
             mime_type, _ = mimetypes.guess_type(str(file_path_obj))
             if not mime_type:
                 # Fallback based on extension
                 ext = file_path_obj.suffix.lower()
                 mime_map = {
-                    '.pdf': 'application/pdf',
-                    '.txt': 'text/plain',
-                    '.json': 'application/json',
-                    '.xml': 'text/xml',
-                    '.png': 'image/png',
-                    '.jpg': 'image/jpeg',
-                    '.jpeg': 'image/jpeg',
-                    '.gif': 'image/gif',
-                    '.bmp': 'image/bmp',
-                    '.tiff': 'image/tiff',
+                    ".pdf": "application/pdf",
+                    ".txt": "text/plain",
+                    ".json": "application/json",
+                    ".xml": "text/xml",
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".gif": "image/gif",
+                    ".bmp": "image/bmp",
+                    ".tiff": "image/tiff",
                 }
-                mime_type = mime_map.get(ext, 'application/octet-stream')
-            
+                mime_type = mime_map.get(ext, "application/octet-stream")
+
             # Check MIME type
             if mime_type not in ALLOWED_MIME_TYPES:
                 return {
                     "success": False,
                     "error": f"MIME type not allowed: {mime_type}",
                 }
-            
+
             # Read file based on type
             content = None
             pages = None
             pages_read = None
             truncated = False
-            
-            if mime_type == 'application/pdf':
+
+            if mime_type == "application/pdf":
                 # Read PDF
                 try:
                     import pdfplumber
-                    
+
                     with pdfplumber.open(str(file_path_obj)) as pdf:
                         total_pages = len(pdf.pages)
                         pages = total_pages
                         pages_to_read = min(total_pages, max_pages)
                         pages_read = pages_to_read
                         truncated = total_pages > max_pages
-                        
+
                         # Extract text from pages
                         text_parts = []
                         for i in range(pages_to_read):
@@ -2151,12 +2452,12 @@ def register_file_reading_tools():
                             page_text = page.extract_text()
                             if page_text:
                                 text_parts.append(f"--- Page {i + 1} ---\n{page_text}")
-                        
+
                         content = "\n\n".join(text_parts)
-                        
+
                         if truncated:
                             content += f"\n\n[Note: Document has {total_pages} pages, but only first {max_pages} pages were read. Use expand_limits=True to read more pages.]"
-                        
+
                 except ImportError:
                     return {
                         "success": False,
@@ -2167,16 +2468,17 @@ def register_file_reading_tools():
                         "success": False,
                         "error": f"Error reading PDF: {str(e)}",
                     }
-            
-            elif mime_type.startswith('image/'):
+
+            elif mime_type.startswith("image/"):
                 # Read image as base64
                 try:
-                    with open(file_path_obj, 'rb') as f:
+                    with open(file_path_obj, "rb") as f:
                         image_data = f.read()
-                        content = base64.b64encode(image_data).decode('utf-8')
+                        content = base64.b64encode(image_data).decode("utf-8")
                         # Also try to get image dimensions if PIL is available
                         try:
                             from PIL import Image
+
                             with Image.open(file_path_obj) as img:
                                 pages = 1  # Images are single "page"
                                 pages_read = 1
@@ -2195,18 +2497,21 @@ def register_file_reading_tools():
                         "success": False,
                         "error": f"Error reading image: {str(e)}",
                     }
-            
-            elif mime_type.startswith('text/') or mime_type in ('application/json', 'application/xml'):
+
+            elif mime_type.startswith("text/") or mime_type in (
+                "application/json",
+                "application/xml",
+            ):
                 # Read text file
                 try:
-                    with open(file_path_obj, 'r', encoding='utf-8') as f:
+                    with open(file_path_obj, "r", encoding="utf-8") as f:
                         content = f.read()
                         pages = 1
                         pages_read = 1
                 except UnicodeDecodeError:
                     # Try with different encoding
                     try:
-                        with open(file_path_obj, 'r', encoding='latin-1') as f:
+                        with open(file_path_obj, "r", encoding="latin-1") as f:
                             content = f.read()
                             pages = 1
                             pages_read = 1
@@ -2220,13 +2525,13 @@ def register_file_reading_tools():
                         "success": False,
                         "error": f"Error reading text file: {str(e)}",
                     }
-            
+
             else:
                 return {
                     "success": False,
                     "error": f"Unsupported file type: {mime_type}",
                 }
-            
+
             return {
                 "success": True,
                 "file_path": str(file_path_obj),
@@ -2238,14 +2543,14 @@ def register_file_reading_tools():
                 "pages_read": pages_read,
                 "truncated": truncated,
             }
-            
+
         except Exception as e:
             logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": f"Error reading file: {str(e)}",
             }
-    
+
     logger.info("File reading tools registered successfully")
 
 
@@ -2273,7 +2578,9 @@ if os.getenv("ENABLE_EXTERNAL_MCP_TOOLS", "false").lower() == "true":
     register_handasa_tools()
     logger.info("All external MCP tools registered")
 else:
-    logger.info("External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable.")
+    logger.info(
+        "External MCP tools disabled. Set ENABLE_EXTERNAL_MCP_TOOLS=true to enable."
+    )
 
 
 if __name__ == "__main__":

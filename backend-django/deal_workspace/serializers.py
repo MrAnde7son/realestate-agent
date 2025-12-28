@@ -119,9 +119,7 @@ class OfferSerializer(serializers.ModelSerializer):
 
     def validate_expiration_at(self, value):
         if value <= timezone.now():
-            raise serializers.ValidationError(
-                "Expiration must be in the future"
-            )
+            raise serializers.ValidationError("Expiration must be in the future")
         return value
 
 

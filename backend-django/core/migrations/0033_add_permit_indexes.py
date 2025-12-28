@@ -4,47 +4,60 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0032_add_gis_permit_fields'),
+        ("core", "0032_add_gis_permit_fields"),
     ]
 
     operations = [
         # Add database indexes for efficient querying of permit data
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['request_num'], name='core_permit_request_num_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["request_num"], name="core_permit_request_num_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['building_stage'], name='core_permit_building_stage_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["building_stage"], name="core_permit_building_stage_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['sug_bakasha'], name='core_permit_sug_bakasha_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["sug_bakasha"], name="core_permit_sug_bakasha_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['sw_tama_38'], name='core_permit_sw_tama_38_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["sw_tama_38"], name="core_permit_sw_tama_38_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['finished'], name='core_permit_finished_idx'),
+            model_name="permit",
+            index=models.Index(fields=["finished"], name="core_permit_finished_idx"),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['issued_date'], name='core_permit_issued_date_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["issued_date"], name="core_permit_issued_date_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['expiry_date'], name='core_permit_expiry_date_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["expiry_date"], name="core_permit_expiry_date_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['source'], name='core_permit_source_idx'),
+            model_name="permit",
+            index=models.Index(fields=["source"], name="core_permit_source_idx"),
         ),
         migrations.AddIndex(
-            model_name='permit',
-            index=models.Index(fields=['created_at'], name='core_permit_created_at_idx'),
+            model_name="permit",
+            index=models.Index(
+                fields=["created_at"], name="core_permit_created_at_idx"
+            ),
         ),
     ]

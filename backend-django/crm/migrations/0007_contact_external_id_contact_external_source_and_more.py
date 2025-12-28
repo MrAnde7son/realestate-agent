@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("crm", "0006_contact_area_max_contact_area_min_contact_asset_type_and_more"),
     ]

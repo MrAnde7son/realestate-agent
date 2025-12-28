@@ -25,6 +25,7 @@ import requests
 RESEND_ENDPOINT = "https://api.resend.com/emails"
 SANDBOX_ALLOWED = ("@example.", "@test.", "@localhost", "@local", "@nadlaner.local")
 
+
 class Alert(ABC):
     """Abstract alert channel."""
 
@@ -48,7 +49,9 @@ class EmailAlert(Alert):
         self.host = host  # legacy support
         self.user = user
         self.password = password
-        self.from_email = from_email or os.getenv("RESEND_FROM") or os.getenv("EMAIL_FROM", self.user)
+        self.from_email = (
+            from_email or os.getenv("RESEND_FROM") or os.getenv("EMAIL_FROM", self.user)
+        )
 
     def send(self, message: str) -> None:
         if not self.to_email:
@@ -56,9 +59,13 @@ class EmailAlert(Alert):
 
         api_key = os.getenv("RESEND_API_KEY")
         sandbox_enabled = os.getenv("RESEND_SANDBOX", "false").lower() == "true"
-        fallback_to_console = os.getenv("EMAIL_FALLBACK_TO_CONSOLE", "false").lower() == "true"
+        fallback_to_console = (
+            os.getenv("EMAIL_FALLBACK_TO_CONSOLE", "false").lower() == "true"
+        )
 
-        if sandbox_enabled and not any(fragment in self.to_email for fragment in SANDBOX_ALLOWED):
+        if sandbox_enabled and not any(
+            fragment in self.to_email for fragment in SANDBOX_ALLOWED
+        ):
             logger.info(f"RESEND_SANDBOX active - skipping email to {self.to_email}")
             return
 
@@ -74,7 +81,8 @@ class EmailAlert(Alert):
             return
 
         payload = {
-            "from": self.from_email or os.getenv("RESEND_FROM", "no-reply@nadlaner.com"),
+            "from": self.from_email
+            or os.getenv("RESEND_FROM", "no-reply@nadlaner.com"),
             "to": [self.to_email],
             "subject": "נדלנר: התראה חדשה",
             "html": f"<p>{message}</p>",
@@ -89,8 +97,13 @@ class EmailAlert(Alert):
                     return
                 print(f"Resend SDK error: {result}")
 
-            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            response = requests.post(RESEND_ENDPOINT, headers=headers, data=json.dumps(payload), timeout=20)
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+            response = requests.post(
+                RESEND_ENDPOINT, headers=headers, data=json.dumps(payload), timeout=20
+            )
             if response.ok and response.json().get("id"):
                 return
             print(f"Resend REST error: {response.status_code} {response.text}")
@@ -156,17 +169,17 @@ class Notifier:
             return
 
         # Create a more detailed message
-        title = getattr(listing, 'title', 'Unknown Property')
-        price = getattr(listing, 'price', 'Price not available')
-        url = getattr(listing, 'url', '')
-        
+        title = getattr(listing, "title", "Unknown Property")
+        price = getattr(listing, "price", "Price not available")
+        url = getattr(listing, "url", "")
+
         message = "🏠 נכס חדש נמצא!\n\n"
         message += f"📍 {title}\n"
         message += f"💰 מחיר: {price}\n"
         if url:
             message += f"🔗 קישור: {url}\n"
         message += "\nנדלנר - מערכת התראות נדלן"
-        
+
         for alert in self.alerts:
             alert.send(message)
 
@@ -217,15 +230,15 @@ def create_notifier_for_user(user: Any, criteria: Dict[str, Any]) -> Optional[No
 
 def create_notifier_for_alert_rule(alert_rule: Any) -> Optional[Notifier]:
     """Create a :class:`Notifier` configured for a specific alert rule.
-    
+
     This function works with the new AlertRule model and creates notifiers
     based on the channels specified in the alert rule.
-    
+
     Parameters
     ----------
     alert_rule:
         An AlertRule instance with channels, user, and other configuration.
-        
+
     Returns
     -------
     Optional[Notifier]
@@ -234,24 +247,23 @@ def create_notifier_for_alert_rule(alert_rule: Any) -> Optional[Notifier]:
     """
     channels: List[Alert] = []
     user = alert_rule.user
-    
+
     # Check if email is enabled in channels
-    if 'email' in alert_rule.channels:
+    if "email" in alert_rule.channels:
         email = getattr(user, "email", None)
         if email:
             channels.append(EmailAlert(email))
-    
+
     # Check if WhatsApp is enabled in channels
-    if 'whatsapp' in alert_rule.channels:
+    if "whatsapp" in alert_rule.channels:
         phone = getattr(user, "phone", None)
         if phone:
             channels.append(WhatsAppAlert(phone))
-    
+
     if not channels:
         return None
-    
+
     # Create criteria from alert rule params
     criteria = alert_rule.params.copy()
-    
-    return Notifier(criteria, channels)
 
+    return Notifier(criteria, channels)

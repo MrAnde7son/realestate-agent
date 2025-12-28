@@ -31,9 +31,9 @@ class DealScopedMixin:
                 self._cached_deal_ids = []
             else:
                 self._cached_deal_ids = list(
-                    models.PartyRole.objects.filter(
-                        user=self.request.user
-                    ).values_list("deal_id", flat=True)
+                    models.PartyRole.objects.filter(user=self.request.user).values_list(
+                        "deal_id", flat=True
+                    )
                 )
         return self._cached_deal_ids
 
@@ -78,9 +78,7 @@ class DealCreateView(APIView):
                 role = party.get("role")
                 side = party.get("side")
                 if not role or not side:
-                    raise ValidationError(
-                        "Each party must include role and side"
-                    )
+                    raise ValidationError("Each party must include role and side")
                 user_id = party.get("user_id")
                 external_contact = party.get("external_contact_json", {})
                 user = None
@@ -102,26 +100,20 @@ class DealCreateView(APIView):
                 )
 
             # Ensure the creator has at least observer privileges on the deal
-            if not any(
-                role.user_id == request.user.id for role in created_roles
-            ):
+            if not any(role.user_id == request.user.id for role in created_roles):
                 models.PartyRole.objects.create(
                     deal=deal,
                     user=request.user,
                     role=models.PartyRole.Role.AGENT,
                     side=models.PartyRole.Side.NEUTRAL,
-                    invitation_status=(
-                        models.PartyRole.InvitationStatus.ACCEPTED
-                    ),
+                    invitation_status=(models.PartyRole.InvitationStatus.ACCEPTED),
                 )
 
             models.AuditLog.objects.create(
                 entity_type="deal",
                 entity_id=str(deal.pk),
                 action="created",
-                by_partyrole=deal.party_roles.filter(
-                    user=request.user
-                ).first(),
+                by_partyrole=deal.party_roles.filter(user=request.user).first(),
                 diff_json={
                     "stage": stage,
                     "confidentiality_level": confidentiality,
@@ -130,9 +122,7 @@ class DealCreateView(APIView):
                 ua=request.META.get("HTTP_USER_AGENT", ""),
             )
 
-        serializer = serializers.DealSerializer(
-            deal, context={"request": request}
-        )
+        serializer = serializers.DealSerializer(deal, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -193,22 +183,28 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
         party_role = utils.get_party_role_for_user(deal, self.request.user)
         if not party_role and not self._is_admin():
             raise PermissionDenied("You are not part of this deal")
-        
+
         previous_stage = deal.stage
         previous_closing_date = deal.closing_date
         updated_deal = serializer.save()
-        
+
         diff_json = {}
         if previous_stage != updated_deal.stage:
             diff_json["stage"] = {"from": previous_stage, "to": updated_deal.stage}
         if previous_closing_date != updated_deal.closing_date:
             diff_json["closing_date"] = {
                 "from": str(previous_closing_date) if previous_closing_date else None,
-                "to": str(updated_deal.closing_date) if updated_deal.closing_date else None,
+                "to": str(updated_deal.closing_date)
+                if updated_deal.closing_date
+                else None,
             }
-        
+
         if diff_json:
-            action = "updated" if len(diff_json) > 1 or "closing_date" in diff_json else "stage_changed"
+            action = (
+                "updated"
+                if len(diff_json) > 1 or "closing_date" in diff_json
+                else "stage_changed"
+            )
             models.AuditLog.objects.create(
                 entity_type="deal",
                 entity_id=str(updated_deal.pk),
@@ -226,19 +222,19 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
         party_role = utils.get_party_role_for_user(deal, request.user)
         if not party_role and not self._is_admin():
             raise PermissionDenied("You are not part of this deal")
-        
+
         role = request.data.get("role")
         side = request.data.get("side")
         user_id = request.data.get("user_id")
         external_contact = request.data.get("external_contact_json", {})
-        
+
         if not role or not side:
             raise ValidationError("role and side are required")
-        
+
         user = None
         if user_id:
             user = get_object_or_404(User, pk=user_id)
-        
+
         with transaction.atomic():
             new_role = models.PartyRole.objects.create(
                 deal=deal,
@@ -265,7 +261,7 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
                 ip=request.META.get("REMOTE_ADDR"),
                 ua=request.META.get("HTTP_USER_AGENT", ""),
             )
-        
+
         serializer = serializers.PartyRoleSerializer(new_role)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -276,11 +272,11 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
         party_role = utils.get_party_role_for_user(deal, request.user)
         if not party_role and not self._is_admin():
             raise PermissionDenied("You are not part of this deal")
-        
+
         previous_stage = deal.stage
         deal.stage = models.Deal.Stage.ABANDONED
         deal.save(update_fields=["stage", "updated_at"])
-        
+
         models.AuditLog.objects.create(
             entity_type="deal",
             entity_id=str(deal.pk),
@@ -290,7 +286,7 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
             ip=request.META.get("REMOTE_ADDR"),
             ua=request.META.get("HTTP_USER_AGENT", ""),
         )
-        
+
         serializer = self.get_serializer(deal)
         return Response(serializer.data)
 
@@ -312,9 +308,7 @@ class NegotiationCreateView(APIView):
                 entity_type="negotiation",
                 entity_id=str(negotiation.pk),
                 action="created",
-                by_partyrole=deal.party_roles.filter(
-                    user=request.user
-                ).first(),
+                by_partyrole=deal.party_roles.filter(user=request.user).first(),
                 diff_json={},
                 ip=request.META.get("REMOTE_ADDR"),
                 ua=request.META.get("HTTP_USER_AGENT", ""),
@@ -328,9 +322,7 @@ class NegotiationCreateView(APIView):
 
 class NegotiationViewSet(DealScopedMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = serializers.NegotiationSerializer
-    queryset = models.Negotiation.objects.select_related(
-        "deal", "current_offer"
-    )
+    queryset = models.Negotiation.objects.select_related("deal", "current_offer")
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -403,9 +395,7 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         negotiation = serializer.validated_data["negotiation"]
-        party_role = utils.get_party_role_for_user(
-            negotiation.deal, self.request.user
-        )
+        party_role = utils.get_party_role_for_user(negotiation.deal, self.request.user)
         if not party_role and not self._is_admin():
             raise PermissionDenied("You are not part of this negotiation")
         if negotiation.status != models.Negotiation.Status.OPEN:
@@ -417,15 +407,11 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
     def counter(self, request, pk=None):
         offer = self.get_object()
         negotiation = offer.negotiation
-        party_role = utils.get_party_role_for_user(
-            negotiation.deal, request.user
-        )
+        party_role = utils.get_party_role_for_user(negotiation.deal, request.user)
         if not party_role and not self._is_admin():
             raise PermissionDenied("You are not part of this negotiation")
         if party_role.side == offer.submitted_by.side:
-            raise PermissionDenied(
-                "Counter offer must come from the opposite side"
-            )
+            raise PermissionDenied("Counter offer must come from the opposite side")
 
         data = request.data.copy()
         data["negotiation"] = negotiation.pk
@@ -443,12 +429,8 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
         output = self.get_serializer(new_offer)
         return Response(output.data, status=status.HTTP_201_CREATED)
 
-    def _require_counterparty(
-        self, offer: models.Offer, user
-    ) -> models.PartyRole:
-        party_role = utils.get_party_role_for_user(
-            offer.negotiation.deal, user
-        )
+    def _require_counterparty(self, offer: models.Offer, user) -> models.PartyRole:
+        party_role = utils.get_party_role_for_user(offer.negotiation.deal, user)
         if not party_role and not utils.user_is_admin(user):
             raise PermissionDenied("You are not part of this negotiation")
         if party_role and party_role.side == offer.submitted_by.side:
@@ -460,9 +442,7 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             offer = (
                 models.Offer.objects.select_for_update()
-                .select_related(
-                    "negotiation", "negotiation__deal", "submitted_by"
-                )
+                .select_related("negotiation", "negotiation__deal", "submitted_by")
                 .get(pk=pk)
             )
             if offer.status != models.Offer.Status.ACTIVE:
@@ -477,9 +457,7 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
             negotiation = offer.negotiation
             negotiation.status = models.Negotiation.Status.CLOSED
             negotiation.current_offer = offer
-            negotiation.save(
-                update_fields=["status", "current_offer", "updated_at"]
-            )
+            negotiation.save(update_fields=["status", "current_offer", "updated_at"])
             deal = negotiation.deal
             deal.stage = models.Deal.Stage.LEGAL
             deal.save(update_fields=["stage", "updated_at"])
@@ -487,9 +465,7 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
                 entity_type="offer",
                 entity_id=str(offer.pk),
                 action="accepted",
-                by_partyrole=deal.party_roles.filter(
-                    user=request.user
-                ).first(),
+                by_partyrole=deal.party_roles.filter(user=request.user).first(),
                 diff_json={},
                 ip=request.META.get("REMOTE_ADDR"),
                 ua=request.META.get("HTTP_USER_AGENT", ""),
@@ -502,9 +478,7 @@ class OfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             offer = (
                 models.Offer.objects.select_for_update()
-                .select_related(
-                    "negotiation", "negotiation__deal", "submitted_by"
-                )
+                .select_related("negotiation", "negotiation__deal", "submitted_by")
                 .get(pk=pk)
             )
             if offer.status != models.Offer.Status.ACTIVE:
@@ -618,43 +592,49 @@ class DocumentViewSet(DealScopedMixin, viewsets.ModelViewSet):
         from django.core.files.storage import default_storage
         import re
         import logging
-        
+
         logger = logging.getLogger(__name__)
-        
+
         # Log the deletion
         party_role = None
         if instance.uploader_partyrole:
             party_role = instance.uploader_partyrole
         elif instance.deal:
             party_role = utils.get_party_role_for_user(instance.deal, self.request.user)
-        
+
         # Extract document ID from storage_url and delete the core Document's file
         # Pattern: /api/assets/{asset_id}/documents/{doc_id}/download
         storage_url = instance.storage_url or ""
-        match = re.search(r'/api/assets/(\d+)/documents/(\d+)/download', storage_url)
-        
+        match = re.search(r"/api/assets/(\d+)/documents/(\d+)/download", storage_url)
+
         if match:
             asset_id, doc_id = match.groups()
             try:
                 from core.models import Document as CoreDocument
+
                 core_doc = CoreDocument.objects.filter(
-                    id=int(doc_id),
-                    asset_id=int(asset_id)
+                    id=int(doc_id), asset_id=int(asset_id)
                 ).first()
-                
+
                 if core_doc and core_doc.file_path:
                     # Delete the file using Django's storage system
                     try:
                         default_storage.delete(core_doc.file_path)
-                        logger.info(f"Deleted file {core_doc.file_path} for document {doc_id}")
+                        logger.info(
+                            f"Deleted file {core_doc.file_path} for document {doc_id}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to delete file {core_doc.file_path}: {e}")
-                    
+                        logger.warning(
+                            f"Failed to delete file {core_doc.file_path}: {e}"
+                        )
+
                     # Delete the core document record
                     core_doc.delete()
             except (ValueError, Exception) as e:
-                logger.warning(f"Error deleting core document from URL {storage_url}: {e}")
-        
+                logger.warning(
+                    f"Error deleting core document from URL {storage_url}: {e}"
+                )
+
         # Create audit log
         models.AuditLog.objects.create(
             entity_type="document",
@@ -665,7 +645,7 @@ class DocumentViewSet(DealScopedMixin, viewsets.ModelViewSet):
             ip=self.request.META.get("REMOTE_ADDR"),
             ua=self.request.META.get("HTTP_USER_AGENT", ""),
         )
-        
+
         # Delete the database record
         instance.delete()
 
@@ -690,9 +670,7 @@ class DocumentViewSet(DealScopedMixin, viewsets.ModelViewSet):
 
 class LegalCaseViewSet(DealScopedMixin, viewsets.ModelViewSet):
     serializer_class = serializers.LegalCaseSerializer
-    queryset = models.LegalCase.objects.select_related(
-        "deal", "responsible_partyrole"
-    )
+    queryset = models.LegalCase.objects.select_related("deal", "responsible_partyrole")
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -750,8 +728,7 @@ class AppraisalViewSet(DealScopedMixin, viewsets.ModelViewSet):
                 id__in=self._participant_deal_ids()
             ).values_list("asset_id", flat=True)
             filtered = qs.filter(
-                Q(deal_id__in=self._participant_deal_ids())
-                | Q(asset_id__in=asset_ids)
+                Q(deal_id__in=self._participant_deal_ids()) | Q(asset_id__in=asset_ids)
             )
         asset_id = self.request.query_params.get("asset_id")
         if asset_id:
@@ -761,9 +738,7 @@ class AppraisalViewSet(DealScopedMixin, viewsets.ModelViewSet):
 
 class PlanSetViewSet(DealScopedMixin, viewsets.ModelViewSet):
     serializer_class = serializers.PlanSetSerializer
-    queryset = models.PlanSet.objects.select_related(
-        "asset", "architect_partyrole"
-    )
+    queryset = models.PlanSet.objects.select_related("asset", "architect_partyrole")
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -827,28 +802,20 @@ class MortgageOfferViewSet(DealScopedMixin, viewsets.ModelViewSet):
             if not deal_ids:
                 return qs.none()
             filtered = qs.filter(mortgageapplication__deal_id__in=deal_ids)
-        mortgageapplication_id = self.request.query_params.get(
-            "mortgageapplication_id"
-        )
+        mortgageapplication_id = self.request.query_params.get("mortgageapplication_id")
         if mortgageapplication_id:
-            filtered = filtered.filter(
-                mortgageapplication_id=mortgageapplication_id
-            )
+            filtered = filtered.filter(mortgageapplication_id=mortgageapplication_id)
         return filtered
 
     def perform_create(self, serializer):
         application = serializer.validated_data["mortgageapplication"]
-        party_role = utils.get_party_role_for_user(
-            application.deal, self.request.user
-        )
+        party_role = utils.get_party_role_for_user(application.deal, self.request.user)
         if not party_role and not self._is_admin():
             raise PermissionDenied("You cannot add offers to this application")
         serializer.save()
 
 
-class AuditLogViewSet(
-    DealScopedMixin, mixins.ListModelMixin, viewsets.GenericViewSet
-):
+class AuditLogViewSet(DealScopedMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = serializers.AuditLogSerializer
     queryset = models.AuditLog.objects.select_related(
         "by_partyrole", "by_partyrole__deal"

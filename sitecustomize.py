@@ -2,6 +2,7 @@
 Ensures consistent import resolution for both PyCharm (Django/pytest runners)
 and CLI (pytest/manage.py) executions without per-test path hacks.
 """
+
 from __future__ import annotations
 import os
 import sys
@@ -18,4 +19,3 @@ if BACKEND.exists() and str(BACKEND) not in sys.path:
 
 # Default Django settings if not explicitly provided (pytest / PyCharm pytest runner)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
-

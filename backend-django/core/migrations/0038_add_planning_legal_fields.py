@@ -32,7 +32,11 @@ def rename_indexes_if_exists(apps, schema_editor):
         renames = [
             ("core_asset_block_dc43e9_idx", "core_asset_block_531195_idx", "block"),
             ("core_asset_parcel_38f908_idx", "core_asset_parcel_ebd705_idx", "parcel"),
-            ("core_asset_subhelk_ec1101_idx", "core_asset_subparc_d57846_idx", "subparcel"),
+            (
+                "core_asset_subhelk_ec1101_idx",
+                "core_asset_subparc_d57846_idx",
+                "subparcel",
+            ),
         ]
 
         for old_name, new_name, field_name in renames:
@@ -91,7 +95,11 @@ def reverse_rename_indexes_if_exists(apps, schema_editor):
         renames = [
             ("core_asset_block_531195_idx", "core_asset_block_dc43e9_idx", "block"),
             ("core_asset_parcel_ebd705_idx", "core_asset_parcel_38f908_idx", "parcel"),
-            ("core_asset_subparc_d57846_idx", "core_asset_subhelk_ec1101_idx", "subparcel"),
+            (
+                "core_asset_subparc_d57846_idx",
+                "core_asset_subhelk_ec1101_idx",
+                "subparcel",
+            ),
         ]
 
         for new_name, old_name, field_name in renames:
@@ -122,7 +130,6 @@ def reverse_rename_indexes_if_exists(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("core", "0037_add_gis_collector_fields"),
     ]

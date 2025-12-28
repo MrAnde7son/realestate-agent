@@ -46,8 +46,12 @@ class Listing(Base):
     video_url = Column(String(500))
     scraped_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
-    sources = relationship("SourceRecord", back_populates="listing", cascade="all, delete-orphan")
-    transactions = relationship("Transaction", back_populates="listing", cascade="all, delete-orphan")
+    sources = relationship(
+        "SourceRecord", back_populates="listing", cascade="all, delete-orphan"
+    )
+    transactions = relationship(
+        "Transaction", back_populates="listing", cascade="all, delete-orphan"
+    )
 
 
 class SourceRecord(Base):

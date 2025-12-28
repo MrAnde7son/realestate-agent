@@ -11,7 +11,9 @@ def test_llm_client_is_abstract():
 class _MockLLMClient(LLMClient):
     provider = "openai"
 
-    async def generate_text(self, prompt: str, options: BaseGenOptions | None = None) -> str:
+    async def generate_text(
+        self, prompt: str, options: BaseGenOptions | None = None
+    ) -> str:
         return prompt.upper()
 
     async def generate_json(
@@ -36,7 +38,13 @@ async def test_llm_client_subclass_can_be_used():
     assert await client.generate_text(prompt) == "HELLO"
 
     schema = {"type": "object"}
-    assert await client.generate_json(prompt, schema) == {"prompt": prompt, "schema": schema}
+    assert await client.generate_json(prompt, schema) == {
+        "prompt": prompt,
+        "schema": schema,
+    }
 
-    messages = [ChatMessage(role="user", content="Hi"), ChatMessage(role="assistant", content="there")]
+    messages = [
+        ChatMessage(role="user", content="Hi"),
+        ChatMessage(role="assistant", content="there"),
+    ]
     assert await client.chat(messages) == "Hi there"

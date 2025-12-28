@@ -27,7 +27,9 @@ class FakeAsset:
 
 def test_distance_zero_on_coastline_segment():
     calculator = SeaDistanceCalculator(coastlines_wgs84=[[(34.0, 30.0), (34.0, 31.0)]])
-    assert calculator.distance_to_sea_meters(lat=30.5, lon=34.0) == pytest.approx(0.0, abs=10)
+    assert calculator.distance_to_sea_meters(lat=30.5, lon=34.0) == pytest.approx(
+        0.0, abs=10
+    )
 
 
 def test_distance_uses_itm_coordinates_when_available():

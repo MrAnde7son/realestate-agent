@@ -24,7 +24,7 @@ const searchItems = [
     title: "נכסים",
     href: "/assets",
     icon: "🏢",
-    description: "ניהול נכסים ועסקאות"
+    description: "ניהול וחיפוש נכסים"
   },
   // {
   //   title: "לקוחות",

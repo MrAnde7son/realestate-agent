@@ -42,11 +42,11 @@ export const baseNavigation = [
     href: "/assets",
     icon: Building,
   },
-  {
-    name: "עסקאות",
-    href: "/deals",
-    icon: Handshake,
-  },
+  // {
+  //   name: "עסקאות",
+  //   href: "/deals",
+  //   icon: Handshake,
+  // },
   // {
   //   name: "לקוחות",
   //   href: "/crm",

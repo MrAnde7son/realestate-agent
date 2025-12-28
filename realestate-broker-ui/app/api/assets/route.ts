@@ -78,6 +78,7 @@ export async function GET(request: Request) {
     }
     const data = await res.json()
     const assets = (data.rows || data || []).map((asset: any) => normalizeFromBackend(asset))
+    
     return NextResponse.json({
       rows: assets,
       pagination: data.pagination,

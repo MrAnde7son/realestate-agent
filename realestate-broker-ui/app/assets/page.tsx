@@ -122,6 +122,7 @@ export default function AssetsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
+  const fetchAssetsAbortControllerRef = React.useRef<AbortController | null>(null);
   const [filterMetadata, setFilterMetadata] = useState<AssetFilterMetadata>({
     cities: [],
     types: [],
@@ -1583,6 +1584,15 @@ export default function AssetsPage() {
   }, [filterMetadata.cities.length]);
 
   const fetchAssets = React.useCallback(async () => {
+    // Cancel any in-flight request
+    if (fetchAssetsAbortControllerRef.current) {
+      fetchAssetsAbortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    fetchAssetsAbortControllerRef.current = abortController;
+
     try {
       setLoading(true);
 
@@ -1650,7 +1660,22 @@ export default function AssetsPage() {
 
       const query = params.toString();
       const endpoint = query ? `/api/assets?${query}` : "/api/assets";
-      const response = await apiClient.get(endpoint);
+      
+      let response;
+      try {
+        response = await apiClient.get(endpoint, { signal: abortController.signal });
+      } catch (error: any) {
+        // Handle abort errors silently
+        if (error?.name === 'AbortError' || abortController.signal.aborted) {
+          return;
+        }
+        throw error;
+      }
+
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
 
       if (response.ok) {
         const rows = response.data?.rows ?? [];
@@ -1662,6 +1687,11 @@ export default function AssetsPage() {
           : pagination.pageIndex;
         const lastPageIndex = total > 0 ? Math.max(0, Math.ceil(total / pageSizeFromApi) - 1) : 0;
         const adjustedPageIndex = Math.min(requestedPageIndex, lastPageIndex);
+
+        // Double-check request wasn't aborted before updating state
+        if (abortController.signal.aborted) {
+          return;
+        }
 
         setTotalCount(total);
 
@@ -1702,10 +1732,16 @@ export default function AssetsPage() {
       } else {
         console.error("Failed to fetch assets:", response.error);
       }
-    } catch (error) {
-      console.error("Error fetching assets:", error);
+    } catch (error: any) {
+      // Don't log errors for aborted requests
+      if (error?.name !== 'AbortError' && !abortController.signal.aborted) {
+        console.error("Error fetching assets:", error);
+      }
     } finally {
-      setLoading(false);
+      // Only set loading to false if this request wasn't aborted
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [
     pagination.pageIndex,
@@ -2415,6 +2451,15 @@ export default function AssetsPage() {
       });
     }
   };
+
+  // Cleanup: cancel any in-flight requests on unmount
+  React.useEffect(() => {
+    return () => {
+      if (fetchAssetsAbortControllerRef.current) {
+        fetchAssetsAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useDedupedEffect(() => {
     fetchAssets();

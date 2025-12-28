@@ -79,14 +79,10 @@ export async function GET(request: Request) {
     const data = await res.json()
     const assets = (data.rows || data || []).map((asset: any) => normalizeFromBackend(asset))
     
-    const headers = new Headers()
-    headers.set('Cache-Control', 'private, max-age=5, stale-while-revalidate=30')
-    headers.set('Vary', 'Cookie, Authorization')
-    
     return NextResponse.json({
       rows: assets,
       pagination: data.pagination,
-    }, { headers })
+    })
   } catch (error) {
     console.error('Error fetching assets from backend:', error)
     return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 })

@@ -237,3 +237,8 @@ realestate-broker-ui/.env
 terraform.tfvars
 *.tfvars
 !terraform.tfvars.example
+
+
+**/deal_cache/**
+**/permits/**
+**/privilege_pages/**

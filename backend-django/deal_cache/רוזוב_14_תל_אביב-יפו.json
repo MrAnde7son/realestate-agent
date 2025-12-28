@@ -1,5 +1,47 @@
 [
   {
+    "address": "דוד מרכוס 14, תל אביב-יפו",
+    "deal_date": "27/10/2025",
+    "deal_amount": 4600000.0,
+    "rooms": "4",
+    "floor": "שניה",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 118.0,
+    "neighborhood": "רמת החייל",
+    "parcel_block": "6638",
+    "parcel_parcel": "190",
+    "parcel_sub_parcel": "5"
+  },
+  {
+    "address": "עולי הגרדום 20, תל אביב-יפו",
+    "deal_date": "04/09/2025",
+    "deal_amount": 6410000.0,
+    "rooms": "5",
+    "floor": "שלישית",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 134.0,
+    "neighborhood": "רמת החייל",
+    "parcel_block": "6638",
+    "parcel_parcel": "75",
+    "parcel_sub_parcel": "9"
+  },
+  {
+    "address": "עולי הגרדום 20, תל אביב-יפו",
+    "deal_date": "07/08/2025",
+    "deal_amount": 4300000.0,
+    "rooms": "3",
+    "floor": "ראשונה",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 70.17,
+    "neighborhood": "רמת החייל",
+    "parcel_block": "6638",
+    "parcel_parcel": "75",
+    "parcel_sub_parcel": "4"
+  },
+  {
     "address": "עולי הגרדום 20, תל אביב-יפו",
     "deal_date": "02/07/2025",
     "deal_amount": 3744000.0,
@@ -14,6 +56,20 @@
     "parcel_sub_parcel": "8"
   },
   {
+    "address": "הגולן 128, תל אביב-יפו",
+    "deal_date": "22/06/2025",
+    "deal_amount": 145000.0,
+    "rooms": "5",
+    "floor": "ראשונה",
+    "asset_type": "דירה בבית קומות",
+    "year_built": null,
+    "area": 84.0,
+    "neighborhood": "רמת החייל",
+    "parcel_block": "6638",
+    "parcel_parcel": "204",
+    "parcel_sub_parcel": "3"
+  },
+  {
     "address": "הרוגי מלכות 14, תל אביב-יפו",
     "deal_date": "11/05/2025",
     "deal_amount": 5600000.0,
@@ -26,6 +82,20 @@
     "parcel_block": "6638",
     "parcel_parcel": "68",
     "parcel_sub_parcel": "5"
+  },
+  {
+    "address": "רמות נפתלי 11, תל אביב-יפו",
+    "deal_date": "20/04/2025",
+    "deal_amount": 7250000.0,
+    "rooms": "לא ידוע",
+    "floor": "-",
+    "asset_type": "קרקע למגורים",
+    "year_built": null,
+    "area": 78.0,
+    "neighborhood": "רמת החייל",
+    "parcel_block": "6336",
+    "parcel_parcel": "413",
+    "parcel_sub_parcel": "1"
   },
   {
     "address": "עולי הגרדום 11, תל אביב-יפו",
@@ -68,47 +138,5 @@
     "parcel_block": "6638",
     "parcel_parcel": "68",
     "parcel_sub_parcel": "2"
-  },
-  {
-    "address": "דבורה הנביאה 62, תל אביב-יפו",
-    "deal_date": "30/12/2024",
-    "deal_amount": 6250000.0,
-    "rooms": "לא ידוע",
-    "floor": "-",
-    "asset_type": "קרקע למגורים",
-    "year_built": null,
-    "area": 85.9,
-    "neighborhood": "רמת החייל",
-    "parcel_block": "6336",
-    "parcel_parcel": "515",
-    "parcel_sub_parcel": "1"
-  },
-  {
-    "address": "עולי הגרדום 24, תל אביב-יפו",
-    "deal_date": "24/12/2024",
-    "deal_amount": 6800000.0,
-    "rooms": "5",
-    "floor": "לא ידוע",
-    "asset_type": "דירה בבית קומות",
-    "year_built": null,
-    "area": 188.0,
-    "neighborhood": "רמת החייל",
-    "parcel_block": "6638",
-    "parcel_parcel": "76",
-    "parcel_sub_parcel": "10"
-  },
-  {
-    "address": "הרוגי מלכות 14, תל אביב-יפו",
-    "deal_date": "14/11/2024",
-    "deal_amount": 5800000.0,
-    "rooms": "5",
-    "floor": "שניה",
-    "asset_type": "דירה בבית קומות",
-    "year_built": null,
-    "area": 129.0,
-    "neighborhood": "רמת החייל",
-    "parcel_block": "6638",
-    "parcel_parcel": "68",
-    "parcel_sub_parcel": "9"
   }
 ]

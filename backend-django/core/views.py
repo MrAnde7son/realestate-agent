@@ -3149,6 +3149,19 @@ def _get_assets_list(request):
                 )
             )
 
+        queryset = queryset.annotate(
+            _meta_zoning_value=KeyTextTransform(
+                "value", KeyTextTransform("zoning", "meta")
+            ),
+            _meta_price_value=KeyTextTransform("price", "meta"),
+            _meta_listing_price_sale=KeyTextTransform(
+                "sale", KeyTextTransform("listing_prices", "meta")
+            ),
+            _meta_listing_price_price=KeyTextTransform(
+                "price", KeyTextTransform("listing_prices", "meta")
+            ),
+        )
+
         # Track if any filters are applied (excluding search which is tracked separately)
         has_filters = any(
             params.get(key) not in (None, "", "all")

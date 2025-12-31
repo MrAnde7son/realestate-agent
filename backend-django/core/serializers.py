@@ -127,6 +127,7 @@ class AssetSerializer(MetaSerializerMixin):
     greenScore = serializers.SerializerMethodField()
     investmentPotential = serializers.SerializerMethodField()
     investmentPotentialScore = serializers.SerializerMethodField()
+    zoning = serializers.SerializerMethodField()
 
     # New GIS data fields
     metroStationDistanceM = serializers.SerializerMethodField()
@@ -185,6 +186,22 @@ class AssetSerializer(MetaSerializerMixin):
         if not include_primary_listing:
             self.fields.pop("primary_listing", None)
 
+    def get_zoning(self, obj):
+        value = getattr(obj, "zoning", None)
+        if value not in (None, ""):
+            return value
+        if not self.context.get("include_meta", True):
+            return getattr(obj, "_meta_zoning_value", None)
+        meta = getattr(obj, "meta", {}) or {}
+        zoning_meta = meta.get("zoning")
+        if isinstance(zoning_meta, dict):
+            zoning_val = zoning_meta.get("value")
+            if zoning_val not in (None, ""):
+                return zoning_val
+        if zoning_meta not in (None, ""):
+            return zoning_meta
+        return None
+
     def get_rentPrice(self, obj):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
@@ -208,6 +225,22 @@ class AssetSerializer(MetaSerializerMixin):
         if value not in (None, ""):
             obj._serializer_price_cache = value
             return value
+        if not self.context.get("include_meta", True):
+            for attr_name in (
+                "_meta_listing_price_sale",
+                "_meta_listing_price_price",
+                "_meta_price_value",
+            ):
+                raw_value = getattr(obj, attr_name, None)
+                if raw_value in (None, ""):
+                    continue
+                try:
+                    parsed = int(float(raw_value))
+                except (TypeError, ValueError):
+                    parsed = None
+                if parsed is not None:
+                    obj._serializer_price_cache = parsed
+                    return parsed
         if self.context.get("include_meta", True):
             meta = getattr(obj, "meta", {}) or {}
             listing_prices = meta.get("listing_prices")

@@ -1,9 +1,5 @@
 from typing import Tuple, Optional
-from collections import OrderedDict
-import logging
-import time
 from rest_framework import serializers
-from rest_framework.fields import SkipField
 from django.contrib.auth import get_user_model
 from .models import (
     Asset,
@@ -33,7 +29,6 @@ from .services.asset_links import (
 from .utils.listings import normalize_listing_from_model
 
 User = get_user_model()
-logger = logging.getLogger(__name__)
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -189,141 +184,6 @@ class AssetSerializer(MetaSerializerMixin):
         include_primary_listing = self.context.get("include_primary_listing", True)
         if not include_primary_listing:
             self.fields.pop("primary_listing", None)
-
-    def to_representation(self, instance):
-        request = self.context.get("request") if isinstance(self.context, dict) else None
-        log_timings = bool(self.context.get("log_field_timings")) and bool(request)
-
-        timings = None
-        counts = None
-        if log_timings:
-            timings = getattr(request, "_asset_field_timings", None)
-            if timings is None:
-                timings = {}
-                request._asset_field_timings = timings
-            counts = getattr(request, "_asset_field_timing_counts", None)
-            if counts is None:
-                counts = {}
-                request._asset_field_timing_counts = counts
-            internal_timings = getattr(request, "_asset_internal_timings", None)
-            if internal_timings is None:
-                internal_timings = {}
-                request._asset_internal_timings = internal_timings
-            internal_counts = getattr(request, "_asset_internal_timing_counts", None)
-            if internal_counts is None:
-                internal_counts = {}
-                request._asset_internal_timing_counts = internal_counts
-
-        ret = OrderedDict()
-        for field in self._readable_fields:
-            field_name = field.field_name
-            if log_timings:
-                t_start = time.perf_counter()
-            try:
-                attribute = field.get_attribute(instance)
-            except SkipField:
-                continue
-            if attribute is None:
-                value = None
-            else:
-                value = field.to_representation(attribute)
-            ret[field_name] = value
-            if log_timings:
-                elapsed_ms = (time.perf_counter() - t_start) * 1000
-                timings[field_name] = timings.get(field_name, 0.0) + elapsed_ms
-                counts[field_name] = counts.get(field_name, 0) + 1
-
-        include_meta = True
-        if hasattr(self, "context") and isinstance(self.context, dict):
-            include_meta = self.context.get("include_meta", True)
-
-        if include_meta:
-            meta = getattr(instance, "meta", {}) or {}
-            field_meta = {}
-            for key, value in meta.items():
-                if isinstance(value, dict) and "value" in value:
-                    actual_value = value.get("value")
-                    if actual_value is not None and actual_value != "":
-                        ret[key] = actual_value
-
-                    source = value.get("source")
-                    fetched = value.get("fetched_at")
-                    url = value.get("url")
-
-                    if source and fetched:
-                        field_meta[key] = {"source": source, "fetched_at": fetched}
-                        if url:
-                            field_meta[key]["url"] = url
-                elif not isinstance(value, dict):
-                    if value is not None and value != "":
-                        ret[key] = value
-
-            if field_meta:
-                ret["_meta"] = field_meta
-
-        if log_timings:
-            total_count = getattr(request, "_asset_field_timing_total_count", 0) + 1
-            request._asset_field_timing_total_count = total_count
-            expected_count = self.context.get("timing_expected_count")
-            if expected_count is None:
-                parent_instance = getattr(self.parent, "instance", None)
-                try:
-                    expected_count = len(parent_instance) if parent_instance is not None else None
-                except TypeError:
-                    expected_count = None
-            if expected_count and total_count >= expected_count:
-                timing_rows = []
-                for name, total_ms in timings.items():
-                    count = counts.get(name, 1)
-                    avg_ms = total_ms / max(count, 1)
-                    timing_rows.append((name, total_ms, avg_ms, count))
-                timing_rows.sort(key=lambda row: row[1], reverse=True)
-                top = [
-                    f"{name}={total_ms:.2f}ms avg={avg_ms:.2f}ms n={count}"
-                    for name, total_ms, avg_ms, count in timing_rows[:10]
-                ]
-                logger.warning(
-                    "assets_list_field_timings total_objects=%s top=%s",
-                    total_count,
-                    top,
-                )
-                internal_timings = getattr(request, "_asset_internal_timings", {}) or {}
-                internal_counts = (
-                    getattr(request, "_asset_internal_timing_counts", {}) or {}
-                )
-                if internal_timings:
-                    internal_rows = []
-                    for name, total_ms in internal_timings.items():
-                        count = internal_counts.get(name, 1)
-                        avg_ms = total_ms / max(count, 1)
-                        internal_rows.append((name, total_ms, avg_ms, count))
-                    internal_rows.sort(key=lambda row: row[1], reverse=True)
-                    internal_top = [
-                        f"{name}={total_ms:.2f}ms avg={avg_ms:.2f}ms n={count}"
-                        for name, total_ms, avg_ms, count in internal_rows[:10]
-                    ]
-                    logger.warning(
-                        "assets_list_internal_timings total_objects=%s top=%s",
-                        total_count,
-                        internal_top,
-                    )
-
-        return ret
-
-    def _track_internal_timing(self, name, elapsed_ms):
-        request = self.context.get("request") if isinstance(self.context, dict) else None
-        if not request or not self.context.get("log_field_timings"):
-            return
-        timings = getattr(request, "_asset_internal_timings", None)
-        if timings is None:
-            timings = {}
-            request._asset_internal_timings = timings
-        counts = getattr(request, "_asset_internal_timing_counts", None)
-        if counts is None:
-            counts = {}
-            request._asset_internal_timing_counts = counts
-        timings[name] = timings.get(name, 0.0) + elapsed_ms
-        counts[name] = counts.get(name, 0) + 1
 
     def get_rentPrice(self, obj):
         value = getattr(obj, "rent_price", None)
@@ -629,12 +489,7 @@ class AssetSerializer(MetaSerializerMixin):
         return True
 
     def _get_primary_listing_instance(self, obj):
-        t_start = time.perf_counter()
         if hasattr(obj, "_primary_listing_instance_cache"):
-            self._track_internal_timing(
-                "_primary_listing_instance_cache_hit_ms",
-                (time.perf_counter() - t_start) * 1000,
-            )
             return obj._primary_listing_instance_cache
 
         if (
@@ -647,20 +502,12 @@ class AssetSerializer(MetaSerializerMixin):
 
         if not listings:
             obj._primary_listing_instance_cache = None
-            self._track_internal_timing(
-                "_primary_listing_instance_empty_ms",
-                (time.perf_counter() - t_start) * 1000,
-            )
             return None
 
         # Get asset address for matching - same logic as _find_best_listing
         normalized_addr = getattr(obj, "normalized_address", "") or ""
         if not normalized_addr:
             obj._primary_listing_instance_cache = None
-            self._track_internal_timing(
-                "_primary_listing_instance_no_addr_ms",
-                (time.perf_counter() - t_start) * 1000,
-            )
             return None
 
         asset_address = normalized_addr.lower()
@@ -676,27 +523,15 @@ class AssetSerializer(MetaSerializerMixin):
             # Check for exact match with full address
             if asset_address == listing_address:
                 obj._primary_listing_instance_cache = listing
-                self._track_internal_timing(
-                    "_primary_listing_instance_match_ms",
-                    (time.perf_counter() - t_start) * 1000,
-                )
                 return listing
 
             # Check for exact street + number match (e.g., "ארלוזורוב 59")
             if self._matches_street_and_number(asset_address, listing_address):
                 obj._primary_listing_instance_cache = listing
-                self._track_internal_timing(
-                    "_primary_listing_instance_match_ms",
-                    (time.perf_counter() - t_start) * 1000,
-                )
                 return listing
 
         # No match found - return None (same as _find_best_listing)
         obj._primary_listing_instance_cache = None
-        self._track_internal_timing(
-            "_primary_listing_instance_no_match_ms",
-            (time.perf_counter() - t_start) * 1000,
-        )
         return None
 
     def _get_primary_listing_data(self, obj):
@@ -708,12 +543,7 @@ class AssetSerializer(MetaSerializerMixin):
             obj._primary_listing_data_cache = None
             return None
 
-        t_start = time.perf_counter()
         data = normalize_listing_from_model(listing)
-        self._track_internal_timing(
-            "_primary_listing_normalize_ms",
-            (time.perf_counter() - t_start) * 1000,
-        )
 
         # Enhance with fields from asset.meta if available (from enrichment pipeline)
         # These fields were extracted during enrichment and stored in primary_listing_source

@@ -1,5 +1,8 @@
+import logging
+import time
 from typing import Tuple, Optional
 from rest_framework import serializers
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from .models import (
     Asset,
@@ -29,6 +32,10 @@ from .services.asset_links import (
 from .utils.listings import normalize_listing_from_model
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+SLOW_ASSET_SERIALIZE_SECONDS = getattr(
+    settings, "ASSET_SERIALIZER_SLOW_LOG_SECONDS", 0.05
+)
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -185,6 +192,22 @@ class AssetSerializer(MetaSerializerMixin):
         include_primary_listing = self.context.get("include_primary_listing", True)
         if not include_primary_listing:
             self.fields.pop("primary_listing", None)
+
+    def to_representation(self, instance):
+        start = time.monotonic()
+        data = super().to_representation(instance)
+        duration = time.monotonic() - start
+        if duration >= SLOW_ASSET_SERIALIZE_SECONDS:
+            context = self.context if isinstance(self.context, dict) else {}
+            logger.info(
+                "Slow asset serialization: asset_id=%s duration=%.4fs include_meta=%s include_primary_listing=%s include_listing_raw=%s",
+                getattr(instance, "id", None),
+                duration,
+                context.get("include_meta", True),
+                context.get("include_primary_listing", True),
+                context.get("include_listing_raw", True),
+            )
+        return data
 
     def get_zoning(self, obj):
         value = getattr(obj, "zoning", None)

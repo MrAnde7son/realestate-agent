@@ -78,6 +78,7 @@ except ImportError:
 from drf_spectacular.utils import extend_schema
 
 import logging
+import time
 
 # Import Django models
 from .models import (
@@ -3103,6 +3104,7 @@ def _get_assets_list(request):
     """Helper function to get paginated assets in listing format."""
 
     params = request.GET
+    request_start = time.monotonic()
 
     page = _parse_positive_int(params.get("page"), 1)
     page_size = _parse_positive_int(
@@ -3113,11 +3115,18 @@ def _get_assets_list(request):
 
     try:
         user = getattr(request, "user", None)
+        user_id = getattr(user, "id", None) if user and getattr(user, "is_authenticated", False) else None
+        filter_params = {
+            k: v
+            for k, v in params.items()
+            if v not in (None, "", "all")
+        }
         # Optimize: prefetch listings_m2m to avoid N+1 queries
         # Note: listings_m2m already returns Listing objects directly (not AssetListing)
         # Use Prefetch with only() to limit fields fetched from listings - significantly reduces query time and memory
         from django.db.models import Prefetch
 
+        query_build_start = time.monotonic()
         # Only fetch fields needed for primary listing calculation and price/type lookups
         listings_prefetch = Prefetch(
             "listings_m2m",
@@ -3218,6 +3227,7 @@ def _get_assets_list(request):
         # Note: Some SerializerMethodFields may access meta, but they'll trigger minimal
         # additional queries only when needed, which is still faster than loading meta for all assets
         queryset = queryset.defer("meta")
+        query_ready = time.monotonic()
 
         # Handle ordering parameter
         ordering_param = params.get("ordering", "-created_at")
@@ -3301,6 +3311,7 @@ def _get_assets_list(request):
             page_obj = paginator.page(page)
         except (EmptyPage, PageNotAnInteger):
             page_obj = paginator.page(1)
+        page_ready = time.monotonic()
 
         serializer = AssetSerializer(
             page_obj.object_list,
@@ -3314,8 +3325,22 @@ def _get_assets_list(request):
             },
         )
         serialized_rows = serializer.data
+        serialization_done = time.monotonic()
         total_count = paginator.count
 
+        logger.info(
+            "Assets list timing: total=%.4fs build=%.4fs paginate=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
+            serialization_done - request_start,
+            query_ready - query_build_start,
+            page_ready - query_ready,
+            serialization_done - page_ready,
+            page,
+            page_size,
+            total_count,
+            params.get("ordering"),
+            filter_params,
+            user_id,
+        )
         return Response(
             {
                 "rows": serialized_rows,

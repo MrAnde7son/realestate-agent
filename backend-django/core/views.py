@@ -3134,7 +3134,6 @@ def _get_assets_list(request):
                 "recent_deal",
                 "video_url",
                 "photos",
-                "raw",
             ),
         )
         queryset = Asset.objects.all().prefetch_related(listings_prefetch)
@@ -3311,6 +3310,7 @@ def _get_assets_list(request):
                 "include_meta": False,  # Exclude heavy metadata to keep list responses small
                 "request": request,
                 "include_primary_listing": False,
+                "include_listing_raw": False,
             },
         )
         serialized_rows = serializer.data
@@ -4015,12 +4015,28 @@ def asset_transactions(request, asset_id):
                     raw__parcel_sub_parcel=asset.subparcel,
                 )
 
+        raw_city_filters = Q()
+        if city_name:
+            from .services.asset_deduplication import _get_city_variations
+
+            city_variations = _get_city_variations(city_name)
+            for variation in city_variations:
+                raw_city_filters |= (
+                    Q(raw__city__iexact=variation)
+                    | Q(raw__cityName__iexact=variation)
+                    | Q(raw__cityNameHeb__iexact=variation)
+                    | Q(raw__locality__iexact=variation)
+                    | Q(raw__settlement__iexact=variation)
+                    | Q(raw__town__iexact=variation)
+                )
+            raw_city_filters |= Q(address__icontains=city_name)
+
         # Match by neighborhood (requires city match)
         if asset.neighborhood and city_name:
             neighborhood_name = asset.neighborhood.strip()
             transaction_filters |= Q(
                 assets__neighborhood=neighborhood_name, assets__city=city_name
-            ) | Q(raw__neighborhood=neighborhood_name)
+            ) | (Q(raw__neighborhood=neighborhood_name) & raw_city_filters)
 
         # Match by street name (requires city match)
         if asset.street and city_name:
@@ -4028,7 +4044,7 @@ def asset_transactions(request, asset_id):
             transaction_filters |= (
                 Q(address__icontains=street_name, assets__city=city_name)
                 | Q(assets__street=street_name, assets__city=city_name)
-                | Q(raw__streetNameHeb__icontains=street_name)
+                | (Q(raw__streetNameHeb__icontains=street_name) & raw_city_filters)
             )
 
         transactions = RealEstateTransaction.objects.filter(

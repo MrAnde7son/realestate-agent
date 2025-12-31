@@ -576,6 +576,26 @@ class AssetSerializer(MetaSerializerMixin):
             obj._primary_listing_data_cache = None
             return None
 
+        if not self.context.get("include_listing_raw", True):
+            # Fast-path for list views: avoid heavy raw normalization.
+            data = {
+                "id": listing.id,
+                "price": listing.price,
+                "address": listing.address,
+                "rooms": listing.rooms,
+                "area": listing.area,
+                "size": listing.area,
+                "listing_type": listing.listing_type,
+                "ad_type": listing.ad_type,
+                "contact_name": listing.contact_name,
+                "contact_phone": listing.contact_phone,
+                "recent_deal": listing.recent_deal,
+                "photos": listing.photos or [],
+                "video_url": listing.video_url,
+            }
+            obj._primary_listing_data_cache = data
+            return data
+
         data = normalize_listing_from_model(listing)
 
         # Enhance with fields from asset.meta if available (from enrichment pipeline)

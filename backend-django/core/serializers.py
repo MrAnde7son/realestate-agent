@@ -36,6 +36,13 @@ logger = logging.getLogger(__name__)
 SLOW_ASSET_SERIALIZE_SECONDS = getattr(
     settings, "ASSET_SERIALIZER_SLOW_LOG_SECONDS", 0.05
 )
+SLOW_ASSET_SERIALIZE_LOG_LEVEL = getattr(
+    settings, "ASSET_SERIALIZER_LOG_LEVEL", "WARNING"
+)
+if isinstance(SLOW_ASSET_SERIALIZE_LOG_LEVEL, str):
+    SLOW_ASSET_SERIALIZE_LOG_LEVEL = getattr(
+        logging, SLOW_ASSET_SERIALIZE_LOG_LEVEL.upper(), logging.WARNING
+    )
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -199,7 +206,8 @@ class AssetSerializer(MetaSerializerMixin):
         duration = time.monotonic() - start
         if duration >= SLOW_ASSET_SERIALIZE_SECONDS:
             context = self.context if isinstance(self.context, dict) else {}
-            logger.info(
+            logger.log(
+                SLOW_ASSET_SERIALIZE_LOG_LEVEL,
                 "Slow asset serialization: asset_id=%s duration=%.4fs include_meta=%s include_primary_listing=%s include_listing_raw=%s",
                 getattr(instance, "id", None),
                 duration,

@@ -203,6 +203,11 @@ auth_service = AuthenticationService(settings)
 report_service = ReportService(BASE_DIR)
 
 logger = logging.getLogger(__name__)
+ASSET_TIMING_LOG_LEVEL = getattr(settings, "ASSET_TIMING_LOG_LEVEL", "WARNING")
+if isinstance(ASSET_TIMING_LOG_LEVEL, str):
+    ASSET_TIMING_LOG_LEVEL = getattr(
+        logging, ASSET_TIMING_LOG_LEVEL.upper(), logging.WARNING
+    )
 
 
 # Rate limiting for asset creation to avoid abuse
@@ -3328,7 +3333,8 @@ def _get_assets_list(request):
         serialization_done = time.monotonic()
         total_count = paginator.count
 
-        logger.info(
+        logger.log(
+            ASSET_TIMING_LOG_LEVEL,
             "Assets list timing: total=%.4fs build=%.4fs paginate=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
             serialization_done - request_start,
             query_ready - query_build_start,

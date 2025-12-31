@@ -57,6 +57,8 @@ class MetaSerializerMixin(serializers.ModelSerializer):
         include_meta = True
         if hasattr(self, "context") and isinstance(self.context, dict):
             include_meta = self.context.get("include_meta", True)
+        if not include_meta:
+            return data
 
         # Process unified metadata structure
         for key, value in meta.items():

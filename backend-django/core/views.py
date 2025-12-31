@@ -3149,6 +3149,19 @@ def _get_assets_list(request):
                 )
             )
 
+        queryset = queryset.annotate(
+            _meta_zoning_value=KeyTextTransform(
+                "value", KeyTextTransform("zoning", "meta")
+            ),
+            _meta_price_value=KeyTextTransform("price", "meta"),
+            _meta_listing_price_sale=KeyTextTransform(
+                "sale", KeyTextTransform("listing_prices", "meta")
+            ),
+            _meta_listing_price_price=KeyTextTransform(
+                "price", KeyTextTransform("listing_prices", "meta")
+            ),
+        )
+
         # Track if any filters are applied (excluding search which is tracked separately)
         has_filters = any(
             params.get(key) not in (None, "", "all")
@@ -3284,7 +3297,6 @@ def _get_assets_list(request):
         else:
             # Default ordering if no ordering parameter
             queryset = queryset.order_by("-created_at", "-id")
-
         paginator = Paginator(queryset, page_size)
         try:
             page_obj = paginator.page(page)
@@ -3298,16 +3310,19 @@ def _get_assets_list(request):
                 "include_documents": False,
                 "include_meta": False,  # Exclude heavy metadata to keep list responses small
                 "request": request,
+                "include_primary_listing": False,
             },
         )
+        serialized_rows = serializer.data
+        total_count = paginator.count
 
         return Response(
             {
-                "rows": serializer.data,
+                "rows": serialized_rows,
                 "pagination": {
                     "page": page_obj.number,
                     "page_size": page_size,
-                    "total": paginator.count,
+                    "total": total_count,
                     "total_pages": paginator.num_pages,
                     "has_next": page_obj.has_next(),
                     "has_previous": page_obj.has_previous(),

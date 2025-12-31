@@ -201,8 +201,8 @@ def _compute_ppm_weight(entry: Dict[str, Any]) -> float:
 def _get_listing_area_for_ppm(listing: Dict[str, Any]) -> Optional[float]:
     """Return the best available area for PPM calculation.
 
-    Prefers total/gross area fields when present to ensure PPM is based on the
-    property's full size, falling back to net/built area if necessary.
+    Uses effective area derived from existing fields, weighting ancillary spaces
+    similar to appraisal practice.
     """
 
     if not isinstance(listing, dict):
@@ -210,28 +210,99 @@ def _get_listing_area_for_ppm(listing: Dict[str, Any]) -> Optional[float]:
 
     meta = listing.get("meta") if isinstance(listing.get("meta"), dict) else {}
 
-    total_area_value = _safe_numeric(
-        _first_nonempty(
-            listing.get("total_size"),
-            listing.get("total_area"),
-            _safe_get(meta, "total_size"),
-            _safe_get(meta, "totalSqm"),
-            _safe_get(meta, "total_area"),
-        )
-    )
-    if total_area_value and total_area_value > 0:
-        return total_area_value
-
-    net_area_value = _safe_numeric(
+    living_area_value = _safe_numeric(
         _first_nonempty(
             listing.get("area"),
             listing.get("size"),
             _safe_get(meta, "area"),
             _safe_get(meta, "size"),
+            _safe_get(meta, "netSqm"),
         )
     )
-    if net_area_value and net_area_value > 0:
-        return net_area_value
+    if not living_area_value:
+        living_area_value = _safe_numeric(
+            _first_nonempty(
+                listing.get("total_size"),
+                listing.get("total_area"),
+                _safe_get(meta, "total_size"),
+                _safe_get(meta, "totalSqm"),
+                _safe_get(meta, "total_area"),
+            )
+        )
+
+    balcony_area_value = _safe_numeric(
+        _first_nonempty(
+            listing.get("balcony_area"),
+            listing.get("balconyArea"),
+            _safe_get(meta, "balcony_area"),
+            _safe_get(meta, "balconyArea"),
+        )
+    )
+
+    storage_area_value = _safe_numeric(
+        _first_nonempty(
+            listing.get("storage_area"),
+            listing.get("storageArea"),
+            _safe_get(meta, "storage_area"),
+            _safe_get(meta, "storageArea"),
+        )
+    )
+
+    basement_area_value = _safe_numeric(
+        _first_nonempty(
+            listing.get("basement_area"),
+            listing.get("basementArea"),
+            _safe_get(meta, "basement_area"),
+            _safe_get(meta, "basementArea"),
+        )
+    )
+
+    if not living_area_value or living_area_value <= 0:
+        return None
+
+    effective_area = living_area_value
+    if balcony_area_value and balcony_area_value > 0:
+        effective_area += balcony_area_value * 0.3
+    if storage_area_value and storage_area_value > 0:
+        effective_area += storage_area_value * 0.15
+    if basement_area_value and basement_area_value > 0:
+        effective_area += basement_area_value * 0.5
+
+    return effective_area if effective_area > 0 else None
+
+
+def _get_asset_effective_area(asset: Any) -> Optional[float]:
+    living_area_value = _safe_numeric(getattr(asset, "area", None)) or _safe_numeric(
+        getattr(asset, "total_area", None)
+    )
+    if not living_area_value or living_area_value <= 0:
+        return None
+
+    balcony_area_value = _safe_numeric(getattr(asset, "balcony_area", None))
+    storage_area_value = _safe_numeric(getattr(asset, "storage_area", None))
+    basement_area_value = _safe_numeric(getattr(asset, "basement_area", None))
+
+    meta = getattr(asset, "meta", {}) or {}
+    if isinstance(meta, dict):
+        balcony_area_value = balcony_area_value or _safe_numeric(
+            meta.get("balcony_area")
+        )
+        storage_area_value = storage_area_value or _safe_numeric(
+            meta.get("storage_area")
+        )
+        basement_area_value = basement_area_value or _safe_numeric(
+            meta.get("basement_area")
+        )
+
+    effective_area = living_area_value
+    if balcony_area_value and balcony_area_value > 0:
+        effective_area += balcony_area_value * 0.3
+    if storage_area_value and storage_area_value > 0:
+        effective_area += storage_area_value * 0.15
+    if basement_area_value and basement_area_value > 0:
+        effective_area += basement_area_value * 0.5
+
+    return effective_area if effective_area > 0 else None
 
     return None
 
@@ -358,15 +429,25 @@ def _apply_low_pass_filter(ppm_values: List[float], alpha: float = 0.3) -> float
 
 
 def _calculate_base_ppm_and_value(
-    ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float]
+    ppm_data: List[Dict[str, Any]], asset_total_area: Optional[float], asset: Any = None
 ) -> Tuple[Optional[float], Optional[float]]:
     """Calculate base PPM and value using the most relevant comparables.
 
+    Strategy differs for new vs old assets:
+    - New assets: Use stronger recency weighting and favor recent listings to reflect current market prices
+    - Old assets: Use standard weighting with broader time window for stable historical pricing
+
+    Args:
+        ppm_data: List of comparable PPM entries with price, area, source, recency info
+        asset_total_area: Total area of the asset
+        asset: Asset object (optional, used to detect if asset is new)
+    
     Strategy:
-    1. Calculate relevance score for each comparable
-    2. Filter to only include entries with non-zero weight (not excluded by recency)
-    3. Sort by relevance and use top comparables
-    4. Calculate weighted average PPM from most relevant comparables
+    1. Determine if asset is new (recent construction, new project, etc.)
+    2. Calculate relevance score for each comparable
+    3. Filter to only include entries with non-zero weight (not excluded by recency)
+    4. Apply different weighting strategies for new vs old assets
+    5. Calculate weighted average PPM from most relevant comparables
     """
     if not ppm_data:
         return None, None
@@ -378,45 +459,110 @@ def _calculate_base_ppm_and_value(
         logger.warning("[PRICE_MODEL] No PPM values found in comparables")
         return None, None
 
-    # Use trimmed mean approach: remove bottom outliers but keep all high values
-    # This is better for real estate where high PPM values are valid (luxury properties)
-    # and low values are more likely to be data errors
-    original_count = len(ppm_values)
-    sorted_ppm = sorted(ppm_values)
-
-    # Remove bottom 10% (likely data errors) but keep all high values
-    # This gives us a robust average that isn't pulled down by outliers
-    trim_percent = 0.10  # Remove bottom 10%
-    trim_count = max(1, int(len(sorted_ppm) * trim_percent))
-
-    # Keep all values except the bottom trim_count
-    trimmed_ppm_values = sorted_ppm[trim_count:]
-    outlier_count = trim_count
-
-    # Use trimmed mean (average of values after removing bottom outliers)
-    if len(trimmed_ppm_values) > 0:
-        weighted_ppm = sum(trimmed_ppm_values) / len(trimmed_ppm_values)
-        if outlier_count > 0:
-            logger.info(
-                f"[PRICE_MODEL] Trimmed bottom {outlier_count} outliers ({original_count} -> {len(trimmed_ppm_values)} values) using trimmed mean"
-            )
-    else:
-        # Fallback: use median if trimming removed everything
-        if len(ppm_values) >= 3:
-            weighted_ppm = median(ppm_values)
-            logger.info("[PRICE_MODEL] Trimmed too many values, using median instead")
-        else:
-            weighted_ppm = sum(ppm_values) / len(ppm_values)
-
+    # Calculate a preliminary average PPM to help detect new assets (for price-based detection)
+    # Use simple trimmed mean for preliminary detection (before applying new asset weighting)
+    preliminary_avg_ppm = None
+    if ppm_values:
+        sorted_ppm_prelim = sorted(ppm_values)
+        trim_count_prelim = max(1, int(len(sorted_ppm_prelim) * 0.10))
+        trimmed_prelim = sorted_ppm_prelim[trim_count_prelim:] if trim_count_prelim < len(sorted_ppm_prelim) else sorted_ppm_prelim
+        if trimmed_prelim:
+            preliminary_avg_ppm = sum(trimmed_prelim) / len(trimmed_prelim)
+    
+    # Determine if this is a new asset (affects pricing strategy)
+    # Pass preliminary_avg_ppm for price-based detection
+    is_new_asset = _is_new_asset(asset, preliminary_avg_ppm) if asset else False
+    
+    # Calculate weights and relevance scores for all entries
     scored_entries = []
     excluded_count = 0
     for entry in ppm_data:
         weight = _compute_ppm_weight(entry)
         if weight > 0:
             relevance = _calculate_relevance_score(entry, asset_total_area)
-            scored_entries.append((entry, weight * relevance, relevance))
+            # For new assets, apply stronger recency weighting
+            # This means very recent listings get even more weight
+            if is_new_asset:
+                # Boost weight for very recent listings (published < 90 days)
+                published_days = entry.get("published_days") or entry.get("publishedDays")
+                if published_days is not None:
+                    try:
+                        days_old = int(published_days)
+                        if days_old <= 90:  # Very recent (last 3 months)
+                            weight *= 1.5  # Boost very recent listings for new assets
+                        elif days_old <= 180:  # Recent (3-6 months)
+                            weight *= 1.2
+                    except (ValueError, TypeError):
+                        pass
+                # Also boost recent transactions for new assets
+                deal_date = entry.get("deal_date")
+                if deal_date:
+                    parsed_date = _parse_iso_date(deal_date)
+                    if parsed_date:
+                        days_diff = (date.today() - parsed_date).days
+                        if days_diff <= 180:  # Last 6 months
+                            weight *= 1.3
+            
+            # Combine weight and relevance for final scoring
+            # Weight captures recency and source reliability, relevance captures area similarity
+            final_weight = weight * relevance
+            scored_entries.append((entry, final_weight, relevance))
         else:
             excluded_count += 1
+
+    # Filter out bottom outliers before weighted average (to avoid data errors skewing results)
+    # Remove bottom 10% of PPM values (likely data errors) but keep all high values
+    original_count = len(ppm_values)
+    sorted_ppm = sorted(ppm_values)
+    trim_percent = 0.10  # Remove bottom 10%
+    trim_count = max(1, int(len(sorted_ppm) * trim_percent))
+    ppm_lower_bound = sorted_ppm[trim_count] if trim_count < len(sorted_ppm) else sorted_ppm[0]
+    outlier_count = trim_count
+
+    # Calculate weighted average PPM using recency-weighted comparables (after outlier filtering)
+    # For new assets: stronger weighting favors recent listings to reflect current market prices
+    # For old assets: standard weighting provides stable historical pricing
+    weighted_sum = 0.0
+    total_weight = 0.0
+    filtered_entries = []
+    
+    for entry, final_weight, relevance in scored_entries:
+        ppm = entry.get("ppm")
+        if ppm is not None and ppm >= ppm_lower_bound:  # Filter out bottom outliers
+            weighted_sum += ppm * final_weight
+            total_weight += final_weight
+            filtered_entries.append((entry, final_weight, relevance))
+    
+    if total_weight > 0 and len(filtered_entries) > 0:
+        weighted_ppm = weighted_sum / total_weight
+        strategy_type = "new asset (boosted recency)" if is_new_asset else "standard"
+        if outlier_count > 0:
+            logger.info(
+                f"[PRICE_MODEL] Used weighted average ({strategy_type}, trimmed {outlier_count} bottom outliers, "
+                f"{original_count} -> {len(filtered_entries)} weighted entries)"
+            )
+        else:
+            logger.info(
+                f"[PRICE_MODEL] Used weighted average ({strategy_type}, {len(filtered_entries)} weighted entries)"
+            )
+    else:
+        # Fallback: use trimmed mean if no weights available
+        trimmed_ppm_values_fallback = [v for v in sorted_ppm[trim_count:] if trim_count < len(sorted_ppm)]
+        filtered_entries = []  # Initialize for logging below
+        if len(trimmed_ppm_values_fallback) > 0:
+            weighted_ppm = sum(trimmed_ppm_values_fallback) / len(trimmed_ppm_values_fallback)
+            logger.info(
+                f"[PRICE_MODEL] Fallback to trimmed mean (trimmed {outlier_count} outliers, "
+                f"{original_count} -> {len(trimmed_ppm_values_fallback)} values)"
+            )
+        else:
+            # Final fallback: use median if trimming removed everything
+            if len(ppm_values) >= 3:
+                weighted_ppm = median(ppm_values)
+                logger.info("[PRICE_MODEL] Fallback to median after aggressive trimming")
+            else:
+                weighted_ppm = sum(ppm_values) / len(ppm_values)
+                logger.info("[PRICE_MODEL] Fallback to simple average (too few values)")
 
     # Debug logging for PPM calculation
     if ppm_values:
@@ -426,15 +572,21 @@ def _calculate_base_ppm_and_value(
         else:
             raw_median = sum(ppm_values) / len(ppm_values)
 
-        # Calculate statistics for trimmed values
-        if trimmed_ppm_values:
-            trimmed_avg = sum(trimmed_ppm_values) / len(trimmed_ppm_values)
-            trimmed_min = min(trimmed_ppm_values)
-            trimmed_max = max(trimmed_ppm_values)
+        # Calculate statistics for comparison
+        if filtered_entries:
+            # Use filtered entries for min/max
+            filtered_ppm_values = [e[0].get("ppm") for e in filtered_entries if e[0].get("ppm") is not None]
+            trimmed_min = min(filtered_ppm_values) if filtered_ppm_values else min(ppm_values) if ppm_values else 0
+            trimmed_max = max(filtered_ppm_values) if filtered_ppm_values else max(ppm_values) if ppm_values else 0
         else:
-            trimmed_avg = weighted_ppm
-            trimmed_min = min(ppm_values) if ppm_values else 0
-            trimmed_max = max(ppm_values) if ppm_values else 0
+            # Fallback: use trimmed values if available, otherwise use all values
+            trimmed_ppm_values_for_stats = [v for v in sorted_ppm[trim_count:] if trim_count < len(sorted_ppm)]
+            if trimmed_ppm_values_for_stats:
+                trimmed_min = min(trimmed_ppm_values_for_stats)
+                trimmed_max = max(trimmed_ppm_values_for_stats)
+            else:
+                trimmed_min = min(ppm_values) if ppm_values else 0
+                trimmed_max = max(ppm_values) if ppm_values else 0
 
         # Show top comparables for debugging
         sorted_entries = sorted(ppm_data, key=lambda x: x.get("ppm", 0), reverse=True)
@@ -443,10 +595,11 @@ def _calculate_base_ppm_and_value(
         ]
         sources = [entry.get("source", "unknown") for entry in sorted_entries[:5]]
 
+        strategy_note = " (new asset: boosted recency)" if is_new_asset else ""
         logger.info(
-            f"[PRICE_MODEL] Calculated base_ppm={weighted_ppm:.0f} (median={raw_median:.0f}, trimmed_avg={trimmed_avg:.0f}) "
-            f"from {len(ppm_values)} total comparables ({len(scored_entries)} recent, {excluded_count} old excluded, {outlier_count} bottom outliers trimmed). "
-            f"Trimmed range: {trimmed_min:.0f}-{trimmed_max:.0f}. "
+            f"[PRICE_MODEL] Calculated base_ppm={weighted_ppm:.0f} (weighted avg{strategy_note}, median={raw_median:.0f}) "
+            f"from {len(ppm_values)} total comparables ({len(filtered_entries)} weighted entries, {excluded_count} old excluded, {outlier_count} bottom outliers filtered). "
+            f"Weighted range: {trimmed_min:.0f}-{trimmed_max:.0f}. "
             f"Top 5: PPM={[f'{v:.0f}' for v in top_ppm_values]}, sources={sources}"
         )
 
@@ -513,6 +666,69 @@ def _potential_adjustment(asset: Any) -> float:
     if potential in ("negative", "low", "שלילי"):
         return -0.08
     return 0.0
+
+
+def _is_new_asset(asset: Any, preliminary_avg_ppm: Optional[float] = None) -> bool:
+    """Determine if an asset is considered 'new' based on construction date, flags, or pricing indicators.
+    
+    New assets should be priced using recent comparables and higher PPM values
+    to reflect current market conditions rather than historical averages.
+    
+    Detection methods (in order of priority):
+    1. Year built <= 5 years old
+    2. new_project or tama38_completed flags in meta
+    3. Has mamad/shelter (ממ"ד) - indicates newer construction (mandatory in buildings from 1992+)
+    4. If asset has a price_per_sqm significantly above preliminary average (suggests current market pricing)
+       - Only used if preliminary_avg_ppm is provided to avoid circular dependency
+    
+    Args:
+        asset: The asset object
+        preliminary_avg_ppm: Optional preliminary average PPM from comparables (used for price-based detection)
+        
+    Returns:
+        True if asset is considered new, False otherwise
+    """
+    year_built = _safe_numeric(getattr(asset, "year_built", None))
+    if year_built and (date.today().year - year_built) <= 5:
+        return True
+
+    meta = getattr(asset, "meta", {}) or {}
+    if isinstance(meta, dict):
+        if meta.get("new_project"):
+            return True
+        if meta.get("tama38_completed"):
+            return True
+        # Check for shelter/mamad (ממ"ד) - indicates newer construction
+        # In Israel, mamad rooms became mandatory in newer buildings (typically post-1992)
+        # So presence of mamad suggests newer construction
+        shelter = meta.get("shelter")
+        if shelter is True or shelter == 1 or shelter == "1" or (isinstance(shelter, str) and shelter.lower() in ("true", "yes", "יש")):
+            return True
+        # Also check in primary_listing source if available
+        primary_listing = meta.get("primary_listing", {}) if isinstance(meta.get("primary_listing"), dict) else {}
+        if isinstance(primary_listing, dict):
+            listing_shelter = primary_listing.get("shelter")
+            if listing_shelter is True or listing_shelter == 1 or listing_shelter == "1" or (isinstance(listing_shelter, str) and str(listing_shelter).lower() in ("true", "yes", "1")):
+                return True
+    
+    # If asset has price_per_sqm or price that's significantly above preliminary average, treat as "new"
+    # This helps with assets that don't have year_built but are priced at current market rates
+    # Only check if preliminary_avg_ppm is provided (to avoid circular dependency issues)
+    if preliminary_avg_ppm and preliminary_avg_ppm > 0:
+        asset_ppm = _safe_numeric(getattr(asset, "price_per_sqm", None))
+        # If price_per_sqm is not set, calculate from price and area
+        if not asset_ppm or asset_ppm <= 0:
+            asset_price = _safe_numeric(getattr(asset, "price", None))
+            area = _safe_numeric(getattr(asset, "total_area", None)) or _safe_numeric(getattr(asset, "area", None))
+            if asset_price and asset_price > 0 and area and area > 0:
+                asset_ppm = asset_price / area
+        
+        if asset_ppm and asset_ppm > 0:
+            # If asset's PPM is 15%+ above preliminary average, likely a "new" asset at current market prices
+            if asset_ppm > preliminary_avg_ppm * 1.15:
+                return True
+    
+    return False
 
 
 def _new_build_adjustment(asset: Any) -> float:
@@ -4418,11 +4634,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
             prices = [d["price"] for d in ppm_data]
             areas = [d["area"] for d in ppm_data]
 
-            asset_total_area = _safe_numeric(
-                getattr(asset, "total_area", None)
-            ) or _safe_numeric(getattr(asset, "area", None))
+            asset_total_area = _get_asset_effective_area(asset)
             base_ppm, base_value = _calculate_base_ppm_and_value(
-                ppm_data, asset_total_area
+                ppm_data, asset_total_area, asset
             )
 
             # Debug logging for price model calculation
@@ -4432,9 +4646,10 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 f"asset_area={asset_total_area} base_ppm={base_ppm} base_value={base_value}"
             )
 
+            feature_vector = _build_feature_vector(asset)
+
             # Skip price model calculation if asset has no area
             if asset_total_area and asset_total_area > 0:
-                feature_vector = _build_feature_vector(asset)
                 adjustment_multiplier = 1 + feature_vector.total_adjustment
 
                 # Calculate model price as BaseValue × (1 + Σ adjustments)
@@ -4540,9 +4755,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 "total": len(ppm_data),
             }
 
-            asset_area_value = _safe_numeric(
-                getattr(asset, "total_area", None)
-            ) or _safe_numeric(getattr(asset, "area", None))
+            asset_area_value = asset_total_area
             if areas and asset_area_value:
                 avg_area = sum(areas) / len(areas)
                 if avg_area > 0:
@@ -4567,12 +4780,14 @@ def _calculate_market_metrics(asset, listings, gov_data):
             metrics["ppmSources"] = {"transactions": 0, "listings": 0, "total": 0}
 
         # --- Rent & Cap Rate ---
-        if asset.price:  # need price for rent estimation
+        model_price = _safe_numeric(metrics.get("modelPrice"))
+        price_for_rent = model_price or _safe_numeric(getattr(asset, "price", None))
+        if price_for_rent:  # need a price estimate for rent estimation
             # Calculate rent based on city-specific gross yield
             gross_yield_pct = get_city_gross_yield(asset.city, asset.neighborhood)
             # Gross Yield = Annual Rent / Property Price
             # Therefore: Annual Rent = Property Price × Gross Yield %
-            annual_rent = asset.price * (gross_yield_pct / 100)
+            annual_rent = price_for_rent * (gross_yield_pct / 100)
             monthly_rent = annual_rent / 12
             metrics["rentEstimate"] = int(monthly_rent)
             # Cap rate is the same as gross yield in this calculation

@@ -127,6 +127,7 @@ class AssetSerializer(MetaSerializerMixin):
     greenScore = serializers.SerializerMethodField()
     investmentPotential = serializers.SerializerMethodField()
     investmentPotentialScore = serializers.SerializerMethodField()
+    zoning = serializers.SerializerMethodField()
 
     # New GIS data fields
     metroStationDistanceM = serializers.SerializerMethodField()
@@ -181,39 +182,78 @@ class AssetSerializer(MetaSerializerMixin):
         if not include_meta:
             # Remove the raw meta blob for lightweight responses
             self.fields.pop("meta", None)
+        include_primary_listing = self.context.get("include_primary_listing", True)
+        if not include_primary_listing:
+            self.fields.pop("primary_listing", None)
+
+    def get_zoning(self, obj):
+        value = getattr(obj, "zoning", None)
+        if value not in (None, ""):
+            return value
+        if not self.context.get("include_meta", True):
+            return getattr(obj, "_meta_zoning_value", None)
+        meta = getattr(obj, "meta", {}) or {}
+        zoning_meta = meta.get("zoning")
+        if isinstance(zoning_meta, dict):
+            zoning_val = zoning_meta.get("value")
+            if zoning_val not in (None, ""):
+                return zoning_val
+        if zoning_meta not in (None, ""):
+            return zoning_meta
+        return None
 
     def get_rentPrice(self, obj):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
             return value
-        # Read from meta to populate rent price even when include_meta is False
-        # (include_meta only controls whether meta blob is included in response)
-        meta = getattr(obj, "meta", {}) or {}
-        listing_prices = meta.get("listing_prices")
-        if isinstance(listing_prices, dict):
-            rent_val = listing_prices.get("rent")
-            if rent_val not in (None, ""):
-                return rent_val
+        if self.context.get("include_meta", True):
+            meta = getattr(obj, "meta", {}) or {}
+            listing_prices = meta.get("listing_prices")
+            if isinstance(listing_prices, dict):
+                rent_val = listing_prices.get("rent")
+                if rent_val not in (None, ""):
+                    return rent_val
         return None
 
     def get_price(self, obj):
         """Return explicit asset price or fallback to primary listing price."""
+        cached = getattr(obj, "_serializer_price_cache", None)
+        if cached is not None:
+            return cached
+
         value = getattr(obj, "price", None)
         if value not in (None, ""):
+            obj._serializer_price_cache = value
             return value
-        # Try reading from meta hint first
-        # Note: include_meta flag only controls whether meta blob is included in response,
-        # not whether we can read from it to populate derived fields
-        meta = getattr(obj, "meta", {}) or {}
-        listing_prices = meta.get("listing_prices")
-        if isinstance(listing_prices, dict):
-            listing_val = listing_prices.get("sale") or listing_prices.get("price")
-            if listing_val not in (None, ""):
-                return listing_val
+        if not self.context.get("include_meta", True):
+            for attr_name in (
+                "_meta_listing_price_sale",
+                "_meta_listing_price_price",
+                "_meta_price_value",
+            ):
+                raw_value = getattr(obj, attr_name, None)
+                if raw_value in (None, ""):
+                    continue
+                try:
+                    parsed = int(float(raw_value))
+                except (TypeError, ValueError):
+                    parsed = None
+                if parsed is not None:
+                    obj._serializer_price_cache = parsed
+                    return parsed
+        if self.context.get("include_meta", True):
+            meta = getattr(obj, "meta", {}) or {}
+            listing_prices = meta.get("listing_prices")
+            if isinstance(listing_prices, dict):
+                listing_val = listing_prices.get("sale") or listing_prices.get("price")
+                if listing_val not in (None, ""):
+                    obj._serializer_price_cache = listing_val
+                    return listing_val
         # Fallback to primary listing normalized data
         primary_price = self._get_primary_value(
             obj, "price", "price_value", "listing_price"
         )
+        obj._serializer_price_cache = primary_price
         return primary_price
 
     def get_price_per_sqm(self, obj):
@@ -540,7 +580,7 @@ class AssetSerializer(MetaSerializerMixin):
 
         # Enhance with fields from asset.meta if available (from enrichment pipeline)
         # These fields were extracted during enrichment and stored in primary_listing_source
-        if obj.meta and isinstance(obj.meta, dict):
+        if self.context.get("include_meta", True) and obj.meta and isinstance(obj.meta, dict):
             primary_listing_source = obj.meta.get("primary_listing_source", {})
             if isinstance(primary_listing_source, dict):
                 # List of high-priority fields to merge from enrichment pipeline
@@ -639,6 +679,8 @@ class AssetSerializer(MetaSerializerMixin):
     # GIS Environment field getters
     def _get_property(self, obj, key):
         """Helper to get property value from meta or direct field."""
+        if not self.context.get("include_meta", True):
+            return None
         return obj.get_property_value(key)
 
     def get_openSpacesNearby(self, obj):

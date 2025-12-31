@@ -3148,7 +3148,7 @@ def _get_assets_list(request):
                 "recent_deal",
                 "video_url",
                 "photos",
-            ),
+            ).order_by("id"),
         )
         queryset = Asset.objects.all().prefetch_related(listings_prefetch)
 

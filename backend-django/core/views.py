@@ -3102,6 +3102,9 @@ def assets_filter_metadata(request):
 def _get_assets_list(request):
     """Helper function to get paginated assets in listing format."""
 
+    timings = {}
+    start_time = time.perf_counter()
+
     params = request.GET
 
     page = _parse_positive_int(params.get("page"), 1)
@@ -3119,6 +3122,7 @@ def _get_assets_list(request):
         from django.db.models import Prefetch
 
         # Only fetch fields needed for primary listing calculation and price/type lookups
+        t_queryset_start = time.perf_counter()
         listings_prefetch = Prefetch(
             "listings_m2m",
             queryset=Listing.objects.only(
@@ -3148,6 +3152,9 @@ def _get_assets_list(request):
                     )
                 )
             )
+        timings["queryset_setup_ms"] = round(
+            (time.perf_counter() - t_queryset_start) * 1000, 2
+        )
 
         # Track if any filters are applied (excluding search which is tracked separately)
         has_filters = any(
@@ -3205,6 +3212,7 @@ def _get_assets_list(request):
         # This significantly reduces memory usage and query time
         # Note: Some SerializerMethodFields may access meta, but they'll trigger minimal
         # additional queries only when needed, which is still faster than loading meta for all assets
+        t_ordering_start = time.perf_counter()
         queryset = queryset.defer("meta")
 
         # Handle ordering parameter
@@ -3284,13 +3292,29 @@ def _get_assets_list(request):
         else:
             # Default ordering if no ordering parameter
             queryset = queryset.order_by("-created_at", "-id")
+        timings["filter_order_ms"] = round(
+            (time.perf_counter() - t_ordering_start) * 1000, 2
+        )
 
+        t_paginator_start = time.perf_counter()
         paginator = Paginator(queryset, page_size)
+        timings["paginator_init_ms"] = round(
+            (time.perf_counter() - t_paginator_start) * 1000, 2
+        )
         try:
+            t_page_start = time.perf_counter()
             page_obj = paginator.page(page)
+            timings["page_fetch_ms"] = round(
+                (time.perf_counter() - t_page_start) * 1000, 2
+            )
         except (EmptyPage, PageNotAnInteger):
+            t_page_start = time.perf_counter()
             page_obj = paginator.page(1)
+            timings["page_fetch_ms"] = round(
+                (time.perf_counter() - t_page_start) * 1000, 2
+            )
 
+        t_serialize_start = time.perf_counter()
         serializer = AssetSerializer(
             page_obj.object_list,
             many=True,
@@ -3298,16 +3322,37 @@ def _get_assets_list(request):
                 "include_documents": False,
                 "include_meta": False,  # Exclude heavy metadata to keep list responses small
                 "request": request,
+                "log_field_timings": True,
+                "timing_expected_count": len(page_obj.object_list),
+                "include_primary_listing": False,
             },
+        )
+        serialized_rows = serializer.data
+        timings["serialize_ms"] = round(
+            (time.perf_counter() - t_serialize_start) * 1000, 2
+        )
+
+        t_count_start = time.perf_counter()
+        total_count = paginator.count
+        timings["count_ms"] = round((time.perf_counter() - t_count_start) * 1000, 2)
+        timings["total_ms"] = round((time.perf_counter() - start_time) * 1000, 2)
+
+        logger.warning(
+            "assets_list_timing page=%s page_size=%s ordering=%s has_filters=%s timings_ms=%s",
+            page,
+            page_size,
+            ordering_param,
+            has_filters,
+            timings,
         )
 
         return Response(
             {
-                "rows": serializer.data,
+                "rows": serialized_rows,
                 "pagination": {
                     "page": page_obj.number,
                     "page_size": page_size,
-                    "total": paginator.count,
+                    "total": total_count,
                     "total_pages": paginator.num_pages,
                     "has_next": page_obj.has_next(),
                     "has_previous": page_obj.has_previous(),
@@ -3315,6 +3360,14 @@ def _get_assets_list(request):
             }
         )
     except Exception as e:
+        timings["total_ms"] = round((time.perf_counter() - start_time) * 1000, 2)
+        logger.warning(
+            "assets_list_timing_error page=%s page_size=%s ordering=%s timings_ms=%s",
+            page,
+            page_size,
+            params.get("ordering", "-created_at"),
+            timings,
+        )
         logger.error("Error fetching assets: %s", e)
         return Response(
             {"error": "Failed to fetch assets", "details": str(e)}, status=500

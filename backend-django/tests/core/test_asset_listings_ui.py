@@ -59,15 +59,7 @@ class AssetListingsUiTests(TestCase):
         self.assertEqual(asset_row.get("video_url"), "http://example.com/video.mp4")
         self.assertIn("http://example.com/photo.jpg", asset_row.get("photos", []))
 
-        primary = asset_row.get("primary_listing")
-        self.assertIsNotNone(primary)
-        self.assertEqual(primary.get("listing_type"), "rent")
-        self.assertEqual(primary.get("ad_type"), "private")
-        self.assertTrue(primary.get("recent_deal"))
-        self.assertEqual(primary.get("contact_name"), "Dana")
-        self.assertEqual(primary.get("contact_phone"), "050-1234567")
-        self.assertEqual(primary.get("video_url"), "http://example.com/video.mp4")
-        self.assertIn("http://example.com/photo.jpg", primary.get("photos", []))
+        self.assertNotIn("primary_listing", asset_row)
 
     def test_assets_rental_sale_filter_uses_listing_type(self):
         response = self.client.get("/api/assets", {"rentalSale": "rent"})

@@ -60,7 +60,6 @@ class MetaSerializerMixin(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        meta = getattr(instance, "meta", {}) or {}
         field_meta = {}
 
         # Allow callers to opt out of returning attribution metadata to reduce payload size
@@ -69,6 +68,7 @@ class MetaSerializerMixin(serializers.ModelSerializer):
             include_meta = self.context.get("include_meta", True)
         if not include_meta:
             return data
+        meta = getattr(instance, "meta", {}) or {}
 
         # Process unified metadata structure
         for key, value in meta.items():

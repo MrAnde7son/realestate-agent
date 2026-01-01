@@ -172,15 +172,6 @@ export default function AuthPage() {
           <p className="text-muted-foreground">נדל״ן חכם לאנשים פרטיים ומתווכים</p>
         </div>
 
-        {/* Early Access Notice - Only show on signup */}
-        {!isLogin && (
-          <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4 text-center">
-            <p className="text-sm text-teal-900 dark:text-teal-100 font-medium">
-              כל הפיצ&apos;רים פתוחים למשתמשים מוקדמים – ללא הגבלה וללא תשלום.
-            </p>
-          </div>
-        )}
-
         {/* Auth Tabs */}
         <div className="flex space-x-1 rtl:space-x-reverse bg-muted p-1 rounded-lg">
           <Button 
@@ -298,9 +289,6 @@ export default function AuthPage() {
                   <Building className="h-4 w-4 ms-2" />
                   התחבר עם Google
                 </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  ללא צורך בכרטיס אשראי. כל הפיצ&apos;רים זמינים בחינם בתקופת ההרצה.
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -441,9 +429,6 @@ export default function AuthPage() {
                   >
                     {isLoading ? 'נרשם...' : 'הירשם'}
                   </Button>
-                  <p className="text-xs text-center text-muted-foreground mt-1">
-                    ללא צורך בכרטיס אשראי. כל הפיצ&apos;רים זמינים בחינם בתקופת ההרצה.
-                  </p>
                 </div>
               </form>
 

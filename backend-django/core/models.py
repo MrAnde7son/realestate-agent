@@ -663,6 +663,7 @@ class Asset(models.Model):
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     is_demo = models.BooleanField(default=False)
+    primary_photo_url = models.URLField(max_length=500, blank=True, null=True)
     meta = models.JSONField(default=dict)
     last_enriched_at = models.DateTimeField(blank=True, null=True)
     last_sync_started_at = models.DateTimeField(blank=True, null=True)
@@ -1953,6 +1954,28 @@ class AssetListing(models.Model):
     class Meta:
         unique_together = [("listing", "asset")]
         indexes = [models.Index(fields=["asset"]), models.Index(fields=["listing"])]
+
+
+@receiver(post_save, sender=AssetListing)
+def _asset_primary_photo_on_listing(sender, instance, created, **kwargs):
+    if not created:
+        return
+    asset = instance.asset
+    if asset.primary_photo_url:
+        return
+    listing = instance.listing
+    photos = listing.photos or []
+    if isinstance(photos, list) and photos:
+        asset.primary_photo_url = photos[0]
+        asset.save(update_fields=["primary_photo_url"])
+        return
+    raw = listing.raw or {}
+    for key in ("photos", "images"):
+        raw_photos = raw.get(key) or []
+        if isinstance(raw_photos, list) and raw_photos:
+            asset.primary_photo_url = raw_photos[0]
+            asset.save(update_fields=["primary_photo_url"])
+            return
 
 
 class AssetPermit(models.Model):

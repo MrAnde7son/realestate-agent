@@ -201,6 +201,9 @@ class AssetSerializer(MetaSerializerMixin):
     recent_deal = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+    primaryPhotoUrl = serializers.CharField(
+        source="primary_photo_url", read_only=True
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -284,6 +287,8 @@ class AssetSerializer(MetaSerializerMixin):
                 "isWatched",
                 "last_enriched_at",
                 "created_at",
+                "primary_photo_url",
+                "primaryPhotoUrl",
             }
             for field_name in list(self.fields.keys()):
                 if field_name not in allowed_fields:
@@ -1160,6 +1165,8 @@ class AssetSerializer(MetaSerializerMixin):
             "isWatched",
             "last_enriched_at",
             "created_at",
+            "primary_photo_url",
+            "primaryPhotoUrl",
             "meta",
             "documents",
             "primary_listing",

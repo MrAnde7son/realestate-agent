@@ -23,6 +23,7 @@ export type Asset = {
   description?: string | null;
   images?: string[];
   photos?: string[];
+  primaryPhotoUrl?: string | null;
   features?: string[] | null;
   contactInfo?: {
     agent?: string | null;
@@ -307,10 +308,15 @@ export function determineAssetType(asset: any): string | null {
 }
 
 export function normalizeFromBackend(row: any): Asset {
-  const ensureStringArray = (value: unknown): string[] =>
-    Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
-      : [];
+  const ensureStringArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+    }
+    if (typeof value === 'string' && value.length > 0) {
+      return [value];
+    }
+    return [];
+  };
 
   const parseNumeric = (input: unknown): number | null => {
     if (input === null || input === undefined) {
@@ -787,6 +793,7 @@ export function normalizeFromBackend(row: any): Asset {
       ...ensureStringArray(row.images),
       ...ensureStringArray(row.photos),
       ...(primaryListing?.photos ?? []),
+      ...ensureStringArray(row.primaryPhotoUrl ?? row.primary_photo_url),
     ])
   );
 
@@ -922,6 +929,7 @@ export function normalizeFromBackend(row: any): Asset {
     description: descriptionValue,
     images,
     photos: images,
+    primaryPhotoUrl: coerceString(row.primaryPhotoUrl ?? row.primary_photo_url) ?? null,
     features: combinedFeatures,
     contactInfo: hasContactInfo ? baseContactInfo : null,
     block: row.block ?? null,

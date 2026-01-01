@@ -3265,6 +3265,7 @@ def _get_assets_list(request):
             "is_commercial",
             "last_enriched_at",
             "created_at",
+            "primary_photo_url",
         )
 
         if user and getattr(user, "is_authenticated", False):

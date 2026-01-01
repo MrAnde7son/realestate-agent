@@ -2,6 +2,8 @@ import os
 import logging
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 from django.db.models import Q
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
@@ -968,6 +970,42 @@ def promote_raw_to_asset(asset: Asset, raw: dict):
     set_if_empty(asset, "bedrooms", raw.get("bedrooms"))
     set_if_empty(asset, "building_type", raw.get("property_type"))
     asset.save()
+
+
+class AssetStats(models.Model):
+    """Singleton stats table for fast aggregate counters."""
+
+    total_assets = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"AssetStats(total_assets={self.total_assets})"
+
+
+@receiver(post_save, sender=Asset)
+def _asset_stats_on_create(sender, instance, created, **kwargs):
+    if not created:
+        return
+    updated = AssetStats.objects.filter(id=1).update(
+        total_assets=models.F("total_assets") + 1
+    )
+    if not updated:
+        AssetStats.objects.update_or_create(
+            id=1,
+            defaults={"total_assets": Asset.objects.count()},
+        )
+
+
+@receiver(post_delete, sender=Asset)
+def _asset_stats_on_delete(sender, instance, **kwargs):
+    updated = AssetStats.objects.filter(id=1).update(
+        total_assets=models.F("total_assets") - 1
+    )
+    if not updated:
+        AssetStats.objects.update_or_create(
+            id=1,
+            defaults={"total_assets": Asset.objects.count()},
+        )
 
 
 class AssetContribution(models.Model):

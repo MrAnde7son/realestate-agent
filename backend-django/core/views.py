@@ -88,6 +88,7 @@ from .models import (
     AlertRule,
     AlertEvent,
     Asset,
+    AssetStats,
     AssetListing,
     Listing,
     SourceRecord,
@@ -2410,7 +2411,7 @@ def _cursor_value_for_field(value, field):
     return value
 
 
-def _get_total_cache_key(params, user_id):
+def _get_count_relevant_params(params, user_id):
     relevant = {
         k: v
         for k, v in params.items()
@@ -2420,6 +2421,11 @@ def _get_total_cache_key(params, user_id):
     }
     if "userAssets" in relevant:
         relevant["user_id"] = user_id
+    return relevant
+
+
+def _get_total_cache_key(params, user_id):
+    relevant = _get_count_relevant_params(params, user_id)
     payload = json.dumps(relevant, sort_keys=True, ensure_ascii=True)
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     return f"assets_count:{digest}"
@@ -3213,7 +3219,53 @@ def _get_assets_list(request):
         from django.db.models import Prefetch
 
         query_build_start = time.monotonic()
-        queryset = Asset.objects.all()
+        queryset = Asset.objects.only(
+            "id",
+            "scope_type",
+            "city",
+            "neighborhood",
+            "street",
+            "number",
+            "block",
+            "parcel",
+            "subparcel",
+            "lat",
+            "lon",
+            "normalized_address",
+            "status",
+            "building_type",
+            "floor",
+            "apartment",
+            "total_floors",
+            "rooms",
+            "bedrooms",
+            "bathrooms",
+            "area",
+            "total_area",
+            "balcony_area",
+            "parking_spaces",
+            "price",
+            "price_per_sqm",
+            "rent_estimate",
+            "rent_price",
+            "price_gap_pct",
+            "expected_price_range",
+            "model_price",
+            "confidence_pct",
+            "delta_vs_area_pct",
+            "cap_rate_pct",
+            "competition_1km",
+            "risk_flags",
+            "dom_percentile",
+            "avg_price_per_sqm",
+            "min_price_per_sqm",
+            "max_price_per_sqm",
+            "zoning",
+            "is_demo",
+            "is_commercial",
+            "last_enriched_at",
+            "created_at",
+        )
 
         if user and getattr(user, "is_authenticated", False):
             queryset = queryset.annotate(
@@ -3426,12 +3478,29 @@ def _get_assets_list(request):
                         )
             page_queryset = page_queryset.filter(cursor_filter)
 
+        count_relevant = _get_count_relevant_params(params, user_id)
         cache_key = _get_total_cache_key(params, user_id)
         total_count = cache.get(cache_key)
-        count_start = time.monotonic()
         count_cache_hit = total_count is not None
+        count_source = "cache"
+        count_start = time.monotonic()
         if total_count is None:
-            total_count = filtered_queryset.count()
+            if not count_relevant:
+                stats = AssetStats.objects.first()
+                if stats is not None:
+                    total_count = stats.total_assets
+                    count_cache_hit = True
+                    count_source = "stats"
+                else:
+                    total_count = filtered_queryset.count()
+                    AssetStats.objects.update_or_create(
+                        id=1,
+                        defaults={"total_assets": total_count},
+                    )
+                    count_source = "stats_seed"
+            else:
+                total_count = filtered_queryset.count()
+                count_source = "db"
             cache.set(
                 cache_key,
                 total_count,
@@ -3458,6 +3527,7 @@ def _get_assets_list(request):
                 "include_primary_listing": False,
                 "include_listing_raw": False,
                 "include_listings": False,
+                "list_view": True,
             },
         )
         serialized_rows = serializer.data
@@ -3484,11 +3554,12 @@ def _get_assets_list(request):
 
         logger.log(
             ASSET_TIMING_LOG_LEVEL,
-            "Assets list timing: total=%.4fs build=%.4fs count=%.4fs count_cache_hit=%s paginate=%.4fs fetch=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
+            "Assets list timing: total=%.4fs build=%.4fs count=%.4fs count_cache_hit=%s count_source=%s paginate=%.4fs fetch=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
             serialization_done - request_start,
             query_ready - query_build_start,
             count_done - count_start,
             count_cache_hit,
+            count_source,
             page_ready - query_ready,
             page_fetch_done - page_fetch_start,
             serialization_done - page_ready,

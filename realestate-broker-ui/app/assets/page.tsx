@@ -119,6 +119,7 @@ export default function AssetsPage() {
   const [nadlanImportOpen, setNadlanImportOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
@@ -1280,6 +1281,7 @@ export default function AssetsPage() {
 
   React.useEffect(() => {
     setPagination(prev => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
+    setCursorStack([]);
   }, [
     debouncedSearch,
     city,
@@ -1587,13 +1589,15 @@ export default function AssetsPage() {
     try {
       setLoading(true);
 
-      const isDefaultPageIndex = pagination.pageIndex === 0;
       const isDefaultPageSize = pagination.pageSize === DEFAULT_PAGE_SIZE;
 
       const params = buildFilterParams();
+      const cursor = pagination.pageIndex > 0 ? cursorStack[pagination.pageIndex] : null;
 
-      if (!isDefaultPageIndex) {
-        params.set("page", String(pagination.pageIndex + 1));
+      if (cursor) {
+        params.set("cursor", cursor);
+      } else {
+        params.delete("cursor");
       }
 
       if (!isDefaultPageSize) {
@@ -1658,15 +1662,12 @@ export default function AssetsPage() {
         const paginationInfo = response.data?.pagination;
         const total = paginationInfo?.total ?? rows.length;
         const pageSizeFromApi = paginationInfo?.page_size ?? pagination.pageSize;
-        const requestedPageIndex = paginationInfo
-          ? Math.max(0, (paginationInfo.page ?? 1) - 1)
-          : pagination.pageIndex;
         const lastPageIndex = total > 0 ? Math.max(0, Math.ceil(total / pageSizeFromApi) - 1) : 0;
-        const adjustedPageIndex = Math.min(requestedPageIndex, lastPageIndex);
+        const adjustedPageIndex = Math.min(pagination.pageIndex, lastPageIndex);
 
         setTotalCount(total);
 
-        if (rows.length === 0 && total > 0 && requestedPageIndex !== adjustedPageIndex) {
+        if (rows.length === 0 && total > 0 && pagination.pageIndex !== adjustedPageIndex) {
           setPagination(prev => {
             if (prev.pageIndex === adjustedPageIndex && prev.pageSize === pageSizeFromApi) {
               return prev;
@@ -1684,6 +1685,14 @@ export default function AssetsPage() {
           category: category || "all",
           total_count: total,
         });
+
+        if (paginationInfo?.next_cursor) {
+          setCursorStack(prev => {
+            const next = [...prev];
+            next[pagination.pageIndex + 1] = paginationInfo.next_cursor as string;
+            return next;
+          });
+        }
 
         if (paginationInfo) {
           setPagination(prev => {
@@ -1719,7 +1728,13 @@ export default function AssetsPage() {
   // Reset to first page when sorting changes
   React.useEffect(() => {
     setPagination(prev => (prev.pageIndex !== 0 ? { ...prev, pageIndex: 0 } : prev));
+    setCursorStack([]);
   }, [sorting]);
+
+  React.useEffect(() => {
+    setPagination(prev => (prev.pageIndex !== 0 ? { ...prev, pageIndex: 0 } : prev));
+    setCursorStack([]);
+  }, [pagination.pageSize]);
 
   // Fetch filter metadata once on initial load
   React.useEffect(() => {
@@ -1823,11 +1838,13 @@ export default function AssetsPage() {
       baseParams.set("pageSize", String(EXPORT_PAGE_SIZE));
 
       const allAssets: Asset[] = [];
-      let page = 1;
+      let cursor: string | null = null;
 
       while (true) {
         const pageParams = new URLSearchParams(baseParams);
-        pageParams.set("page", String(page));
+        if (cursor) {
+          pageParams.set("cursor", cursor);
+        }
 
         const query = pageParams.toString();
         const endpoint = query ? `/api/assets?${query}` : "/api/assets";
@@ -1841,27 +1858,9 @@ export default function AssetsPage() {
         allAssets.push(...rows);
 
         const paginationInfo = response.data?.pagination;
+        cursor = paginationInfo?.next_cursor ?? null;
 
-        if (!paginationInfo) {
-          if (rows.length < EXPORT_PAGE_SIZE) {
-            break;
-          }
-        } else {
-          const total = paginationInfo.total ?? allAssets.length;
-          const pageSizeFromApi = paginationInfo.page_size ?? EXPORT_PAGE_SIZE;
-          const currentPage = paginationInfo.page ?? page;
-
-          if (pageSizeFromApi <= 0) {
-            break;
-          }
-          if (currentPage * pageSizeFromApi >= total) {
-            break;
-          }
-        }
-
-        page += 1;
-        if (page > 1000) {
-          console.warn("Aborting export after 1000 pages to prevent infinite loop");
+        if (!cursor || rows.length < EXPORT_PAGE_SIZE) {
           break;
         }
       }

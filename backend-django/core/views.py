@@ -4,8 +4,10 @@ import statistics
 import re
 import os
 import secrets
+import base64
+import hashlib
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional, Any, List
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.utils import timezone
+from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -2344,6 +2347,84 @@ def _parse_bool(value):
     return None
 
 
+def _encode_cursor(value, obj_id):
+    if isinstance(value, (datetime, date)):
+        value = value.isoformat()
+    elif isinstance(value, Decimal):
+        value = str(value)
+    payload = {"value": value, "id": obj_id}
+    raw = json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii")
+
+
+def _decode_cursor(cursor):
+    if not cursor:
+        return None
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode("ascii"))
+        data = json.loads(raw.decode("utf-8"))
+        if not isinstance(data, dict):
+            return None
+        return {"value": data.get("value"), "id": data.get("id")}
+    except (ValueError, json.JSONDecodeError):
+        return None
+
+
+def _cursor_value_for_field(value, field):
+    if value is None:
+        return None
+    if isinstance(field, models.DateTimeField):
+        if isinstance(value, str):
+            try:
+                parsed = datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        elif isinstance(value, datetime):
+            parsed = value
+        else:
+            return None
+        if timezone.is_naive(parsed):
+            return timezone.make_aware(parsed, timezone.get_current_timezone())
+        return parsed
+    if isinstance(field, models.DateField):
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value).date()
+            except ValueError:
+                return None
+        if isinstance(value, datetime):
+            return value.date()
+        return value if isinstance(value, date) else None
+    if isinstance(field, (models.IntegerField, models.AutoField, models.BigIntegerField)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+    if isinstance(field, (models.FloatField, models.DecimalField)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    if isinstance(field, models.BooleanField):
+        return bool(value)
+    return value
+
+
+def _get_total_cache_key(params, user_id):
+    relevant = {
+        k: v
+        for k, v in params.items()
+        if k
+        and v not in (None, "", "all")
+        and k not in {"page", "pageSize", "page_size", "limit", "cursor", "cursor_dir"}
+    }
+    if "userAssets" in relevant:
+        relevant["user_id"] = user_id
+    payload = json.dumps(relevant, sort_keys=True, ensure_ascii=True)
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"assets_count:{digest}"
+
+
 def _apply_asset_filters(queryset, params, user):
     search = params.get("search")
     if search:
@@ -3304,25 +3385,84 @@ def _get_assets_list(request):
             if ordering_field in ordering_map:
                 mapped_field = ordering_map[ordering_field]
                 ordering_prefix = "-" if ordering_param.startswith("-") else ""
-                queryset = queryset.order_by(f"{ordering_prefix}{mapped_field}", "-id")
             else:
                 # Default ordering if field not recognized
-                queryset = queryset.order_by("-created_at", "-id")
+                mapped_field = "created_at"
+                ordering_prefix = "-"
         else:
-            # Default ordering if no ordering parameter
-            queryset = queryset.order_by("-created_at", "-id")
-        paginator = Paginator(queryset, page_size)
+            mapped_field = "created_at"
+            ordering_prefix = "-"
+
+        ordering_desc = ordering_prefix == "-"
+        queryset = queryset.order_by(
+            f"{ordering_prefix}{mapped_field}",
+            f"{ordering_prefix}id",
+        )
+
+        cursor_data = _decode_cursor(params.get("cursor"))
+        cursor_dir = params.get("cursor_dir", "next")
+        cursor_value = None
+        cursor_id = None
+        if cursor_data:
+            cursor_value = cursor_data.get("value")
+            cursor_id = cursor_data.get("id")
+
+            field = None
+            if mapped_field and "__" not in mapped_field and not mapped_field.startswith("_"):
+                try:
+                    field = Asset._meta.get_field(mapped_field)
+                except Exception:
+                    field = None
+            if field:
+                cursor_value = _cursor_value_for_field(cursor_value, field)
+
+        if cursor_id is not None:
+            if cursor_value is None:
+                if ordering_desc:
+                    cursor_filter = Q(id__lt=cursor_id) if cursor_dir != "prev" else Q(id__gt=cursor_id)
+                else:
+                    cursor_filter = Q(id__gt=cursor_id) if cursor_dir != "prev" else Q(id__lt=cursor_id)
+            else:
+                if ordering_desc:
+                    if cursor_dir == "prev":
+                        cursor_filter = Q(**{f"{mapped_field}__gt": cursor_value}) | (
+                            Q(**{mapped_field: cursor_value}) & Q(id__gt=cursor_id)
+                        )
+                    else:
+                        cursor_filter = Q(**{f"{mapped_field}__lt": cursor_value}) | (
+                            Q(**{mapped_field: cursor_value}) & Q(id__lt=cursor_id)
+                        )
+                else:
+                    if cursor_dir == "prev":
+                        cursor_filter = Q(**{f"{mapped_field}__lt": cursor_value}) | (
+                            Q(**{mapped_field: cursor_value}) & Q(id__lt=cursor_id)
+                        )
+                    else:
+                        cursor_filter = Q(**{f"{mapped_field}__gt": cursor_value}) | (
+                            Q(**{mapped_field: cursor_value}) & Q(id__gt=cursor_id)
+                        )
+            queryset = queryset.filter(cursor_filter)
+
         count_start = time.monotonic()
-        total_count = paginator.count
+        cache_key = _get_total_cache_key(params, user_id)
+        total_count = cache.get(cache_key)
+        if total_count is None:
+            total_count = queryset.count()
+            cache.set(
+                cache_key,
+                total_count,
+                getattr(settings, "ASSET_COUNT_CACHE_SECONDS", 300),
+            )
         count_done = time.monotonic()
-        try:
-            page_obj = paginator.page(page)
-        except (EmptyPage, PageNotAnInteger):
-            page_obj = paginator.page(1)
+
         page_ready = time.monotonic()
         page_fetch_start = time.monotonic()
-        page_items = list(page_obj.object_list)
+        page_items = list(queryset[: page_size + 1])
         page_fetch_done = time.monotonic()
+        has_more = len(page_items) > page_size
+        if has_more:
+            page_items = page_items[:page_size]
+        page_number = _parse_positive_int(params.get("page"), 1)
 
         serializer = AssetSerializer(
             page_items,
@@ -3338,6 +3478,25 @@ def _get_assets_list(request):
         serialized_rows = serializer.data
         serialization_done = time.monotonic()
 
+        next_cursor = None
+        prev_cursor = None
+        if page_items:
+            first_item = page_items[0]
+            last_item = page_items[-1]
+            first_value = getattr(first_item, mapped_field, None)
+            last_value = getattr(last_item, mapped_field, None)
+            prev_cursor = _encode_cursor(first_value, first_item.id)
+            if has_more:
+                next_cursor = _encode_cursor(last_value, last_item.id)
+
+        total_pages = (
+            max(1, (total_count + page_size - 1) // page_size)
+            if total_count
+            else 1
+        )
+        has_previous = cursor_id is not None
+        has_next = bool(next_cursor)
+
         logger.log(
             ASSET_TIMING_LOG_LEVEL,
             "Assets list timing: total=%.4fs build=%.4fs count=%.4fs paginate=%.4fs fetch=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
@@ -3347,7 +3506,7 @@ def _get_assets_list(request):
             page_ready - query_ready,
             page_fetch_done - page_fetch_start,
             serialization_done - page_ready,
-            page,
+            page_number,
             page_size,
             total_count,
             params.get("ordering"),
@@ -3358,12 +3517,14 @@ def _get_assets_list(request):
             {
                 "rows": serialized_rows,
                 "pagination": {
-                    "page": page_obj.number,
+                    "page": page_number,
                     "page_size": page_size,
                     "total": total_count,
-                    "total_pages": paginator.num_pages,
-                    "has_next": page_obj.has_next(),
-                    "has_previous": page_obj.has_previous(),
+                    "total_pages": total_pages,
+                    "has_next": has_next,
+                    "has_previous": has_previous,
+                    "next_cursor": next_cursor,
+                    "prev_cursor": prev_cursor,
                 },
             }
         )

@@ -212,6 +212,19 @@ class AssetSerializer(MetaSerializerMixin):
         include_primary_listing = self.context.get("include_primary_listing", True)
         if not include_primary_listing:
             self.fields.pop("primary_listing", None)
+        include_listings = self.context.get("include_listings", True)
+        if not include_listings:
+            for field_name in (
+                "listing_type",
+                "ad_type",
+                "contact_name",
+                "contact_phone",
+                "recent_deal",
+                "video_url",
+                "photos",
+                "primary_listing",
+            ):
+                self.fields.pop(field_name, None)
 
     def to_representation(self, instance):
         start = time.monotonic()
@@ -221,12 +234,13 @@ class AssetSerializer(MetaSerializerMixin):
             context = self.context if isinstance(self.context, dict) else {}
             logger.log(
                 SLOW_ASSET_SERIALIZE_LOG_LEVEL,
-                "Slow asset serialization: asset_id=%s duration=%.4fs include_meta=%s include_primary_listing=%s include_listing_raw=%s",
+                "Slow asset serialization: asset_id=%s duration=%.4fs include_meta=%s include_primary_listing=%s include_listing_raw=%s include_listings=%s",
                 getattr(instance, "id", None),
                 duration,
                 context.get("include_meta", True),
                 context.get("include_primary_listing", True),
                 context.get("include_listing_raw", True),
+                context.get("include_listings", True),
             )
         return data
 
@@ -272,6 +286,8 @@ class AssetSerializer(MetaSerializerMixin):
         value = getattr(obj, "rent_price", None)
         if value not in (None, ""):
             return value
+        if not self.context.get("include_listings", True):
+            return None
         if self.context.get("include_meta", True):
             meta = getattr(obj, "meta", {}) or {}
             listing_prices = meta.get("listing_prices")
@@ -321,6 +337,9 @@ class AssetSerializer(MetaSerializerMixin):
                 if listing_val not in (None, ""):
                     obj._serializer_price_cache = listing_val
                     return listing_val
+        if not self.context.get("include_listings", True):
+            obj._serializer_price_cache = None
+            return None
         # Fallback to primary listing normalized data
         primary_price = self._get_primary_value(
             obj, "price", "price_value", "listing_price"
@@ -340,6 +359,8 @@ class AssetSerializer(MetaSerializerMixin):
         direct_value = getattr(obj, "price_per_sqm", None)
         if direct_value not in (None, ""):
             return direct_value
+        if not self.context.get("include_listings", True):
+            return None
         # Try primary listing's direct ppm
         primary_ppm = self._get_primary_value(obj, "price_per_sqm", "pricePerSqm")
         if primary_ppm not in (None, ""):
@@ -651,6 +672,8 @@ class AssetSerializer(MetaSerializerMixin):
         return True
 
     def _get_primary_listing_instance(self, obj):
+        if not self.context.get("include_listings", True):
+            return None
         return self._timed_field(
             "primary_listing_instance",
             obj,
@@ -710,6 +733,9 @@ class AssetSerializer(MetaSerializerMixin):
         if hasattr(obj, "_primary_listing_data_cache"):
             return obj._primary_listing_data_cache
 
+        if not self.context.get("include_listings", True):
+            obj._primary_listing_data_cache = None
+            return None
         listing = self._get_primary_listing_instance(obj)
         if not listing:
             obj._primary_listing_data_cache = None
@@ -822,6 +848,8 @@ class AssetSerializer(MetaSerializerMixin):
         )
 
     def _get_photos_value(self, obj):
+        if not self.context.get("include_listings", True):
+            return []
         data = self._get_primary_listing_data(obj)
         if not data:
             return []

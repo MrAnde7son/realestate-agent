@@ -3213,25 +3213,7 @@ def _get_assets_list(request):
         from django.db.models import Prefetch
 
         query_build_start = time.monotonic()
-        # Only fetch fields needed for primary listing calculation and price/type lookups
-        listings_prefetch = Prefetch(
-            "listings_m2m",
-            queryset=Listing.objects.only(
-                "id",
-                "address",
-                "price",
-                "area",
-                "listing_type",
-                "ad_type",
-                "contact_name",
-                "contact_phone",
-                "fetched_at",
-                "recent_deal",
-                "video_url",
-                "photos",
-            ).order_by("id"),
-        )
-        queryset = Asset.objects.all().prefetch_related(listings_prefetch)
+        queryset = Asset.objects.all()
 
         if user and getattr(user, "is_authenticated", False):
             queryset = queryset.annotate(
@@ -3473,6 +3455,7 @@ def _get_assets_list(request):
                 "request": request,
                 "include_primary_listing": False,
                 "include_listing_raw": False,
+                "include_listings": False,
             },
         )
         serialized_rows = serializer.data

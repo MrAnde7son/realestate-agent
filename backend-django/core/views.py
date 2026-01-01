@@ -3295,6 +3295,7 @@ def _get_assets_list(request):
         # Note: Some SerializerMethodFields may access meta, but they'll trigger minimal
         # additional queries only when needed, which is still faster than loading meta for all assets
         queryset = queryset.defer("meta")
+        filtered_queryset = queryset
         query_ready = time.monotonic()
 
         # Handle ordering parameter
@@ -3376,7 +3377,7 @@ def _get_assets_list(request):
             ordering_prefix = "-"
 
         ordering_desc = ordering_prefix == "-"
-        queryset = queryset.order_by(
+        page_queryset = queryset.order_by(
             f"{ordering_prefix}{mapped_field}",
             f"{ordering_prefix}id",
         )
@@ -3423,13 +3424,14 @@ def _get_assets_list(request):
                         cursor_filter = Q(**{f"{mapped_field}__gt": cursor_value}) | (
                             Q(**{mapped_field: cursor_value}) & Q(id__gt=cursor_id)
                         )
-            queryset = queryset.filter(cursor_filter)
+            page_queryset = page_queryset.filter(cursor_filter)
 
-        count_start = time.monotonic()
         cache_key = _get_total_cache_key(params, user_id)
         total_count = cache.get(cache_key)
+        count_start = time.monotonic()
+        count_cache_hit = total_count is not None
         if total_count is None:
-            total_count = queryset.count()
+            total_count = filtered_queryset.count()
             cache.set(
                 cache_key,
                 total_count,
@@ -3439,7 +3441,7 @@ def _get_assets_list(request):
 
         page_ready = time.monotonic()
         page_fetch_start = time.monotonic()
-        page_items = list(queryset[: page_size + 1])
+        page_items = list(page_queryset[: page_size + 1])
         page_fetch_done = time.monotonic()
         has_more = len(page_items) > page_size
         if has_more:
@@ -3482,10 +3484,11 @@ def _get_assets_list(request):
 
         logger.log(
             ASSET_TIMING_LOG_LEVEL,
-            "Assets list timing: total=%.4fs build=%.4fs count=%.4fs paginate=%.4fs fetch=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
+            "Assets list timing: total=%.4fs build=%.4fs count=%.4fs count_cache_hit=%s paginate=%.4fs fetch=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
             serialization_done - request_start,
             query_ready - query_build_start,
             count_done - count_start,
+            count_cache_hit,
             page_ready - query_ready,
             page_fetch_done - page_fetch_start,
             serialization_done - page_ready,

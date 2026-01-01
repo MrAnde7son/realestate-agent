@@ -194,6 +194,7 @@ class AssetSerializer(MetaSerializerMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._listing_address_parts_cache = {}
         include_meta = self.context.get("include_meta", True)
         if not include_meta:
             # Remove the raw meta blob for lightweight responses
@@ -554,6 +555,43 @@ class AssetSerializer(MetaSerializerMixin):
 
         return True
 
+    def _extract_street_and_number_cached(
+        self, address: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        if address in self._listing_address_parts_cache:
+            return self._listing_address_parts_cache[address]
+        parts = self._extract_street_and_number(address)
+        self._listing_address_parts_cache[address] = parts
+        return parts
+
+    def _matches_street_and_number_parts(
+        self,
+        asset_parts: Tuple[Optional[str], Optional[str]],
+        listing_address: str,
+    ) -> bool:
+        street1, num1 = asset_parts
+        if not (street1 and num1):
+            return False
+
+        street2, num2 = self._extract_street_and_number_cached(listing_address)
+        if not (street2 and num2):
+            return False
+
+        if street1 != street2:
+            return False
+
+        if num1 != num2:
+            return False
+
+        try:
+            int1, int2 = int(num1), int(num2)
+            if int1 != int2:
+                return False
+        except (ValueError, TypeError):
+            pass
+
+        return True
+
     def _get_primary_listing_instance(self, obj):
         if hasattr(obj, "_primary_listing_instance_cache"):
             return obj._primary_listing_instance_cache
@@ -577,6 +615,7 @@ class AssetSerializer(MetaSerializerMixin):
             return None
 
         asset_address = normalized_addr.lower()
+        asset_parts = self._extract_street_and_number(asset_address)
 
         # Find the best matching listing - same logic as _find_best_listing
         for listing in listings:
@@ -592,7 +631,9 @@ class AssetSerializer(MetaSerializerMixin):
                 return listing
 
             # Check for exact street + number match (e.g., "ארלוזורוב 59")
-            if self._matches_street_and_number(asset_address, listing_address):
+            if self._matches_street_and_number_parts(
+                asset_parts, listing_address
+            ):
                 obj._primary_listing_instance_cache = listing
                 return listing
 

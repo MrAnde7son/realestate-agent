@@ -100,3 +100,34 @@ class AssetListingsUiTests(TestCase):
         private_ids = {row["id"] for row in response.json()["rows"]}
         self.assertIn(self.asset_rent.id, private_ids)
         self.assertNotIn(self.asset_sale.id, private_ids)
+
+    def test_assets_endpoint_prefers_address_matched_listing(self):
+        asset = Asset.objects.create(
+            scope_type="address",
+            city="Tel Aviv",
+            normalized_address="match street 9",
+        )
+        Listing.objects.create(
+            source="yad2",
+            external_id="mismatch-1",
+            listing_type="sale",
+            ad_type="broker",
+            contact_name="Nope",
+            address="other street 9",
+        ).assets.add(asset)
+        Listing.objects.create(
+            source="yad2",
+            external_id="match-1",
+            listing_type="rent",
+            ad_type="private",
+            contact_name="Yep",
+            address="match street 9",
+        ).assets.add(asset)
+
+        response = self.client.get("/api/assets")
+        self.assertEqual(response.status_code, 200)
+
+        row = next(item for item in response.json()["rows"] if item["id"] == asset.id)
+        self.assertEqual(row.get("listing_type"), "rent")
+        self.assertEqual(row.get("ad_type"), "private")
+        self.assertEqual(row.get("contact_name"), "Yep")

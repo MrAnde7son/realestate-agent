@@ -43,6 +43,16 @@ if isinstance(SLOW_ASSET_SERIALIZE_LOG_LEVEL, str):
     SLOW_ASSET_SERIALIZE_LOG_LEVEL = getattr(
         logging, SLOW_ASSET_SERIALIZE_LOG_LEVEL.upper(), logging.WARNING
     )
+SLOW_ASSET_FIELD_SECONDS = getattr(
+    settings, "ASSET_SERIALIZER_FIELD_SLOW_LOG_SECONDS", 0.02
+)
+SLOW_ASSET_FIELD_LOG_LEVEL = getattr(
+    settings, "ASSET_SERIALIZER_FIELD_LOG_LEVEL", "WARNING"
+)
+if isinstance(SLOW_ASSET_FIELD_LOG_LEVEL, str):
+    SLOW_ASSET_FIELD_LOG_LEVEL = getattr(
+        logging, SLOW_ASSET_FIELD_LOG_LEVEL.upper(), logging.WARNING
+    )
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -220,6 +230,28 @@ class AssetSerializer(MetaSerializerMixin):
             )
         return data
 
+    def _log_field_timing(self, field_name, instance, duration):
+        if duration < SLOW_ASSET_FIELD_SECONDS:
+            return
+        context = self.context if isinstance(self.context, dict) else {}
+        logger.log(
+            SLOW_ASSET_FIELD_LOG_LEVEL,
+            "Slow asset field: asset_id=%s field=%s duration=%.4fs include_meta=%s include_primary_listing=%s include_listing_raw=%s",
+            getattr(instance, "id", None),
+            field_name,
+            duration,
+            context.get("include_meta", True),
+            context.get("include_primary_listing", True),
+            context.get("include_listing_raw", True),
+        )
+
+    def _timed_field(self, field_name, instance, func):
+        start = time.monotonic()
+        result = func()
+        duration = time.monotonic() - start
+        self._log_field_timing(field_name, instance, duration)
+        return result
+
     def get_zoning(self, obj):
         value = getattr(obj, "zoning", None)
         if value not in (None, ""):
@@ -251,10 +283,16 @@ class AssetSerializer(MetaSerializerMixin):
 
     def get_price(self, obj):
         """Return explicit asset price or fallback to primary listing price."""
+        return self._timed_field(
+            "price",
+            obj,
+            lambda: self._get_price_value(obj),
+        )
+
+    def _get_price_value(self, obj):
         cached = getattr(obj, "_serializer_price_cache", None)
         if cached is not None:
             return cached
-
         value = getattr(obj, "price", None)
         if value not in (None, ""):
             obj._serializer_price_cache = value
@@ -292,6 +330,13 @@ class AssetSerializer(MetaSerializerMixin):
 
     def get_price_per_sqm(self, obj):
         """Return explicit asset price_per_sqm or compute from price and area/size."""
+        return self._timed_field(
+            "price_per_sqm",
+            obj,
+            lambda: self._get_price_per_sqm_value(obj),
+        )
+
+    def _get_price_per_sqm_value(self, obj):
         direct_value = getattr(obj, "price_per_sqm", None)
         if direct_value not in (None, ""):
             return direct_value
@@ -301,7 +346,7 @@ class AssetSerializer(MetaSerializerMixin):
             return primary_ppm
         # Compute from price and area if available
         # Prefer total_area over area (consistent with enrichment pipeline)
-        price_val = self.get_price(obj)
+        price_val = self._get_price_value(obj)
         area_val = getattr(obj, "total_area", None)
         if area_val in (None, ""):
             area_val = getattr(obj, "area", None)
@@ -318,25 +363,38 @@ class AssetSerializer(MetaSerializerMixin):
 
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
+        return self._timed_field(
+            "address",
+            obj,
+            lambda: self._get_address_value(obj),
+        )
+
+    def _get_address_value(self, obj):
         if obj.normalized_address:
             return obj.normalized_address
-        else:
-            # Build address from components
-            parts = []
-            if obj.street:
-                parts.append(obj.street)
-            if obj.number:
-                parts.append(str(obj.number))
-            if obj.building_type and obj.floor:
-                parts.append(f"{obj.building_type} {obj.floor}")
-            if obj.apartment:
-                parts.append(f"דירה {obj.apartment}")
-            if obj.city:
-                parts.append(obj.city)
-            return " ".join(parts) if parts else None
+        # Build address from components
+        parts = []
+        if obj.street:
+            parts.append(obj.street)
+        if obj.number:
+            parts.append(str(obj.number))
+        if obj.building_type and obj.floor:
+            parts.append(f"{obj.building_type} {obj.floor}")
+        if obj.apartment:
+            parts.append(f"דירה {obj.apartment}")
+        if obj.city:
+            parts.append(obj.city)
+        return " ".join(parts) if parts else None
 
     def get_type(self, obj):
         """Get property type from building_type or fallback to Yad2 listings."""
+        return self._timed_field(
+            "type",
+            obj,
+            lambda: self._get_type_value(obj),
+        )
+
+    def _get_type_value(self, obj):
         # First try the direct building_type field
         if obj.building_type:
             return obj.building_type
@@ -593,6 +651,13 @@ class AssetSerializer(MetaSerializerMixin):
         return True
 
     def _get_primary_listing_instance(self, obj):
+        return self._timed_field(
+            "primary_listing_instance",
+            obj,
+            lambda: self._get_primary_listing_instance_value(obj),
+        )
+
+    def _get_primary_listing_instance_value(self, obj):
         if hasattr(obj, "_primary_listing_instance_cache"):
             return obj._primary_listing_instance_cache
 
@@ -750,6 +815,13 @@ class AssetSerializer(MetaSerializerMixin):
         return self._get_primary_value(obj, "video_url", "video", "videoUrl")
 
     def get_photos(self, obj):
+        return self._timed_field(
+            "photos",
+            obj,
+            lambda: self._get_photos_value(obj),
+        )
+
+    def _get_photos_value(self, obj):
         data = self._get_primary_listing_data(obj)
         if not data:
             return []
@@ -757,6 +829,13 @@ class AssetSerializer(MetaSerializerMixin):
         return photos or []
 
     def get_isWatched(self, obj):
+        return self._timed_field(
+            "is_watched",
+            obj,
+            lambda: self._get_is_watched_value(obj),
+        )
+
+    def _get_is_watched_value(self, obj):
         annotated_value = getattr(obj, "is_watched", None)
         if annotated_value is not None:
             return bool(annotated_value)

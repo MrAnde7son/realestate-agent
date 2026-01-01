@@ -3312,14 +3312,20 @@ def _get_assets_list(request):
             # Default ordering if no ordering parameter
             queryset = queryset.order_by("-created_at", "-id")
         paginator = Paginator(queryset, page_size)
+        count_start = time.monotonic()
+        total_count = paginator.count
+        count_done = time.monotonic()
         try:
             page_obj = paginator.page(page)
         except (EmptyPage, PageNotAnInteger):
             page_obj = paginator.page(1)
         page_ready = time.monotonic()
+        page_fetch_start = time.monotonic()
+        page_items = list(page_obj.object_list)
+        page_fetch_done = time.monotonic()
 
         serializer = AssetSerializer(
-            page_obj.object_list,
+            page_items,
             many=True,
             context={
                 "include_documents": False,
@@ -3331,14 +3337,15 @@ def _get_assets_list(request):
         )
         serialized_rows = serializer.data
         serialization_done = time.monotonic()
-        total_count = paginator.count
 
         logger.log(
             ASSET_TIMING_LOG_LEVEL,
-            "Assets list timing: total=%.4fs build=%.4fs paginate=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
+            "Assets list timing: total=%.4fs build=%.4fs count=%.4fs paginate=%.4fs fetch=%.4fs serialize=%.4fs page=%s page_size=%s total_count=%s ordering=%s filters=%s user_id=%s",
             serialization_done - request_start,
             query_ready - query_build_start,
+            count_done - count_start,
             page_ready - query_ready,
+            page_fetch_done - page_fetch_start,
             serialization_done - page_ready,
             page,
             page_size,

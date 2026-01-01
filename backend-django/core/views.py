@@ -2432,6 +2432,7 @@ def _get_total_cache_key(params, user_id):
 
 
 def _apply_asset_filters(queryset, params, user):
+    needs_distinct = False
     search = params.get("search")
     if search:
         queryset = queryset.filter(
@@ -2496,10 +2497,12 @@ def _apply_asset_filters(queryset, params, user):
 
     documents_filter = params.get("documents")
     if documents_filter == "with":
+        needs_distinct = True
         queryset = queryset.filter(
             Q(documents__isnull=False) | Q(documents_m2m__isnull=False)
         )
     elif documents_filter == "without":
+        needs_distinct = True
         queryset = queryset.filter(documents__isnull=True, documents_m2m__isnull=True)
 
     status_filter = params.get("status")
@@ -2695,6 +2698,7 @@ def _apply_asset_filters(queryset, params, user):
     source_filter = params.get("source")
     if source_filter and source_filter != "all":
         normalized_source = str(source_filter).strip().lower()
+        needs_distinct = True
         queryset = queryset.filter(
             Q(listings_m2m__source__iexact=normalized_source)
             | Q(meta__primary_source__iexact=normalized_source)
@@ -2719,6 +2723,7 @@ def _apply_asset_filters(queryset, params, user):
         elif user_assets == "others":
             queryset = queryset.exclude(created_by=user)
         elif user_assets in {"watchlist", "tracked"}:
+            needs_distinct = True
             queryset = queryset.filter(watchers=user)
 
     building_type = params.get("buildingType")
@@ -2998,7 +3003,7 @@ def _apply_asset_filters(queryset, params, user):
             | Q(meta__schoolsWithin500m=schools_within_500m_filter)
         )
 
-    return queryset.distinct()
+    return queryset.distinct() if needs_distinct else queryset
 
 
 def _get_asset_filter_metadata():

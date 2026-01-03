@@ -120,6 +120,7 @@ export default function AssetsPage() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const cursorStackRef = React.useRef<string[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
@@ -1584,6 +1585,10 @@ export default function AssetsPage() {
     }
   }, [filterMetadata.cities.length]);
 
+  React.useEffect(() => {
+    cursorStackRef.current = cursorStack;
+  }, [cursorStack]);
+
   const fetchAssets = React.useCallback(async () => {
 
     try {
@@ -1592,7 +1597,7 @@ export default function AssetsPage() {
       const isDefaultPageSize = pagination.pageSize === DEFAULT_PAGE_SIZE;
 
       const params = buildFilterParams();
-      const cursor = pagination.pageIndex > 0 ? cursorStack[pagination.pageIndex] : null;
+      const cursor = pagination.pageIndex > 0 ? cursorStackRef.current[pagination.pageIndex] : null;
 
       if (cursor) {
         params.set("cursor", cursor);
@@ -1717,13 +1722,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-    buildFilterParams,
-    typeFilter,
-  ]);
+  }, [pagination.pageIndex, pagination.pageSize, sorting, buildFilterParams, typeFilter]);
 
   // Reset to first page when sorting changes
   React.useEffect(() => {

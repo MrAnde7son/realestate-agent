@@ -885,6 +885,7 @@ interface AssetsTableProps {
     importAction?: { label: string; onClick: () => void; icon?: React.ReactNode }
     bulkActions: Array<{ label: string; onClick: () => void; icon?: React.ReactNode; disabled?: boolean }>
     onResetColumns?: () => void
+    selectionKey: string
   }) => void
 }
 
@@ -1277,6 +1278,11 @@ export default function AssetsTable({
     [bulkActions, selectedAssets, clearSelection]
   )
 
+  const selectionKey = React.useMemo(() => {
+    if (!selectedAssets.length) return ''
+    return selectedAssets.map(asset => asset.id).sort((a, b) => a - b).join(',')
+  }, [selectedAssets])
+
   // Bulk actions for callback (TableActionsToolbar expects onClick)
   const toolbarBulkActionsForCallback = React.useMemo(
     () =>
@@ -1317,6 +1323,7 @@ export default function AssetsTable({
     importAction,
     bulkActions: toolbarBulkActionsForCallback,
     onResetColumns: handleResetColumns,
+    selectionKey,
   }), [
     toolbarColumns,
     selectedCount, // Add selectedCount as explicit dependency
@@ -1330,6 +1337,7 @@ export default function AssetsTable({
     importAction,
     toolbarBulkActionsForCallback,
     handleResetColumns,
+    selectionKey,
   ])
 
   React.useEffect(() => {
@@ -1337,11 +1345,10 @@ export default function AssetsTable({
     
     // Create a stable string representation to compare
     const selectedCount = table.getSelectedRowModel().rows.length
-    const selectedIds = table.getSelectedRowModel().rows.map(r => r.id).sort().join(',')
     const propsKey = JSON.stringify({
       columnsCount: toolbarColumns.length,
       selectedCount,
-      selectedIds, // Track actual selection to detect changes
+      selectionKey, // Track actual selection to detect changes
       totalCount: recordCount,
       exportingAll,
       loading,
@@ -1363,6 +1370,7 @@ export default function AssetsTable({
     loading,
     toolbarBulkActions.length,
     toolbarActionsProps, // Include to ensure updated props are passed
+    selectionKey,
     // Note: We compare meaningful values to prevent infinite loops
   ])
 

@@ -681,4 +681,26 @@ describe('AssetDetailPage', () => {
     const firstTab = await screen.findByRole('tab', { name: 'ניתוח כללי' })
     expect(firstTab.className).toContain('bg-background')
   })
+
+  it('renders the delete confirmation dialog with mobile-friendly classes', async () => {
+    await act(async () => {
+      render(<AssetDetailPageClient assetId="1" />)
+    })
+
+    await screen.findByRole('tablist')
+
+    const deleteAction = await screen.findByRole('menuitem', { name: 'מחק נכס' })
+
+    await act(async () => {
+      fireEvent.click(deleteAction)
+    })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.className).toContain('w-[95vw]')
+    expect(dialog.className).toContain('sm:max-w-md')
+
+    const addresses = await screen.findAllByText('Test Street 1')
+    const modalAddress = addresses.find((address) => address.className.includes('break-words'))
+    expect(modalAddress).toBeTruthy()
+  })
 })

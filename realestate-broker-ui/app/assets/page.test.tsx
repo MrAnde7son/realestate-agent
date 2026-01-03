@@ -22,6 +22,18 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
 import AssetsPage from './page'
+const mockTableActionsToolbar = vi.fn(({ bulkActions }: { bulkActions?: Array<{ label: string; onClick: () => void }> }) => (
+  <div data-testid="table-actions-toolbar">
+    {bulkActions?.map((action) => (
+      <button key={action.label} onClick={action.onClick}>
+        {action.label}
+      </button>
+    ))}
+  </div>
+))
+
+let mockToolbarPayload: any = null
+
 const mockAssetsTable = vi.fn(({ 
   data,
   loading,
@@ -29,6 +41,7 @@ const mockAssetsTable = vi.fn(({
   searchValue,
   onSearchChange,
   onDelete,
+  onToolbarActionsReady,
   viewMode = 'table',
   onViewModeChange
 }: {
@@ -38,42 +51,55 @@ const mockAssetsTable = vi.fn(({
   onAddNew?: () => void,
   searchValue?: string,
   onSearchChange?: (value: string) => void,
+  onToolbarActionsReady?: (props: any) => void,
   viewMode?: 'table' | 'cards' | 'map',
   onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
-}) => (
-  <div
-    data-testid="assets-table"
-    data-has-delete={onDelete ? 'true' : 'false'}
-    data-view-mode={viewMode}
-  >
-    {/* Mock TableToolbar */}
-    <div className="p-3 border-b">
-      <div className="flex gap-2 items-center">
-        <input
-          placeholder="חיפוש בכתובת או עיר..."
-          value={searchValue || ''}
-          onChange={(e) => onSearchChange?.(e.target.value)}
-          className="px-3 py-1 border rounded"
-        />
-        <button onClick={onAddNew} className="px-3 py-1 bg-blue-500 text-white rounded">
-          הוסף חדש
-        </button>
-        <button className="px-3 py-1 border rounded">
-          רענן
-        </button>
-        <button className="px-3 py-1 border rounded" onClick={() => onViewModeChange?.('cards')}>
-          סינון
-        </button>
+}) => {
+  React.useEffect(() => {
+    if (onToolbarActionsReady && mockToolbarPayload) {
+      onToolbarActionsReady(mockToolbarPayload)
+    }
+  })
+
+  return (
+    <div
+      data-testid="assets-table"
+      data-has-delete={onDelete ? 'true' : 'false'}
+      data-view-mode={viewMode}
+    >
+      {/* Mock TableToolbar */}
+      <div className="p-3 border-b">
+        <div className="flex gap-2 items-center">
+          <input
+            placeholder="חיפוש בכתובת או עיר..."
+            value={searchValue || ''}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            className="px-3 py-1 border rounded"
+          />
+          <button onClick={onAddNew} className="px-3 py-1 bg-blue-500 text-white rounded">
+            הוסף חדש
+          </button>
+          <button className="px-3 py-1 border rounded">
+            רענן
+          </button>
+          <button className="px-3 py-1 border rounded" onClick={() => onViewModeChange?.('cards')}>
+            סינון
+          </button>
+        </div>
+      </div>
+      <div>
+        {loading ? 'Loading...' : `${data?.length || 0} assets`}
       </div>
     </div>
-    <div>
-      {loading ? 'Loading...' : `${data?.length || 0} assets`}
-    </div>
-  </div>
-))
+  )
+})
 
 vi.mock('@/components/AssetsTable', () => ({
   default: (props: any) => mockAssetsTable(props)
+}))
+
+vi.mock('@/components/layout/table-actions-toolbar', () => ({
+  TableActionsToolbar: (props: any) => mockTableActionsToolbar(props)
 }))
 
 // Mock fetch globally
@@ -138,6 +164,8 @@ describe('AssetsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAssetsTable.mockClear()
+    mockTableActionsToolbar.mockClear()
+    mockToolbarPayload = null
     mockUseAuth.isAuthenticated = true
     mockUseAuth.user = { id: '1', name: 'Test User', role: 'broker' } as any
     ;(useRouter as any).mockReturnValue(mockUseRouter)
@@ -665,6 +693,47 @@ describe('AssetsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('2 נכסים עם נתוני שמאות ותכנון מלאים')).toBeInTheDocument()
     })
+  })
+
+  it('updates bulk action handlers when selection changes without count changes', async () => {
+    const firstHandler = vi.fn()
+    const secondHandler = vi.fn()
+
+    mockToolbarPayload = {
+      columns: [],
+      selectedCount: 1,
+      totalCount: 2,
+      onExportSelected: vi.fn(),
+      onExportAll: vi.fn(),
+      disableExportAll: false,
+      onRefresh: vi.fn(),
+      bulkActions: [{ label: 'מחק נבחרים', onClick: firstHandler }],
+      selectionKey: '1',
+    }
+
+    const { rerender } = render(<AssetsPage />, { wrapper: TestWrapper })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table-actions-toolbar')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'מחק נבחרים' }))
+    expect(firstHandler).toHaveBeenCalledTimes(1)
+
+    mockToolbarPayload = {
+      ...mockToolbarPayload,
+      bulkActions: [{ label: 'מחק נבחרים', onClick: secondHandler }],
+      selectionKey: '2',
+    }
+
+    rerender(<AssetsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table-actions-toolbar')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'מחק נבחרים' }))
+    expect(secondHandler).toHaveBeenCalledTimes(1)
   })
 
   it('deduplicates the initial assets fetch in StrictMode', async () => {

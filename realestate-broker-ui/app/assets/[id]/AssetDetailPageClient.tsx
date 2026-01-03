@@ -3469,7 +3469,7 @@ useDedupedEffect(() => {
               )}
 
               <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                <DialogContent>
+                <DialogContent className="w-[95vw] sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>מחיקת נכס</DialogTitle>
                   </DialogHeader>
@@ -3478,10 +3478,10 @@ useDedupedEffect(() => {
                       האם אתה בטוח שברצונך למחוק את הנכס? פעולה זו לא ניתנת לביטול.
                     </p>
                     {asset?.address && (
-                      <p className="text-sm font-medium">{asset.address}</p>
+                      <p className="text-sm font-medium break-words">{asset.address}</p>
                     )}
                   </div>
-                  <DialogFooter className="mt-4 gap-2">
+                  <DialogFooter className="mt-4 flex-col sm:flex-row gap-2 sm:gap-0">
                     <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} className="w-full sm:w-auto">
                       ביטול
                     </Button>

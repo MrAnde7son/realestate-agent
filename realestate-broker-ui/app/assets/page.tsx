@@ -120,6 +120,11 @@ export default function AssetsPage() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
   const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const cursorStackRef = React.useRef<string[]>([]);
+
+  React.useEffect(() => {
+    cursorStackRef.current = cursorStack;
+  }, [cursorStack]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
@@ -1592,7 +1597,7 @@ export default function AssetsPage() {
       const isDefaultPageSize = pagination.pageSize === DEFAULT_PAGE_SIZE;
 
       const params = buildFilterParams();
-      const cursor = pagination.pageIndex > 0 ? cursorStack[pagination.pageIndex] : null;
+      const cursor = pagination.pageIndex > 0 ? cursorStackRef.current[pagination.pageIndex] : null;
 
       if (cursor) {
         params.set("cursor", cursor);
@@ -2630,6 +2635,7 @@ export default function AssetsPage() {
     importAction?: { label: string; onClick: () => void; icon?: React.ReactNode }
     bulkActions?: TableAction[]
     onResetColumns?: () => void
+    selectionKey?: string
   } | null>(null)
 
   const handleToolbarActionsReady = React.useCallback((props: any) => {
@@ -2641,6 +2647,7 @@ export default function AssetsPage() {
         totalCount: prev.totalCount,
         exportingAll: prev.disableExportAll,
         loading: prev.loading,
+        selectionKey: prev.selectionKey,
       }) : ''
       const newKey = JSON.stringify({
         columnsCount: props.columns?.length,
@@ -2648,6 +2655,7 @@ export default function AssetsPage() {
         totalCount: props.totalCount,
         exportingAll: props.disableExportAll,
         loading: props.loading,
+        selectionKey: props.selectionKey,
       })
       if (prevKey === newKey && prev) {
         return prev

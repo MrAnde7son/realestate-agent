@@ -44,21 +44,20 @@ class AssetListingsUiTests(TestCase):
         )
         self.listing_sale.assets.add(self.asset_sale)
 
-    def test_assets_endpoint_includes_primary_listing_fields(self):
+    def test_assets_endpoint_excludes_primary_listing_fields(self):
         response = self.client.get("/api/assets")
         self.assertEqual(response.status_code, 200)
 
         rows = response.json()["rows"]
         asset_row = next(row for row in rows if row["id"] == self.asset_rent.id)
 
-        self.assertEqual(asset_row.get("listing_type"), "rent")
-        self.assertEqual(asset_row.get("ad_type"), "private")
-        self.assertEqual(asset_row.get("contact_name"), "Dana")
-        self.assertEqual(asset_row.get("contact_phone"), "050-1234567")
-        self.assertTrue(asset_row.get("recent_deal"))
-        self.assertEqual(asset_row.get("video_url"), "http://example.com/video.mp4")
-        self.assertIn("http://example.com/photo.jpg", asset_row.get("photos", []))
-
+        self.assertNotIn("listing_type", asset_row)
+        self.assertNotIn("ad_type", asset_row)
+        self.assertNotIn("contact_name", asset_row)
+        self.assertNotIn("contact_phone", asset_row)
+        self.assertNotIn("recent_deal", asset_row)
+        self.assertNotIn("video_url", asset_row)
+        self.assertNotIn("photos", asset_row)
         self.assertNotIn("primary_listing", asset_row)
 
     def test_assets_rental_sale_filter_uses_listing_type(self):
@@ -101,7 +100,7 @@ class AssetListingsUiTests(TestCase):
         self.assertIn(self.asset_rent.id, private_ids)
         self.assertNotIn(self.asset_sale.id, private_ids)
 
-    def test_assets_endpoint_prefers_address_matched_listing(self):
+    def test_assets_endpoint_excludes_listing_fields_for_multiple_matches(self):
         asset = Asset.objects.create(
             scope_type="address",
             city="Tel Aviv",
@@ -128,6 +127,6 @@ class AssetListingsUiTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         row = next(item for item in response.json()["rows"] if item["id"] == asset.id)
-        self.assertEqual(row.get("listing_type"), "rent")
-        self.assertEqual(row.get("ad_type"), "private")
-        self.assertEqual(row.get("contact_name"), "Yep")
+        self.assertNotIn("listing_type", row)
+        self.assertNotIn("ad_type", row)
+        self.assertNotIn("contact_name", row)

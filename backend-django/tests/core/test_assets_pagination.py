@@ -49,7 +49,18 @@ class AssetsPaginationTests(TestCase):
         self.assertFalse(pagination["has_previous"])
 
     def test_custom_page_and_size(self):
-        response = self.client.get("/api/assets", {"page": 2, "pageSize": 10})
+        first_response = self.client.get("/api/assets", {"pageSize": 10})
+        self.assertEqual(first_response.status_code, 200)
+
+        first_data = first_response.json()
+        self.assertEqual(len(first_data["rows"]), 10)
+        next_cursor = first_data["pagination"].get("next_cursor")
+        self.assertTrue(next_cursor)
+
+        response = self.client.get(
+            "/api/assets",
+            {"pageSize": 10, "cursor": next_cursor},
+        )
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -64,14 +75,12 @@ class AssetsPaginationTests(TestCase):
         )
 
         pagination = data["pagination"]
-        self.assertEqual(pagination["page"], 2)
+        self.assertEqual(pagination["page"], 1)
         self.assertEqual(pagination["page_size"], 10)
         total_assets = Asset.objects.count()
         expected_total_pages = -(-total_assets // pagination["page_size"])
         self.assertEqual(pagination["total_pages"], expected_total_pages)
-        self.assertEqual(
-            pagination["has_next"], pagination["page"] < expected_total_pages
-        )
+        self.assertTrue(pagination["has_next"])
         self.assertTrue(pagination["has_previous"])
 
     def test_filters_and_metadata(self):

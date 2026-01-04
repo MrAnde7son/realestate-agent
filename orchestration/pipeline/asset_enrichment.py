@@ -18,6 +18,7 @@ from govmap.api_client import itm_to_wgs84
 
 from utils.helpers import _first_nonempty, _safe_get
 from utils.market_utils import get_city_gross_yield
+from utils.sanitize import sanitize_for_json
 from orchestration.pipeline.listings import _normalize_listings
 from orchestration.pipeline.documents import (
     Document,
@@ -42,6 +43,11 @@ from orchestration.pipeline.sea_distance import SeaDistanceCalculator
 
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_asset_meta(asset) -> None:
+    if asset.meta is not None:
+        asset.meta = sanitize_for_json(asset.meta)
 
 
 @dataclass
@@ -1471,6 +1477,7 @@ def update_asset_with_collected_data(
     # Timestamp -----------------------------------------------------------------------
     with asset_update_phase("timestamp_and_save", asset_id):
         asset.meta["last_enrichment"] = timezone.now().isoformat()
+        _sanitize_asset_meta(asset)
         asset.save()
 
     # Django records ------------------------------------------------------------------
@@ -3265,6 +3272,9 @@ def _create_django_records_from_collected_data(
         """
         if not external_id:
             return None
+        defaults = dict(defaults)
+        if "raw" in defaults:
+            defaults["raw"] = sanitize_for_json(defaults["raw"])
         try:
             obj, created = SourceRecord.objects.get_or_create(
                 source=source,  # use only the unique fields in the lookup
@@ -3974,6 +3984,8 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
 
     if not best_listing:
         if update_fields:
+            if "meta" in update_fields:
+                _sanitize_asset_meta(asset)
             asset.save(update_fields=list(update_fields))
             logger.info(
                 "[ASSET_FIELDS] Updated asset %s fields: %s",
@@ -4411,6 +4423,8 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     update_fields.add("meta")
 
     if update_fields:
+        if "meta" in update_fields:
+            _sanitize_asset_meta(asset)
         asset.save(update_fields=list(update_fields))
         logger.info(
             "[ASSET_FIELDS] Updated asset %s fields: %s", asset.id, list(update_fields)
@@ -4830,6 +4844,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 setattr(asset, snake, metrics[camel])
                 update_fields.add(snake)
 
+        _sanitize_asset_meta(asset)
         asset.save(update_fields=list(update_fields))
         logger.debug("[MARKET_METRICS] asset=%s metrics=%s", asset.id, metrics)
     except Exception as e:  # pragma: no cover - defensive
@@ -6230,6 +6245,7 @@ def recalculate_price_model(asset_id: int) -> Dict[str, Any]:
                 )
 
         # Save asset with updated metrics
+        _sanitize_asset_meta(asset)
         asset.save(update_fields=["meta", "price_per_sqm"])
 
         logger.info(

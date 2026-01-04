@@ -10,6 +10,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.files.storage import default_storage, FileSystemStorage
 
+from utils.sanitize import sanitize_for_json
+
 logger = logging.getLogger(__name__)
 
 
@@ -907,6 +909,8 @@ class SourceRecord(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        if self.raw is not None:
+            self.raw = sanitize_for_json(self.raw)
         super().save(*args, **kwargs)
         if is_new:
             promote_raw_to_asset(self.asset, self.raw or {})
@@ -960,6 +964,8 @@ def promote_raw_to_asset(asset: Asset, raw: dict):
     def set_if_empty(obj, field, value):
         if value in (None, "", [], {}):
             return
+        if isinstance(value, str):
+            value = sanitize_for_json(value)
         if getattr(obj, field, None) in (None, "", [], {}):
             setattr(obj, field, value)
 

@@ -4169,6 +4169,30 @@ def asset_transactions(request, asset_id):
     if request.method != "GET":
         return JsonResponse({"error": "GET method required"}, status=405)
 
+    def _normalize_city(value: Any) -> str:
+        if not value:
+            return ""
+        normalized = str(value).strip().lower()
+        return normalized.replace("-", " ").replace("–", " ").replace("־", " ")
+
+    def _address_conflicts_asset_city(address: Any, asset_city: str) -> bool:
+        if not address or not asset_city:
+            return False
+        parts = [part.strip() for part in str(address).split(",") if part.strip()]
+        if len(parts) < 3:
+            return False
+        asset_city_norm = _normalize_city(asset_city)
+        for part in parts[1:-1]:
+            part_norm = _normalize_city(part)
+            if not part_norm:
+                continue
+            if asset_city_norm and asset_city_norm in part_norm:
+                continue
+            if any(char.isdigit() for char in part_norm):
+                continue
+            return True
+        return False
+
     try:
         # Get asset
         try:
@@ -4444,6 +4468,20 @@ def asset_transactions(request, asset_id):
         ordering_prefix = "-" if ordering_param.startswith("-") else ""
         resolved_ordering = f"{ordering_prefix}{resolved_field}"
         transactions = transactions.order_by(resolved_ordering, "-id")
+
+        if city_name:
+            conflict_ids = []
+            for entry in transactions.values("id", "address", "raw"):
+                raw = entry.get("raw") if isinstance(entry.get("raw"), dict) else {}
+                address = (
+                    entry.get("address")
+                    or raw.get("address")
+                    or raw.get("assetAddress")
+                )
+                if _address_conflicts_asset_city(address, city_name):
+                    conflict_ids.append(entry["id"])
+            if conflict_ids:
+                transactions = transactions.exclude(id__in=conflict_ids)
 
         total_count = transactions.count()
         paginated_transactions = list(transactions[offset : offset + limit])

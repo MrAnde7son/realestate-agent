@@ -3237,6 +3237,122 @@ def _create_django_records_from_collected_data(
     from core.models import RealEstateTransaction, SourceRecord
     from django.db import IntegrityError
 
+    def _normalize_city(value: Any) -> str:
+        if not value:
+            return ""
+        normalized = str(value).strip().lower()
+        return normalized.replace("-", " ").replace("–", " ").replace("־", " ")
+
+    def _address_conflicts_asset_city(address: Any, asset_city: str) -> bool:
+        if not address or not asset_city:
+            return False
+        parts = [part.strip() for part in str(address).split(",") if part.strip()]
+        if len(parts) < 3:
+            return False
+        asset_city_norm = _normalize_city(asset_city)
+        for part in parts[1:-1]:
+            part_norm = _normalize_city(part)
+            if not part_norm:
+                continue
+            if asset_city_norm and asset_city_norm in part_norm:
+                continue
+            if any(char.isdigit() for char in part_norm):
+                continue
+            return True
+        return False
+
+    def _transaction_matches_asset(transaction: Dict[str, Any]) -> bool:
+        if not isinstance(transaction, dict):
+            return False
+
+        asset_block = str(getattr(asset, "block", "") or "").strip().lower()
+        asset_parcel = str(getattr(asset, "parcel", "") or "").strip().lower()
+
+        tx_block = (
+            str(
+                _safe_get(transaction, "parcel_block")
+                or _safe_get(transaction, "gush_num")
+                or _safe_get(transaction, "block")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
+        tx_parcel = (
+            str(
+                _safe_get(transaction, "parcel_parcel")
+                or _safe_get(transaction, "parcel_num")
+                or _safe_get(transaction, "parcel")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
+
+        if asset_block and asset_parcel and tx_block and tx_parcel:
+            return asset_block == tx_block and asset_parcel == tx_parcel
+
+        asset_city = _normalize_city(getattr(asset, "city", ""))
+        if asset_city:
+            tx_city = _normalize_city(_safe_get(transaction, "city"))
+            tx_address = _normalize_city(_safe_get(transaction, "address"))
+            if tx_city and asset_city not in tx_city:
+                return False
+            if not tx_city and tx_address and asset_city not in tx_address:
+                return False
+            if _address_conflicts_asset_city(
+                _safe_get(transaction, "address"),
+                getattr(asset, "city", ""),
+            ):
+                return False
+
+        return True
+
+    def _transaction_location_mismatch(transaction_obj: Any) -> bool:
+        tx = getattr(transaction_obj, "raw", None) or {}
+        if not isinstance(tx, dict):
+            return False
+        asset_block = str(getattr(asset, "block", "") or "").strip().lower()
+        asset_parcel = str(getattr(asset, "parcel", "") or "").strip().lower()
+        tx_block = (
+            str(
+                _safe_get(tx, "parcel_block")
+                or _safe_get(tx, "gush_num")
+                or _safe_get(tx, "block")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
+        tx_parcel = (
+            str(
+                _safe_get(tx, "parcel_parcel")
+                or _safe_get(tx, "parcel_num")
+                or _safe_get(tx, "parcel")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
+        if asset_block and asset_parcel and tx_block and tx_parcel:
+            return asset_block != tx_block or asset_parcel != tx_parcel
+
+        asset_city = _normalize_city(getattr(asset, "city", ""))
+        if asset_city:
+            tx_city = _normalize_city(_safe_get(tx, "city"))
+            tx_address = _normalize_city(_safe_get(tx, "address"))
+            if tx_city and asset_city not in tx_city:
+                return True
+            if not tx_city and tx_address and asset_city not in tx_address:
+                return True
+            if _address_conflicts_asset_city(
+                _safe_get(tx, "address"),
+                getattr(asset, "city", ""),
+            ):
+                return True
+
+        return False
+
     def _detect_listing_source(listing_data: Dict[str, Any]) -> str:
         """Detect listing source (yad2 or madlan) from listing data."""
         if not isinstance(listing_data, dict):
@@ -3526,6 +3642,12 @@ def _create_django_records_from_collected_data(
     # Create RealEstateTransaction records from government data
     if gov_data and gov_data.get("transactions"):
         for transaction in gov_data.get("transactions", []):
+            if not _transaction_matches_asset(transaction):
+                logger.debug(
+                    "Skipping transaction for asset %s due to location mismatch",
+                    asset.id,
+                )
+                continue
             # Generate a unique deal_id from address + date + price if not present
             deal_id = transaction.get("deal_id")
             if not deal_id:
@@ -3656,6 +3778,18 @@ def _create_django_records_from_collected_data(
                     if updates:
                         transaction_obj.save(update_fields=list(dict.fromkeys(updates)))
                 _ensure_transaction_link(transaction_obj, asset)
+
+        # Prune mismatched existing links when we have transactions for this asset.
+        try:
+            for existing in RealEstateTransaction.objects.filter(assets=asset).distinct():
+                if _transaction_location_mismatch(existing):
+                    existing.asset_links.filter(asset=asset).delete()
+        except Exception as exc:  # pragma: no cover - best effort cleanup
+            logger.debug(
+                "Failed pruning mismatched transactions for asset %s: %s",
+                asset.id,
+                exc,
+            )
 
 
 def _populate_asset_fields_from_listings(asset, normalized_listings):

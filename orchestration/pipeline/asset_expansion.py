@@ -641,8 +641,7 @@ def _link_existing_data_to_asset(
         candidate,
     )
     filtered_gov_data = dict(gov_data or {})
-    if filtered_transactions is not None:
-        filtered_gov_data["transactions"] = filtered_transactions
+    filtered_gov_data["transactions"] = filtered_transactions
 
     filtered_gov_decisive = _filter_decisive_for_candidate(
         (gov_data or {}).get("decisive", []),
@@ -740,13 +739,15 @@ def _filter_listings_for_candidate(
 def _filter_transactions_for_candidate(
     transactions: Sequence[Dict[str, Any]] | None,
     candidate: AddressCandidate,
-) -> Optional[List[Dict[str, Any]]]:
+) -> List[Dict[str, Any]]:
     if not transactions:
         return []
 
     street = _normalize_text(candidate.location.street).lower()
     number = str(candidate.location.house_number or "")
     city = _normalize_text(candidate.location.city).lower()
+    if not street and not number and not city:
+        return list(transactions)
 
     filtered: List[Dict[str, Any]] = []
     for tx in transactions:
@@ -762,7 +763,7 @@ def _filter_transactions_for_candidate(
             continue
         filtered.append(tx)
 
-    return filtered or None
+    return filtered
 
 
 def _filter_decisive_for_candidate(

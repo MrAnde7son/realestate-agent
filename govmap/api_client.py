@@ -744,11 +744,14 @@ class GovMapClient:
                     pass  # Keep original format if parsing fails
 
             # Extract address
-            address = f"{deal.get('streetNameHeb') or ''} {deal.get('houseNum') or ''}, {deal.get('settlementNameHeb') or ''}"
-            if settlement_name and address and settlement_name not in address:
-                address = (
-                    f"{address}, {settlement_name}" if address else settlement_name
-                )
+            street = deal.get("streetNameHeb") or ""
+            house = deal.get("houseNum") or ""
+            settlement = deal.get("settlementNameHeb") or ""
+            street_line = f"{street} {house}".strip()
+            address_parts = [part for part in (street_line, settlement) if part]
+            address = ", ".join(address_parts)
+            if settlement_name and not settlement and settlement_name not in address:
+                address = f"{address}, {settlement_name}" if address else settlement_name
 
             # Extract and clean deal amount using Deal's helper method
             deal_amount = deal.get("dealAmount")
@@ -830,10 +833,11 @@ class GovMapClient:
 
             # Extract address
             address = deal.get("assetAddress") or deal.get("address") or ""
-            if settlement_name and address and settlement_name not in address:
-                address = (
-                    f"{address}, {settlement_name}" if address else settlement_name
-                )
+            settlement = deal.get("settlementNameHeb") or ""
+            if not address and settlement:
+                address = settlement
+            if settlement_name and not settlement and settlement_name not in address:
+                address = f"{address}, {settlement_name}" if address else settlement_name
 
             # Extract and clean deal amount
             deal_amount = deal.get("dealAmount")

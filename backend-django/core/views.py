@@ -25,7 +25,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.utils import timezone
-from django.db import models
+from django.db import models, connection
 from django.utils.text import slugify
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -47,6 +47,10 @@ from django.db.models import (
     Count,
     Subquery,
 )
+try:
+    from django.contrib.postgres.aggregates import PercentileCont
+except ImportError:  # pragma: no cover - postgres-only aggregate
+    PercentileCont = None
 from asgiref.sync import async_to_sync
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -4498,32 +4502,39 @@ def asset_transactions(request, asset_id):
             price_per_sqm__lt=500000,  # Reasonable upper bound: 500K per sqm
         )
 
-        valid_count = valid_transactions_for_stats.count()
+        use_db_median = connection.vendor == "postgresql" and PercentileCont is not None
+        aggregate_kwargs = {
+            "avg_price": Avg("price"),
+            "min_price": Min("price"),
+            "max_price": Max("price"),
+            "avg_ppsqm": Avg("price_per_sqm"),
+            "min_ppsqm": Min("price_per_sqm"),
+            "max_ppsqm": Max("price_per_sqm"),
+            "transaction_count": Count("id"),
+        }
+        if use_db_median:
+            aggregate_kwargs["median_price"] = PercentileCont("price", 0.5)
+
+        price_stats = valid_transactions_for_stats.aggregate(**aggregate_kwargs)
+        valid_count = price_stats.get("transaction_count") or 0
         market_analysis = {}
         if valid_count > 0:
-            price_stats = valid_transactions_for_stats.aggregate(
-                avg_price=Avg("price"),
-                min_price=Min("price"),
-                max_price=Max("price"),
-                avg_ppsqm=Avg("price_per_sqm"),
-                min_ppsqm=Min("price_per_sqm"),
-                max_ppsqm=Max("price_per_sqm"),
-            )
-
-            prices = list(
-                valid_transactions_for_stats.order_by("price").values_list(
-                    "price", flat=True
+            median_price = price_stats.get("median_price")
+            if not use_db_median:
+                prices = list(
+                    valid_transactions_for_stats.order_by("price").values_list(
+                        "price", flat=True
+                    )
                 )
-            )
 
-            if prices:
-                mid = len(prices) // 2
-                if len(prices) % 2:
-                    median_price = prices[mid]
+                if prices:
+                    mid = len(prices) // 2
+                    if len(prices) % 2:
+                        median_price = prices[mid]
+                    else:
+                        median_price = (prices[mid - 1] + prices[mid]) / 2
                 else:
-                    median_price = (prices[mid - 1] + prices[mid]) / 2
-            else:
-                median_price = None
+                    median_price = None
 
             def _coerce(value):
                 if value is None:

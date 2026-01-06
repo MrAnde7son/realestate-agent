@@ -80,6 +80,8 @@ export function createColumns({
     {
       header: 'נכס',
       accessorKey: 'address',
+      size: 360,
+      minSize: 320,
       cell: ({ row }) => (
         <div className="flex gap-3 items-start">
           {row.original.images && row.original.images.length > 0 && (
@@ -282,4 +284,3 @@ export function createColumns({
     },
   ]
 }
-

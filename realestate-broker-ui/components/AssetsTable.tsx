@@ -85,6 +85,8 @@ function createColumns({
   {
     header:'נכס',
     accessorKey:'address',
+    size: 360,
+    minSize: 320,
     cell: ({ row }) => (
       <div className="flex gap-3 items-start">
         {/* Image preview */}
@@ -2261,7 +2263,7 @@ export default function AssetsTable({
                         } ${h.column.id === 'actions' ? 'w-full' : ''}`}
                         style={{ 
                           width: h.column.id === 'actions' ? 'auto' : h.getSize(),
-                          minWidth: h.column.id === 'address' ? '200px' : h.column.id === 'select' ? '48px' : '80px'
+                          minWidth: h.column.id === 'address' ? '320px' : h.column.id === 'select' ? '48px' : '80px'
                         }}
                       >
                         <div className="flex items-center justify-between w-full">

@@ -76,6 +76,14 @@ describe('AssetsTable default columns', () => {
     expect(screen.queryByRole('columnheader', { name: /שטחי ציבור ≤300מ"/ })).not.toBeInTheDocument()
   })
 
+  it('uses a wider default width for the asset column', async () => {
+    render(<AssetsTable data={[baseAsset as Asset]} />)
+
+    const assetHeader = await screen.findByRole('columnheader', { name: /נכס/ })
+
+    expect(assetHeader).toHaveStyle({ width: '360px', minWidth: '320px' })
+  })
+
   it('restores default columns from the toolbar action', async () => {
     localStorage.setItem(COLUMN_PREFERENCES_KEY, JSON.stringify({ zoning: true }))
 

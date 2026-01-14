@@ -121,7 +121,9 @@ class PlanService:
             asset_limit = user_plan.plan_type.asset_limit
             assets_used = user.created_assets.count()
 
-            if asset_limit == -1:  # Unlimited
+            is_admin = getattr(user, 'is_superuser', False) or getattr(user, 'role', '') == 'admin'
+
+            if asset_limit == -1 or is_admin:  # Unlimited
                 return {
                     "can_create": True,
                     "current_plan": user_plan.plan_type.name,

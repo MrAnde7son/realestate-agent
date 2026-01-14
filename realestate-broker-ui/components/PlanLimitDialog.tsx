@@ -18,11 +18,11 @@ interface PlanLimitDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   error: {
-    message: string
-    current_plan: string
-    asset_limit: number
-    assets_used: number
-    remaining: number
+    message?: string
+    current_plan?: string
+    asset_limit?: number
+    assets_used?: number
+    remaining?: number
   }
 }
 
@@ -47,6 +47,13 @@ export default function PlanLimitDialog({ open, onOpenChange, error }: PlanLimit
     router.push('/billing')
   }
 
+  // Safe access to error properties with defaults
+  const currentPlan = error?.current_plan || 'basic';
+  const assetLimit = error?.asset_limit ?? 0;
+  const assetsUsed = error?.assets_used ?? 0;
+  const remaining = error?.remaining ?? 0;
+  const errorMessage = error?.message || (error as any)?.error || 'הגעת למגבלת הנכסים בחשבונך';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -56,21 +63,21 @@ export default function PlanLimitDialog({ open, onOpenChange, error }: PlanLimit
             <DialogTitle>הגעת למגבלת הנכסים</DialogTitle>
           </div>
           <DialogDescription>
-            {error.message}
+            {errorMessage}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Current Plan Info */}
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2">
               <Icon className="h-4 w-4 text-primary" />
               <span className="font-medium">
-                {planNames[error.current_plan as keyof typeof planNames] || error.current_plan}
+                {planNames[currentPlan as keyof typeof planNames] || currentPlan}
               </span>
             </div>
             <Badge variant="outline">
-              {error.assets_used} / {error.asset_limit} נכסים
+              {assetsUsed} / {assetLimit} נכסים
             </Badge>
           </div>
 
@@ -78,15 +85,15 @@ export default function PlanLimitDialog({ open, onOpenChange, error }: PlanLimit
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>נכסים בשימוש:</span>
-              <span className="font-medium">{error.assets_used}</span>
+              <span className="font-medium">{assetsUsed}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>מגבלה:</span>
-              <span className="font-medium">{error.asset_limit}</span>
+              <span className="font-medium">{assetLimit}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>נותרו:</span>
-              <span className="font-medium text-red-600">{error.remaining}</span>
+              <span className="font-medium text-red-600">{remaining}</span>
             </div>
           </div>
 

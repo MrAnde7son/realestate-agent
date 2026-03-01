@@ -220,6 +220,20 @@ if os.getenv("USE_CELERY", "false").lower() == "true":
     # Use threads pool instead of prefork on Apple Silicon to avoid SIGSEGV crashes
     CELERY_WORKER_POOL = "threads"  # or 'solo' for single-threaded (safer for ARM)
     CELERY_IMPORTS = ("core.tasks", "imports.tasks")
+    # GCP's VPC/NAT resets idle TCP connections (~10 min). These settings keep
+    # the Redis connection alive and reconnect automatically when it's dropped.
+    CELERY_BROKER_TRANSPORT_OPTIONS = {
+        "socket_keepalive": True,
+        "socket_keepalive_options": {
+            "TCP_KEEPIDLE": 60,    # start probes after 60s idle
+            "TCP_KEEPINTVL": 10,   # probe every 10s
+            "TCP_KEEPCNT": 6,      # drop after 6 failed probes
+        },
+        "health_check_interval": 25,  # ping Redis every 25s to prevent idle timeout
+    }
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+    CELERY_BROKER_CONNECTION_RETRY = True
+    CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
     from celery.schedules import crontab
 
     CELERY_BEAT_SCHEDULE = {

@@ -38,6 +38,16 @@ class LocationQuery:
             number = None
         object.__setattr__(self, "house_number", number)
 
+        for field in ("block", "parcel", "subparcel"):
+            val = getattr(self, field)
+            if isinstance(val, str):
+                stripped = val.strip()
+                if not stripped:
+                    val = None
+                elif stripped.isdigit():
+                    val = int(stripped)
+            object.__setattr__(self, field, val)
+
     @property
     def street_with_number(self) -> str:
         """Return "street" and "house_number" if available."""
